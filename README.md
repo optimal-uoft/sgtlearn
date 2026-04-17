@@ -19,7 +19,7 @@
 Clone the repository and install in development mode:
 
 ```bash
-git clone https://github.com/yourusername/sgt-learn.git
+git clone https://github.com/optimal-uoft/sgtlearn.git
 cd sgt-learn
 pip install -e .
 ```
