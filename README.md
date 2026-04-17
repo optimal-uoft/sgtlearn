@@ -32,17 +32,6 @@ Install with development dependencies:
 pip install -e ".[dev]"
 ```
 
-## Dependencies
-
-This package requires:
-- pandas
-- numpy
-- scikit-learn
-- scipy
-- tqdm
-- networkx
-- matplotlib
-
 ## Quick Start
 
 ```python
