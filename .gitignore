@@ -215,3 +215,18 @@ tempCodeRunnerFile.py
 
 # results/
 data/
+
+
+# cpp
+**/cmake-build-debug
+**/cmake-build-release
+# Accidental in-source CMake in cpp/ (always use -B cpp/cmake-build-release or similar)
+cpp/CMakeCache.txt
+cpp/CMakeFiles/
+cpp/_deps/
+cpp/Testing/
+cpp/.cmake/
+cpp/cmake_install.cmake
+cpp/CTestTestfile.cmake
+cpp/Makefile
+cpp/build.ninja
