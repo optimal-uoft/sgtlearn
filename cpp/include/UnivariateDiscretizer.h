@@ -9,8 +9,7 @@
 
 class UnivariateDiscretizer : public IDiscretizer {
     arma::uvec sortedOrder;
-    arma::fmat X;
-    arma::Mat<size_t> prefix;
+    arma::Row<size_t> sortedLabels;
     size_t feature;
     size_t totalSamples{0};
 
@@ -19,7 +18,7 @@ class UnivariateDiscretizer : public IDiscretizer {
     std::function<void(const arma::fmat &X, arma::Row<size_t> &binLoc)> binMapFunction = nullptr;
 
 
-    bool findBestSplit(SplitCandidate &split);
+    bool findBestSplit(const arma::fmat &X, SplitCandidate &split);
 
     void finalizeTraining(std::map<std::tuple<size_t, size_t>, SplitCandidate> &leaves);
 

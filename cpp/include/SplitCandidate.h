@@ -1,4 +1,7 @@
 #pragma once
+#include <vector>
+#include <tuple>
+#include <compare>
 
 struct SplitCandidate {
     double informationGain;
@@ -8,6 +11,7 @@ struct SplitCandidate {
     double score;
     size_t prediction;
     double routingThreshold;
+    std::vector<size_t> classCounts;
 
     double threshold;
     size_t leftStart;
@@ -18,6 +22,8 @@ struct SplitCandidate {
     size_t rightEnd;
     size_t rightPrediction;
     double rightScore;
+    std::vector<size_t> leftClassCounts;
+    std::vector<size_t> rightClassCounts;
 
     bool operator==(const SplitCandidate &other) const {
         return std::tie(informationGain) == std::tie(other.informationGain);
