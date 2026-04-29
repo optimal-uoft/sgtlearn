@@ -4,25 +4,27 @@
 #include <armadillo>
 #include <functional>
 
+
+//TODO: split this into one for regression and one
+// for classification using template generics
 class IDiscretizer {
 public:
-    virtual ~IDiscretizer() = default;
-
+    virtual ~IDiscretizer() = 0;
 
     //for regression
-    virtual double Train(
-        const arma::mat &X,
+    virtual void Train(
+        const arma::fmat &X,
         arma::uvec &features,
-        const arma::Row<double> &responses,
+        const arma::frowvec &responses,
         size_t minLeafSize = 1,
         double minGainSplit = 1e-7,
         size_t maxDepth = 0,
         size_t maxLeafNodes = 0
-    );
+    ) = 0;
 
     // for classification
-    virtual double Train(
-        const arma::mat &X,
+    virtual void Train(
+        const arma::fmat &X,
         arma::uvec &features,
         const arma::Row<size_t> &labels,
         size_t numClasses,
@@ -30,11 +32,13 @@ public:
         double minGainSplit = 1e-7,
         size_t maxDepth = 0,
         size_t maxLeafNodes = 0
-    );
+    ) = 0;
 
-    virtual void transform(const arma::mat &X, arma::Row<size_t> &binLoc);
+    virtual void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) = 0;
 
-    virtual std::vector<std::vector<size_t>> &getInSampleDiscretizations() const;
+    virtual const std::vector<std::vector<size_t> > &getInSampleDiscretizations() = 0;
+
+    virtual const std::vector<size_t> &getBinPredictions() = 0;
 };
 
 
@@ -44,14 +48,17 @@ struct SplitCandidate {
     size_t start;
     size_t end;
     double score;
+    size_t prediction;
     double routingThreshold;
 
     double threshold;
     size_t leftStart;
     size_t leftEnd;
+    size_t leftPrediction;
     double leftScore;
     size_t rightStart;
     size_t rightEnd;
+    size_t rightPrediction;
     double rightScore;
 
     bool operator==(const SplitCandidate &other) const {
@@ -59,24 +66,26 @@ struct SplitCandidate {
     };
 
     std::weak_ordering operator<=>(const SplitCandidate &other) const {
-        if (auto cmp = std::compare_weak_order_fallback(-informationGain, -other.informationGain); cmp != 0) {
-            return cmp;
-        }
-        return height <=> other.height;
+        // Match sklearn best-first builder: prioritize only impurity improvement.
+        return std::compare_weak_order_fallback(-informationGain, -other.informationGain);
     }
 };
 
 class UnivariateDiscretizer : public IDiscretizer {
     arma::uvec sortedOrder;
-    const arma::vec X;
-    const arma::Row<double> responses;
-    const arma::Row<size_t> labels;
+    arma::fmat X;
     arma::Mat<size_t> prefix;
     size_t feature;
-    std::vector<std::vector<size_t>> &inSampleDiscretizations;
-    std::function<void(const arma::mat &X, arma::Row<size_t> &binLoc)> binMapFunction = nullptr;
+    size_t totalSamples{0};
+
+    std::vector<std::vector<size_t> > inSampleDiscretizations;
+    std::vector<size_t> binPredictions;
+    std::function<void(const arma::fmat &X, arma::Row<size_t> &binLoc)> binMapFunction = nullptr;
+
 
     bool findBestSplit(SplitCandidate &split);
+
+    void finalizeTraining(std::map<std::tuple<size_t, size_t>, SplitCandidate> &leaves);
 
 public:
     size_t numClasses;
@@ -89,20 +98,20 @@ public:
     size_t numLeaves{0};
     size_t numNodes{0};
 
-    UnivariateDiscretizer();
+    ~UnivariateDiscretizer() override;
 
-    double Train(
-        const arma::mat &X,
+    void Train(
+        const arma::fmat &X,
         arma::uvec &features,
-        const arma::Row<double> &responses,
+        const arma::frowvec &responses,
         size_t minLeafSize = 1,
         double minGainSplit = 1e-7,
         size_t maxDepth = 0,
         size_t maxLeafNodes = 0
     ) override;
 
-    double Train(
-        const arma::mat &X,
+    void Train(
+        const arma::fmat &X,
         arma::uvec &features,
         const arma::Row<size_t> &labels,
         size_t numClasses,
@@ -112,7 +121,9 @@ public:
         size_t maxLeafNodes = 0
     ) override;
 
-    void transform(const arma::mat &X, arma::Row<size_t> &binLoc) override;
+    void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) override;
 
-    std::vector<std::vector<size_t>> &getInSampleDiscretizations() const override;
+    const std::vector<std::vector<size_t> > &getInSampleDiscretizations() override;
+
+    const std::vector<size_t> &getBinPredictions() override;
 };

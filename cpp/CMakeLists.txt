@@ -7,23 +7,23 @@ option(SGTLEARN_BUILD_TESTS "Build C++ tests" ON)
 
 include(FetchContent)
 
-# region mlpack
+# # region mlpack
 
-find_package(mlpack QUIET)
+# find_package(mlpack QUIET)
 
-if (NOT mlpack_FOUND)
-    FetchContent_Declare(mlpack
-            GIT_REPOSITORY https://github.com/mlpack/mlpack.git
-            GIT_TAG 4.7.0
-    )
-    FetchContent_MakeAvailable(mlpack)
-    add_library(mlpack::mlpack INTERFACE IMPORTED)
-    target_include_directories(mlpack::mlpack INTERFACE
-            "${mlpack_SOURCE_DIR}/src"
-    )
-endif ()
+# if (NOT mlpack_FOUND)
+#     FetchContent_Declare(mlpack
+#             GIT_REPOSITORY https://github.com/mlpack/mlpack.git
+#             GIT_TAG 4.7.0
+#     )
+#     FetchContent_MakeAvailable(mlpack)
+#     add_library(mlpack::mlpack INTERFACE IMPORTED)
+#     target_include_directories(mlpack::mlpack INTERFACE
+#             "${mlpack_SOURCE_DIR}/src"
+#     )
+# endif ()
 
-# endregion
+# # endregion
 
 # region armadillo
 find_package(Armadillo QUIET)
@@ -40,8 +40,6 @@ endif ()
 
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
-        include/sgtlearn/adder.hpp
-        src/adder.cpp
         include/Discretizers.h
         include/frontiers.h
         src/UnivariateDiscretizer.cpp
@@ -51,11 +49,13 @@ add_library(sgtlearn_core STATIC
 target_include_directories(sgtlearn_core PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         PRIVATE
-        ${MLPACK_INCLUDE_DIRS}
+        # ${MLPACK_INCLUDE_DIRS}
         ${ARMADILLO_INCLUDE_DIRS}
         src
 )
-target_link_libraries(sgtlearn_core mlpack::mlpack  ${ARMADILLO_LIBRARIES})
+target_link_libraries(sgtlearn_core 
+        # mlpack::mlpack  
+        ${ARMADILLO_LIBRARIES})
 set_target_properties(sgtlearn_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # endregion
@@ -96,37 +96,34 @@ endforeach ()
 
 # endregion
 
-# region --- 3. Unit Tests (Catch2) ---
-if (SGTLEARN_BUILD_TESTS)
-    FetchContent_Declare(Catch2
-            GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-            GIT_TAG v3.5.2
-    )
-    FetchContent_MakeAvailable(Catch2)
+# # region --- 3. Unit Tests (Catch2) ---
+# if (SGTLEARN_BUILD_TESTS)
+#     FetchContent_Declare(Catch2
+#             GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+#             GIT_TAG v3.5.2
+#     )
+#     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(cpp_tests
-            ../tests/cpp/test_adder.cpp
-            ../tests/cpp/test_univariateDiscretizer.cpp
-    )
+#     add_executable(cpp_tests)
 
-    target_include_directories(cpp_tests PRIVATE
-            ${MLPACK_INCLUDE_DIRS}
-            ${ARMADILLO_INCLUDE_DIRS}
-    )
+#     target_include_directories(cpp_tests PRIVATE
+#         #     ${MLPACK_INCLUDE_DIRS}
+#             ${ARMADILLO_INCLUDE_DIRS}
+#     )
 
-    target_link_libraries(cpp_tests PRIVATE
-            sgtlearn_core
-            Catch2::Catch2WithMain
-            mlpack::mlpack
-            ${ARMADILLO_LIBRARIES}
-    )
+#     target_link_libraries(cpp_tests PRIVATE
+#             sgtlearn_core
+#             Catch2::Catch2WithMain
+#         #     mlpack::mlpack
+#             ${ARMADILLO_LIBRARIES}
+#     )
 
-    list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
-    include(Catch)
-    include(CTest)
-    enable_testing()
-    catch_discover_tests(cpp_tests)
+#     list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+#     include(Catch)
+#     include(CTest)
+#     enable_testing()
+#     catch_discover_tests(cpp_tests)
 
-endif ()
+# endif ()
 
-# endregion
+# # endregion

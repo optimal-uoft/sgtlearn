@@ -7,64 +7,123 @@
 #include <map>
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 
-const double FEATURE_SPLIT_MIN_DIFF = 1e-7;
+constexpr float FEATURE_SPLIT_MIN_DIFF = 1e-7f;
+
+constexpr double eps = std::numeric_limits<double>::epsilon();
+IDiscretizer::~IDiscretizer() = default;
+
+UnivariateDiscretizer::~UnivariateDiscretizer() = default;
 
 bool UnivariateDiscretizer::findBestSplit(SplitCandidate &split) {
-    double bestInformationGain = std::numeric_limits<double>::infinity();;
+    double bestInformationGain = -std::numeric_limits<double>::infinity();
     bool found = false;
 
-    int N = split.end - split.start + 1;
-    for (int i = split.start; i < split.end + 1; i++) {
-        int Nl = i - split.start;
-        int Nr = split.end - i + 1;
+    const int N = split.end - split.start + 1;
+    if (N < 2 * minLeafSize)
+        return false;
+    arma::frowvec featureValues = X.row(feature);
 
-        if (Nl < minLeafSize)
+    for (int i = split.start + minLeafSize; i <= split.end; i++) {
+        int Nl = i - split.start, Nr = split.end - i + 1;
+        if (Nl < minLeafSize) continue;
+        if (Nr < minLeafSize) break;
+
+        const float currValue = static_cast<float>(featureValues(sortedOrder(i)));
+        const float prevValue = static_cast<float>(featureValues(sortedOrder(i - 1)));
+        if (currValue <= prevValue + static_cast<float>(FEATURE_SPLIT_MIN_DIFF))
             continue;
+    
+        
+        arma::Row leftStats = prefix.row(i - 1);
+        if (split.start > 0)
+            leftStats -= prefix.row(split.start - 1);
 
-        if (Nr < minLeafSize)
-            break;
+        const double leftScore = 1.0 - std::accumulate(
+                                     leftStats.begin(),
+                                     leftStats.end(),
+                                     0.0,
+                                     [Nl](const double acc, const size_t count) {
+                                         const double p = static_cast<double>(count) / static_cast<double>(Nl);
+                                         return acc + p * p;
+                                     }
+                                 );
 
-        if (X(sortedOrder(i), feature) - X(sortedOrder(i - 1), feature) < FEATURE_SPLIT_MIN_DIFF)
-            continue;
+        arma::Row rightStats = prefix.row(split.end) - prefix.row(i - 1);
+        const double rightScore = 1.0 - std::accumulate(
+                                      rightStats.begin(),
+                                      rightStats.end(),
+                                      0.0,
+                                      [Nr](const double acc, const size_t count) {
+                                          const double p = static_cast<double>(count) / static_cast<double>(Nr);
+                                          return acc + p * p;
+                                      }
+                                  );
 
-        double leftScore = 1 - std::accumulate(
-                               prefix.row(i - 1).begin(),
-                               prefix.row(i - 1).end(),
-                               0.0,
-                               [Nl](double acc, int classCount) {
-                                   return acc + std::pow(classCount / Nl, 2);
-                               }
-                           );
-        double rightScore = 1 - std::accumulate(
-                                prefix.row(i).begin(),
-                                prefix.row(i).end(),
-                                0.0,
-                                [Nr](double acc, int classCount) {
-                                    return acc + std::pow(classCount / Nr, 2);
-                                }
-                            );
-
-        double informationGain = split.score - (Nl * leftScore + Nr * rightScore) / N;
-
-        if (informationGain < bestInformationGain) {
+        if (const double gain = split.score - (
+                static_cast<double>(Nl) / static_cast<double>(N) * leftScore +
+                static_cast<double>(Nr) / static_cast<double>(N) * rightScore
+                                );
+            static_cast<double>(N) / static_cast<double>(totalSamples) * gain > bestInformationGain) {
             found = true;
-            bestInformationGain = informationGain;
-            split.threshold = (X(sortedOrder(i), feature) + X(sortedOrder(i - 1), feature)) / 2;
+            const double weightedGain = static_cast<double>(N) / static_cast<double>(totalSamples) * gain;
+            bestInformationGain = weightedGain;
+            split.informationGain = weightedGain;
+            split.threshold = (featureValues(sortedOrder(i)) + featureValues(sortedOrder(i - 1))) / 2.0;
 
             split.leftStart = split.start;
             split.leftEnd = i - 1;
+            split.leftScore = leftScore;
+            split.leftPrediction = leftStats.index_max();
 
             split.rightStart = i;
             split.rightEnd = split.end;
+            split.rightScore = rightScore;
+            split.rightPrediction = rightStats.index_max();
         }
     }
-
     return found;
 }
 
-double UnivariateDiscretizer::Train(
-    const arma::mat &X,
+void UnivariateDiscretizer::finalizeTraining(std::map<std::tuple<size_t, size_t>, SplitCandidate> &leaves) {
+    inSampleDiscretizations.clear();
+    binPredictions.clear();
+    std::vector<double> thresholds;
+
+    for (auto &[_, leaf]: leaves) {
+        inSampleDiscretizations.push_back(
+            arma::conv_to<std::vector<size_t> >::from(sortedOrder.subvec(leaf.start, leaf.end)));
+        binPredictions.push_back(leaf.prediction);
+        thresholds.push_back(leaf.routingThreshold);
+    }
+
+    binMapFunction = [this, thresholds](const arma::fmat &X, arma::Row<size_t> &binLoc) {
+        binLoc = arma::Row<size_t>(X.n_cols);
+        arma::frowvec featureRow = X.row(feature);
+        for (size_t col = 0; col < X.n_cols; ++col) {
+            const auto it = std::ranges::lower_bound(thresholds, featureRow(col));
+            binLoc(col) = std::distance(thresholds.begin(), it);
+        }
+    };
+    numLeaves = leaves.size();
+    sortedOrder.clear();
+}
+
+void UnivariateDiscretizer::Train(
+    const arma::fmat &X,
+    arma::uvec &features,
+    const arma::frowvec &responses,
+    size_t minLeafSize,
+    double minGainSplit,
+    size_t maxDepth,
+    size_t maxLeafNodes
+) {
+    throw std::runtime_error("not implemented");
+}
+
+void UnivariateDiscretizer::Train(
+    const arma::fmat &X,
     arma::uvec &features,
     const arma::Row<size_t> &labels,
     size_t numClasses,
@@ -73,135 +132,94 @@ double UnivariateDiscretizer::Train(
     size_t maxDepth,
     size_t maxLeafNodes
 ) {
-    if (features.n_elem != 1)
-        throw std::invalid_argument("features must be of size 1");
-    feature = features(0);
+    this->X = X;
+    if (features.n_elem != 1) throw std::invalid_argument("features must be size 1");
+    if (minLeafSize == 0) throw std::invalid_argument("minLeafSize must be > 0");
+    this->feature = features(0);
+    this->minLeafSize = minLeafSize;
 
-    if (minLeafSize == 0)
-        throw new std::invalid_argument("minLeafSize must be greater than 0");
+    const size_t N_total = X.n_cols;
+    totalSamples = N_total;
 
+    sortedOrder = arma::sort_index(X.row(feature));
 
-    sortedOrder = arma::sort_index(X.cols(features));
+    arma::Mat<size_t> prefix_mat(N_total, numClasses, arma::fill::zeros);
+    for (size_t c = 0; c < numClasses; ++c)
+        prefix_mat.col(c) = arma::cumsum(arma::conv_to<arma::Col<size_t> >::from(labels(sortedOrder) == c));
+    this->prefix = prefix_mat;
 
     const auto frontier = [&]() -> std::unique_ptr<frontiers::IFrontier<SplitCandidate> > {
-        if (maxLeafNodes == 0)
-            return std::make_unique<frontiers::Stack<SplitCandidate> >();
+        if (maxLeafNodes == 0) return std::make_unique<frontiers::Stack<SplitCandidate> >();
         return std::make_unique<frontiers::MinHeap<SplitCandidate> >();
     }();
 
-    // TODO: memory optimization, bring the total statistic sums down to each children. When you set the threshold in
-    // findBestSplit at that moment you know the totals of each new leaf node which become new leaf right accumulators when their best
-    // splits get computed O(d*n) -> O(d)
-    // setup prefix
-    arma::Mat<size_t> prefix(sortedOrder.n_elem, numClasses, arma::fill::zeros);
-    for (size_t c = 0; c < numClasses; ++c)
-        prefix.col(c) = arma::cumsum(arma::conv_to<arma::Col<size_t> >::from(labels(sortedOrder) == c));
-    this->prefix = prefix;
+    std::map<std::tuple<size_t, size_t>, SplitCandidate> leaves;
 
-    // initialize frontier
-    size_t N = prefix.size();
-    std::map<std::tuple<size_t, size_t>, SplitCandidate *> leaves;
-    auto rootSplit = SplitCandidate{
+    SplitCandidate rootSplit = {
         .height = 0,
-        .score = 1 - std::accumulate(
-                     prefix.row(N - 1).begin(),
-                     prefix.row(N - 1).end(),
-                     0.0,
-                     [N](double acc, int classCount) {
-                         return acc + std::pow(classCount / N, 2);
-                     }
-                 ),
         .start = 0,
-        .end = N - 1,
+        .end = N_total - 1,
+        .score = 1.0 - std::accumulate(
+                     prefix.row(N_total - 1).begin(),
+                     prefix.row(N_total - 1).end(),
+                     0.0,
+                     [N_total](const double acc, const size_t c) {
+                         const double p = static_cast<double>(c) / static_cast<double>(N_total);
+                         return acc + p * p;
+                     }),
+        .prediction = prefix.row(N_total - 1).index_max(),
         .routingThreshold = std::numeric_limits<double>::infinity()
     };
 
-    leaves[std::make_tuple(rootSplit.start, rootSplit.end)] = &rootSplit;
 
-    if (!findBestSplit(rootSplit)) {
-        //instantiate bin of one lol
-        return rootSplit.score;
-    }
+    if (rootSplit.score > eps && findBestSplit(rootSplit))
+        frontier->push(rootSplit);
 
-    frontier->push(rootSplit);
+    leaves[std::make_tuple(rootSplit.start, rootSplit.end)] = rootSplit;
 
-    while (frontier->size() > 0 && (maxLeafNodes != 0 || leaves.size() < maxLeafNodes)) {
+    
+    while (frontier->size() > 0 && (maxLeafNodes == 0 || leaves.size() < maxLeafNodes)) {
         SplitCandidate split = frontier->peek();
         frontier->pop();
-        // region split meets constraint requirements
 
-        if (split.informationGain < minGainSplit) {
-            if (maxLeafNodes == 0)
-                continue;
-            break;
-        }
-
-        if (split.height + 1 > maxDepth)
+        if (split.score <= eps ||
+            split.informationGain + eps < minGainSplit ||
+            (maxDepth != 0 && split.height >= maxDepth))
             continue;
 
-        // endregion
-
-        // region commit split in leaves tracking
-
-        auto left = SplitCandidate{
+        SplitCandidate left = {
             .height = split.height + 1,
-            .score = split.leftScore,
             .start = split.leftStart,
             .end = split.leftEnd,
-            .routingThreshold = split.threshold,
+            .score = split.leftScore,
+            .prediction = split.leftPrediction,
+            .routingThreshold = split.threshold
         };
 
-        auto right = SplitCandidate{
+        SplitCandidate right = {
             .height = split.height + 1,
-            .score = split.rightScore,
             .start = split.rightStart,
             .end = split.rightEnd,
+            .score = split.rightScore,
+            .prediction = split.rightPrediction,
             .routingThreshold = split.routingThreshold
         };
 
-        if (leaves.erase(std::make_tuple(split.start, split.end)) == 0)
-            throw std::runtime_error("Could not find candidate split interval in sorted map");
 
-        leaves[std::make_tuple(left.start, left.end)] = &left;
-        leaves[std::make_tuple(right.start, right.end)] = &right;
+        if (right.score > eps && findBestSplit(right)) frontier->push(right);
+        if (left.score > eps && findBestSplit(left)) frontier->push(left);
+        
 
-        // endregion
-
-        // region compute the next best split for the two children we just commited
-        if (findBestSplit(left)) {
-            frontier->push(left);
-        }
-
-        if (findBestSplit(right))
-            frontier->push(right);
-        // endregion
+        leaves.erase(std::make_tuple(split.start, split.end));
+        leaves[std::make_tuple(left.start, left.end)] = left;
+        leaves[std::make_tuple(right.start, right.end)] = right;
     }
 
-    // region construct any necessary discretization mapping and statistics for branching assignments
-    inSampleDiscretizations = std::vector<std::vector<size_t> >(leaves.size());
-    std::vector<double> thresholds(leaves.size(), 0);
-
-    int i = 0;
-    for (const auto &[_, leaf]: leaves) {
-        thresholds[i] = leaf->routingThreshold;
-        inSampleDiscretizations[i] = arma::conv_to<std::vector<size_t> >::from(
-            sortedOrder.subvec(leaf->start, leaf->end));
-        i++;
-    }
-
-    binMapFunction = [this, thresholds = std::move(thresholds)](const arma::mat &X, arma::Row<size_t> &binLoc) {
-        binLoc = arma::Row<size_t>(X.n_rows);
-        for (size_t row = 0; row < X.n_rows; ++row) {
-            double target = X(row, feature);
-            binLoc(row) = std::distance(thresholds.begin(), std::ranges::lower_bound(thresholds, target));
-        }
-    };
-
-    // endregion
+    finalizeTraining(leaves);
 }
 
 
-void UnivariateDiscretizer::transform(const arma::mat &X, arma::Row<size_t> &binLoc) {
+void UnivariateDiscretizer::transform(const arma::fmat &X, arma::Row<size_t> &binLoc) {
     if (binMapFunction == nullptr)
         throw std::runtime_error("Cannot transform values without first training the discretizer");
 
@@ -209,9 +227,16 @@ void UnivariateDiscretizer::transform(const arma::mat &X, arma::Row<size_t> &bin
 }
 
 
-std::vector<std::vector<size_t> > &UnivariateDiscretizer::getInSampleDiscretizations() const {
+const std::vector<std::vector<size_t> > &UnivariateDiscretizer::getInSampleDiscretizations() {
     if (binMapFunction == nullptr)
         throw std::runtime_error("Cannot transform values without first training the discretizer");
 
     return inSampleDiscretizations;
+}
+
+const std::vector<size_t> &UnivariateDiscretizer::getBinPredictions() {
+    if (binMapFunction == nullptr)
+        throw std::runtime_error("Cannot transform values without first training the discretizer");
+
+    return binPredictions;
 }
