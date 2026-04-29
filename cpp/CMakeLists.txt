@@ -7,23 +7,6 @@ option(SGTLEARN_BUILD_TESTS "Build C++ tests" ON)
 
 include(FetchContent)
 
-# # region mlpack
-
-# find_package(mlpack QUIET)
-
-# if (NOT mlpack_FOUND)
-#     FetchContent_Declare(mlpack
-#             GIT_REPOSITORY https://github.com/mlpack/mlpack.git
-#             GIT_TAG 4.7.0
-#     )
-#     FetchContent_MakeAvailable(mlpack)
-#     add_library(mlpack::mlpack INTERFACE IMPORTED)
-#     target_include_directories(mlpack::mlpack INTERFACE
-#             "${mlpack_SOURCE_DIR}/src"
-#     )
-# endif ()
-
-# # endregion
 
 # region armadillo
 find_package(Armadillo QUIET)
@@ -40,8 +23,10 @@ endif ()
 
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
-        include/Discretizers.h
         include/frontiers.h
+        include/IDiscretizer.h
+        include/SplitCandidate.h
+        include/UnivariateDiscretizer.h
         src/UnivariateDiscretizer.cpp
 )
 
@@ -49,13 +34,10 @@ add_library(sgtlearn_core STATIC
 target_include_directories(sgtlearn_core PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         PRIVATE
-        # ${MLPACK_INCLUDE_DIRS}
         ${ARMADILLO_INCLUDE_DIRS}
         src
 )
-target_link_libraries(sgtlearn_core 
-        # mlpack::mlpack  
-        ${ARMADILLO_LIBRARIES})
+target_link_libraries(sgtlearn_core ${ARMADILLO_LIBRARIES})
 set_target_properties(sgtlearn_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # endregion

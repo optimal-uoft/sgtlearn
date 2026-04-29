@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "Discretizers.h"
+#include "UnivariateDiscretizer.h"
 
 namespace py = pybind11;
 

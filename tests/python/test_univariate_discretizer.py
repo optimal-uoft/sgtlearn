@@ -83,4 +83,4 @@ def test_univariate_discretizer_vs_sklearn_fidelity(
     ud_preds = classification_predict(ud, x)
     assert sklearn_preds.shape == ud_preds.shape
     np.testing.assert_array_equal(sklearn_preds, ud_preds)
-    # assert clf.get_n_leaves() == ud.numLeaves
+    assert clf.get_n_leaves() == ud.numLeaves

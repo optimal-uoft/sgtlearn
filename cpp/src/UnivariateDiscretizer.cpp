@@ -1,4 +1,4 @@
-#include "Discretizers.h"
+
 #include <armadillo>
 #include <stdexcept>
 #include <memory>
@@ -8,16 +8,18 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include "SplitCandidate.h"
+#include "UnivariateDiscretizer.h"
 
-constexpr float FEATURE_SPLIT_MIN_DIFF = 1e-7f;
+
+constexpr double FEATURE_SPLIT_MIN_DIFF = 1e-7;
 
 constexpr double eps = std::numeric_limits<double>::epsilon();
-IDiscretizer::~IDiscretizer() = default;
 
 UnivariateDiscretizer::~UnivariateDiscretizer() = default;
 
 bool UnivariateDiscretizer::findBestSplit(SplitCandidate &split) {
-    double bestInformationGain = -std::numeric_limits<double>::infinity();
+    double bestProxyImprovement = -std::numeric_limits<double>::infinity();
     bool found = false;
 
     const int N = split.end - split.start + 1;
@@ -61,16 +63,21 @@ bool UnivariateDiscretizer::findBestSplit(SplitCandidate &split) {
                                       }
                                   );
 
-        if (const double gain = split.score - (
-                static_cast<double>(Nl) / static_cast<double>(N) * leftScore +
-                static_cast<double>(Nr) / static_cast<double>(N) * rightScore
-                                );
-            static_cast<double>(N) / static_cast<double>(totalSamples) * gain > bestInformationGain) {
+        const double proxyImprovement =
+            -static_cast<double>(Nr) * rightScore - static_cast<double>(Nl) * leftScore;
+        if (proxyImprovement > bestProxyImprovement) {
             found = true;
-            const double weightedGain = static_cast<double>(N) / static_cast<double>(totalSamples) * gain;
-            bestInformationGain = weightedGain;
-            split.informationGain = weightedGain;
-            split.threshold = (featureValues(sortedOrder(i)) + featureValues(sortedOrder(i - 1))) / 2.0;
+            bestProxyImprovement = proxyImprovement;
+            const float leftValue = static_cast<float>(featureValues(sortedOrder(i - 1)));
+            const float rightValue = static_cast<float>(featureValues(sortedOrder(i)));
+            
+            // Mirror sklearn threshold selection to avoid midpoint rounding onto rightValue.
+            double threshold = static_cast<double>(leftValue) / 2.0 + static_cast<double>(rightValue) / 2.0;
+            if (threshold == static_cast<double>(rightValue) ||
+                !std::isfinite(threshold)) {
+                threshold = static_cast<double>(leftValue);
+            }
+            split.threshold = threshold;
 
             split.leftStart = split.start;
             split.leftEnd = i - 1;
@@ -81,6 +88,12 @@ bool UnivariateDiscretizer::findBestSplit(SplitCandidate &split) {
             split.rightEnd = split.end;
             split.rightScore = rightScore;
             split.rightPrediction = rightStats.index_max();
+
+            const double gain = split.score - (
+                static_cast<double>(Nl) / static_cast<double>(N) * leftScore +
+                static_cast<double>(Nr) / static_cast<double>(N) * rightScore
+            );
+            split.informationGain = static_cast<double>(N) / static_cast<double>(totalSamples) * gain;
         }
     }
     return found;
