@@ -24,17 +24,20 @@ endif ()
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
         include/frontiers.h
-        include/IDiscretizer.h
-        include/SplitCandidate.h
-        include/UnivariateDiscretizer.h
-        src/UnivariateDiscretizer.cpp
+        include/UnivariateClassificationDiscretizer.h
+        src/UnivariateClassificationDiscretizer.cpp
+        src/SplitCandidate.h
+        src/Splitter.h
+        src/Splitter.tpp
+        src/ClassificationSplitter.h
+        src/GiniSplitter.h
 )
 
 # PUBLIC headers: accessible to anyone who links to this library
 target_include_directories(sgtlearn_core PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        PRIVATE
         ${ARMADILLO_INCLUDE_DIRS}
+        PRIVATE
         src
 )
 target_link_libraries(sgtlearn_core ${ARMADILLO_LIBRARIES})

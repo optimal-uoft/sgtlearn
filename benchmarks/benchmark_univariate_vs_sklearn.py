@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark UnivariateDiscretizer against sklearn DecisionTreeClassifier.
+"""Benchmark UnivariateClassificationDiscretizer against sklearn DecisionTreeClassifier.
 
 Usage:
   python benchmarks/benchmark_univariate_vs_sklearn.py
@@ -17,7 +17,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
-from Discretizers import UnivariateDiscretizer
+from Discretizers import UnivariateClassificationDiscretizer
 from sklearn.tree import DecisionTreeClassifier
 
 
@@ -63,8 +63,8 @@ def run_one(
             random_state=0,
         )
 
-    def make_sgt() -> UnivariateDiscretizer:
-        return UnivariateDiscretizer()
+    def make_sgt() -> UnivariateClassificationDiscretizer:
+        return UnivariateClassificationDiscretizer()
 
     for _ in range(warmup):
         sk = make_sklearn()
