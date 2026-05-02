@@ -4,7 +4,8 @@
 
 class GiniSplitter : public ClassificationSplitter {
 public:
-  GiniSplitter(size_t numClasses) : ClassificationSplitter(numClasses) {};
+  GiniSplitter(arma::frowvec &X, arma::Row<size_t> &y, size_t numClasses)
+      : ClassificationSplitter(X, y, numClasses) {};
 
   double score(const std::vector<size_t> &stats, size_t N) override {
     if (N == 0)

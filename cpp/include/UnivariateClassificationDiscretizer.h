@@ -10,15 +10,8 @@ class UnivariateClassificationDiscretizer {
     std::function<void(const arma::fmat &X, arma::Row<size_t> &binLoc)> binMapFunction = nullptr;
 
 public:
-    size_t numClasses;
-    size_t minLeafSize;
-    double minGainSplit;
-    size_t maxDepth;
-    size_t maxLeafNodes;
-
-    size_t depth{0};
     size_t numLeaves{0};
-    size_t numNodes{0};
+
 
     ~UnivariateClassificationDiscretizer();
 

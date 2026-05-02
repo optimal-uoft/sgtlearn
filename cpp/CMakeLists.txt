@@ -31,6 +31,7 @@ add_library(sgtlearn_core STATIC
         src/Splitter.tpp
         src/ClassificationSplitter.h
         src/GiniSplitter.h
+        src/TreeBuilder.h
 )
 
 # PUBLIC headers: accessible to anyone who links to this library

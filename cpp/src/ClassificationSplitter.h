@@ -1,13 +1,16 @@
 #pragma once
 
 #include "Splitter.h"
+#include <armadillo>
 #include <limits>
 
 class ClassificationSplitter : public Splitter<size_t> {
 
 public:
-  ClassificationSplitter(size_t numClasses) : Splitter(numClasses) {}
-  SplitCandidate makeRoot(const arma::Row<size_t> y) override {
+  ClassificationSplitter(arma::frowvec &X, arma::Row<size_t> &y,
+                         size_t numClasses)
+      : Splitter(X, y, numClasses) {}
+  SplitCandidate makeRoot() override {
     auto stats = makeEmptyStats();
     for (size_t idx = 0; idx < y.n_cols; idx++)
       stats[y(idx)]++;
@@ -31,8 +34,8 @@ public:
   };
 
 protected:
-  void moveSample(std::vector<size_t> &rightStats, std::vector<size_t> &leftStats,
-                  size_t v) override {
+  void moveSample(std::vector<size_t> &rightStats,
+                  std::vector<size_t> &leftStats, size_t v) override {
     leftStats[v]++;
     rightStats[v]--;
   }

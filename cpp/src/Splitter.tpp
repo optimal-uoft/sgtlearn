@@ -1,15 +1,11 @@
 template <typename T>
 const std::vector<T> &Splitter<T>::getStats(const SplitCandidate &split) {
-  auto startIt = splitStats.find(split.start);
-  if (startIt == splitStats.end())
-    throw std::runtime_error(
-        "stats for the given split partition does not exist");
-  auto endIt = startIt->second.find(split.end);
-  if (endIt == startIt->second.end())
+  if (!splitStats.contains(split.start) ||
+      !splitStats[split.start].contains(split.end))
     throw std::runtime_error(
         "stats for the given split partition does not exist");
 
-  return endIt->second;
+  return splitStats[split.start][split.end];
 }
 
 template <typename T> std::vector<T> Splitter<T>::makeEmptyStats() {
@@ -17,18 +13,14 @@ template <typename T> std::vector<T> Splitter<T>::makeEmptyStats() {
 }
 
 template <typename T>
-std::array<SplitCandidate, 2>
+std::vector<SplitCandidate>
 Splitter<T>::makeChildren(const SplitCandidate &parent) {
-  auto statsStartIt = childrenSplitStats.find(parent.start);
-  if (statsStartIt == childrenSplitStats.end())
-    throw std::runtime_error(
-        "Cannot make children for a class that has not found a best split");
-  auto statsEndIt = statsStartIt->second.find(parent.end);
-  if (statsEndIt == statsStartIt->second.end())
-    throw std::runtime_error(
-        "Cannot make children for a class that has not found a best split");
 
-  auto &stats = statsEndIt->second;
+  if (!childrenSplitStats.contains(parent.start) ||
+      !childrenSplitStats[parent.start].contains(parent.end))
+    throw std::runtime_error(
+        "Cannot make children for a class that has not found a best split");
+  auto &stats = childrenSplitStats[parent.start][parent.end];
 
   SplitCandidate left{
       .height = parent.height + 1,
@@ -47,12 +39,11 @@ Splitter<T>::makeChildren(const SplitCandidate &parent) {
 
   splitStats[left.start][left.end] = std::move(stats[0]);
   splitStats[right.start][right.end] = std::move(stats[1]);
-  return {left, right};
+  return {right, left};
 }
 
 template <typename T>
-bool Splitter<T>::findBestSplit(SplitCandidate &split, const arma::frowvec &X,
-                                const arma::Row<T> &y, size_t minLeafSize) {
+bool Splitter<T>::findBestSplit(SplitCandidate &split, size_t minLeafSize) {
 
   std::vector<T> leftStats = makeEmptyStats();
   std::vector<T> rightStats(getStats(split));
@@ -85,39 +76,39 @@ bool Splitter<T>::findBestSplit(SplitCandidate &split, const arma::frowvec &X,
     const double rightScore = score(rightStats, Nr);
     const double proxyImprovement = -static_cast<double>(Nr) * rightScore -
                                     static_cast<double>(Nl) * leftScore;
-    if (proxyImprovement > bestProxyImprovement) {
-      found = true;
-      bestProxyImprovement = proxyImprovement;
+    if (proxyImprovement <= bestProxyImprovement)
+      continue;
+    found = true;
+    bestProxyImprovement = proxyImprovement;
 
-      double threshold = static_cast<double>(prevValue) / 2.0 +
-                         static_cast<double>(currValue) / 2.0;
-      if (threshold == static_cast<double>(currValue) ||
-          !std::isfinite(threshold)) {
-        threshold = static_cast<double>(prevValue);
-      }
-      split.threshold = threshold;
-
-      split.leftStart = split.start;
-      split.leftEnd = i - 1;
-      split.leftScore = leftScore;
-      foundLeftStats = leftStats;
-
-      split.rightStart = i;
-      split.rightEnd = split.end;
-      split.rightScore = rightScore;
-      foundRightStats = rightStats;
-
-      const double gain =
-          split.score -
-          (static_cast<double>(Nl) / static_cast<double>(N) * leftScore +
-           static_cast<double>(Nr) / static_cast<double>(N) * rightScore);
-      split.informationGain =
-          static_cast<double>(N) / static_cast<double>(X.n_cols) * gain;
+    double threshold = static_cast<double>(prevValue) / 2.0 +
+                       static_cast<double>(currValue) / 2.0;
+    if (threshold == static_cast<double>(currValue) ||
+        !std::isfinite(threshold)) {
+      threshold = static_cast<double>(prevValue);
     }
+    split.threshold = threshold;
+
+    split.leftStart = split.start;
+    split.leftEnd = i - 1;
+    split.leftScore = leftScore;
+    foundLeftStats = leftStats;
+
+    split.rightStart = i;
+    split.rightEnd = split.end;
+    split.rightScore = rightScore;
+    foundRightStats = rightStats;
+
+    const double gain =
+        split.score -
+        (static_cast<double>(Nl) / static_cast<double>(N) * leftScore +
+         static_cast<double>(Nr) / static_cast<double>(N) * rightScore);
+    split.informationGain =
+        static_cast<double>(N) / static_cast<double>(X.n_cols) * gain;
   }
   if (found)
     childrenSplitStats[split.start][split.end] = {foundLeftStats,
-                                                   foundRightStats};
+                                                  foundRightStats};
 
   return found;
 }

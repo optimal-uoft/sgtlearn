@@ -2,8 +2,6 @@
 #include "SplitCandidate.h"
 #include <armadillo>
 #include <array>
-#include <stdexcept>
-#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -11,7 +9,7 @@ template <typename T> class Splitter {
 public:
   virtual ~Splitter() = default;
 
-  virtual SplitCandidate makeRoot(const arma::Row<T> y) = 0;
+  virtual SplitCandidate makeRoot() = 0;
 
   virtual double predict(const SplitCandidate &split) = 0;
 
@@ -19,16 +17,17 @@ public:
 
   virtual double score(const SplitCandidate &split) = 0;
 
-  bool findBestSplit(SplitCandidate &split, const arma::frowvec &X,
-                     const arma::Row<T> &y, size_t minLeafSize);
+  bool findBestSplit(SplitCandidate &split, size_t minLeafSize);
 
-  std::array<SplitCandidate, 2> makeChildren(const SplitCandidate &parent);
+  std::vector<SplitCandidate> makeChildren(const SplitCandidate &parent);
 
 protected:
+  const arma::Row<T> &y;
+  const arma::frowvec &X;
   size_t statsSize;
 
-  Splitter(size_t statsSize) : statsSize(statsSize) {}
-
+  Splitter(arma::frowvec &X, arma::Row<T> &y, size_t statsSize)
+      : X(X), y(y), statsSize(statsSize) {}
 
   const std::vector<T> &getStats(const SplitCandidate &split);
   std::vector<T> makeEmptyStats();

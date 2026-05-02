@@ -187,19 +187,7 @@ PYBIND11_MODULE(Discretizers, m) {
            [](UnivariateClassificationDiscretizer &self) {
              return VectorToNumpy(self.getBinPredictions());
            })
-      .def_readwrite("numClasses",
-                     &UnivariateClassificationDiscretizer::numClasses)
-      .def_readwrite("minLeafSize",
-                     &UnivariateClassificationDiscretizer::minLeafSize)
-      .def_readwrite("minGainSplit",
-                     &UnivariateClassificationDiscretizer::minGainSplit)
-      .def_readwrite("maxDepth", &UnivariateClassificationDiscretizer::maxDepth)
-      .def_readwrite("maxLeafNodes",
-                     &UnivariateClassificationDiscretizer::maxLeafNodes)
-      .def_readwrite("depth", &UnivariateClassificationDiscretizer::depth)
       .def_readwrite("numLeaves",
-                     &UnivariateClassificationDiscretizer::numLeaves)
-      .def_readwrite("numNodes",
-                     &UnivariateClassificationDiscretizer::numNodes);
+                     &UnivariateClassificationDiscretizer::numLeaves);
   // endregion UnivariateClassificationDiscretizer
 }
