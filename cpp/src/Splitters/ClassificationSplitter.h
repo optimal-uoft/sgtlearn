@@ -25,7 +25,7 @@ public:
   }
   ~ClassificationSplitter() override = default;
 
-  double predict(const SplitCandidate &split) override {
+  size_t predict(const SplitCandidate &split) override {
     auto v = getStats(split);
 
     auto it = std::max_element(v.begin(), v.end());

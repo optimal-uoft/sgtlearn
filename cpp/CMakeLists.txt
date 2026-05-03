@@ -42,6 +42,10 @@ add_library(sgtlearn_core STATIC
         src/Discretizers/UnivariateDiscretizer.h
         src/Discretizers/UnivariateDiscretizer.tpp
         src/Discretizers/UnivariateClassificationDiscretizer.cpp
+        src/Splitters/SquaredErrorSplitter.h
+        src/Splitters/SquaredErrorSplitter.cpp
+        src/Discretizers/UnivariateRegressionDiscretizer.cpp
+        include/UnivariateRegressionDiscretizer.h
 )
 
 # PUBLIC headers: accessible to anyone who links to this library

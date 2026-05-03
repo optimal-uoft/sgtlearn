@@ -1,3 +1,4 @@
+#include "Splitters/EntropySplitter.h"
 #include "UnivariateClassificationDiscretizer.h"
 
 template <TClassificationSplitter Tsplitter>

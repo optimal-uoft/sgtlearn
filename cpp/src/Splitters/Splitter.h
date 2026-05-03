@@ -11,7 +11,7 @@ public:
 
   virtual SplitCandidate makeRoot() = 0;
 
-  virtual double predict(const SplitCandidate &split) = 0;
+  virtual T predict(const SplitCandidate &split) = 0;
 
   virtual double score(const std::vector<T> &stats, size_t N) = 0;
 

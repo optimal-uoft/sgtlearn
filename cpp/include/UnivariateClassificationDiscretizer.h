@@ -1,8 +1,8 @@
 #pragma once
+#include "Discretizers/UnivariateDiscretizer.h"
 #include "Splitters/ClassificationSplitter.h"
 #include "Splitters/EntropySplitter.h"
 #include "Splitters/GiniSplitter.h"
-#include "Discretizers/UnivariateDiscretizer.h"
 
 #include <armadillo>
 
@@ -16,7 +16,6 @@ class UnivariateClassificationDiscretizer
     : public UnivariateDiscretizer<size_t> {
 public:
   ~UnivariateClassificationDiscretizer() = default;
-
 
   void Train(const arma::fmat &X, arma::uvec &features,
              const arma::Row<size_t> &y, size_t numClasses,

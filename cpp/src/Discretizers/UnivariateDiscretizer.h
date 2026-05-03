@@ -43,11 +43,11 @@ public:
   UnivariateDiscretizer() = default;
 
   size_t numLeaves;
-  void transform(const arma::fmat &X, arma::Row<T> &binLoc);
+  void transform(const arma::fmat &X, arma::Row<size_t> &binLoc);
 
-  std::vector<std::vector<T>> &getInSampleDiscretizations();
+  std::vector<std::vector<size_t>> &getInSampleDiscretizations();
 
-  std::vector<size_t> &getBinPredictions();
+  std::vector<T> &getBinPredictions();
 
   ~UnivariateDiscretizer() = default;
 };

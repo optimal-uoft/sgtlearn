@@ -4,6 +4,15 @@ from itertools import product
 from Discretizers import UnivariateClassificationDiscretizer
 from sklearn.tree import DecisionTreeClassifier
 
+from discretizer_grid import (
+    MAX_DEPTH_VALUES,
+    MAX_LEAF_VALUES,
+    MIN_GAIN_VALUES,
+    MIN_LEAF_VALUES,
+    N_VALUES,
+    NUM_CLASSES_VALUES,
+)
+
 
 def classification_predict(ud: UnivariateClassificationDiscretizer, x: np.ndarray) -> np.ndarray:
     """Predict by mapping transform() bin indices to bin predictions."""
@@ -12,12 +21,6 @@ def classification_predict(ud: UnivariateClassificationDiscretizer, x: np.ndarra
     return np.asarray(bin_preds[bin_locs], dtype=np.uintp)
 
 
-N_VALUES = [1000, 5000, 10000]
-NUM_CLASSES_VALUES = [2, 3]
-MIN_LEAF_VALUES = [1, 10]
-MIN_GAIN_VALUES = [0.0, 1e-7]
-MAX_DEPTH_VALUES = [0, 4]
-MAX_LEAF_VALUES = [0, 100]
 GRID = list(
     product(
         N_VALUES,

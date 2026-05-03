@@ -49,7 +49,7 @@ void UnivariateDiscretizer<T>::Train(Splitter<T> &splitter, size_t minLeafSize,
 
 template <typename T>
 void UnivariateDiscretizer<T>::transform(const arma::fmat &X,
-                                         arma::Row<T> &binLoc) {
+                                         arma::Row<size_t> &binLoc) {
   if (!leavesProcessed)
     throw std::runtime_error(
         "Cannot transform values without first training the discretizer");
@@ -65,7 +65,7 @@ void UnivariateDiscretizer<T>::transform(const arma::fmat &X,
 }
 
 template <typename T>
-std::vector<std::vector<T>> &
+std::vector<std::vector<size_t>> &
 UnivariateDiscretizer<T>::getInSampleDiscretizations() {
   if (!leavesProcessed)
     throw std::runtime_error("Cannot provide in sample routing without first "
@@ -74,7 +74,7 @@ UnivariateDiscretizer<T>::getInSampleDiscretizations() {
 }
 
 template <typename T>
-std::vector<size_t> &UnivariateDiscretizer<T>::getBinPredictions() {
+std::vector<T> &UnivariateDiscretizer<T>::getBinPredictions() {
   if (!leavesProcessed)
     throw std::runtime_error("Cannot provide bin predictions without first "
                              "training the discretizer");
