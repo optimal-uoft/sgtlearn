@@ -1,5 +1,5 @@
 #pragma once
-#include "SplitCandidate.h"
+#include "../Domain/SplitCandidate.h"
 #include <armadillo>
 #include <array>
 #include <unordered_map>

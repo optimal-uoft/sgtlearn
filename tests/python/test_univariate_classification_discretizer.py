@@ -34,12 +34,14 @@ IDS = [
 ]
 
 
+@pytest.mark.parametrize("criterion", ["gini", "entropy"])
 @pytest.mark.parametrize(
     "n_samples,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf",
     GRID,
     ids=IDS,
 )
 def test_univariate_classification_discretizer_vs_sklearn_fidelity(
+    criterion: str,
     n_samples: int,
     num_classes: int,
     min_leaf_size: int,
@@ -54,7 +56,7 @@ def test_univariate_classification_discretizer_vs_sklearn_fidelity(
     y = rng.integers(0, num_classes, size=n_samples, dtype=np.uintp)
 
     clf = DecisionTreeClassifier(
-        criterion="gini",
+        criterion=criterion,
         splitter="best",
         min_samples_leaf=min_leaf_size,
         min_impurity_decrease=min_gain_split,
@@ -64,7 +66,7 @@ def test_univariate_classification_discretizer_vs_sklearn_fidelity(
     )
     clf.fit(x32, y)
     sklearn_preds = clf.predict(x32).astype(np.uintp, copy=False)
-    ud = UnivariateClassificationDiscretizer()
+    ud = UnivariateClassificationDiscretizer(criterion=criterion)
     features = np.array([0], dtype=np.uintp)
 
     ud.Train(
