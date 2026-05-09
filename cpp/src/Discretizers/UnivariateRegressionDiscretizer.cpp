@@ -1,0 +1,26 @@
+#include "UnivariateRegressionDiscretizer.h"
+#include "Splitters/AbsoluteErrorSplitter.h"
+
+template <TRegressionSplitter Tsplitter>
+void UnivariateRegressionDiscretizer<Tsplitter>::Train(
+    const arma::fmat &X, arma::uvec &features, const arma::Row<float> &y,
+    size_t minLeafSize, double minGainSplit, size_t maxDepth,
+    size_t maxLeafNodes) {
+  if (y.n_elem != X.n_cols)
+    throw std::invalid_argument("y length must equal X.n_cols");
+  if (features(0) >= X.n_rows)
+    throw std::invalid_argument("features(0) must be < X.n_rows");
+  feature = features(0);
+  arma::uvec sortedOrder = arma::sort_index(X.row(feature));
+  arma::Mat<float> sortedY = arma::Mat<float>(y.cols(sortedOrder));
+  arma::fmat XSorted = X.cols(sortedOrder);
+  arma::frowvec sortedX = XSorted.row(feature);
+
+  Tsplitter splitter(sortedX, sortedY);
+  UnivariateDiscretizer<float>::buildTree(splitter, minLeafSize, minGainSplit,
+                                          maxDepth, maxLeafNodes);
+  UnivariateDiscretizer::processLeaves(sortedOrder, splitter);
+}
+
+template class UnivariateRegressionDiscretizer<SquaredErrorSplitter>;
+template class UnivariateRegressionDiscretizer<AbsoluteErrorSplitter>;
