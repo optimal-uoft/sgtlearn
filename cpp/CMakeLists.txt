@@ -47,10 +47,14 @@ add_library(sgtlearn_core STATIC
         src/Splitters/SquaredErrorSplitter.cpp
         src/Discretizers/UnivariateRegressionDiscretizer.cpp
         include/UnivariateRegressionDiscretizer.h
+        include/GainHessianUnivariateDiscretizer.h
         src/algorithms/WaveletTreeMAE.h
         src/algorithms/WaveletTreeMAE.cpp
+        src/Discretizers/GainHessianUnivariateDiscretizer.cpp
         src/Splitters/AbsoluteErrorSplitter.h
         src/Splitters/AbsoluteErrorSplitter.cpp
+        src/Splitters/GainHessianSplitter.h
+        src/Splitters/GainHessianSplitter.cpp
 )
 
 # PUBLIC headers: accessible to anyone who links to this library
