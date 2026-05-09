@@ -120,7 +120,10 @@ if (SGTLEARN_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(cpp_tests tests/test_wavelet_tree_mae.cpp)
+    add_executable(cpp_tests
+            tests/test_wavelet_tree_mae.cpp
+            tests/test_splitters.cpp
+    )
 
     target_include_directories(cpp_tests PRIVATE
             ${ARMADILLO_INCLUDE_DIRS}
