@@ -55,6 +55,8 @@ add_library(sgtlearn_core STATIC
         src/Splitters/AbsoluteErrorSplitter.cpp
         src/Splitters/GainHessianSplitter.h
         src/Splitters/GainHessianSplitter.cpp
+        src/algorithms/CoordinateDescent.h
+        src/BranchAssignmentObjectives/BranchAssignmentObjective.h
 )
 
 # PUBLIC headers: accessible to anyone who links to this library

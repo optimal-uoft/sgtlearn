@@ -1,16 +1,21 @@
 #include "../algorithms/TreeBuilder.h"
 
 template <typename T>
-void UnivariateDiscretizer<T>::processLeaves(arma::uvec sortedOrder, Splitter<T> &splitter) {
+void UnivariateDiscretizer<T>::processLeaves(arma::uvec sortedOrder,
+                                             Splitter<T> &splitter) {
   if (step != Step::FitTree)
     throw std::runtime_error("tree must be fit before leaves are processed");
   inSampleDiscretizations.clear();
   binPredictions.clear();
   thresholds.clear();
+  leafStats.clear();
+  leafNumSamples.clear();
   for (auto &[_, leaf] : leaves) {
     inSampleDiscretizations.push_back(arma::conv_to<std::vector<size_t>>::from(
         sortedOrder.subvec(leaf.start, leaf.end)));
     binPredictions.push_back(splitter.predict(leaf));
+    leafStats.push_back(splitter.getStats(leaf));
+    leafNumSamples.push_back(leaf.end - leaf.start + 1);
     thresholds.push_back(leaf.routingThreshold);
   }
   step = Step::LeavesProcessed;
@@ -47,7 +52,7 @@ void UnivariateDiscretizer<T>::buildTree(Splitter<T> &splitter,
 template <typename T>
 void UnivariateDiscretizer<T>::transform(const arma::fmat &X,
                                          arma::Row<size_t> &binLoc) {
-  if (step!=Step::LeavesProcessed)
+  if (step != Step::LeavesProcessed)
     throw std::runtime_error(
         "Cannot transform values without first training the discretizer");
 
@@ -64,7 +69,7 @@ void UnivariateDiscretizer<T>::transform(const arma::fmat &X,
 template <typename T>
 std::vector<std::vector<size_t>> &
 UnivariateDiscretizer<T>::getInSampleDiscretizations() {
-  if (step!=Step::LeavesProcessed)
+  if (step != Step::LeavesProcessed)
     throw std::runtime_error("Cannot provide in sample routing without first "
                              "training the discretizer");
   return inSampleDiscretizations;
@@ -72,8 +77,23 @@ UnivariateDiscretizer<T>::getInSampleDiscretizations() {
 
 template <typename T>
 std::vector<T> &UnivariateDiscretizer<T>::getBinPredictions() {
-  if (step!=Step::LeavesProcessed)
+  if (step != Step::LeavesProcessed)
     throw std::runtime_error("Cannot provide bin predictions without first "
                              "training the discretizer");
   return binPredictions;
+}
+template <typename T>
+std::vector<std::vector<T>> &UnivariateDiscretizer<T>::getLeafStats() {
+  if (step != Step::LeavesProcessed)
+    throw std::runtime_error("Cannot provide bin stats without first "
+                             "training the discretizer");
+  return leafStats;
+}
+template <typename T>
+std::vector<size_t> &UnivariateDiscretizer<T>::getLeafNumSamples() {
+  if (step != Step::LeavesProcessed)
+    throw std::runtime_error(
+        "Cannot provide bin number of samples without first "
+        "training the discretizer");
+  return leafNumSamples;
 }

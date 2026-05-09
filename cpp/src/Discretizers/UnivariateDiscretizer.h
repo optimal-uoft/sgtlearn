@@ -21,6 +21,8 @@ protected:
   std::vector<std::vector<size_t>> inSampleDiscretizations;
   std::vector<T> binPredictions;
   std::vector<double> thresholds;
+  std::vector<std::vector<T>> leafStats;
+  std::vector<size_t> leafNumSamples;
   std::map<std::tuple<size_t, size_t>, SplitCandidate> leaves;
 
   void processLeaves(arma::uvec sortedOrder, Splitter<T> &splitter);
@@ -37,6 +39,10 @@ public:
   std::vector<std::vector<size_t>> &getInSampleDiscretizations();
 
   std::vector<T> &getBinPredictions();
+
+  std::vector<std::vector<T>> &getLeafStats();
+
+  std::vector<size_t> &getLeafNumSamples();
 
   ~UnivariateDiscretizer() = default;
 };
