@@ -4,7 +4,7 @@
 
 class EntropySplitter : public ClassificationSplitter {
 public:
-  EntropySplitter(arma::frowvec &X, arma::Row<size_t> &y, size_t numClasses)
+  EntropySplitter(arma::frowvec &X, arma::Mat<size_t> &y, size_t numClasses)
       : ClassificationSplitter(X, y, numClasses) {}
 
   double score(const std::vector<size_t> &stats, size_t l, size_t r) override {

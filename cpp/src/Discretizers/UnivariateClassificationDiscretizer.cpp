@@ -1,5 +1,5 @@
-#include "Splitters/EntropySplitter.h"
 #include "UnivariateClassificationDiscretizer.h"
+#include "Splitters/EntropySplitter.h"
 
 template <TClassificationSplitter Tsplitter>
 void UnivariateClassificationDiscretizer<Tsplitter>::Train(
@@ -10,17 +10,17 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
     throw std::invalid_argument("y length must equal X.n_cols");
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
-
-  arma::uvec sortedOrder = arma::sort_index(X.row(features(0)));
-  arma::Row<size_t> sortedY = y.cols(sortedOrder);
+  feature = features(0);
+  arma::uvec sortedOrder = arma::sort_index(X.row(feature));
+  arma::Mat<size_t> sortedY = arma::Mat<size_t>(y.cols(sortedOrder));
   arma::fmat XSorted = X.cols(sortedOrder);
-  arma::frowvec sortedX = XSorted.row(features(0));
-  setTrainingContext(
-      {std::move(sortedX), std::move(sortedY), std::move(sortedOrder),
-       features(0)});
-  Tsplitter splitter(training_.sortedX, training_.sortedY, numClasses);
-  UnivariateDiscretizer<size_t>::Train(splitter, minLeafSize, minGainSplit,
-                                       maxDepth, maxLeafNodes);
+  arma::frowvec sortedX = XSorted.row(feature);
+
+  Tsplitter splitter(sortedX, sortedY, numClasses);
+  UnivariateDiscretizer<size_t>::buildTree(splitter, minLeafSize, minGainSplit,
+                                           maxDepth, maxLeafNodes);
+
+  UnivariateDiscretizer::processLeaves(sortedOrder, splitter);
 }
 
 template class UnivariateClassificationDiscretizer<GiniSplitter>;

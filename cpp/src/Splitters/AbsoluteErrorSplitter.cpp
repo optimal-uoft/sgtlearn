@@ -9,8 +9,8 @@ QuantileStats AbsoluteErrorSplitter::getMedianQuantileStats(size_t l,
 }
 
 AbsoluteErrorSplitter::AbsoluteErrorSplitter(arma::frowvec &X,
-                                             arma::Row<float> &y)
-    : Splitter(X, y, 0), waveletTree(y) {}
+                                             arma::Mat<float> &y)
+    : Splitter(X, y, 0), waveletTree(arma::Row<float>(y.row(0))) {}
 
 SplitCandidate AbsoluteErrorSplitter::makeRoot() {
   return {.height = 0,

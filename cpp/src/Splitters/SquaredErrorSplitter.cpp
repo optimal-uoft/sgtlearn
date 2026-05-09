@@ -3,8 +3,9 @@
 SplitCandidate SquaredErrorSplitter::makeRoot() {
   auto stats = makeEmptyStats();
   for (size_t idx = 0; idx < y.n_cols; idx++) {
-    stats[0] += y(idx);
-    stats[1] += y(idx) * y(idx);
+    const float v = y(0, idx);
+    stats[0] += v;
+    stats[1] += v * v;
   }
 
   splitStats[0][y.n_cols - 1] = stats;
@@ -37,7 +38,9 @@ double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t l,
   return ySqrdSum - 2 * mean * ySum + N * mean * mean;
 }
 void SquaredErrorSplitter::moveSample(std::vector<float> &rightStats,
-                                      std::vector<float> &leftStats, float v) {
+                                      std::vector<float> &leftStats,
+                                      size_t idx) {
+  const float v = y(0, idx);
   rightStats[0] -= v;
   leftStats[0] += v;
   rightStats[1] -= v * v;

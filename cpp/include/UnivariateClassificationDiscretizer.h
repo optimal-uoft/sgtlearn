@@ -9,7 +9,7 @@
 template <typename T>
 concept TClassificationSplitter =
     std::derived_from<T, ClassificationSplitter> &&
-    std::constructible_from<T, arma::frowvec &, arma::Row<size_t> &, size_t>;
+    std::constructible_from<T, arma::frowvec &, arma::Mat<size_t> &, size_t>;
 
 template <TClassificationSplitter Tsplitter = GiniSplitter>
 class UnivariateClassificationDiscretizer

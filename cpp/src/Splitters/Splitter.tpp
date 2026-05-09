@@ -58,7 +58,7 @@ bool Splitter<T>::findBestSplit(SplitCandidate &split, size_t minLeafSize) {
   bool found = false;
 
   for (size_t i = split.start + 1; i <= split.end; ++i) {
-    moveSample(rightStats, leftStats, y(i - 1));
+    moveSample(rightStats, leftStats, i - 1);
 
     const size_t Nl = i - split.start;
     const size_t Nr = split.end - i + 1;

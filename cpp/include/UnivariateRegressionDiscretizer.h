@@ -9,7 +9,7 @@
 template <typename T>
 concept TRegressionSplitter =
     std::derived_from<T, Splitter<float>> &&
-    std::constructible_from<T, arma::frowvec &, arma::Row<float> &>;
+    std::constructible_from<T, arma::frowvec &, arma::Mat<float> &>;
 
 template <TRegressionSplitter = SquaredErrorSplitter>
 class UnivariateRegressionDiscretizer : public UnivariateDiscretizer<float> {

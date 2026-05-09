@@ -7,13 +7,13 @@
 class ClassificationSplitter : public Splitter<size_t> {
 
 public:
-  ClassificationSplitter(arma::frowvec &X, arma::Row<size_t> &y,
+  ClassificationSplitter(arma::frowvec &X, arma::Mat<size_t> &y,
                          size_t numClasses)
       : Splitter(X, y, numClasses) {}
   SplitCandidate makeRoot() override {
     auto stats = makeEmptyStats();
     for (size_t idx = 0; idx < y.n_cols; idx++)
-      stats[y(idx)]++;
+      stats[y(0, idx)]++;
 
     splitStats[0][y.n_cols - 1] = stats;
 
@@ -36,8 +36,9 @@ public:
 
 protected:
   void moveSample(std::vector<size_t> &rightStats,
-                  std::vector<size_t> &leftStats, size_t v) override {
-    leftStats[v]++;
-    rightStats[v]--;
+                  std::vector<size_t> &leftStats, size_t idx) override {
+    const size_t cls = y(0, idx);
+    leftStats[cls]++;
+    rightStats[cls]--;
   }
 };

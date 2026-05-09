@@ -10,16 +10,16 @@ void UnivariateRegressionDiscretizer<Tsplitter>::Train(
     throw std::invalid_argument("y length must equal X.n_cols");
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
-
-  arma::uvec sortedOrder = arma::sort_index(X.row(features(0)));
-  arma::Row<float> sortedY = y.cols(sortedOrder);
+  feature = features(0);
+  arma::uvec sortedOrder = arma::sort_index(X.row(feature));
+  arma::Mat<float> sortedY = arma::Mat<float>(y.cols(sortedOrder));
   arma::fmat XSorted = X.cols(sortedOrder);
-  arma::frowvec sortedX = XSorted.row(features(0));
-  setTrainingContext({std::move(sortedX), std::move(sortedY),
-                      std::move(sortedOrder), features(0)});
-  Tsplitter splitter(training_.sortedX, training_.sortedY);
-  UnivariateDiscretizer<float>::Train(splitter, minLeafSize, minGainSplit,
-                                       maxDepth, maxLeafNodes);
+  arma::frowvec sortedX = XSorted.row(feature);
+
+  Tsplitter splitter(sortedX, sortedY);
+  UnivariateDiscretizer<float>::buildTree(splitter, minLeafSize, minGainSplit,
+                                          maxDepth, maxLeafNodes);
+  UnivariateDiscretizer::processLeaves(sortedOrder, splitter);
 }
 
 template class UnivariateRegressionDiscretizer<SquaredErrorSplitter>;

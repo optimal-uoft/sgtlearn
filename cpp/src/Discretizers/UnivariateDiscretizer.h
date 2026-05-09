@@ -9,35 +9,24 @@
 #include <vector>
 
 template <typename T> class UnivariateDiscretizer {
-public:
-  struct TrainingContext {
-    arma::frowvec sortedX;
-    arma::Row<T> sortedY;
-    arma::uvec sortedOrder;
-    size_t feature = 0;
+  enum class Step { Untrained, FitTree, LeavesProcessed };
+  Step step = Step::Untrained;
 
-    TrainingContext() = default;
-    TrainingContext(arma::frowvec sorted_x, arma::Row<T> sorted_y,
-                    arma::uvec order, size_t feature_index)
-        : sortedX(std::move(sorted_x)), sortedY(std::move(sorted_y)),
-          sortedOrder(std::move(order)), feature(feature_index) {}
-  };
+public:
+  size_t feature;
 
 protected:
   bool leavesProcessed = false;
-  TrainingContext training_;
+
   std::vector<std::vector<size_t>> inSampleDiscretizations;
   std::vector<T> binPredictions;
   std::vector<double> thresholds;
+  std::map<std::tuple<size_t, size_t>, SplitCandidate> leaves;
 
-  void processLeaves(
-      const std::map<std::tuple<size_t, size_t>, SplitCandidate> &leaves,
-      Splitter<T> &splitter);
+  void processLeaves(arma::uvec sortedOrder, Splitter<T> &splitter);
 
-  void Train(Splitter<T> &splitter, size_t minLeafSize, double minGainSplit,
-             size_t maxDepth, size_t maxLeafNodes);
-
-  void setTrainingContext(TrainingContext ctx) { training_ = std::move(ctx); }
+  void buildTree(Splitter<T> &splitter, size_t minLeafSize, double minGainSplit,
+                 size_t maxDepth, size_t maxLeafNodes);
 
 public:
   UnivariateDiscretizer() = default;

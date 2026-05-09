@@ -124,7 +124,7 @@ public:
     py::array_t<size_t> ycopy = py::array_t<size_t>::ensure(y);
     if (ycopy.ndim() != 1)
       throw std::invalid_argument("y must be a 1D numpy array");
-    arma::Row<size_t> yArma = carma::arr_to_row<size_t>(ycopy, true);
+    arma::Mat<size_t> yArma = carma::arr_to_row<size_t>(ycopy, true);
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
@@ -213,7 +213,7 @@ public:
     py::array_t<float> ycopy = py::array_t<float>::ensure(y);
     if (ycopy.ndim() != 1)
       throw std::invalid_argument("y must be a 1D numpy array");
-    arma::Row<float> yArma = carma::arr_to_row<float>(ycopy, true);
+    arma::Mat<float> yArma = carma::arr_to_row<float>(ycopy, true);
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 

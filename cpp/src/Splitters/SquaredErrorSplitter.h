@@ -4,7 +4,7 @@
 class SquaredErrorSplitter : public Splitter<float> {
 public:
   ~SquaredErrorSplitter() = default;
-  SquaredErrorSplitter(arma::frowvec &X, arma::Row<float> &y)
+  SquaredErrorSplitter(arma::frowvec &X, arma::Mat<float> &y)
       : Splitter(X, y, 2) {}
   SplitCandidate makeRoot() override;
   float predict(const SplitCandidate &split) override;
@@ -16,6 +16,6 @@ public:
 
 protected:
   void moveSample(std::vector<float> &rightStats, std::vector<float> &leftStats,
-                  float v) override;
+                  size_t idx) override;
 
 };

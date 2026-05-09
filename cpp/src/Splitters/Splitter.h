@@ -1,5 +1,6 @@
 #pragma once
 #include "../Domain/SplitCandidate.h"
+
 #include <armadillo>
 #include <array>
 #include <unordered_map>
@@ -22,11 +23,11 @@ public:
   std::vector<SplitCandidate> makeChildren(const SplitCandidate &parent);
 
 protected:
-  const arma::Row<T> &y;
+  const arma::Mat<T> &y;
   const arma::frowvec &X;
   size_t statsSize;
 
-  Splitter(arma::frowvec &X, arma::Row<T> &y, size_t statsSize)
+  Splitter(arma::frowvec &X, arma::Mat<T> &y, size_t statsSize)
       : X(X), y(y), statsSize(statsSize) {}
 
   virtual const std::vector<T> &getStats(const SplitCandidate &split);
@@ -39,7 +40,7 @@ protected:
       splitStats;
 
   virtual void moveSample(std::vector<T> &rightStats, std::vector<T> &leftStats,
-                          T v) = 0;
+                          size_t idx) = 0;
 };
 
 #include "Splitter.tpp"
