@@ -21,6 +21,6 @@ wheel.packages = ["sgtlearn"]
 cmake.args = ["-DSGTLEARN_BUILD_TESTS=OFF"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/python"]
+testpaths = ["tests"]
 
 

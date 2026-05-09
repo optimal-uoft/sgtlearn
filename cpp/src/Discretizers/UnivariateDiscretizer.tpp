@@ -1,4 +1,4 @@
-#include "TreeBuilder.h"
+#include "../algorithms/TreeBuilder.h"
 template <typename T>
 void UnivariateDiscretizer<T>::processLeaves(
     const std::map<std::tuple<size_t, size_t>, SplitCandidate> &leaves,

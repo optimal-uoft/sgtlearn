@@ -30,7 +30,7 @@ endif ()
 
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
-        src/frontiers.h
+        src/algorithms/frontiers.h
         include/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
         src/Splitters/Splitter.h
@@ -38,7 +38,8 @@ add_library(sgtlearn_core STATIC
         src/Splitters/ClassificationSplitter.h
         src/Splitters/EntropySplitter.h
         src/Splitters/GiniSplitter.h
-        src/TreeBuilder.h
+        src/algorithms/TreeBuilder.h
+        src/algorithms/TreeBuilder.tpp
         src/Discretizers/UnivariateDiscretizer.h
         src/Discretizers/UnivariateDiscretizer.tpp
         src/Discretizers/UnivariateClassificationDiscretizer.cpp
@@ -46,6 +47,10 @@ add_library(sgtlearn_core STATIC
         src/Splitters/SquaredErrorSplitter.cpp
         src/Discretizers/UnivariateRegressionDiscretizer.cpp
         include/UnivariateRegressionDiscretizer.h
+        src/algorithms/WaveletTreeMAE.h
+        src/algorithms/WaveletTreeMAE.cpp
+        src/Splitters/AbsoluteErrorSplitter.h
+        src/Splitters/AbsoluteErrorSplitter.cpp
 )
 
 # PUBLIC headers: accessible to anyone who links to this library
@@ -103,34 +108,32 @@ endforeach ()
 
 # endregion
 
-# # region --- 3. Unit Tests (Catch2) ---
-# if (SGTLEARN_BUILD_TESTS)
-#     FetchContent_Declare(Catch2
-#             GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-#             GIT_TAG v3.5.2
-#     )
-#     FetchContent_MakeAvailable(Catch2)
+# region --- 3. Unit Tests (Catch2) ---
+if (SGTLEARN_BUILD_TESTS)
+    FetchContent_Declare(Catch2
+            GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+            GIT_TAG v3.5.2
+    )
+    FetchContent_MakeAvailable(Catch2)
 
-#     add_executable(cpp_tests)
+    add_executable(cpp_tests tests/test_wavelet_tree_mae.cpp)
 
-#     target_include_directories(cpp_tests PRIVATE
-#         #     ${MLPACK_INCLUDE_DIRS}
-#             ${ARMADILLO_INCLUDE_DIRS}
-#     )
+    target_include_directories(cpp_tests PRIVATE
+            ${ARMADILLO_INCLUDE_DIRS}
+    )
 
-#     target_link_libraries(cpp_tests PRIVATE
-#             sgtlearn_core
-#             Catch2::Catch2WithMain
-#         #     mlpack::mlpack
-#             ${ARMADILLO_LIBRARIES}
-#     )
+    target_link_libraries(cpp_tests PRIVATE
+            sgtlearn_core
+            Catch2::Catch2WithMain
+            ${ARMADILLO_LIBRARIES}
+    )
 
-#     list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
-#     include(Catch)
-#     include(CTest)
-#     enable_testing()
-#     catch_discover_tests(cpp_tests)
+    list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+    include(Catch)
+    include(CTest)
+    enable_testing()
+    catch_discover_tests(cpp_tests)
 
-# endif ()
+endif ()
 
-# # endregion
+# endregion

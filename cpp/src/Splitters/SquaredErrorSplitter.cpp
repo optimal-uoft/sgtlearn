@@ -12,7 +12,7 @@ SplitCandidate SquaredErrorSplitter::makeRoot() {
   return {.height = 0,
           .start = 0,
           .end = y.n_cols - 1,
-          .score = score(stats, y.n_cols),
+          .score = score(stats, 0, y.n_cols - 1),
           .routingThreshold = std::numeric_limits<double>::infinity()};
 }
 
@@ -25,7 +25,9 @@ float SquaredErrorSplitter::predict(const SplitCandidate &split) {
   return getStats(split)[0] / static_cast<float>(N);
 }
 
-double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t N) {
+double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t l,
+                                   size_t r) {
+  size_t N = r - l + 1;
   if (N == 0)
     return 0;
   double ySum = stats[0], ySqrdSum = stats[1];
@@ -34,7 +36,6 @@ double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t N) {
 
   return ySqrdSum - 2 * mean * ySum + N * mean * mean;
 }
-
 void SquaredErrorSplitter::moveSample(std::vector<float> &rightStats,
                                       std::vector<float> &leftStats, float v) {
   rightStats[0] -= v;

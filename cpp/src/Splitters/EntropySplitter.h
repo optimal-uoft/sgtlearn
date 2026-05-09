@@ -7,7 +7,8 @@ public:
   EntropySplitter(arma::frowvec &X, arma::Row<size_t> &y, size_t numClasses)
       : ClassificationSplitter(X, y, numClasses) {}
 
-  double score(const std::vector<size_t> &stats, size_t N) override {
+  double score(const std::vector<size_t> &stats, size_t l, size_t r) override {
+    size_t N = r - l + 1;
     if (N == 0)
       return 0;
     double ent = 0;
@@ -21,7 +22,7 @@ public:
   }
 
   double score(const SplitCandidate &split) override {
-    return score(getStats(split), split.end - split.start + 1);
+    return score(getStats(split), split.start, split.end);
   }
 
   ~EntropySplitter() override = default;

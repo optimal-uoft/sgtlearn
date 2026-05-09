@@ -20,7 +20,7 @@ public:
     return {.height = 0,
             .start = 0,
             .end = y.n_cols - 1,
-            .score = score(stats, y.n_cols),
+            .score = score(stats, 0, y.n_cols - 1),
             .routingThreshold = std::numeric_limits<double>::infinity()};
   }
   ~ClassificationSplitter() override = default;
@@ -31,7 +31,8 @@ public:
     auto it = std::max_element(v.begin(), v.end());
 
     return std::distance(v.begin(), it);
-  };
+  }
+
 
 protected:
   void moveSample(std::vector<size_t> &rightStats,

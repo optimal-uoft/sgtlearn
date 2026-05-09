@@ -72,8 +72,8 @@ bool Splitter<T>::findBestSplit(SplitCandidate &split, size_t minLeafSize) {
     if (currValue <= prevValue + static_cast<float>(1e-7))
       continue;
 
-    const double leftScore = score(leftStats, Nl);
-    const double rightScore = score(rightStats, Nr);
+    const double leftScore = score(leftStats, split.start, i - 1);
+    const double rightScore = score(rightStats, i, split.end);
     const double proxyImprovement = -static_cast<double>(Nr) * rightScore -
                                     static_cast<double>(Nl) * leftScore;
     if (proxyImprovement <= bestProxyImprovement)

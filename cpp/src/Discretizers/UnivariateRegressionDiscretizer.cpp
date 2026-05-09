@@ -1,5 +1,5 @@
 #include "UnivariateRegressionDiscretizer.h"
-
+#include "Splitters/AbsoluteErrorSplitter.h"
 
 template <TRegressionSplitter Tsplitter>
 void UnivariateRegressionDiscretizer<Tsplitter>::Train(
@@ -23,3 +23,4 @@ void UnivariateRegressionDiscretizer<Tsplitter>::Train(
 }
 
 template class UnivariateRegressionDiscretizer<SquaredErrorSplitter>;
+template class UnivariateRegressionDiscretizer<AbsoluteErrorSplitter>;

@@ -10,6 +10,7 @@
 #include <string>
 #include <variant>
 
+#include "Splitters/AbsoluteErrorSplitter.h"
 #include "UnivariateClassificationDiscretizer.h"
 #include "UnivariateRegressionDiscretizer.h"
 
@@ -30,6 +31,7 @@ std::string normalize_criterion(std::string s) {
 using GiniDisc = UnivariateClassificationDiscretizer<GiniSplitter>;
 using EntropyDisc = UnivariateClassificationDiscretizer<EntropySplitter>;
 using SqErrRegDisc = UnivariateRegressionDiscretizer<SquaredErrorSplitter>;
+using AbsErrRegDisc = UnivariateRegressionDiscretizer<AbsoluteErrorSplitter>;
 
 /** Armadillo Row is 1×N; NumPy indexing expects a 1-D array of length N. */
 py::array_t<size_t> row_to_numpy_1d(const arma::Row<size_t> &row) {
@@ -103,19 +105,21 @@ public:
   }
 
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
-             const py::array_t<size_t> &y, size_t numClasses, size_t minLeafSize,
-             double minGainSplit, size_t maxDepth, size_t maxLeafNodes) {
+             const py::array_t<size_t> &y, size_t numClasses,
+             size_t minLeafSize, double minGainSplit, size_t maxDepth,
+             size_t maxLeafNodes) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
           "X must be a 2D numpy array with shape (N_samples, N_features)");
-    const arma::fmat xArma = arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
+    const arma::fmat xArma =
+        arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
 
     py::array_t<size_t> fcopy = py::array_t<size_t>::ensure(features);
     if (fcopy.ndim() != 1)
       throw std::invalid_argument("features must be a 1D numpy array");
-    const arma::uvec featuresArma = arma::conv_to<arma::uvec>::from(
-        carma::arr_to_col<size_t>(fcopy, true));
+    const arma::uvec featuresArma =
+        arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
 
     py::array_t<size_t> ycopy = py::array_t<size_t>::ensure(y);
     if (ycopy.ndim() != 1)
@@ -138,7 +142,8 @@ public:
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
           "X must be a 2D numpy array with shape (N_samples, N_features)");
-    const arma::fmat xArma = arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
+    const arma::fmat xArma =
+        arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
     arma::Row<size_t> bins;
     std::visit([&](auto &d) { d.transform(xArma, bins); }, impl_);
     return row_to_numpy_1d(bins);
@@ -174,29 +179,36 @@ public:
 };
 
 class UnivariateRegressionDiscretizerPy {
-  SqErrRegDisc impl_;
+  std::variant<SqErrRegDisc, AbsErrRegDisc> impl_;
 
 public:
   explicit UnivariateRegressionDiscretizerPy(std::string criterion) {
-    criterion = normalize_regression_criterion(std::move(criterion));
-    validate_regression_criterion(criterion);
-    (void)criterion;
+    criterion = normalize_criterion(std::move(criterion));
+    if (criterion == "squared_error" || criterion == "mse")
+      impl_.emplace<0>();
+    else if (criterion == "absolute_error" || criterion == "mae")
+      impl_.emplace<1>();
+    else
+      throw std::invalid_argument(
+          "criterion must be 'squared_error' or 'absolute_error' (got '" +
+          criterion + "')");
   }
 
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
-             const py::array_t<float> &y, size_t minLeafSize, double minGainSplit,
-             size_t maxDepth, size_t maxLeafNodes) {
+             const py::array_t<float> &y, size_t minLeafSize,
+             double minGainSplit, size_t maxDepth, size_t maxLeafNodes) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
           "X must be a 2D numpy array with shape (N_samples, N_features)");
-    const arma::fmat xArma = arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
+    const arma::fmat xArma =
+        arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
 
     py::array_t<size_t> fcopy = py::array_t<size_t>::ensure(features);
     if (fcopy.ndim() != 1)
       throw std::invalid_argument("features must be a 1D numpy array");
-    const arma::uvec featuresArma = arma::conv_to<arma::uvec>::from(
-        carma::arr_to_col<size_t>(fcopy, true));
+    const arma::uvec featuresArma =
+        arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
 
     py::array_t<float> ycopy = py::array_t<float>::ensure(y);
     if (ycopy.ndim() != 1)
@@ -206,8 +218,12 @@ public:
       throw std::invalid_argument("y length must match X.shape[0]");
 
     arma::uvec featuresMut = featuresArma;
-    impl_.Train(xArma, featuresMut, yArma, minLeafSize, minGainSplit, maxDepth,
-                maxLeafNodes);
+    std::visit(
+        [&](auto &d) {
+          d.Train(xArma, featuresMut, yArma, minLeafSize, minGainSplit, maxDepth,
+                  maxLeafNodes);
+        },
+        impl_);
   }
 
   py::array_t<size_t> transform(const py::array_t<float> &X) {
@@ -215,60 +231,72 @@ public:
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
           "X must be a 2D numpy array with shape (N_samples, N_features)");
-    const arma::fmat xArma = arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
+    const arma::fmat xArma =
+        arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
     arma::Row<size_t> bins;
-    impl_.transform(xArma, bins);
+    std::visit([&](auto &d) { d.transform(xArma, bins); }, impl_);
     return row_to_numpy_1d(bins);
   }
 
   py::list getInSampleDiscretizations() {
-    return VectorOfVectorsToNumpyList(impl_.getInSampleDiscretizations());
+    return std::visit(
+        [](auto &d) {
+          return VectorOfVectorsToNumpyList(d.getInSampleDiscretizations());
+        },
+        impl_);
   }
 
   py::array_t<float> getBinPredictions() {
-    return vector_float_to_numpy_1d(impl_.getBinPredictions());
+    return std::visit(
+        [](auto &d) {
+          return vector_float_to_numpy_1d(d.getBinPredictions());
+        },
+        impl_);
   }
 
-  size_t getNumLeaves() const { return impl_.numLeaves; }
+  size_t getNumLeaves() const {
+    return std::visit([](const auto &d) { return d.numLeaves; }, impl_);
+  }
 
-  void setNumLeaves(size_t v) { impl_.numLeaves = v; }
+  void setNumLeaves(size_t v) {
+    std::visit([v](auto &d) { d.numLeaves = v; }, impl_);
+  }
 };
 
 } // namespace
 
 PYBIND11_MODULE(Discretizers, m) {
-  py::class_<UnivariateClassificationDiscretizerPy>(m,
-                                                      "UnivariateClassificationDiscretizer")
+  py::class_<UnivariateClassificationDiscretizerPy>(
+      m, "UnivariateClassificationDiscretizer")
       .def(py::init<std::string>(), py::arg("criterion") = "gini")
-      .def(
-          "Train",
-          &UnivariateClassificationDiscretizerPy::Train, py::arg("X"),
-          py::arg("features"), py::arg("y"), py::arg("numClasses"),
-          py::arg("minLeafSize") = 1, py::arg("minGainSplit") = 1e-7,
-          py::arg("maxDepth") = 0, py::arg("maxLeafNodes") = 0)
+      .def("Train", &UnivariateClassificationDiscretizerPy::Train, py::arg("X"),
+           py::arg("features"), py::arg("y"), py::arg("numClasses"),
+           py::arg("minLeafSize") = 1, py::arg("minGainSplit") = 1e-7,
+           py::arg("maxDepth") = 0, py::arg("maxLeafNodes") = 0)
       .def("transform", &UnivariateClassificationDiscretizerPy::transform,
            py::arg("X"))
       .def("getInSampleDiscretizations",
            &UnivariateClassificationDiscretizerPy::getInSampleDiscretizations)
       .def("getBinPredictions",
            &UnivariateClassificationDiscretizerPy::getBinPredictions)
-      .def_property("numLeaves", &UnivariateClassificationDiscretizerPy::getNumLeaves,
+      .def_property("numLeaves",
+                    &UnivariateClassificationDiscretizerPy::getNumLeaves,
                     &UnivariateClassificationDiscretizerPy::setNumLeaves);
 
-  py::class_<UnivariateRegressionDiscretizerPy>(m, "UnivariateRegressionDiscretizer")
+  py::class_<UnivariateRegressionDiscretizerPy>(
+      m, "UnivariateRegressionDiscretizer")
       .def(py::init<std::string>(), py::arg("criterion") = "squared_error")
-      .def(
-          "Train",
-          &UnivariateRegressionDiscretizerPy::Train, py::arg("X"),
-          py::arg("features"), py::arg("y"), py::arg("minLeafSize") = 1,
-          py::arg("minGainSplit") = 1e-7, py::arg("maxDepth") = 0,
-          py::arg("maxLeafNodes") = 0)
+      .def("Train", &UnivariateRegressionDiscretizerPy::Train, py::arg("X"),
+           py::arg("features"), py::arg("y"), py::arg("minLeafSize") = 1,
+           py::arg("minGainSplit") = 1e-7, py::arg("maxDepth") = 0,
+           py::arg("maxLeafNodes") = 0)
       .def("transform", &UnivariateRegressionDiscretizerPy::transform,
            py::arg("X"))
       .def("getInSampleDiscretizations",
            &UnivariateRegressionDiscretizerPy::getInSampleDiscretizations)
       .def("getBinPredictions",
            &UnivariateRegressionDiscretizerPy::getBinPredictions)
-      .def_property("numLeaves", &UnivariateRegressionDiscretizerPy::getNumLeaves,
+      .def_property("numLeaves",
+                    &UnivariateRegressionDiscretizerPy::getNumLeaves,
                     &UnivariateRegressionDiscretizerPy::setNumLeaves);
 }

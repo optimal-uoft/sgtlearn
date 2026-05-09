@@ -13,11 +13,11 @@ public:
 
   virtual T predict(const SplitCandidate &split) = 0;
 
-  virtual double score(const std::vector<T> &stats, size_t N) = 0;
+  virtual double score(const std::vector<T> &stats, size_t l, size_t r) = 0;
 
   virtual double score(const SplitCandidate &split) = 0;
 
-  bool findBestSplit(SplitCandidate &split, size_t minLeafSize);
+  virtual bool findBestSplit(SplitCandidate &split, size_t minLeafSize);
 
   std::vector<SplitCandidate> makeChildren(const SplitCandidate &parent);
 
@@ -29,7 +29,7 @@ protected:
   Splitter(arma::frowvec &X, arma::Row<T> &y, size_t statsSize)
       : X(X), y(y), statsSize(statsSize) {}
 
-  const std::vector<T> &getStats(const SplitCandidate &split);
+  virtual const std::vector<T> &getStats(const SplitCandidate &split);
   std::vector<T> makeEmptyStats();
 
   std::unordered_map<size_t,
