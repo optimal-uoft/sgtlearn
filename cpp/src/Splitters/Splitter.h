@@ -22,6 +22,8 @@ public:
 
   std::vector<SplitCandidate> makeChildren(const SplitCandidate &parent);
 
+  virtual const std::vector<T> &getStats(const SplitCandidate &split);
+
 protected:
   const arma::Mat<T> &y;
   const arma::frowvec &X;
@@ -30,7 +32,6 @@ protected:
   Splitter(arma::frowvec &X, arma::Mat<T> &y, size_t statsSize)
       : X(X), y(y), statsSize(statsSize) {}
 
-  virtual const std::vector<T> &getStats(const SplitCandidate &split);
   std::vector<T> makeEmptyStats();
 
   std::unordered_map<size_t,

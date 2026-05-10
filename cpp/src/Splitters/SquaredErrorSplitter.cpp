@@ -1,4 +1,5 @@
 #include "SquaredErrorSplitter.h"
+#include "Criterion.h"
 
 SplitCandidate SquaredErrorSplitter::makeRoot() {
   auto stats = makeEmptyStats();
@@ -28,14 +29,7 @@ float SquaredErrorSplitter::predict(const SplitCandidate &split) {
 
 double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t l,
                                    size_t r) {
-  size_t N = r - l + 1;
-  if (N == 0)
-    return 0;
-  double ySum = stats[0], ySqrdSum = stats[1];
-
-  double mean = ySum / N;
-
-  return ySqrdSum - 2 * mean * ySum + N * mean * mean;
+  return Criterion::squaredError(stats, r - l + 1);
 }
 void SquaredErrorSplitter::moveSample(std::vector<float> &rightStats,
                                       std::vector<float> &leftStats,

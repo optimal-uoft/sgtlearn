@@ -26,7 +26,7 @@ double GainHessianSplitter::score(const std::vector<float> &stats, size_t l,
   (void)r;
   const double g = static_cast<double>(stats[0]);
   const double h = static_cast<double>(stats[1]);
-  return g / (h + lambda);
+  return g * g / (h + lambda);
 }
 
 void GainHessianSplitter::moveSample(std::vector<float> &rightStats,
