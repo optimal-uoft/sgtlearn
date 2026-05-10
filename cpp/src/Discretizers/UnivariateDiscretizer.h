@@ -44,6 +44,9 @@ public:
 
   std::vector<size_t> &getLeafNumSamples();
 
+  /** Sorted-axis cut points; same ordering as `transform` / inner bins. */
+  const std::vector<double> &getThresholds() const { return thresholds; }
+
   ~UnivariateDiscretizer() = default;
 };
 

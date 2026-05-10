@@ -12,7 +12,9 @@ void UnivariateRegressionDiscretizer<Tsplitter>::Train(
     throw std::invalid_argument("features(0) must be < X.n_rows");
   feature = features(0);
   arma::uvec sortedOrder = arma::sort_index(X.row(feature));
-  arma::Mat<float> sortedY = arma::Mat<float>(y.cols(sortedOrder));
+  arma::Mat<float> sortedY(1, sortedOrder.n_elem);
+  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
+    sortedY(0, i) = y(sortedOrder(i));
   arma::fmat XSorted = X.cols(sortedOrder);
   arma::frowvec sortedX = XSorted.row(feature);
 

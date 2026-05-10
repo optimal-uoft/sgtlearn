@@ -13,18 +13,30 @@
 
 ## Developer Setup
 
-For a standard developer setup, run:
+Use a **project-local virtual environment** (`.venv`) so Python, pytest, and
+scikit-learn stay isolated and reproducible:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -U pip
+pip install -e ".[dev]"
+```
+
+The editable install builds the C++ extensions via scikit-build-core and
+installs the `sgtlearn` package plus native modules into `.venv`.
+
+Optional: run Python tests through Make (uses `.venv/bin/python` when present):
+
+```bash
+make pytest
+```
+
+For a **non-editable** install into the active environment only:
 
 ```bash
 pip install .
-```
-
-That command uses `scikit-build-core` to configure and build the C++ extension modules in `cpp/`, generate `.pyi` stubs, and install the Python package plus compiled artifacts into your environment.
-
-If you also want dev-only Python tooling (for example `pytest`):
-
-```bash
-pip install ".[dev]"
+pip install ".[dev]"   # dev extras (pytest, scikit-learn) only if needed
 ```
 
 ## Build Workflow (scikit-build + CMake)
