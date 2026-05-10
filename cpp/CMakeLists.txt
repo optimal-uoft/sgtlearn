@@ -33,6 +33,8 @@ add_library(sgtlearn_core STATIC
         src/algorithms/frontiers.h
         include/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
+        src/Domain/LearningCriterion.h
+        src/Domain/LearningFactories.h
         src/Splitters/Splitter.h
         src/Splitters/Splitter.tpp
         src/Splitters/ClassificationSplitter.h
@@ -55,6 +57,20 @@ add_library(sgtlearn_core STATIC
         src/Splitters/AbsoluteErrorSplitter.cpp
         src/Splitters/GainHessianSplitter.h
         src/Splitters/GainHessianSplitter.cpp
+        src/Splitters/SplitterFactory.h
+        src/Splitters/SplitterFactory.cpp
+        src/algorithms/CoordinateDescent.h
+        src/BranchAssignmentObjectives/BranchAssignment.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.cpp
+        src/BranchAssignmentObjectives/LeafAggregateProcessor.h
+        src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.h
+        src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.cpp
+        src/BranchAssignmentObjectives/BranchAssignmentVariants.h
+        src/BranchAssignmentObjectives/BranchAssignmentFactory.h
+        src/BranchAssignmentObjectives/BranchAssignmentFactory.cpp
+        src/Criterion.cpp
+        src/Criterion.h
 )
 
 # PUBLIC headers: accessible to anyone who links to this library
@@ -71,6 +87,19 @@ set_target_properties(sgtlearn_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # region --- 2. Python Module (pybind11 + CARMA) ---
 set(PYBIND11_FINDPYTHON ON)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
+
+execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import pybind11_stubgen"
+        RESULT_VARIABLE SGTLEARN_PYBIND11_STUBGEN_RC
+        OUTPUT_QUIET
+        ERROR_QUIET
+)
+if (SGTLEARN_PYBIND11_STUBGEN_RC EQUAL 0)
+    set(SGTLEARN_HAVE_PYBIND11_STUBGEN TRUE)
+else ()
+    set(SGTLEARN_HAVE_PYBIND11_STUBGEN FALSE)
+    message(STATUS "pybind11_stubgen not found; skipping .pyi generation (pip install pybind11-stubgen)")
+endif ()
 
 FetchContent_Declare(pybind11
         GIT_REPOSITORY https://github.com/pybind/pybind11.git
@@ -98,16 +127,18 @@ foreach (BINDING_SRC ${BINDING_SOURCES})
     target_link_libraries(${MODULE_NAME} PRIVATE sgtlearn_core carma::carma)
     install(TARGETS ${MODULE_NAME} DESTINATION .)
 
-    add_custom_command(
-            TARGET ${MODULE_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E env
-            "PYTHONPATH=$<TARGET_FILE_DIR:${MODULE_NAME}>:$ENV{PYTHONPATH}"
-            ${Python3_EXECUTABLE} -m pybind11_stubgen ${MODULE_NAME}
-            -o "$<TARGET_FILE_DIR:${MODULE_NAME}>"
-            COMMENT "Generating python stubs for ${MODULE_NAME}..."
-            VERBATIM
-    )
-    install(FILES "$<TARGET_FILE_DIR:${MODULE_NAME}>/${MODULE_NAME}.pyi" DESTINATION .)
+    if (SGTLEARN_HAVE_PYBIND11_STUBGEN)
+        add_custom_command(
+                TARGET ${MODULE_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E env
+                "PYTHONPATH=$<TARGET_FILE_DIR:${MODULE_NAME}>:$ENV{PYTHONPATH}"
+                ${Python3_EXECUTABLE} -m pybind11_stubgen ${MODULE_NAME}
+                -o "$<TARGET_FILE_DIR:${MODULE_NAME}>"
+                COMMENT "Generating python stubs for ${MODULE_NAME}..."
+                VERBATIM
+        )
+        install(FILES "$<TARGET_FILE_DIR:${MODULE_NAME}>/${MODULE_NAME}.pyi" DESTINATION .)
+    endif ()
 endforeach ()
 
 # endregion
@@ -123,6 +154,7 @@ if (SGTLEARN_BUILD_TESTS)
     add_executable(cpp_tests
             tests/test_wavelet_tree_mae.cpp
             tests/test_splitters.cpp
+            tests/test_branch_assignment.cpp
     )
 
     target_include_directories(cpp_tests PRIVATE

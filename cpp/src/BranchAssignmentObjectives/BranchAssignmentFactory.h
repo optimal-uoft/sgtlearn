@@ -1,0 +1,26 @@
+#pragma once
+
+#include "BranchAssignment.h"
+#include "Domain/LearningCriterion.h"
+
+#include <memory>
+#include <vector>
+
+/** Entropy or Gini only. Throws if criterion is not classification. */
+std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
+    LearningCriterion criterion, std::vector<size_t> &assignments,
+    size_t numPartitions, std::vector<std::vector<size_t>> &classLeafStats,
+    std::vector<size_t> &sizes, size_t numClasses);
+
+/**
+ * SquaredError, GainHessian, or AbsoluteError only.
+ *
+ * For SquaredError / GainHessian, @p leafFloatData is per-leaf aggregated
+ * statistics. For AbsoluteError, it is raw y samples per leaf.
+ *
+ * @param gainHessianLambda used only for GainHessian.
+ */
+std::unique_ptr<BranchAssignment> makeRegressionBranchAssignment(
+    LearningCriterion criterion, std::vector<size_t> &assignments,
+    size_t numPartitions, std::vector<std::vector<float>> &leafFloatData,
+    std::vector<size_t> &sizes, double gainHessianLambda = 1.0);
