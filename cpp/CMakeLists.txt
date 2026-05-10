@@ -33,6 +33,8 @@ add_library(sgtlearn_core STATIC
         src/algorithms/frontiers.h
         include/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
+        src/Domain/LearningCriterion.h
+        src/Domain/LearningFactories.h
         src/Splitters/Splitter.h
         src/Splitters/Splitter.tpp
         src/Splitters/ClassificationSplitter.h
@@ -55,11 +57,18 @@ add_library(sgtlearn_core STATIC
         src/Splitters/AbsoluteErrorSplitter.cpp
         src/Splitters/GainHessianSplitter.h
         src/Splitters/GainHessianSplitter.cpp
+        src/Splitters/SplitterFactory.h
+        src/Splitters/SplitterFactory.cpp
         src/algorithms/CoordinateDescent.h
         src/BranchAssignmentObjectives/BranchAssignment.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.cpp
+        src/BranchAssignmentObjectives/LeafAggregateProcessor.h
         src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.h
         src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.cpp
         src/BranchAssignmentObjectives/BranchAssignmentVariants.h
+        src/BranchAssignmentObjectives/BranchAssignmentFactory.h
+        src/BranchAssignmentObjectives/BranchAssignmentFactory.cpp
         src/Criterion.cpp
         src/Criterion.h
 )
@@ -145,6 +154,7 @@ if (SGTLEARN_BUILD_TESTS)
     add_executable(cpp_tests
             tests/test_wavelet_tree_mae.cpp
             tests/test_splitters.cpp
+            tests/test_branch_assignment.cpp
     )
 
     target_include_directories(cpp_tests PRIVATE

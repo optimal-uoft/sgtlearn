@@ -1,19 +1,24 @@
 #include "LeafAggregationBranchAssignment.h"
-#include "Criterion.h"
 
 #include <stdexcept>
 
-template <typename T, auto CriterionFn>
-  requires CriterionFunction<decltype(CriterionFn), T>
-LeafAggregationBranchAssignment<T, CriterionFn>::LeafAggregationBranchAssignment(
+namespace leaf_aggregate {
+
+template <typename T>
+LeafAggregationBranchAssignment<T>::LeafAggregationBranchAssignment(
     std::vector<size_t> &assignments, size_t numPartitions,
     std::vector<std::vector<T>> &stats, std::vector<size_t> &sizes,
-    size_t statsDim)
+    size_t statsDim, std::unique_ptr<ILeafAggregateProcessor<T>> processor)
     : BranchAssignment(assignments, numPartitions), stats(stats), sizes(sizes),
-      statsDim(statsDim) {
+      statsDim(statsDim), processor_(std::move(processor)) {
 
   if (assignments.size() != stats.size() || stats.size() != sizes.size())
     throw std::runtime_error("bin statistics must all be the same length");
+
+  for (size_t b = 0; b < assignments.size(); ++b) {
+    if (assignments[b] >= numPartitions)
+      throw std::runtime_error("assignments[b] must be a valid partition index");
+  }
 
   partitionStats =
       std::vector(numPartitions, std::vector<T>(statsDim, T{}));
@@ -38,9 +43,8 @@ LeafAggregationBranchAssignment<T, CriterionFn>::LeafAggregationBranchAssignment
   }
 }
 
-template <typename T, auto CriterionFn>
-  requires CriterionFunction<decltype(CriterionFn), T>
-double LeafAggregationBranchAssignment<T, CriterionFn>::objective() {
+template <typename T>
+double LeafAggregationBranchAssignment<T>::objective() {
   if (!allLeavesAssigned)
     throw std::runtime_error(
         "Cannot compute objective if any leaves have been unassigned");
@@ -48,10 +52,8 @@ double LeafAggregationBranchAssignment<T, CriterionFn>::objective() {
   return weightedSumLoss / static_cast<double>(sumNumberOfSamples);
 }
 
-template <typename T, auto CriterionFn>
-  requires CriterionFunction<decltype(CriterionFn), T>
-void LeafAggregationBranchAssignment<T, CriterionFn>::addLeaf(size_t leaf,
-                                                               size_t partition) {
+template <typename T>
+void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) {
   if (allLeavesAssigned)
     throw std::runtime_error("Cannot assign a leaf if none ever left");
 
@@ -65,19 +67,22 @@ void LeafAggregationBranchAssignment<T, CriterionFn>::addLeaf(size_t leaf,
 
   partitionLoss[partition] = computePartitionLoss(partition);
   weightedSumLoss += static_cast<double>(partitionNumSamples[partition]) *
-                      partitionLoss[partition];
+                     partitionLoss[partition];
 
+  assignments[leaf] = partition;
   allLeavesAssigned = true;
 }
 
-template <typename T, auto CriterionFn>
-  requires CriterionFunction<decltype(CriterionFn), T>
-void LeafAggregationBranchAssignment<T, CriterionFn>::removeLeaf(size_t leaf) {
+template <typename T>
+void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
   if (!allLeavesAssigned)
     throw std::runtime_error(
         "More than one leaf cannot be removed from the objective");
 
   const size_t partition = assignments[leaf];
+  if (partition >= numPartitions)
+    throw std::runtime_error(
+        "removeLeaf: leaf is not assigned to a valid partition");
 
   weightedSumLoss -= static_cast<double>(partitionNumSamples[partition]) *
                      partitionLoss[partition];
@@ -88,18 +93,18 @@ void LeafAggregationBranchAssignment<T, CriterionFn>::removeLeaf(size_t leaf) {
 
   partitionLoss[partition] = computePartitionLoss(partition);
   weightedSumLoss += static_cast<double>(partitionNumSamples[partition]) *
-                      partitionLoss[partition];
+                     partitionLoss[partition];
 
+  assignments[leaf] = numPartitions;
   allLeavesAssigned = false;
 }
 
-template <typename T, auto CriterionFn>
-  requires CriterionFunction<decltype(CriterionFn), T>
-double LeafAggregationBranchAssignment<T, CriterionFn>::computePartitionLoss(
-    size_t i) {
-  return CriterionFn(partitionStats[i], partitionNumSamples[i]);
+template <typename T>
+double LeafAggregationBranchAssignment<T>::computePartitionLoss(size_t i) {
+  return processor_->compute(partitionStats[i], partitionNumSamples[i]);
 }
 
-template class LeafAggregationBranchAssignment<size_t, &Criterion::entropy>;
-template class LeafAggregationBranchAssignment<size_t, &Criterion::gini>;
-template class LeafAggregationBranchAssignment<float, &Criterion::squaredError>;
+template class LeafAggregationBranchAssignment<size_t>;
+template class LeafAggregationBranchAssignment<float>;
+
+} // namespace leaf_aggregate

@@ -1,5 +1,7 @@
 #include "GainHessianSplitter.h"
 
+#include "Criterion.h"
+
 SplitCandidate GainHessianSplitter::makeRoot() {
   auto stats = makeEmptyStats();
   for (size_t idx = 0; idx < y.n_cols; ++idx) {
@@ -22,11 +24,7 @@ float GainHessianSplitter::predict(const SplitCandidate &split) {
 
 double GainHessianSplitter::score(const std::vector<float> &stats, size_t l,
                                   size_t r) {
-  (void)l;
-  (void)r;
-  const double g = static_cast<double>(stats[0]);
-  const double h = static_cast<double>(stats[1]);
-  return g * g / (h + lambda);
+  return Criterion::gainAndHessian(stats, lambda);
 }
 
 void GainHessianSplitter::moveSample(std::vector<float> &rightStats,

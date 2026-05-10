@@ -112,9 +112,9 @@ TEST_CASE("GainHessianSplitter makeRoot predict score and validates y rows") {
   SplitCandidate root = splitter.makeRoot();
   const double g = 4.0;
   const double h = 6.0;
-  REQUIRE_THAT(root.score, WithinAbs(g / (h + lambda), kEps));
-  REQUIRE_THAT(static_cast<double>(splitter.predict(root)),
-               WithinAbs(g / (h + lambda), kEps));
+  const double expected = g * g / (h + lambda);
+  REQUIRE_THAT(root.score, WithinAbs(expected, kEps));
+  REQUIRE_THAT(static_cast<double>(splitter.predict(root)), WithinAbs(expected, kEps));
 
   arma::Mat<float> y_bad(1, 2);
   y_bad.fill(1.F);

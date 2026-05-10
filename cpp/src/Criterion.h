@@ -14,4 +14,5 @@ double gini(const std::vector<size_t> &classCounts, size_t N);
  */
 double squaredError(const std::vector<float> &yPowerSum, size_t N);
 
+double gainAndHessian(const std::vector<float> &derivatives, double lambda);
 } // namespace Criterion

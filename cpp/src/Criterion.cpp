@@ -35,3 +35,9 @@ double Criterion::squaredError(const std::vector<float> &yPowerSum, size_t N) {
 
   return ySqrdSum - 2 * mean * ySum + N * mean * mean;
 }
+double Criterion::gainAndHessian(const std::vector<float> &derivatives,
+                                 double lambda) {
+  const double g = static_cast<double>(derivatives[0]);
+  const double h = static_cast<double>(derivatives[1]);
+  return g * g / (h + lambda);
+}

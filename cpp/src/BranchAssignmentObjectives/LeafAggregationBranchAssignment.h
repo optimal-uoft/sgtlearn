@@ -1,16 +1,18 @@
 #pragma once
 
 #include "BranchAssignment.h"
-#include <concepts>
+#include "LeafAggregateProcessor.h"
+#include <memory>
 #include <vector>
 
-template <typename Fn, typename T>
-concept CriterionFunction = requires(Fn f, const std::vector<T> &v, size_t n) {
-  { f(v, n) } -> std::convertible_to<double>;
-};
+namespace leaf_aggregate {
 
-template <typename T, auto CriterionFn>
-  requires CriterionFunction<decltype(CriterionFn), T>
+/**
+ * Coordinate-descent objective for assigning histogram leaves to partitions.
+ *
+ * @tparam T bin statistic scalar type (e.g. size_t for class counts, float for gradients).
+ */
+template <typename T>
 class LeafAggregationBranchAssignment : public BranchAssignment {
 
 public:
@@ -19,7 +21,8 @@ public:
   LeafAggregationBranchAssignment(std::vector<size_t> &assignments,
                                   size_t numPartitions,
                                   std::vector<std::vector<T>> &stats,
-                                  std::vector<size_t> &sizes, size_t statsDim);
+                                  std::vector<size_t> &sizes, size_t statsDim,
+                                  std::unique_ptr<ILeafAggregateProcessor<T>> processor);
 
   double objective() override;
 
@@ -40,5 +43,12 @@ protected:
   std::vector<size_t> partitionNumSamples;
   std::vector<double> partitionLoss;
 
+  std::unique_ptr<ILeafAggregateProcessor<T>> processor_;
+
   double computePartitionLoss(size_t i);
 };
+
+extern template class LeafAggregationBranchAssignment<size_t>;
+extern template class LeafAggregationBranchAssignment<float>;
+
+} // namespace leaf_aggregate
