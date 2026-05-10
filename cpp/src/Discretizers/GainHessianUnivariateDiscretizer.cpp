@@ -1,3 +1,8 @@
+/**
+ * @file GainHessianUnivariateDiscretizer.cpp
+ * @brief Training implementation delegating to ``GainHessianSplitter``.
+ */
+
 #include "GainHessianUnivariateDiscretizer.h"
 
 #include "Splitters/GainHessianSplitter.h"

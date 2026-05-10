@@ -1,26 +1,18 @@
 #pragma once
 
+/**
+ * @file ShapeBranchingFit.h
+ * @brief Entry point: score every candidate routing feature via discretizer + coordinate descent.
+ */
+
 #include "Domain/LearningCriterion.h"
+#include "algorithms/ShapeBranchingTypes.h"
+#include "algorithms/ShapeGeneralizedTreeParams.h"
 
 #include <armadillo>
 #include <cstddef>
 #include <optional>
 #include <vector>
-
-struct TreeBuildingParams;
-struct CoordinateDescentParams;
-
-/**
- * Output of the inner "branching" step (Python `BranchingTree` / construct_mapping
- * for the univariate case): chosen axis, thresholds, and bin -> child partition.
- */
-struct ShapeBranchingResult {
-  size_t featureIndex = 0;
-  std::vector<float> innerThresholds;
-  std::vector<size_t> binToPartition;
-  /** parentImpurity - weightedChildImpurity */
-  double impurityDecrease = 0.0;
-};
 
 /**
  * Try all candidate features: discretizer + coordinate descent per feature;

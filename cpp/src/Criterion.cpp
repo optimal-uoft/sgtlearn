@@ -1,3 +1,8 @@
+/**
+ * @file Criterion.cpp
+ * @brief Definitions of entropy, Gini, MSE, and gain/hessian criterion helpers.
+ */
+
 #include "Criterion.h"
 
 #include <cmath>

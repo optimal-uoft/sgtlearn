@@ -1,4 +1,10 @@
 #pragma once
+
+/**
+ * @file SquaredErrorSplitter.h
+ * @brief Regression splitter minimizing MSE via per-interval sums of ``y`` and ``y^2``.
+ */
+
 #include "Splitter.h"
 
 class SquaredErrorSplitter : public Splitter<float> {

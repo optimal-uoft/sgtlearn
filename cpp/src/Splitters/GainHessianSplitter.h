@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file GainHessianSplitter.h
+ * @brief Gradient-boosting style splitter using first/second moment stats and ``Criterion::gainAndHessian``.
+ */
+
 #include "Splitter.h"
 
 class GainHessianSplitter : public Splitter<float> {

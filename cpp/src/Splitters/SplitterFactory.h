@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file SplitterFactory.h
+ * @brief Construct a ``Splitter`` implementation from ``LearningCriterion`` and data views.
+ */
+
 #include "ClassificationSplitter.h"
 #include "Splitter.h"
 #include "Domain/LearningCriterion.h"

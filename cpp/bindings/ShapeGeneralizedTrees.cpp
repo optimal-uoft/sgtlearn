@@ -1,9 +1,6 @@
 /**
- * Python bindings for the Shape-Generalized Tree family.
- *
- * Module: ShapeGeneralizedTrees
- * Classes:
- *   - ClassificationShapeGeneralizedTree
+ * @file ShapeGeneralizedTrees.cpp
+ * @brief pybind11 module ``ShapeGeneralizedTrees`` exposing ``ClassificationShapeGeneralizedTree``.
  *
  * Inputs follow the sklearn convention (X is (n_samples, n_features),
  * C-contiguous). The `_arma_bridge.h` helper turns those into Armadillo
@@ -13,7 +10,7 @@
 #include "_arma_bridge.h"
 
 #include "Domain/LearningCriterion.h"
-#include "algorithms/ClassificationShapeGeneralizedTree.h"
+#include "Estimators/ClassificationShapeGeneralizedTree.h"
 
 #include <algorithm>
 #include <armadillo>

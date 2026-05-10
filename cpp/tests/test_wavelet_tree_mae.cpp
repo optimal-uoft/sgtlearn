@@ -1,3 +1,8 @@
+/**
+ * @file test_wavelet_tree_mae.cpp
+ * @brief Catch2 tests for wavelet-tree median and MAE aggregates.
+ */
+
 #include <algorithms/WaveletTreeMAE.h>
 
 #include <catch2/catch_test_macros.hpp>

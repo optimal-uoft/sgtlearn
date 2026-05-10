@@ -1,10 +1,18 @@
 #pragma once
+
+/**
+ * @file frontiers.h
+ * @brief Frontier containers for tree expansion: LIFO stack (depth-first) or best-first max-heap over ``T``.
+ */
+
 #include <concepts>
 #include <queue>
 #include <stack>
 #include <vector> // Required for priority_queue's default container
 
 namespace frontiers {
+
+/** Polymorphic frontier for ``TreeBuilder`` (push / pop / peek). */
 template <typename T> class IFrontier {
 public:
   virtual ~IFrontier() = default;

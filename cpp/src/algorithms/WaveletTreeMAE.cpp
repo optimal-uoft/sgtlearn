@@ -1,3 +1,8 @@
+/**
+ * @file WaveletTreeMAE.cpp
+ * @brief Wavelet tree construction and range median / MAE utilities.
+ */
+
 #include <algorithms/WaveletTreeMAE.h>
 
 #include <algorithm>

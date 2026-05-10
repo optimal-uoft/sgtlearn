@@ -1,3 +1,8 @@
+/**
+ * @file UnivariateDiscretizer.tpp
+ * @brief Template implementation for ``UnivariateDiscretizer`` training and ``transform``.
+ */
+
 #include "../algorithms/TreeBuilder.h"
 
 template <typename T>

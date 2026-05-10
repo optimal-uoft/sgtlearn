@@ -1,3 +1,8 @@
+/**
+ * @file UnivariateRegressionDiscretizer.cpp
+ * @brief Explicit template instantiations for squared-error and MAE regression discretizers.
+ */
+
 #include "UnivariateRegressionDiscretizer.h"
 #include "Splitters/AbsoluteErrorSplitter.h"
 

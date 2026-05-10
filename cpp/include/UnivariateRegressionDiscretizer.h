@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file UnivariateRegressionDiscretizer.h
+ * @brief One-feature regression discretizer (MSE / MAE / related splitters) producing piecewise-constant bin predictions.
+ */
+
 #include "Discretizers/UnivariateDiscretizer.h"
 #include "Splitters/Splitter.h"
 #include "Splitters/SquaredErrorSplitter.h"
@@ -16,6 +21,7 @@ class UnivariateRegressionDiscretizer : public UnivariateDiscretizer<float> {
 public:
   ~UnivariateRegressionDiscretizer() = default;
 
+  /** Fit inner regression tree on selected feature rows of ``X`` with targets ``y``. */
   void Train(const arma::fmat &X, arma::uvec &features,
              const arma::Row<float> &y, size_t minLeafSize = 1,
              double minGainSplit = 1e-7, size_t maxDepth = 0,

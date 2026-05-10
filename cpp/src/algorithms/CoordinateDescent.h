@@ -1,5 +1,10 @@
-
 #pragma once
+
+/**
+ * @file CoordinateDescent.h
+ * @brief Greedy coordinate updates that reassign inner-tree bins to partitions to improve ``BranchAssignment::objective``.
+ */
+
 #include "BranchAssignmentObjectives/BranchAssignmentVariants.h"
 #include <algorithm>
 #include <armadillo>
@@ -8,14 +13,14 @@
 #include <vector>
 
 /**
+ * Shuffle bins each outer iteration and, for each bin, try all partition moves that improve the objective.
  *
- * @param numPartitions number of partitions to try to assign bins to
- * @param assignmentObjective live objective; assignments are updated in place
- * @param maxIters number of permutations to attempt
- * @param patience number of permutations to try without seeing improvements
- * before breaking
- * @param seed
- * @return the final weighted average loss (same as assignmentObjective.objective())
+ * @param numPartitions number of child partitions (fan-out).
+ * @param assignmentObjective live objective; ``assignments`` updated in place.
+ * @param maxIters outer shuffle rounds.
+ * @param patience stop after this many rounds without improvement.
+ * @param seed RNG for shuffling bin order.
+ * @return final ``assignmentObjective.objective()`` after the last accepted move.
  */
 inline double coordinateDescent(size_t numPartitions,
                                 BranchAssignment &assignmentObjective,

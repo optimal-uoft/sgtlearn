@@ -1,3 +1,8 @@
+/**
+ * @file test_branch_assignment.cpp
+ * @brief Catch2 tests for branch-assignment objectives and coordinate descent.
+ */
+
 #include <algorithms/CoordinateDescent.h>
 #include <BranchAssignmentObjectives/BranchAssignmentFactory.h>
 #include <BranchAssignmentObjectives/BranchAssignmentVariants.h>

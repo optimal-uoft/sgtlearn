@@ -1,3 +1,9 @@
+"""Fidelity tests: ``UnivariateRegressionDiscretizer`` vs ``sklearn.tree.DecisionTreeRegressor``.
+
+Compares bin-wise predictions on synthetic univariate data across MSE/MAE-style
+criteria where sklearn support exists.
+"""
+
 import sys
 
 import numpy as np
@@ -58,6 +64,7 @@ def _skip_if_sklearn_mae_best_first_segfault(max_leaf: int, criterion: str) -> N
 def _pred_discrepancy(
     sk: np.ndarray, ud: np.ndarray, *, use_mae: bool
 ) -> float:
+    """RMSE or mean absolute error between sklearn and native prediction vectors."""
     d = sk.astype(np.float64) - ud.astype(np.float64)
     if use_mae:
         return float(np.mean(np.abs(d)))
@@ -97,6 +104,7 @@ def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     max_depth: int,
     max_leaf: int,
 ) -> None:
+    """Bin predictions should track ``DecisionTreeRegressor`` within tolerance (MSE or MAE criterion)."""
     if criterion in ("absolute_error", "mae") and not _sklearn_supports_absolute_error():
         pytest.skip("sklearn DecisionTreeRegressor does not support criterion='absolute_error'")
 

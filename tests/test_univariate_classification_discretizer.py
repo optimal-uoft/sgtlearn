@@ -1,3 +1,9 @@
+"""Fidelity tests: ``UnivariateClassificationDiscretizer`` vs ``sklearn.tree.DecisionTreeClassifier``.
+
+Trains both on a single feature axis and asserts identical leaf predictions and
+leaf counts across a grid of hyperparameters (see ``discretizer_grid``).
+"""
+
 import numpy as np
 import pytest
 from itertools import product
@@ -52,6 +58,7 @@ def test_univariate_classification_discretizer_vs_sklearn_fidelity(
     max_depth: int,
     max_leaf: int,
 ) -> None:
+    """Predictions and leaf counts must match sklearn on synthetic univariate data."""
     rng = np.random.default_rng(12345)
     x = rng.random((n_samples, 1), dtype=np.float64)
     # Match sklearn tree builder input path, which internally works with float32.

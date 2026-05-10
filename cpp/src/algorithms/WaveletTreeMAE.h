@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file WaveletTreeMAE.h
+ * @brief Wavelet tree on discrete ranks for fast range medians and MAE contributions (used by ``AbsoluteErrorSplitter``).
+ */
+
 #include <armadillo>
 #include <memory>
 #include <vector>

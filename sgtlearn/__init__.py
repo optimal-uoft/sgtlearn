@@ -1,3 +1,9 @@
+"""Shape-generalized tree estimators (classification) and export/plot stubs.
+
+The heavy lifting lives in optional native extensions (``ShapeGeneralizedTrees``,
+``Discretizers``). Import ``SGTClassifier`` from this package for the sklearn-style API.
+"""
+
 from sgtlearn.base import (
     BaseShapeCART,
     SGTClassifier,

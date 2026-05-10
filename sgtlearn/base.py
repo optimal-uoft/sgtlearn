@@ -26,7 +26,10 @@ def _classification_tree_class():
 
 
 class BaseShapeCART(BaseEstimator):
-    """Shared base for Shape-tree estimators (sklearn-compatible hooks)."""
+    """Shared sklearn ``BaseEstimator`` hook point for shape-generalized trees.
+
+    Subclasses own the native backend handle (``_est``) and validation rules.
+    """
 
     pass
 
@@ -58,6 +61,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
     ) -> None:
+        """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
         self.num_partitions = int(num_partitions)
         self.max_depth = max_depth
@@ -80,11 +84,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.n_features_in_: Optional[int] = None
 
     def _get_random_seed(self) -> int:
+        """Integer seed passed into native coordinate descent (default 42 if unset)."""
         if self.random_state is None:
             return 42
         return int(self.random_state)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTClassifier":
+        """Build the native classifier on ``X`` (encoded labels) and record sklearn metadata."""
         from sklearn.preprocessing import LabelEncoder
         from sklearn.utils.validation import check_X_y
 
@@ -143,6 +149,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict class labels in the original label space (inverse of ``LabelEncoder``)."""
         from sklearn.utils.validation import check_array, check_is_fitted
 
         check_is_fitted(self, attributes=("_est", "_le"))
@@ -157,6 +164,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         return self._le.inverse_transform(raw)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Return shape ``(n_samples, n_classes)`` probabilities aligned with ``classes_`` order."""
         from sklearn.utils.validation import check_array, check_is_fitted
 
         check_is_fitted(self, attributes=("_est", "_le"))
@@ -172,8 +180,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
 
 class SGTRegressor(BaseShapeCART):
+    """Reserved sklearn-style regressor API; native regression tree is not exposed yet."""
+
     def __init__(self) -> None:
         super().__init__()
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTRegressor":
+        """Train is not implemented; use classification estimators for now."""
         raise NotImplementedError("SGTRegressor is not implemented yet")

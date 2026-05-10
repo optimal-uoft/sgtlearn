@@ -1,4 +1,10 @@
 #pragma once
+
+/**
+ * @file Splitter.h
+ * @brief Abstract univariate tree splitter: maintain sufficient statistics on a sorted sample interval and search for threshold cuts.
+ */
+
 #include "../Domain/SplitCandidate.h"
 
 #include <armadillo>
@@ -6,6 +12,9 @@
 #include <unordered_map>
 #include <vector>
 
+/**
+ * @tparam T per-sample statistic type (e.g. ``size_t`` class id, ``float`` target value).
+ */
 template <typename T> class Splitter {
 public:
   virtual ~Splitter() = default;

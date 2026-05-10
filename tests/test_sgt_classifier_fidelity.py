@@ -21,6 +21,7 @@ pytest.importorskip("sklearn")
 
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 def test_sgt_train_accuracy_at_least_sklearn_decision_tree(criterion: str) -> None:
+    """``SGTClassifier`` training accuracy on breast cancer must be >= a tuned ``DecisionTreeClassifier``."""
     X, y = load_breast_cancer(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
 
@@ -55,4 +56,34 @@ def test_sgt_train_accuracy_at_least_sklearn_decision_tree(criterion: str) -> No
     assert sgt_acc >= dt_acc, (
         f"Training accuracy SGT ({sgt_acc:.6f}) should be >= sklearn "
         f"DecisionTree ({dt_acc:.6f}) for criterion={criterion!r}"
+    )
+
+
+@pytest.mark.parametrize("criterion", ["gini", "entropy"])
+def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
+    criterion: str,
+) -> None:
+    """``inner_max_depth=1`` only; all other hyperparameters are estimator defaults.
+
+    Compared against ``DecisionTreeClassifier()`` with the same ``criterion`` so
+    both trainers use their respective default stopping rules and depth limits.
+    """
+    X, y = load_breast_cancer(return_X_y=True)
+    X = np.asarray(X, dtype=np.float32)
+
+    sk_criterion = "entropy" if criterion == "log_loss" else criterion
+
+    sgt = SGTClassifier(criterion=criterion, inner_max_depth=1)
+    sgt.fit(X, y)
+
+    dt = DecisionTreeClassifier(criterion=sk_criterion)
+    dt.fit(X, y)
+
+    np.testing.assert_array_equal(sgt.classes_, dt.classes_)
+    np.testing.assert_array_equal(sgt.predict(X), dt.predict(X))
+    np.testing.assert_allclose(
+        sgt.predict_proba(X),
+        dt.predict_proba(X),
+        rtol=1e-6,
+        atol=1e-6,
     )

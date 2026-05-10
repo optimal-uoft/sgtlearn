@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file BranchAssignmentFactory.h
+ * @brief Factory functions that construct the correct ``BranchAssignment`` for a ``LearningCriterion``.
+ */
+
 #include "BranchAssignment.h"
 #include "Domain/LearningCriterion.h"
 

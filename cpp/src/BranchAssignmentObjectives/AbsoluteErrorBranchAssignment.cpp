@@ -1,3 +1,8 @@
+/**
+ * @file AbsoluteErrorBranchAssignment.cpp
+ * @brief MAE objective with partition medians over raw per-leaf target samples.
+ */
+
 #include "AbsoluteErrorBranchAssignment.h"
 
 #include <algorithm>

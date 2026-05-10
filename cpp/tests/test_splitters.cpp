@@ -1,3 +1,8 @@
+/**
+ * @file test_splitters.cpp
+ * @brief Catch2 tests for univariate splitters (Gini, entropy, MSE, MAE, gain/hessian).
+ */
+
 #include <Splitters/AbsoluteErrorSplitter.h>
 #include <Splitters/EntropySplitter.h>
 #include <Splitters/GainHessianSplitter.h>

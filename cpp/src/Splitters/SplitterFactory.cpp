@@ -1,3 +1,8 @@
+/**
+ * @file SplitterFactory.cpp
+ * @brief ``makeClassificationSplitter`` / ``makeFloatSplitter`` implementations.
+ */
+
 #include "SplitterFactory.h"
 
 #include "AbsoluteErrorSplitter.h"

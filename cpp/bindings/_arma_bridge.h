@@ -1,7 +1,8 @@
 #pragma once
 
 /**
- * Zero-copy(ish) NumPy <-> Armadillo bridge for sgtlearn's pybind11 modules.
+ * @file _arma_bridge.h
+ * @brief Zero-copy(ish) NumPy ↔ Armadillo bridge for sgtlearn's pybind11 modules.
  *
  * Layout convention
  * -----------------

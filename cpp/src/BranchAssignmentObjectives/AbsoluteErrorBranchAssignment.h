@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file AbsoluteErrorBranchAssignment.h
+ * @brief MAE branch assignment using per-leaf raw ``y`` samples and partition medians.
+ */
+
 #include "BranchAssignment.h"
 #include <vector>
 

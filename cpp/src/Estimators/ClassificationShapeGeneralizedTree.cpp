@@ -1,4 +1,9 @@
-#include "algorithms/ClassificationShapeGeneralizedTree.h"
+/**
+ * @file Estimators/ClassificationShapeGeneralizedTree.cpp
+ * @brief Training, child partitioning, and prediction for the classification shape-generalized tree.
+ */
+
+#include "Estimators/ClassificationShapeGeneralizedTree.h"
 
 #include "algorithms/ShapeBranchingFit.h"
 #include "Criterion.h"
@@ -8,6 +13,7 @@
 
 namespace {
 
+/** Majority class index from a histogram (first argmax on ties). */
 size_t leafArgmaxClass(const std::vector<size_t> &counts) {
   if (counts.empty())
     return 0;
