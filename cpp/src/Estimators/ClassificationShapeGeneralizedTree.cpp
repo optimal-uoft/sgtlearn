@@ -49,14 +49,13 @@ ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
         "ClassificationShapeGeneralizedTree: numPartitions must be >= 2");
 }
 
-double ClassificationShapeGeneralizedTree::impurityAtRange(
-    size_t begin, size_t end, const arma::Row<size_t> &y) const {
-  if (end <= begin)
+double ClassificationShapeGeneralizedTree::impurityForSampleIndices(
+    const std::vector<size_t> &indices, const arma::Row<size_t> &y) const {
+  if (indices.empty())
     return 0.0;
   std::vector<size_t> counts(numClasses_, 0);
   size_t n = 0;
-  for (size_t i = begin; i < end; ++i) {
-    const size_t si = sampleOrder_(i);
+  for (size_t si : indices) {
     const size_t lab = y(si);
     counts[lab]++;
     n++;
@@ -67,126 +66,14 @@ double ClassificationShapeGeneralizedTree::impurityAtRange(
 }
 
 void ClassificationShapeGeneralizedTree::fillLeafHistogram(
-    ClassificationShapeGeneralizedNode &node, const arma::Row<size_t> &y) const {
+    ShapeFunctionNode &node, const arma::Row<size_t> &y) const {
   node.leafClassCounts.assign(numClasses_, 0);
-  for (size_t i = node.sampleBegin; i < node.sampleEnd; ++i) {
-    const size_t si = sampleOrder_(i);
+  for (size_t si : node.sampleIndices) {
     const size_t lab = y(si);
     if (lab >= numClasses_)
       throw std::invalid_argument(
           "ClassificationShapeGeneralizedTree::fit: class label out of range");
     node.leafClassCounts[lab]++;
-  }
-}
-
-bool ClassificationShapeGeneralizedTree::findBestSplitNode(
-    ClassificationShapeGeneralizedNode &node, size_t minLeafSize,
-    const arma::fmat &X, const arma::Row<size_t> &y,
-    const arma::uvec &features) {
-  const size_t n = node.sampleEnd - node.sampleBegin;
-  node.score = impurityAtRange(node.sampleBegin, node.sampleEnd, y);
-
-  if (n < 2 * minLeafSize) {
-    node.isLeaf = true;
-    node.informationGain = 0.0;
-    fillLeafHistogram(node, y);
-    return false;
-  }
-
-  const double parentImp = node.score;
-  if (parentImp <= outerTreeBuilder_.eps) {
-    node.isLeaf = true;
-    node.informationGain = 0.0;
-    fillLeafHistogram(node, y);
-    return false;
-  }
-
-  const arma::uvec subIdx =
-      sampleOrder_.subvec(node.sampleBegin, node.sampleEnd - 1);
-  const arma::fmat Xsub = X.cols(subIdx);
-  arma::Row<size_t> ysub(subIdx.n_elem);
-  for (arma::uword i = 0; i < subIdx.n_elem; ++i)
-    ysub(i) = y(subIdx(i));
-
-  const auto branch = fitShapeBranch(
-      criterion_, numClasses_, numPartitions_, innerParams_, cdParams_,
-      outerParams_.branchingPenalty, Xsub, ysub, features, parentImp,
-      outerParams_.minGainSplit, outerParams_.minLeafSize,
-      outerTreeBuilder_.eps);
-
-  if (!branch) {
-    node.isLeaf = true;
-    node.informationGain = 0.0;
-    fillLeafHistogram(node, y);
-    return false;
-  }
-
-  ShapeBranchingResult br = std::move(*branch);
-  node.isLeaf = false;
-  node.routingFeature = br.featureIndex;
-  node.innerThresholds = std::move(br.innerThresholds);
-  node.binToPartition = std::move(br.binToPartition);
-  node.numPartitions = numPartitions_;
-  node.informationGain = br.impurityDecrease;
-  node.leafClassCounts.clear();
-  return true;
-}
-
-std::vector<ClassificationShapeGeneralizedNode>
-ClassificationShapeGeneralizedTree::makeChildrenNode(
-    ClassificationShapeGeneralizedNode &parent, const arma::fmat &X,
-    const arma::Row<size_t> &y) {
-  const size_t beg = parent.sampleBegin;
-  const size_t end = parent.sampleEnd;
-
-  std::vector<std::vector<size_t>> buckets(numPartitions_);
-  for (size_t i = beg; i < end; ++i) {
-    const size_t si = sampleOrder_(i);
-    const float v = X(parent.routingFeature, si);
-    size_t p = parent.routeFeatureValueToPartition(v);
-    if (p >= numPartitions_)
-      p = numPartitions_ - 1;
-    buckets[p].push_back(si);
-  }
-
-  parent.childSampleBounds.resize(numPartitions_ + 1);
-  parent.childSampleBounds[0] = beg;
-  size_t pos = beg;
-  for (size_t p = 0; p < numPartitions_; ++p) {
-    for (const size_t si : buckets[p])
-      sampleOrder_(pos++) = si;
-    parent.childSampleBounds[p + 1] = pos;
-  }
-
-  std::vector<ClassificationShapeGeneralizedNode> children;
-  children.reserve(numPartitions_);
-  for (size_t p = 0; p < numPartitions_; ++p) {
-    ClassificationShapeGeneralizedNode ch;
-    ch.height = parent.height + 1;
-    ch.sampleBegin = parent.childSampleBounds[p];
-    ch.sampleEnd = parent.childSampleBounds[p + 1];
-    ch.numPartitions = numPartitions_;
-    ch.score = impurityAtRange(ch.sampleBegin, ch.sampleEnd, y);
-    ch.isLeaf = true;
-    fillLeafHistogram(ch, y);
-    children.push_back(std::move(ch));
-  }
-  return children;
-}
-
-void ClassificationShapeGeneralizedTree::commitSplitNode(
-    ClassificationShapeGeneralizedNode &parent,
-    std::vector<ClassificationShapeGeneralizedNode> &children) {
-  const size_t pid = parent.nodeIndex;
-  nodes_[pid] = parent;
-  nodes_[pid].isLeaf = false;
-  childIndices_[pid].assign(numPartitions_, 0);
-  for (size_t p = 0; p < numPartitions_; ++p) {
-    const size_t cid = nodes_.size();
-    children[p].nodeIndex = cid;
-    nodes_.push_back(children[p]);
-    childIndices_.push_back({});
-    childIndices_[pid][p] = cid;
   }
 }
 
@@ -213,21 +100,19 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
   }
 
   const size_t n = X.n_cols;
-  sampleOrder_.set_size(n);
-  for (size_t i = 0; i < n; ++i)
-    sampleOrder_(i) = static_cast<arma::uword>(i);
 
   nodes_.clear();
   childIndices_.clear();
   fitted_ = false;
 
-  ClassificationShapeGeneralizedNode root;
+  ShapeFunctionNode root;
   root.height = 0;
-  root.sampleBegin = 0;
-  root.sampleEnd = n;
+  root.sampleIndices.resize(n);
+  for (size_t i = 0; i < n; ++i)
+    root.sampleIndices[i] = i;
   root.nodeIndex = 0;
   root.numPartitions = numPartitions_;
-  root.score = impurityAtRange(0, n, y);
+  root.score = impurityForSampleIndices(root.sampleIndices, y);
   root.isLeaf = true;
   fillLeafHistogram(root, y);
   nodes_.push_back(root);
@@ -236,22 +121,99 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
 
   outerTreeBuilder_.buildTree(
       nodes_[0],
-      [this, &X, &y, &features](ClassificationShapeGeneralizedNode &node,
-                                size_t minLeaf) {
-        return findBestSplitNode(node, minLeaf, X, y, features);
+      [this, &X, &y, &features](ShapeFunctionNode &node, size_t minLeaf) {
+        const size_t n = node.sampleIndices.size();
+        node.score = impurityForSampleIndices(node.sampleIndices, y);
+
+        if (n < 2 * minLeaf) {
+          node.isLeaf = true;
+          node.informationGain = 0.0;
+          fillLeafHistogram(node, y);
+          return false;
+        }
+
+        const double parentImp = node.score;
+        if (parentImp <= outerTreeBuilder_.eps) {
+          node.isLeaf = true;
+          node.informationGain = 0.0;
+          fillLeafHistogram(node, y);
+          return false;
+        }
+
+        arma::uvec subIdx(n);
+        for (size_t i = 0; i < n; ++i)
+          subIdx(i) = static_cast<arma::uword>(node.sampleIndices[i]);
+        const arma::fmat Xsub = X.cols(subIdx);
+        arma::Row<size_t> ysub(subIdx.n_elem);
+        for (arma::uword i = 0; i < subIdx.n_elem; ++i)
+          ysub(i) = y(subIdx(i));
+
+        const auto branch = fitShapeBranch(
+            criterion_, numClasses_, numPartitions_, innerParams_, cdParams_,
+            outerParams_.branchingPenalty, Xsub, ysub, features, parentImp,
+            outerParams_.minGainSplit, outerParams_.minLeafSize,
+            outerTreeBuilder_.eps);
+
+        if (!branch) {
+          node.isLeaf = true;
+          node.informationGain = 0.0;
+          fillLeafHistogram(node, y);
+          return false;
+        }
+
+        ShapeBranchingResult br = std::move(*branch);
+        node.isLeaf = false;
+        node.routingFeature = br.featureIndex;
+        node.innerThresholds = std::move(br.innerThresholds);
+        node.binToPartition = std::move(br.binToPartition);
+        node.numPartitions = numPartitions_;
+        node.informationGain = br.impurityDecrease;
+        node.leafClassCounts.clear();
+        return true;
       },
-      [this, &X, &y](ClassificationShapeGeneralizedNode &parent) {
-        return makeChildrenNode(parent, X, y);
+      [this, &X, &y](ShapeFunctionNode &parent) {
+        std::vector<std::vector<size_t>> buckets(numPartitions_);
+        for (size_t si : parent.sampleIndices) {
+          const float v = X(parent.routingFeature, si);
+          size_t p = parent.routeFeatureValueToPartition(v);
+          if (p >= numPartitions_)
+            throw std::runtime_error(
+                "ClassificationShapeGeneralizedTree::fit: partition index "
+                "out of range");
+          buckets[p].push_back(si);
+        }
+
+        std::vector<ShapeFunctionNode> children;
+        children.reserve(numPartitions_);
+        for (size_t p = 0; p < numPartitions_; ++p) {
+          ShapeFunctionNode ch;
+          ch.height = parent.height + 1;
+          ch.sampleIndices = std::move(buckets[p]);
+          ch.numPartitions = numPartitions_;
+          ch.score = impurityForSampleIndices(ch.sampleIndices, y);
+          ch.isLeaf = true;
+          fillLeafHistogram(ch, y);
+          children.push_back(std::move(ch));
+        }
+        return children;
       },
-      [this](ClassificationShapeGeneralizedNode &parent,
-             std::vector<ClassificationShapeGeneralizedNode> &kids) {
-        commitSplitNode(parent, kids);
+      [this](ShapeFunctionNode &parent,
+             std::vector<ShapeFunctionNode> &children) {
+        const size_t pid = parent.nodeIndex;
+        nodes_[pid] = parent;
+        nodes_[pid].isLeaf = false;
+        childIndices_[pid].assign(numPartitions_, 0);
+        for (size_t p = 0; p < numPartitions_; ++p) {
+          const size_t cid = nodes_.size();
+          children[p].nodeIndex = cid;
+          nodes_.push_back(children[p]);
+          childIndices_.push_back({});
+          childIndices_[pid][p] = cid;
+        }
       });
 
-  sampleOrder_.clear();
   for (auto &node : nodes_) {
-    node.sampleBegin = 0;
-    node.sampleEnd = 0;
+    node.sampleIndices.clear();
     node.nodeIndex = 0;
   }
 

@@ -61,7 +61,7 @@ add_library(sgtlearn_core STATIC
         src/Splitters/SplitterFactory.cpp
         src/algorithms/CoordinateDescent.h
         src/algorithms/ShapeGeneralizedTreeParams.h
-        src/algorithms/ShapeGeneralizedTreeNodeBase.h
+        src/algorithms/ShapeFunctionNode.h
         src/algorithms/ShapeBranchingTypes.h
         src/algorithms/ShapeBranchingFit_internal.h
         src/Estimators/ClassificationShapeGeneralizedTree.h

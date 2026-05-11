@@ -6,52 +6,24 @@
  */
 
 #include "Domain/LearningCriterion.h"
-#include "algorithms/ShapeGeneralizedTreeNodeBase.h"
+#include "algorithms/ShapeFunctionNode.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 #include "algorithms/TreeBuilder.h"
 
 #include <armadillo>
-#include <compare>
 #include <cstddef>
 #include <vector>
-
-/**
- * Classification outer-tree node: routing state from ShapeGeneralizedTreeNodeBase
- * plus a per-class histogram at leaves.
- *
- * Routing and histogram sizes come from the vectors (innerThresholds,
- * binToPartition, childSampleBounds, leafClassCounts). Class cardinality is a
- * model-level property, not duplicated on each node.
- *
- * @see TreeBuilder — requires score, informationGain, height, and a weak
- *      ordering consistent with SplitCandidate (higher informationGain first
- *      in the best-first heap).
- */
-struct ClassificationShapeGeneralizedNode : ShapeGeneralizedTreeNodeBase {
-  /** Leaf-only: counts per class label (encoding matches training y). */
-  std::vector<size_t> leafClassCounts;
-
-  std::weak_ordering
-  operator<=>(const ClassificationShapeGeneralizedNode &o) const {
-    return std::compare_weak_order_fallback(informationGain,
-                                            o.informationGain);
-  }
-
-  /** Equality matches the heap ordering key (informationGain), not full struct equality. */
-  bool operator==(const ClassificationShapeGeneralizedNode &o) const {
-    return informationGain == o.informationGain;
-  }
-};
 
 /**
  * Shape-Generalized Tree, classification variant.
  *
  * Responsibilities (by phase):
- * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion using
- *   `findBestSplitNode` / `makeChildrenNode` / `commitSplitNode`.
+ * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
+ *   split / child / commit steps are local lambdas in `fit`.
  * - **Per-node split search**: delegate to `fitShapeBranch` (inner discretizer
  *   + coordinate descent over bins); see algorithms/ShapeBranchingFit.cpp.
- * - **Leaf state**: `fillLeafHistogram`, `impurityAtRange` for Gini/entropy.
+ * - **Leaf state**: `fillLeafHistogram` and impurity from `sampleIndices` for
+ *   Gini/entropy.
  * - **Inference**: `predict` / `predictProba` walk childIndices_ using
  *   `routeFeatureValueToPartition`.
  *
@@ -75,11 +47,6 @@ struct ClassificationShapeGeneralizedNode : ShapeGeneralizedTreeNodeBase {
  *
  * @note Only `LearningCriterion::Entropy` and `LearningCriterion::Gini` are
  *       accepted; other criteria throw from the constructor.
- *
- * **Regression reuse:** outer topology and `ShapeGeneralizedTreeNodeBase` are
- * task-agnostic; a regression trainer would swap leaf payloads, impurity,
- * `fitShapeBranch` for regression discretizers + `makeRegressionBranchAssignment`,
- * and prediction (e.g. leaf mean).
  */
 class ClassificationShapeGeneralizedTree {
 public:
@@ -116,8 +83,7 @@ public:
    * @param X         (numFeatures, numSamples) column-major; one sample per
    *                  column.
    * @param features  feature indices considered as routing candidates at
-   *                  every node. Non-const because internal sort scratch
-   *                  may reuse it.
+   *                  every node.
    * @param y         (numSamples,) integer class labels in [0, numClasses).
    *
    * @throws std::invalid_argument on shape / label-range mismatch.
@@ -153,7 +119,7 @@ private:
   CoordinateDescentParams cdParams_;
   bool fitted_ = false;
 
-  std::vector<ClassificationShapeGeneralizedNode> nodes_;
+  std::vector<ShapeFunctionNode> nodes_;
   /**
    * For node i, childIndices_[i][p] is the node index of child partition p.
    * Empty for leaves.
@@ -162,25 +128,11 @@ private:
   size_t rootIndex_ = 0;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
-  TreeBuilder<ClassificationShapeGeneralizedNode> outerTreeBuilder_;
+  TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
 
-  /** Column permutation of training data; used only inside `fit`. */
-  arma::uvec sampleOrder_;
+  double impurityForSampleIndices(const std::vector<size_t> &indices,
+                                  const arma::Row<size_t> &y) const;
 
-  double impurityAtRange(size_t begin, size_t end,
+  void fillLeafHistogram(ShapeFunctionNode &node,
                          const arma::Row<size_t> &y) const;
-
-  void fillLeafHistogram(ClassificationShapeGeneralizedNode &node,
-                         const arma::Row<size_t> &y) const;
-
-  bool findBestSplitNode(ClassificationShapeGeneralizedNode &node,
-                         size_t minLeafSize, const arma::fmat &X,
-                         const arma::Row<size_t> &y, const arma::uvec &features);
-
-  std::vector<ClassificationShapeGeneralizedNode>
-  makeChildrenNode(ClassificationShapeGeneralizedNode &parent,
-                   const arma::fmat &X, const arma::Row<size_t> &y);
-
-  void commitSplitNode(ClassificationShapeGeneralizedNode &parent,
-                       std::vector<ClassificationShapeGeneralizedNode> &children);
 };
