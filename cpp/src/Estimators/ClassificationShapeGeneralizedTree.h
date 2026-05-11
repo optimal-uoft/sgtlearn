@@ -20,21 +20,22 @@
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
  *   split / child / commit steps are local lambdas in `fit`.
- * - **Per-node split search**: delegate to `fitShapeBranch` (inner discretizer
- *   + coordinate descent over bins); see algorithms/ShapeBranchingFit.cpp.
- * - **Leaf state**: `fillLeafHistogram` and impurity from `sampleIndices` for
- *   Gini/entropy.
+ * - **Per-node split search** (inside `fit`): for each candidate feature,
+ *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
+ *   partition map; keep the best branch by penalized child impurity.
+ * - **Leaf state**: `fillLeafHistogram` or aggregated discretizer stats after a
+ *   committed split.
  * - **Inference**: `predict` / `predictProba` walk childIndices_ using
  *   `routeFeatureValueToPartition`.
  *
  * At every outer-tree node, for each candidate feature:
- *   1. Train a UnivariateClassificationDiscretizer (inner tree) on the
- *      node's samples to obtain a bin index per sample and per-bin class
- *      counts.
- *   2. Build a classification BranchAssignment from those bin stats and run
- *      coordinateDescent to find a bin -> partition mapping that minimises
- *      the criterion impurity over `numPartitions` partitions.
- *   3. Score the resulting partition impurity.
+ *   1. **Discretize**: train `UnivariateClassificationDiscretizer` on the
+ *      node's samples (per-bin class counts and training column indices).
+ *   2. **K-means init** (when enabled): cluster bin histograms to seed a
+ *      bin-to-partition assignment; else round-robin by bin index.
+ *   3. **Coordinate descent**: refine that assignment to reduce impurity; if
+ *      feasible sizes and gain pass thresholds, compete to update the node's
+ *      best branch.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`
@@ -132,6 +133,9 @@ private:
 
   double impurityForSampleIndices(const std::vector<size_t> &indices,
                                   const arma::Row<size_t> &y) const;
+
+  /** Gini or entropy from an aggregated class histogram (``N`` = sum of counts). */
+  double impurityForClassCounts(const std::vector<size_t> &classCounts) const;
 
   void fillLeafHistogram(ShapeFunctionNode &node,
                          const arma::Row<size_t> &y) const;

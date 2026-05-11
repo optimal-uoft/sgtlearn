@@ -43,6 +43,16 @@ struct ShapeFunctionNode {
    * `point_idxs`). Cleared after training.
    */
   std::vector<size_t> sampleIndices;
+  /**
+   * During fit, after a split is chosen: inner discretizer bin per entry of
+   * `sampleIndices` (same length). Cleared after training.
+   */
+  std::vector<size_t> sampleBins;
+  /**
+   * During fit, after a split: per-bin class counts from the winning inner
+   * discretizer (same row count as ``binToPartition``). Cleared after training.
+   */
+  std::vector<std::vector<size_t>> splitLeafStats;
 
   /** Leaf-only: counts per class label (encoding matches training y). */
   std::vector<size_t> leafClassCounts;
