@@ -63,7 +63,7 @@ add_library(sgtlearn_core STATIC
         src/algorithms/CoordinateDescent.h
         src/algorithms/KMeansUtils.h
         src/algorithms/ShapeGeneralizedTreeParams.h
-        src/algorithms/ShapeFunctionNode.h
+        src/Estimators/ShapeFunctionNode.h
         src/algorithms/ShapeBranchingTypes.h
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp

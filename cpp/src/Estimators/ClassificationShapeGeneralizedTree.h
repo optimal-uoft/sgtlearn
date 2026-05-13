@@ -6,7 +6,7 @@
  */
 
 #include "Domain/LearningCriterion.h"
-#include "algorithms/ShapeFunctionNode.h"
+#include "Estimators/ShapeFunctionNode.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 #include "algorithms/TreeBuilder.h"
 
@@ -110,7 +110,7 @@ public:
   // TODO: flat introspection accessors for graphviz / text export, e.g.
   //   featureOf(node), thresholdsOf(node), binToPartitionOf(node),
   //   childrenOf(node), classCountsOf(leaf), depthOf(node).
-
+    std::vector<std::vector<size_t>> classCounts;
 private:
   LearningCriterion criterion_;
   size_t numClasses_;
@@ -131,12 +131,9 @@ private:
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
 
-  double impurityForSampleIndices(const std::vector<size_t> &indices,
-                                  const arma::Row<size_t> &y) const;
-
   /** Gini or entropy from an aggregated class histogram (``N`` = sum of counts). */
   double impurityForClassCounts(const std::vector<size_t> &classCounts) const;
 
-  void fillLeafHistogram(ShapeFunctionNode &node,
+  std::vector<size_t> fillLeafHistogram(ShapeFunctionNode &node,
                          const arma::Row<size_t> &y) const;
 };

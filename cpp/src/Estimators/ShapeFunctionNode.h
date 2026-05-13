@@ -1,22 +1,22 @@
 #pragma once
 
 /**
- * @file ShapeFunctionNode.h
+ * @file Estimators/ShapeFunctionNode.h
  * @brief One node in a shape-generalized / shape-function tree: routing, fit
  *        sample set, and classification leaf histogram.
  */
 
 #include <algorithm>
+#include <armadillo>
 #include <compare>
 #include <cstddef>
 #include <vector>
 
 /**
  * Outer-tree node: routing rule when internal, plus training sample indices
- * during fit and per-class counts at leaves (classification).
+ * during fit.
  *
- * After `fit`, `sampleIndices` is cleared on stored nodes; routing and
- * `leafClassCounts` remain for prediction.
+ * After `fit`, `sampleIndices` is cleared on stored nodes; routing.
  *
  * `TreeBuilder` orders nodes by `informationGain` for the best-first heap.
  */
@@ -40,9 +40,10 @@ struct ShapeFunctionNode {
 
   /**
    * During fit: original column indices into X at this node (Python
-   * `point_idxs`). Cleared after training.
+   * `point_idxs`), as a column index vector for `X.cols(...)` / `y.cols(...)`.
+   * Cleared after training.
    */
-  std::vector<size_t> sampleIndices;
+  arma::uvec sampleIndices;
   /**
    * During fit, after a split is chosen: inner discretizer bin per entry of
    * `sampleIndices` (same length). Cleared after training.
@@ -54,12 +55,8 @@ struct ShapeFunctionNode {
    */
   std::vector<std::vector<size_t>> splitLeafStats;
 
-  /** Leaf-only: counts per class label (encoding matches training y). */
-  std::vector<size_t> leafClassCounts;
-
   std::weak_ordering operator<=>(const ShapeFunctionNode &o) const {
-    return std::compare_weak_order_fallback(informationGain,
-                                            o.informationGain);
+    return std::compare_weak_order_fallback(informationGain, o.informationGain);
   }
 
   bool operator==(const ShapeFunctionNode &o) const {
