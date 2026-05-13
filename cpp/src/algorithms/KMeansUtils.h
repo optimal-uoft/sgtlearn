@@ -15,11 +15,11 @@ namespace algorithms {
  * @param X           (nPoints, dim) each row is a point.
  * @param w           (nPoints,) non-negative weights (used in centroid updates).
  * @param k           number of clusters.
- * @param seed        RNG seed for empty-cluster reseeding.
+ * @param rng         generator for empty-cluster reseeding (non-const: may draw).
  * @param assignments output labels in [0, k), length nPoints.
  */
 inline void initAssignmentsWeightedKMeans(const arma::mat &X, const arma::vec &w,
-                                          size_t k, uint64_t seed,
+                                          size_t k, std::mt19937_64 &rng,
                                           std::vector<size_t> &assignments) {
   const size_t B = X.n_rows;
   const size_t C = X.n_cols;
@@ -38,7 +38,6 @@ inline void initAssignmentsWeightedKMeans(const arma::mat &X, const arma::vec &w
     centroids.row(j) = X.row(idx);
   }
 
-  std::mt19937_64 rng(seed);
   std::uniform_int_distribution<size_t> pickBin(0, B - 1);
 
   for (size_t iter = 0; iter < 50; ++iter) {

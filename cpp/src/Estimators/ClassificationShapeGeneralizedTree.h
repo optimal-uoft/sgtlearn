@@ -7,11 +7,14 @@
 
 #include "Domain/LearningCriterion.h"
 #include "Estimators/ShapeFunctionNode.h"
+#include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 #include "algorithms/TreeBuilder.h"
 
 #include <armadillo>
 #include <cstddef>
+#include <cstdint>
+#include <random>
 #include <vector>
 
 /**
@@ -44,7 +47,8 @@
  * `TreeBuilder` like Python's heap over `best_impurity_decrease`.
  *
  * Inputs use Armadillo's column-major convention: X has shape
- * (numFeatures, numSamples); each column is one sample.
+ * (numFeatures, numSamples); each column is one sample. Outer routing
+ * considers every row index ``0 .. numFeatures-1`` (no separate candidate list).
  *
  * @note Only `LearningCriterion::Entropy` and `LearningCriterion::Gini` are
  *       accepted; other criteria throw from the constructor.
@@ -59,13 +63,17 @@ public:
    * @param outerParams     tree-building params for the outer routing tree.
    * @param innerParams     tree-building params for the per-feature inner
    *                        univariate discretizer.
-   * @param cdParams        coordinate-descent loop parameters.
+   * @param cdParams         coordinate-descent loop parameters.
+   * @param random_state     seed for the tree-owned RNG (reseeds at each ``fit``).
+   * @param featureBagging   per-node subset of candidate feature indices; empty
+   *                         ``std::function`` defaults to all candidates.
    */
   ClassificationShapeGeneralizedTree(
       LearningCriterion criterion, size_t numClasses, size_t numPartitions,
       TreeBuildingParams outerParams = {},
       TreeBuildingParams innerParams = {},
-      CoordinateDescentParams cdParams = {});
+      CoordinateDescentParams cdParams = {}, uint64_t random_state = 42,
+      FeatureBaggingPickFn featureBagging = {});
 
   ~ClassificationShapeGeneralizedTree() = default;
 
@@ -81,16 +89,13 @@ public:
   /**
    * Fit the routing tree.
    *
-   * @param X         (numFeatures, numSamples) column-major; one sample per
-   *                  column.
-   * @param features  feature indices considered as routing candidates at
-   *                  every node.
-   * @param y         (numSamples,) integer class labels in [0, numClasses).
+   * @param X  (numFeatures, numSamples) column-major; one sample per column.
+   *           Routing candidates are row indices ``0 .. numFeatures-1``.
+   * @param y  (numSamples,) integer class labels in [0, numClasses).
    *
    * @throws std::invalid_argument on shape / label-range mismatch.
    */
-  void fit(const arma::fmat &X, arma::uvec &features,
-           const arma::Row<size_t> &y);
+  void fit(const arma::fmat &X, const arma::Row<size_t> &y);
 
   /** Hard class predictions, shape (numSamples,). */
   arma::Row<size_t> predict(const arma::fmat &X) const;
@@ -118,6 +123,9 @@ private:
   TreeBuildingParams outerParams_;
   TreeBuildingParams innerParams_;
   CoordinateDescentParams cdParams_;
+  uint64_t random_state_;
+  std::mt19937_64 rng_;
+  FeatureBaggingPickFn featureBagging_;
   bool fitted_ = false;
 
   std::vector<ShapeFunctionNode> nodes_;

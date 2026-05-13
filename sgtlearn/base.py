@@ -3,26 +3,13 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
-
+from ShapeGeneralizedTrees import ClassificationShapeGeneralizedTree
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
 
-
-def _classification_tree_class():
-    """Resolve the pybind11 extension (wheel layout vs local cmake build)."""
-    for mod_name in ("sgtlearn.ShapeGeneralizedTrees", "ShapeGeneralizedTrees"):
-        try:
-            mod = importlib.import_module(mod_name)
-            return mod.ClassificationShapeGeneralizedTree
-        except ImportError:
-            continue
-    raise ImportError(
-        "Cannot import ShapeGeneralizedTrees. Install the package (pip install .) "
-        "or add your cmake build directory (e.g. cpp/build) to PYTHONPATH."
-    )
 
 
 class BaseShapeCART(BaseEstimator):
@@ -41,6 +28,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     Parameters mirror the underlying ``ClassificationShapeGeneralizedTree`` where
     possible. ``X`` is always ``float32`` and ``(n_samples, n_features)``; labels
     may be any discrete targets understood by ``sklearn.preprocessing.LabelEncoder``.
+
+    ``max_features``: ``None`` uses every column at each split. An int ``k>=1``
+    samples ``min(k, n_features)`` columns without replacement. A float ``c``
+    with ``0 < c <= 1`` uses ``max(1, int(c * n_features))`` columns. The strings
+    ``\"sqrt\"`` and ``\"log2\"`` use ``max(1, int(sqrt(n_features)))`` and
+    ``max(1, int(log2(n_features)))`` respectively (case-insensitive in the
+    native binding).
     """
 
     def __init__(
@@ -60,6 +54,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
+        max_features: Optional[Union[int, float, str]] = None,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
@@ -76,6 +71,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.coordinate_descent_patience = int(coordinate_descent_patience)
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
+        self.max_features = max_features
 
         self._est: Any = None
         self._le: Any = None
@@ -84,7 +80,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.n_features_in_: Optional[int] = None
 
     def _get_random_seed(self) -> int:
-        """Integer seed passed into native coordinate descent (default 42 if unset)."""
+        """Integer ``random_state`` passed to the native trainer (default 42 if unset)."""
         if self.random_state is None:
             return 42
         return int(self.random_state)
@@ -118,8 +114,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             0 if self.inner_max_leaf_nodes is None else int(self.inner_max_leaf_nodes)
         )
 
-        TreeCls = _classification_tree_class()
-        self._est = TreeCls(
+        self._est = ClassificationShapeGeneralizedTree(
             str(self.criterion),
             self.n_classes_,
             self.num_partitions,
@@ -134,18 +129,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
             bool(self.coordinate_descent_smart_init),
-            self._get_random_seed(),
+            int(self._get_random_seed()),
+            self.max_features,
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         # Native bridge expects C-contiguous 1-D; uint64 matches size_t on 64-bit.
-        features = np.ascontiguousarray(
-            np.arange(self.n_features_in_, dtype=np.uint64), dtype=np.uint64
-        )
         y_u = np.ascontiguousarray(
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
-        self._est.fit(X32, features, y_u)
+        self._est.fit(X32, y_u)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

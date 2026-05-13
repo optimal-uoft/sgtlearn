@@ -18,11 +18,9 @@
 #include <armadillo>
 #include <cmath>
 #include <limits>
+#include <span>
 #include <stdexcept>
 #include <vector>
-
-// todo: add bootstrapping columns
-// todo: validate branch assignment to discretization is happening correctly
 
 namespace {
 
@@ -42,10 +40,14 @@ size_t leafArgmaxClass(const std::vector<size_t> &counts) {
 ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
     LearningCriterion criterion, size_t numClasses, size_t numPartitions,
     TreeBuildingParams outerParams, TreeBuildingParams innerParams,
-    CoordinateDescentParams cdParams)
+    CoordinateDescentParams cdParams, uint64_t random_state,
+    FeatureBaggingPickFn featureBagging)
     : criterion_(criterion), numClasses_(numClasses),
       numPartitions_(numPartitions), outerParams_(outerParams),
       innerParams_(innerParams), cdParams_(cdParams),
+      random_state_(random_state), rng_(),
+      featureBagging_(featureBagging ? std::move(featureBagging)
+                                    : FeatureBaggingPickFn(pickAllFeatureIndices)),
       outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
                         outerParams_.maxDepth, outerParams_.maxLeafNodes) {
   if (criterion_ != LearningCriterion::Entropy &&
@@ -93,21 +95,15 @@ std::vector<size_t> ClassificationShapeGeneralizedTree::fillLeafHistogram(
 }
 
 void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
-                                             arma::uvec &features,
                                              const arma::Row<size_t> &y) {
   if (X.n_cols != y.n_elem)
     throw std::invalid_argument(
         "ClassificationShapeGeneralizedTree::fit: X.n_cols must match "
         "y.n_elem");
-  if (features.n_elem == 0)
+  if (X.n_rows == 0)
     throw std::invalid_argument(
-        "ClassificationShapeGeneralizedTree::fit: features must be non-empty");
-  for (size_t i = 0; i < features.n_elem; ++i) {
-    if (static_cast<size_t>(features(i)) >= X.n_rows)
-      throw std::invalid_argument(
-          "ClassificationShapeGeneralizedTree::fit: feature index >= "
-          "X.n_rows");
-  }
+        "ClassificationShapeGeneralizedTree::fit: X must have at least one "
+        "feature (row)");
   for (size_t j = 0; j < y.n_elem; ++j) {
     if (y(j) >= numClasses_)
       throw std::invalid_argument(
@@ -115,6 +111,8 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
   }
 
   const size_t n = X.n_cols;
+
+  rng_.seed(static_cast<std::mt19937_64::result_type>(random_state_));
 
   nodes_.clear();
   childIndices_.clear();
@@ -136,10 +134,13 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
   childIndices_.emplace_back();
   rootIndex_ = 0;
 
+  const arma::uvec featureCandidates =
+      arma::regspace<arma::uvec>(0, X.n_rows - 1);
+
   outerTreeBuilder_.buildTree(
       nodes_[0],
-      [this, &X, &y, &features](ShapeFunctionNode &node,
-                                size_t minLeaf) { // find best shape function
+      [this, &X, &y, &featureCandidates](ShapeFunctionNode &node,
+                                        size_t minLeaf) { // find best shape function
         const size_t ns = node.sampleIndices.n_elem;
         node.score = impurityForClassCounts(classCounts[node.nodeIndex]);
 
@@ -165,13 +166,21 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
         const arma::fmat Xsub = X.cols(subIdx);
         const arma::Row<size_t> ysub = y.cols(subIdx);
 
+        std::vector<size_t> featurePool(
+            static_cast<size_t>(featureCandidates.n_elem));
+        for (arma::uword i = 0; i < featureCandidates.n_elem; ++i)
+          featurePool[static_cast<size_t>(i)] =
+              static_cast<size_t>(featureCandidates(i));
+        const std::vector<size_t> featureSubset = featureBagging_(
+            std::span<const size_t>(featurePool.data(), featurePool.size()), rng_);
+
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         double bestPenalizedChild = std::numeric_limits<double>::infinity();
         ShapeBranchingResult brBest{};
         arma::uvec featOne(1);
 
-        for (size_t fi = 0; fi < features.n_elem; ++fi) {
-          const size_t f = static_cast<size_t>(features(fi));
+        for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
+          const size_t f = featureSubset[fi];
           if (f >= Xsub.n_rows)
             throw std::invalid_argument(
                 "ClassificationShapeGeneralizedTree::fit: candidate feature "
@@ -188,9 +197,6 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
 
           auto &stats = disc->leafStats();
           auto &sizes = disc->leafNumSamples();
-
-          const size_t mixSeed =
-              cdParams_.seed ^ (0x9e3779b9u * (static_cast<unsigned>(f) + 1u));
 
           std::vector<size_t> assignments(B);
           if (!cdParams_.smartInit || numPartitions_ < 2 ||
@@ -213,14 +219,14 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
               }
             }
             algorithms::initAssignmentsWeightedKMeans(Xk, wk, numPartitions_,
-                                                      mixSeed, assignments);
+                                                      rng_, assignments);
           }
 
           auto branchObj = makeClassificationBranchAssignment(
               criterion_, assignments, numPartitions_, stats, sizes,
               numClasses_);
-          coordinateDescent(numPartitions_, *branchObj, cdParams_.maxIters,
-                            cdParams_.patience, mixSeed);
+          coordinateDescent(numPartitions_, *branchObj, rng_, cdParams_.maxIters,
+                            cdParams_.patience);
 
           std::vector<size_t> wt(numPartitions_, 0);
           for (size_t b = 0; b < assignments.size(); ++b)

@@ -41,7 +41,6 @@ struct TreeBuildingParams {
 struct CoordinateDescentParams {
   size_t maxIters = 10;
   size_t patience = 5;
-  size_t seed = 42;
   /**
    * If true (default), initialize bin->partition assignments with weighted
    * k-means (k = numPartitions) on per-bin normalized class counts before

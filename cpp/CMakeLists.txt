@@ -61,6 +61,7 @@ add_library(sgtlearn_core STATIC
         src/Splitters/SplitterFactory.h
         src/Splitters/SplitterFactory.cpp
         src/algorithms/CoordinateDescent.h
+        src/algorithms/FeatureBagging.h
         src/algorithms/KMeansUtils.h
         src/algorithms/ShapeGeneralizedTreeParams.h
         src/Estimators/ShapeFunctionNode.h
