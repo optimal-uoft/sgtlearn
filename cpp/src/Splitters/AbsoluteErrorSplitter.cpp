@@ -1,3 +1,8 @@
+/**
+ * @file AbsoluteErrorSplitter.cpp
+ * @brief MAE splitter using wavelet-tree median queries on contiguous sample ranges.
+ */
+
 #include "AbsoluteErrorSplitter.h"
 
 #include <limits>

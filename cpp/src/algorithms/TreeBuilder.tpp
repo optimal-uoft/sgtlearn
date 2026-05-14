@@ -1,3 +1,7 @@
+/**
+ * @file TreeBuilder.tpp
+ * @brief Template implementation of ``TreeBuilder::buildTree``.
+ */
 
 template <typename T>
 void TreeBuilder<T>::buildTree(

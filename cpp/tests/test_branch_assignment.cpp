@@ -1,3 +1,8 @@
+/**
+ * @file test_branch_assignment.cpp
+ * @brief Catch2 tests for branch-assignment objectives and coordinate descent.
+ */
+
 #include <algorithms/CoordinateDescent.h>
 #include <BranchAssignmentObjectives/BranchAssignmentFactory.h>
 #include <BranchAssignmentObjectives/BranchAssignmentVariants.h>
@@ -6,6 +11,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <cmath>
+#include <random>
 #include <vector>
 
 using Catch::Matchers::WithinAbs;
@@ -17,10 +23,11 @@ constexpr double kEps = 1e-6;
 void assert_coordinate_descent_non_worsening(BranchAssignment &obj,
                                              size_t numPartitions,
                                              double tol = kEps) {
+  std::mt19937_64 rng(42);
   const double initial = obj.objective();
   const double returned =
-      coordinateDescent(numPartitions, obj, /*maxIters=*/30, /*patience=*/8,
-                        /*seed=*/42);
+      coordinateDescent(numPartitions, obj, rng, /*maxIters=*/30,
+                        /*patience=*/8);
   const double from_state = obj.objective();
   REQUIRE(from_state <= initial + tol);
   REQUIRE_THAT(from_state, WithinAbs(returned, tol));

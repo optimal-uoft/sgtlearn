@@ -1,3 +1,8 @@
+/**
+ * @file SquaredErrorSplitter.cpp
+ * @brief MSE splitter: root/children construction and interval scoring.
+ */
+
 #include "SquaredErrorSplitter.h"
 #include "Criterion.h"
 

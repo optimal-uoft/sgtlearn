@@ -1,9 +1,15 @@
 #pragma once
+
+/**
+ * @file SplitCandidate.h
+ * @brief Interval and scores for one node in a univariate ``Splitter`` search tree.
+ */
+
 #include <compare>
 #include <limits>
 #include <tuple>
 
-
+/** Half-open ``[start,end]`` sample indices on the sorted axis plus impurity bookkeeping for left/right children. */
 struct SplitCandidate {
   size_t height{0}, start{0}, end{0};
   double score{0.0}, informationGain{0.0};

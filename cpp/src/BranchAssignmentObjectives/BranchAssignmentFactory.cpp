@@ -1,3 +1,8 @@
+/**
+ * @file BranchAssignmentFactory.cpp
+ * @brief Factory implementations for classification and regression ``BranchAssignment`` objects.
+ */
+
 #include "BranchAssignmentFactory.h"
 
 #include "AbsoluteErrorBranchAssignment.h"

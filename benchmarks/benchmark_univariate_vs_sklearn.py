@@ -22,6 +22,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 
 def timed_seconds(fn) -> float:
+    """Wall time in seconds to execute a no-argument callable once."""
     start = time.perf_counter()
     fn()
     return time.perf_counter() - start
@@ -29,6 +30,8 @@ def timed_seconds(fn) -> float:
 
 @dataclass
 class BenchResult:
+    """Median sklearn vs native fit duration (ms) for one synthetic benchmark setting."""
+
     n_samples: int
     min_leaf: int
     max_depth: int
@@ -45,6 +48,7 @@ def run_one(
     warmup: int,
     seed: int,
 ) -> BenchResult:
+    """Compare fit time of ``DecisionTreeClassifier`` vs ``UnivariateClassificationDiscretizer`` on random 1-D data."""
     num_classes = 2
     rng = np.random.default_rng(seed)
     x64 = rng.random((n_samples, 1), dtype=np.float64)
@@ -93,6 +97,7 @@ def run_one(
 
 
 def run_case(case: tuple[int, int, int, int, int, int]) -> BenchResult:
+    """Run ``run_one`` for a packed tuple ``(n_samples, min_leaf, max_depth, repeats, warmup, seed)``."""
     n, leaf, depth, repeats, warmup, seed = case
     return run_one(
         n_samples=n,
@@ -123,6 +128,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def print_average_fit_by_size(results: list[BenchResult]) -> None:
+    """Print mean fit milliseconds per implementation, grouped by ``n_samples``."""
     sk_by_n: dict[int, list[float]] = defaultdict(list)
     sgt_by_n: dict[int, list[float]] = defaultdict(list)
 
@@ -141,6 +147,7 @@ def print_average_fit_by_size(results: list[BenchResult]) -> None:
 
 
 def main() -> None:
+    """Execute the full Cartesian grid of benchmarks and print summaries."""
     args = parse_args()
     cases: list[tuple[int, int, int, int, int, int]] = []
 

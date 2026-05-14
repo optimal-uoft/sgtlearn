@@ -1,4 +1,10 @@
 #pragma once
+
+/**
+ * @file AbsoluteErrorSplitter.h
+ * @brief MAE regression splitter backed by ``WaveletTreeMAE`` for median-based interval scores.
+ */
+
 #include "Splitter.h"
 #include "algorithms/WaveletTreeMAE.h"
 

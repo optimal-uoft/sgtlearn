@@ -1,10 +1,18 @@
 #pragma once
+
+/**
+ * @file Criterion.h
+ * @brief Closed-form impurity and loss helpers shared by splitters and branch-assignment processors.
+ */
+
 #include <vector>
 
 namespace Criterion {
 
+/** Multiclass Shannon entropy from histogram counts. */
 double entropy(const std::vector<size_t> &classCounts, size_t N);
 
+/** Multiclass Gini impurity from histogram counts. */
 double gini(const std::vector<size_t> &classCounts, size_t N);
 
 /**

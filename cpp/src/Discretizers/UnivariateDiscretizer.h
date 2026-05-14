@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file UnivariateDiscretizer.h
+ * @brief Train a one-dimensional axis-aligned partition of the feature space and expose bins, thresholds, and leaf aggregates.
+ */
+
 #include "Domain/SplitCandidate.h"
 #include "Splitters/Splitter.h"
 
@@ -8,6 +13,9 @@
 #include <tuple>
 #include <vector>
 
+/**
+ * @tparam T leaf prediction / statistic type (classification counts use ``size_t``; regression uses ``float``).
+ */
 template <typename T> class UnivariateDiscretizer {
   enum class Step { Untrained, FitTree, LeavesProcessed };
   Step step = Step::Untrained;
@@ -43,6 +51,9 @@ public:
   std::vector<std::vector<T>> &getLeafStats();
 
   std::vector<size_t> &getLeafNumSamples();
+
+  /** Sorted-axis cut points; same ordering as `transform` / inner bins. */
+  const std::vector<double> &getThresholds() const { return thresholds; }
 
   ~UnivariateDiscretizer() = default;
 };

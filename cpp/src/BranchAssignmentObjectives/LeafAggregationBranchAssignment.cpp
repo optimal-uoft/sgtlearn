@@ -1,3 +1,8 @@
+/**
+ * @file LeafAggregationBranchAssignment.cpp
+ * @brief Template method definitions for aggregated branch-assignment objectives.
+ */
+
 #include "LeafAggregationBranchAssignment.h"
 
 #include <stdexcept>

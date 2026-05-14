@@ -1,6 +1,9 @@
 #pragma once
 
-/** Shared routing key for splitter and branch-assignment factories. */
+/**
+ * @file LearningCriterion.h
+ * @brief Impurity / loss kind used by splitter and branch-assignment factories (classification vs regression families).
+ */
 enum class LearningCriterion {
   Entropy,
   Gini,

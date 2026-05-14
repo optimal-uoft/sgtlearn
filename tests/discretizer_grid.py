@@ -1,4 +1,8 @@
-"""Shared hyperparameter grids for univariate discretizer sklearn fidelity tests."""
+"""Shared hyperparameter grids for univariate discretizer sklearn fidelity tests.
+
+Constants are imported by ``test_univariate_*`` modules to build Cartesian products
+of sample size, tree depth, leaf limits, and gain thresholds.
+"""
 
 N_VALUES = [1000, 5000, 10000]
 NUM_CLASSES_VALUES = [2, 3]

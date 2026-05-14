@@ -1,4 +1,10 @@
 #pragma once
+
+/**
+ * @file GiniSplitter.h
+ * @brief ``ClassificationSplitter`` using Gini impurity.
+ */
+
 #include "ClassificationSplitter.h"
 #include "Criterion.h"
 

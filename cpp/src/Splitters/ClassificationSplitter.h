@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file ClassificationSplitter.h
+ * @brief Classification impurity splitter: per-interval class count vectors and majority-vote prediction.
+ */
+
 #include "Splitter.h"
 #include <armadillo>
 #include <limits>

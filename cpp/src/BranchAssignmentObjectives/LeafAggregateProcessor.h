@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file LeafAggregateProcessor.h
+ * @brief Strategy objects that map aggregated leaf statistics to a scalar partition loss (entropy, Gini, MSE, …).
+ */
+
 #include "Criterion.h"
 #include <vector>
 

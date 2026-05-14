@@ -24,6 +24,7 @@ def _run_mae_train_predict(
     max_leaf: int,
     criterion: str,
 ) -> None:
+    """Train MAE discretizer, run ``transform``, and touch bin predictions (crash smoke test)."""
     ud = UnivariateRegressionDiscretizer(criterion=criterion)
     features = np.array([0], dtype=np.uintp)
     ud.Train(
@@ -74,6 +75,7 @@ def test_mae_regression_stress_random_data(
     max_depth: int,
     max_leaf: int,
 ) -> None:
+    """Aggressive MAE settings on random data; pass if the native extension completes without crashing."""
     rng = np.random.default_rng(2026)
     x = rng.random((n_samples, 1), dtype=np.float32)
     y = rng.standard_normal(n_samples, dtype=np.float64).astype(np.float32)
@@ -126,6 +128,7 @@ def test_mae_regression_stress_structured_data(
     x: np.ndarray,
     y: np.ndarray,
 ) -> None:
+    """Structured edge-case datasets (constants, duplicates, smooth curves) under MAE training."""
     _ = name
     _run_mae_train_predict(
         x,

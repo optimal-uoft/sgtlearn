@@ -1,3 +1,8 @@
+/**
+ * @file Splitter.tpp
+ * @brief Template implementation of generic ``Splitter`` helpers and ``findBestSplit``.
+ */
+
 template <typename T>
 const std::vector<T> &Splitter<T>::getStats(const SplitCandidate &split) {
   if (!splitStats.contains(split.start) ||

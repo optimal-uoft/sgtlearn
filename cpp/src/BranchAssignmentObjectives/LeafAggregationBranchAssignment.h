@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file LeafAggregationBranchAssignment.h
+ * @brief Template ``BranchAssignment`` that aggregates per-leaf stats into partitions via an ``ILeafAggregateProcessor``.
+ */
+
 #include "BranchAssignment.h"
 #include "LeafAggregateProcessor.h"
 #include <memory>

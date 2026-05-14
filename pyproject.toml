@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 dependencies = ["numpy>=1.20"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "scikit-learn>=1.3"]
 
 [tool.scikit-build]
 cmake.source-dir = "cpp"

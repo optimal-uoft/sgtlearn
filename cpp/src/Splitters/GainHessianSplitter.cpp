@@ -1,3 +1,8 @@
+/**
+ * @file GainHessianSplitter.cpp
+ * @brief Gradient/hessian splitter scoring via ``Criterion::gainAndHessian``.
+ */
+
 #include "GainHessianSplitter.h"
 
 #include "Criterion.h"

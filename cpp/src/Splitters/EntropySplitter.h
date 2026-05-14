@@ -1,4 +1,10 @@
 #pragma once
+
+/**
+ * @file EntropySplitter.h
+ * @brief ``ClassificationSplitter`` using Shannon entropy impurity.
+ */
+
 #include "ClassificationSplitter.h"
 #include "Criterion.h"
 
