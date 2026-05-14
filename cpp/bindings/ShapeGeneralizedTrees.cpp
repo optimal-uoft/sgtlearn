@@ -11,6 +11,7 @@
 
 #include "Domain/LearningCriterion.h"
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
+#include "Estimators/RegressionShapeGeneralizedTree.h"
 #include "algorithms/FeatureBagging.h"
 
 #include <algorithm>
@@ -47,6 +48,18 @@ LearningCriterion parseClassificationCriterion(const std::string &raw) {
     return LearningCriterion::Entropy;
   throw std::invalid_argument(
       "criterion must be 'gini', 'entropy', or 'log_loss'; got '" + raw + "'");
+}
+
+LearningCriterion parseRegressionCriterion(const std::string &raw) {
+  const std::string s = normalizeCriterion(raw);
+  if (s == "squared_error" || s == "mse" || s == "friedman_mse")
+    return LearningCriterion::SquaredError;
+  if (s == "absolute_error" || s == "mae")
+    return LearningCriterion::AbsoluteError;
+  throw std::invalid_argument(
+      "criterion must be 'squared_error', 'mse', 'absolute_error', or 'mae'; "
+      "got '" +
+      raw + "'");
 }
 
 FeatureBaggingPickFn parseMaxFeaturesPy(py::handle mf_h) {
@@ -169,10 +182,68 @@ private:
   std::unique_ptr<ClassificationShapeGeneralizedTree> impl_;
 };
 
+class RegressionShapeGeneralizedTreePy {
+public:
+  RegressionShapeGeneralizedTreePy(
+      std::string criterion, size_t numPartitions, size_t outerMinLeafSize,
+      double outerMinGainSplit, size_t outerMaxDepth, size_t outerMaxLeafNodes,
+      size_t innerMinLeafSize, double innerMinGainSplit, size_t innerMaxDepth,
+      size_t innerMaxLeafNodes, size_t coordinateDescentMaxIters,
+      size_t coordinateDescentPatience, bool /* coordinateDescentSmartInit */,
+      uint64_t random_state, py::object max_features = py::none()) {
+    const LearningCriterion crit = parseRegressionCriterion(criterion);
+    const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
+                                   outerMaxDepth, outerMaxLeafNodes};
+    const TreeBuildingParams inner{innerMinLeafSize, innerMinGainSplit,
+                                   innerMaxDepth, innerMaxLeafNodes};
+    CoordinateDescentParams cd;
+    cd.maxIters = coordinateDescentMaxIters;
+    cd.patience = coordinateDescentPatience;
+    cd.smartInit = false;
+    impl_ = std::make_unique<RegressionShapeGeneralizedTree>(
+        crit, numPartitions, outer, inner, cd, random_state,
+        parseMaxFeaturesPy(max_features));
+  }
+
+  void fit(const py::array &X, const py::array &y) {
+    auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
+    auto yb = bridge::as1DRow<float>(y, "y");
+    if (yb.view().n_elem != Xb.view().n_cols)
+      throw std::invalid_argument(
+          "y.shape[0] must equal X.shape[0] (number of samples)");
+    py::gil_scoped_release release;
+    impl_->fit(Xb.view(), yb.view());
+  }
+
+  py::array_t<float> predict(const py::array &X) {
+    auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
+    arma::Row<float> preds;
+    {
+      py::gil_scoped_release release;
+      preds = impl_->predict(Xb.view());
+    }
+    return bridge::rowToNumpy(preds);
+  }
+
+  size_t numLeaves() const { return impl_->numLeaves(); }
+  size_t numNodes() const { return impl_->numNodes(); }
+  bool isFitted() const { return impl_->isFitted(); }
+
+  std::vector<std::vector<float>> leafRegressionStats() const {
+    return impl_->leafRegressionStats;
+  }
+
+  std::vector<size_t> leafNumSamples() const { return impl_->leafNumSamples; }
+
+private:
+  std::unique_ptr<RegressionShapeGeneralizedTree> impl_;
+};
+
 } // namespace
 
 PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
-  m.doc() = "Shape-Generalized Tree bindings (classification family).";
+  m.doc() =
+      "Shape-Generalized Tree bindings (classification and regression).";
 
   py::class_<ClassificationShapeGeneralizedTreePy>(
       m, "ClassificationShapeGeneralizedTree")
@@ -211,4 +282,40 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
           "num_nodes", &ClassificationShapeGeneralizedTreePy::numNodes)
       .def_property_readonly(
           "is_fitted", &ClassificationShapeGeneralizedTreePy::isFitted);
+
+  py::class_<RegressionShapeGeneralizedTreePy>(
+      m, "RegressionShapeGeneralizedTree")
+      .def(py::init<std::string, size_t, size_t, double, size_t, size_t, size_t,
+                    double, size_t, size_t, size_t, size_t, bool, uint64_t,
+                    py::object>(),
+           py::arg("criterion") = "squared_error",
+           py::arg("num_partitions") = 2, py::arg("outer_min_leaf_size") = 1,
+           py::arg("outer_min_gain_split") = 1e-7, py::arg("outer_max_depth") = 0,
+           py::arg("outer_max_leaf_nodes") = 0,
+           py::arg("inner_min_leaf_size") = 1,
+           py::arg("inner_min_gain_split") = 1e-7, py::arg("inner_max_depth") = 0,
+           py::arg("inner_max_leaf_nodes") = 0,
+           py::arg("coordinate_descent_max_iters") = 10,
+           py::arg("coordinate_descent_patience") = 5,
+           py::arg("coordinate_descent_smart_init") = true,
+           py::arg("random_state") = 42, py::arg("max_features") = py::none(),
+           R"(Regression tree: inner bin assignments are always round-robin seeded;
+coordinate_descent_smart_init is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)")
+      .def("fit", &RegressionShapeGeneralizedTreePy::fit, py::arg("X"),
+           py::arg("y"),
+           "Fit the routing tree. X is (n_samples, n_features) float32; y is "
+           "1-D float32 targets.")
+      .def("predict", &RegressionShapeGeneralizedTreePy::predict, py::arg("X"),
+           "Predict scalar targets for X (shape (n_samples,)).")
+      .def_property_readonly("num_leaves",
+                             &RegressionShapeGeneralizedTreePy::numLeaves)
+      .def_property_readonly("num_nodes",
+                             &RegressionShapeGeneralizedTreePy::numNodes)
+      .def_property_readonly("is_fitted",
+                             &RegressionShapeGeneralizedTreePy::isFitted)
+      .def_property_readonly(
+          "leaf_regression_stats",
+          &RegressionShapeGeneralizedTreePy::leafRegressionStats)
+      .def_property_readonly("leaf_num_samples",
+                             &RegressionShapeGeneralizedTreePy::leafNumSamples);
 }

@@ -11,9 +11,13 @@
 /**
  * Payload from one inner branch attempt at a node: chosen feature, inner
  * thresholds, bin-to-partition map after coordinate descent, and training
- * routing metadata. Built inside ``ClassificationShapeGeneralizedTree::fit``.
+ * routing metadata.
+ *
+ * @tparam LeafStat  Per-sample or per-bin scalar type stored in ``leafStats``
+ *                   rows (e.g. ``size_t`` for class counts, ``float`` for
+ *                   regression ``[sum y, sum y^2]`` aggregates).
  */
-struct ShapeBranchingResult {
+template <typename LeafStat> struct ShapeBranchingResult {
   size_t featureIndex = 0;
   std::vector<float> innerThresholds;
   std::vector<size_t> binToPartition;
@@ -26,9 +30,9 @@ struct ShapeBranchingResult {
    */
   std::vector<size_t> sampleBins;
   /**
-   * Per inner discretizer bin: class counts (same as
-   * UnivariateDiscretizer::getLeafStats). Bin order matches ``binToPartition``
-   * indices. Used to build child ``leafClassCounts`` without rescanning ``y``.
+   * Per inner discretizer bin: leaf-side statistics (same row count as
+   * ``binToPartition``). Classification uses class counts; regression squared
+   * error uses ``[sum y, sum y^2]`` per bin.
    */
-  std::vector<std::vector<size_t>> leafStats;
+  std::vector<std::vector<LeafStat>> leafStats;
 };

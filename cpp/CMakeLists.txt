@@ -45,6 +45,7 @@ add_library(sgtlearn_core STATIC
         src/Discretizers/UnivariateDiscretizer.h
         src/Discretizers/UnivariateDiscretizer.tpp
         src/Discretizers/ClassificationDiscretizer.h
+        src/Discretizers/RegressionDiscretizer.h
         src/Discretizers/UnivariateClassificationDiscretizer.cpp
         src/Splitters/SquaredErrorSplitter.h
         src/Splitters/SquaredErrorSplitter.cpp
@@ -68,6 +69,8 @@ add_library(sgtlearn_core STATIC
         src/algorithms/ShapeBranchingTypes.h
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp
+        src/Estimators/RegressionShapeGeneralizedTree.h
+        src/Estimators/RegressionShapeGeneralizedTree.cpp
         src/BranchAssignmentObjectives/BranchAssignment.h
         src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.h
         src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.cpp

@@ -149,7 +149,7 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
-          
+
           return false;
         }
 
@@ -176,7 +176,7 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
 
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         double bestPenalizedChild = std::numeric_limits<double>::infinity();
-        ShapeBranchingResult brBest{};
+        ShapeBranchingResult<size_t> brBest{};
         arma::uvec featOne(1);
 
         for (size_t fi = 0; fi < featureSubset.size(); ++fi) {

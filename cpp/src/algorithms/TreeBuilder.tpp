@@ -7,9 +7,7 @@ template <typename T>
 void TreeBuilder<T>::buildTree(
     T &root, std::function<bool(T &, size_t)> findBestSplit,
     std::function<std::vector<T>(T &)> makeChildren,
-    std::function<void(T &, std::vector<T> &)> commitSplit
-
-) {
+    std::function<void(T &, std::vector<T> &)> commitSplit) {
   std::unique_ptr<frontiers::IFrontier<T>> frontier;
   if (maxLeafNodes == 0)
     frontier = std::make_unique<frontiers::Stack<T>>();
@@ -31,9 +29,8 @@ void TreeBuilder<T>::buildTree(
     if (split.score <= eps)
       continue;
 
-    if (split.informationGain + eps < minGainSplit) {
+    if (split.informationGain + eps < minGainSplit)
       continue;
-    }
 
     if (maxDepth != 0 && split.height >= maxDepth)
       continue;
