@@ -20,10 +20,17 @@ if (NOT Armadillo_FOUND)
 endif ()
 
 if (NOT TARGET armadillo::armadillo)
-    add_library(armadillo::armadillo INTERFACE IMPORTED)
-    target_include_directories(armadillo::armadillo INTERFACE
-            ${ARMADILLO_INCLUDE_DIRS})
-    target_link_libraries(armadillo::armadillo INTERFACE ${ARMADILLO_LIBRARIES})
+    if (TARGET armadillo)
+        # FetchContent path: alias the real target so its include dirs
+        # and link interface propagate to consumers.
+        add_library(armadillo::armadillo ALIAS armadillo)
+    else ()
+        # find_package path: synthesise the namespaced target from legacy vars.
+        add_library(armadillo::armadillo INTERFACE IMPORTED)
+        target_include_directories(armadillo::armadillo INTERFACE
+                ${ARMADILLO_INCLUDE_DIRS})
+        target_link_libraries(armadillo::armadillo INTERFACE ${ARMADILLO_LIBRARIES})
+    endif ()
 endif ()
 
 # endregion
@@ -88,10 +95,9 @@ add_library(sgtlearn_core STATIC
 target_include_directories(sgtlearn_core PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
-        PRIVATE
-        ${ARMADILLO_INCLUDE_DIRS}
 )
-target_link_libraries(sgtlearn_core ${ARMADILLO_LIBRARIES})
+# PUBLIC: sgtlearn_core's headers #include <armadillo>, so consumers need it too.
+target_link_libraries(sgtlearn_core PUBLIC armadillo::armadillo)
 set_target_properties(sgtlearn_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # endregion
 
@@ -139,16 +145,20 @@ foreach (BINDING_SRC ${BINDING_SOURCES})
     install(TARGETS ${MODULE_NAME} DESTINATION .)
 
     if (SGTLEARN_HAVE_PYBIND11_STUBGEN)
+        # Run stubgen via a Python wrapper so any failure (e.g. dynamic-linker
+        # mismatches when importing the freshly-built .so) doesn't abort the
+        # install. Subprocess return code is swallowed; missing .pyi is then
+        # tolerated by the OPTIONAL install below.
         add_custom_command(
                 TARGET ${MODULE_NAME} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E env
                 "PYTHONPATH=$<TARGET_FILE_DIR:${MODULE_NAME}>:$ENV{PYTHONPATH}"
-                ${Python3_EXECUTABLE} -m pybind11_stubgen ${MODULE_NAME}
-                -o "$<TARGET_FILE_DIR:${MODULE_NAME}>"
-                COMMENT "Generating python stubs for ${MODULE_NAME}..."
+                ${Python3_EXECUTABLE} -c
+                "import subprocess, sys; subprocess.call([sys.executable, '-m', 'pybind11_stubgen', '${MODULE_NAME}', '-o', r'$<TARGET_FILE_DIR:${MODULE_NAME}>'])"
+                COMMENT "Generating python stubs for ${MODULE_NAME} (non-fatal)..."
                 VERBATIM
         )
-        install(FILES "$<TARGET_FILE_DIR:${MODULE_NAME}>/${MODULE_NAME}.pyi" DESTINATION .)
+        install(FILES "$<TARGET_FILE_DIR:${MODULE_NAME}>/${MODULE_NAME}.pyi" DESTINATION . OPTIONAL)
     endif ()
 endforeach ()
 
@@ -168,14 +178,9 @@ if (SGTLEARN_BUILD_TESTS)
             tests/test_branch_assignment.cpp
     )
 
-    target_include_directories(cpp_tests PRIVATE
-            ${ARMADILLO_INCLUDE_DIRS}
-    )
-
     target_link_libraries(cpp_tests PRIVATE
             sgtlearn_core
             Catch2::Catch2WithMain
-            ${ARMADILLO_LIBRARIES}
     )
 
     list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")

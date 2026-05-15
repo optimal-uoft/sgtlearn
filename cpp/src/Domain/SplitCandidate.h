@@ -6,6 +6,7 @@
  */
 
 #include <compare>
+#include <cstddef>
 #include <limits>
 #include <tuple>
 

@@ -26,6 +26,13 @@ pip install -e ".[dev]"
 The editable install builds the C++ extensions via scikit-build-core and
 installs the `sgtlearn` package plus native modules into `.venv`.
 
+> **Anaconda users:** Do not bootstrap the venv from an Anaconda Python.
+> Anaconda ships a `libstdc++.so.6` that lags the symbol versions produced by
+> recent system compilers (gcc ≥ 13), so the install succeeds but
+> `import sgtlearn` fails with `ImportError: GLIBCXX_3.4.NN not found`. Use a
+> non-Anaconda Python — e.g. `uv venv --python 3.12 .venv` (downloads a
+> hermetic CPython), `pyenv`, or your distro's `python3`.
+
 Optional: run Python tests through Make (uses `.venv/bin/python` when present):
 
 ```bash
