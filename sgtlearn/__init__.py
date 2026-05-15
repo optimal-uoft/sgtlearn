@@ -9,12 +9,14 @@ from sgtlearn.base import (
     SGTClassifier,
     SGTRegressor,
 )
+from sgtlearn.ensemble import RandomSGForestClassifier
 from sgtlearn._export import export_graphviz, export_text, plot_tree
 
 __all__ = [
     "BaseShapeCART",
     "SGTClassifier",
     "SGTRegressor",
+    "RandomSGForestClassifier",
     "export_graphviz",
     "export_text",
     "plot_tree",

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Shape Generalized Trees learning library"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.20"]
+dependencies = ["numpy>=1.20", "joblib>=1.2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "scikit-learn>=1.3"]
