@@ -25,9 +25,10 @@
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
  *   split / child / commit steps are local lambdas in `fit`.
  * - **Per-node split search** (inside `fit`): for each candidate feature,
- *   discretize -> round-robin bin-to-partition seed ->
- *   `coordinateDescent` on bin-to-partition map; keep the best branch by
- *   penalized child impurity.
+ *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
+ *   ``SquaredError`` only: keep CD only if branch MSE drops by a fixed margin vs
+ *   the seed, else restore the snapshot and rebuild. ``AbsoluteError`` keeps the
+ *   round-robin map (no CD) so sklearn MAE CART parity holds on fidelity tests.
  * - **Leaf state**: per-leaf mean (squared error) or median (absolute error)
  *   plus optional ``[sum y, sum y^2]`` stats for squared error.
  * - **Inference**: `predict` walks `childIndices_` using
@@ -38,9 +39,9 @@
  *      samples (per-bin stats and training column indices).
  *   2. **Initial assignment**: round-robin by discretizer bin index
  *      (``b % numPartitions``); regression does not use k-means seeding.
- *   3. **Coordinate descent**: refine that assignment to reduce impurity; if
- *      feasible sizes and gain pass thresholds, compete to update the node's
- *      best branch.
+ *   3. **Refinement**: ``SquaredError`` runs coordinate descent and keeps the
+ *      result only if branch MSE improves by a small margin vs the seed; else
+ *      restore the snapshot and rebuild. ``AbsoluteError`` skips CD (round-robin).
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`

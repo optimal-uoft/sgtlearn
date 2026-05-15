@@ -25,7 +25,10 @@
  *   split / child / commit steps are local lambdas in `fit`.
  * - **Per-node split search** (inside `fit`): for each candidate feature,
  *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
- *   partition map; keep the best branch by penalized child impurity.
+ *   partition map; if the post-CD objective is **clearly worse** than the seed
+ *   (absolute margin ``kCdObjectiveImprovementEps`` in the ``.cpp``), restore the
+ *   assignment snapshot and rebuild the ``BranchAssignment``; keep the best branch
+ *   by penalized child impurity.
  * - **Leaf state**: `fillLeafHistogram` or aggregated discretizer stats after a
  *   committed split.
  * - **Inference**: `predict` / `predictProba` walk childIndices_ using
@@ -37,8 +40,9 @@
  *   2. **K-means init** (when enabled): cluster bin histograms to seed a
  *      bin-to-partition assignment; else round-robin by bin index.
  *   3. **Coordinate descent**: refine that assignment to reduce impurity; if
- *      feasible sizes and gain pass thresholds, compete to update the node's
- *      best branch.
+ *      the objective **clearly worsens** vs the pre-CD value, restore the snapshot
+ *      and rebuild the objective. If feasible sizes and gain pass thresholds,
+ *      compete to update the node's best branch.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`

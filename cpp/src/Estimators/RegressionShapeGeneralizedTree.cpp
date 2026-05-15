@@ -28,10 +28,9 @@ double meanAbsoluteDeviationFromMedian(std::vector<float> ys) {
     return 0.0;
   std::sort(ys.begin(), ys.end());
   const size_t n = ys.size();
-  const double med = (n % 2 == 1)
-                         ? static_cast<double>(ys[n / 2])
-                         : 0.5 * (static_cast<double>(ys[n / 2 - 1]) +
-                                  static_cast<double>(ys[n / 2]));
+  const double med = (n % 2 == 1) ? static_cast<double>(ys[n / 2])
+                                  : 0.5 * (static_cast<double>(ys[n / 2 - 1]) +
+                                           static_cast<double>(ys[n / 2]));
   double sumAbs = 0.0;
   for (float v : ys)
     sumAbs += std::abs(static_cast<double>(v) - med);
@@ -48,6 +47,9 @@ float medianValue(std::vector<float> ys) {
   return 0.5f * (ys[n / 2 - 1] + ys[n / 2]);
 }
 
+/** Regression: keep CD only if branch objective drops by more than this vs seed. */
+constexpr double kCdRegressionKeepCdEps = 1e-10;
+
 } // namespace
 
 RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
@@ -56,10 +58,11 @@ RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
     CoordinateDescentParams cdParams, uint64_t random_state,
     FeatureBaggingPickFn featureBagging)
     : criterion_(criterion), numPartitions_(numPartitions),
-      outerParams_(outerParams), innerParams_(innerParams),
-      cdParams_(cdParams), random_state_(random_state), rng_(),
-      featureBagging_(featureBagging ? std::move(featureBagging)
-                                    : FeatureBaggingPickFn(pickAllFeatureIndices)),
+      outerParams_(outerParams), innerParams_(innerParams), cdParams_(cdParams),
+      random_state_(random_state), rng_(),
+      featureBagging_(featureBagging
+                          ? std::move(featureBagging)
+                          : FeatureBaggingPickFn(pickAllFeatureIndices)),
       outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
                         outerParams_.maxDepth, outerParams_.maxLeafNodes) {
   if (criterion_ != LearningCriterion::SquaredError &&
@@ -91,7 +94,10 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
     st[1] = static_cast<float>(sy2);
     return Criterion::squaredError(st, ys.size());
   }
-  return meanAbsoluteDeviationFromMedian(std::move(ys));
+  if (criterion_ == LearningCriterion::AbsoluteError)
+    return meanAbsoluteDeviationFromMedian(std::move(ys));
+  throw std::invalid_argument(
+      "RegressionShapeGeneralizedTree::impurityAtNode: invalid criterion");
 }
 
 std::vector<float> RegressionShapeGeneralizedTree::aggregateYSquaredStats(
@@ -140,8 +146,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
     const auto st = aggregateYSquaredStats(root, y);
     leafRegressionStats.push_back(st);
     leafNumSamples.push_back(n);
-    leafPredictions_.push_back(
-        n > 0 ? st[0] / static_cast<float>(n) : 0.f);
+    leafPredictions_.push_back(n > 0 ? st[0] / static_cast<float>(n) : 0.f);
   } else {
     leafRegressionStats.push_back({});
     leafNumSamples.push_back(n);
@@ -162,8 +167,9 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
 
   outerTreeBuilder_.buildTree(
       nodes_[0],
-      [this, &X, &y, &featureCandidates](ShapeFunctionNode &node,
-                                         size_t minLeaf) { // find best shape function
+      [this, &X, &y,
+       &featureCandidates](ShapeFunctionNode &node,
+                           size_t minLeaf) { // find best shape function
         const size_t ns = node.sampleIndices.n_elem;
         node.score = impurityAtNode(y, node);
 
@@ -239,9 +245,9 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
             for (size_t b = 0; b < B; ++b) {
               for (size_t colIdx : perBinCols[b]) {
                 if (colIdx >= xSubCols)
-                  throw std::runtime_error(
-                      "RegressionShapeGeneralizedTree: discretizer sample index "
-                      ">= Xsub columns");
+                  throw std::runtime_error("RegressionShapeGeneralizedTree: "
+                                           "discretizer sample index "
+                                           ">= Xsub columns");
                 maeLeafYsStorage[b].push_back(ysub(colIdx));
               }
             }
@@ -250,8 +256,29 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
                 maeLeafYsStorage, sizes);
           }
 
-          coordinateDescent(numPartitions_, *branchObj, rng_, cdParams_.maxIters,
-                            cdParams_.patience);
+          // Squared error: try coordinate descent on the round-robin seed; keep CD
+          // only if the branch MSE drops by a clear margin vs the seed, else
+          // restore the snapshot and rebuild.
+          //
+          // AbsoluteError: do not run CD. A branch MAE improvement from CD does not
+          // imply sklearn MAE CART alignment (``tests/test_sgt_regressor_fidelity``);
+          // round-robin on sorted bins matches the contiguous split semantics we need.
+          if (criterion_ == LearningCriterion::SquaredError) {
+            const std::vector<size_t> assignmentsSnapshot = assignments;
+            const double objBeforeCd = branchObj->objective();
+            coordinateDescent(numPartitions_, *branchObj, rng_,
+                              cdParams_.maxIters, cdParams_.patience);
+            const double objAfterCd = branchObj->objective();
+            const bool keepCd =
+                std::isfinite(objAfterCd) &&
+                objAfterCd < objBeforeCd - kCdRegressionKeepCdEps;
+            if (!keepCd) {
+              assignments = assignmentsSnapshot;
+              branchObj = makeRegressionBranchAssignment(
+                  LearningCriterion::SquaredError, assignments, numPartitions_,
+                  stats, sizes);
+            }
+          }
 
           std::vector<size_t> wt(numPartitions_, 0);
           for (size_t b = 0; b < assignments.size(); ++b)
@@ -290,9 +317,9 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
             for (size_t b = 0; b < perBinCols.size(); ++b) {
               for (size_t colIdx : perBinCols[b]) {
                 if (colIdx >= xSubCols)
-                  throw std::runtime_error(
-                      "RegressionShapeGeneralizedTree: discretizer sample index "
-                      ">= Xsub columns");
+                  throw std::runtime_error("RegressionShapeGeneralizedTree: "
+                                           "discretizer sample index "
+                                           ">= Xsub columns");
                 brBest.sampleBins[colIdx] = b;
               }
             }
@@ -335,16 +362,16 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
       },
       [this, &y](ShapeFunctionNode &parent) {
         if (parent.sampleBins.size() != parent.sampleIndices.n_elem)
-          throw std::runtime_error(
-              "RegressionShapeGeneralizedTree::fit: sampleBins length mismatch");
+          throw std::runtime_error("RegressionShapeGeneralizedTree::fit: "
+                                   "sampleBins length mismatch");
 
         std::vector<std::vector<float>> innerBinStats;
         if (criterion_ == LearningCriterion::SquaredError) {
           innerBinStats = parent.regressionSplitLeafStats;
           if (innerBinStats.size() != parent.binToPartition.size())
-            throw std::runtime_error(
-                "RegressionShapeGeneralizedTree::fit: regressionSplitLeafStats / "
-                "binToPartition size mismatch");
+            throw std::runtime_error("RegressionShapeGeneralizedTree::fit: "
+                                     "regressionSplitLeafStats / "
+                                     "binToPartition size mismatch");
         }
 
         std::vector<std::vector<size_t>> buckets(numPartitions_);
@@ -385,9 +412,9 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
             ch.isLeaf = true;
             leafRegressionStats.push_back(std::move(agg));
             leafNumSamples.push_back(nch);
-            leafPredictions_.push_back(
-                nch > 0 ? leafRegressionStats.back()[0] / static_cast<float>(nch)
-                        : 0.f);
+            leafPredictions_.push_back(nch > 0 ? leafRegressionStats.back()[0] /
+                                                     static_cast<float>(nch)
+                                               : 0.f);
             children.push_back(std::move(ch));
           }
         } else {
@@ -399,8 +426,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
             std::vector<float> ys;
             ys.reserve(ch.sampleIndices.n_elem);
             for (arma::uword i = 0; i < parent.sampleIndices.n_elem; ++i) {
-              const size_t si =
-                  static_cast<size_t>(parent.sampleIndices(i));
+              const size_t si = static_cast<size_t>(parent.sampleIndices(i));
               const size_t bin = parent.sampleBins[static_cast<size_t>(i)];
               if (bin >= parent.binToPartition.size())
                 throw std::runtime_error(

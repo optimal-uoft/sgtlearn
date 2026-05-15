@@ -184,7 +184,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     ``(n_samples, n_features)``; ``y`` is cast to ``float32`` for the native core.
     The ``coordinate_descent_smart_init`` argument is accepted for API symmetry with
     ``SGTClassifier`` but is ignored: regression always round-robin seeds inner
-    bin-to-partition assignments (no k-means).
+    bin-to-partition assignments (no k-means). ``squared_error`` / ``mse`` then run
+    coordinate descent and keep the result only if branch MSE improves clearly vs
+    the seed; otherwise the trainer restores the round-robin snapshot.
+    ``absolute_error`` / ``mae`` skip coordinate descent (see native trainer).
     """
 
     def __init__(

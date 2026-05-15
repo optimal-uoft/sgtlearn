@@ -35,6 +35,9 @@ size_t leafArgmaxClass(const std::vector<size_t> &counts) {
   return best;
 }
 
+/** Revert CD if post-CD objective is worse than the seed by more than this margin. */
+constexpr double kCdObjectiveImprovementEps = 1e-10;
+
 } // namespace
 
 ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
@@ -225,8 +228,18 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
           auto branchObj = makeClassificationBranchAssignment(
               criterion_, assignments, numPartitions_, stats, sizes,
               numClasses_);
+          const std::vector<size_t> assignmentsSnapshot = assignments;
+          const double objBeforeCd = branchObj->objective();
           coordinateDescent(numPartitions_, *branchObj, rng_, cdParams_.maxIters,
                             cdParams_.patience);
+          const double objAfterCd = branchObj->objective();
+          if (!std::isfinite(objAfterCd) ||
+              objAfterCd > objBeforeCd + kCdObjectiveImprovementEps) {
+            assignments = assignmentsSnapshot;
+            branchObj = makeClassificationBranchAssignment(
+                criterion_, assignments, numPartitions_, stats, sizes,
+                numClasses_);
+          }
 
           std::vector<size_t> wt(numPartitions_, 0);
           for (size_t b = 0; b < assignments.size(); ++b)

@@ -299,8 +299,11 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("coordinate_descent_patience") = 5,
            py::arg("coordinate_descent_smart_init") = true,
            py::arg("random_state") = 42, py::arg("max_features") = py::none(),
-           R"(Regression tree: inner bin assignments are always round-robin seeded;
-coordinate_descent_smart_init is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)")
+           R"(Regression tree: inner bins are round-robin seeded. ``squared_error`` runs
+coordinate descent and keeps the map only if branch MSE improves clearly vs the seed;
+otherwise the snapshot is restored and the branch objective is rebuilt.
+``absolute_error`` / ``mae`` skip coordinate descent. coordinate_descent_smart_init
+is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)")
       .def("fit", &RegressionShapeGeneralizedTreePy::fit, py::arg("X"),
            py::arg("y"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
