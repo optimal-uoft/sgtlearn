@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
 from typing import Any, Optional, Union
 
 import numpy as np
-from sklearn.base import BaseEstimator, ClassifierMixin
-from ShapeGeneralizedTrees import ClassificationShapeGeneralizedTree
+from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
+
+import ShapeGeneralizedTrees as _shape
+
+ClassificationShapeGeneralizedTree = _shape.ClassificationShapeGeneralizedTree
+RegressionShapeGeneralizedTree = _shape.RegressionShapeGeneralizedTree
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
 
 
@@ -172,12 +175,116 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         return np.asarray(self._est.predict_proba(X32), dtype=np.float64)
 
 
-class SGTRegressor(BaseShapeCART):
-    """Reserved sklearn-style regressor API; native regression tree is not exposed yet."""
+class SGTRegressor(RegressorMixin, BaseShapeCART):
+    """
+    Shape Generalized Tree regressor (native C++ trainer, sklearn-style API).
 
-    def __init__(self) -> None:
-        super().__init__()
+    ``criterion`` is ``\"squared_error\"`` (or ``\"mse\"``) or ``\"absolute_error\"``
+    (or ``\"mae\"``), matching the native trainer. ``X`` is ``float32`` and
+    ``(n_samples, n_features)``; ``y`` is cast to ``float32`` for the native core.
+    The ``coordinate_descent_smart_init`` argument is accepted for API symmetry with
+    ``SGTClassifier`` but is ignored: regression always round-robin seeds inner
+    bin-to-partition assignments (no k-means). ``squared_error`` / ``mse`` then run
+    coordinate descent and keep the result only if branch MSE improves clearly vs
+    the seed; otherwise the trainer restores the round-robin snapshot.
+    ``absolute_error`` / ``mae`` skip coordinate descent (see native trainer).
+    """
+
+    def __init__(
+        self,
+        *,
+        criterion: str = "squared_error",
+        num_partitions: int = 2,
+        max_depth: Optional[int] = None,
+        max_leaf_nodes: Optional[int] = None,
+        min_samples_leaf: int = 1,
+        min_impurity_decrease: float = 1e-7,
+        inner_max_depth: int = 6,
+        inner_max_leaf_nodes: int = 32,
+        inner_min_samples_leaf: int = 1,
+        inner_min_impurity_decrease: float = 1e-7,
+        coordinate_descent_max_iters: int = 20,
+        coordinate_descent_patience: int = 5,
+        coordinate_descent_smart_init: bool = True,
+        random_state: Optional[int] = 42,
+        max_features: Optional[Union[int, float, str]] = None,
+    ) -> None:
+        self.criterion = criterion
+        self.num_partitions = int(num_partitions)
+        self.max_depth = max_depth
+        self.max_leaf_nodes = max_leaf_nodes
+        self.min_samples_leaf = int(min_samples_leaf)
+        self.min_impurity_decrease = float(min_impurity_decrease)
+        self.inner_max_depth = int(inner_max_depth)
+        self.inner_max_leaf_nodes = int(inner_max_leaf_nodes)
+        self.inner_min_samples_leaf = int(inner_min_samples_leaf)
+        self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
+        self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
+        self.coordinate_descent_patience = int(coordinate_descent_patience)
+        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
+        self.random_state = random_state
+        self.max_features = max_features
+
+        self._est: Any = None
+        self.n_features_in_: Optional[int] = None
+
+    def _get_random_seed(self) -> int:
+        if self.random_state is None:
+            return 42
+        return int(self.random_state)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTRegressor":
-        """Train is not implemented; use classification estimators for now."""
-        raise NotImplementedError("SGTRegressor is not implemented yet")
+        from sklearn.utils.validation import check_X_y
+
+        X, y = check_X_y(
+            X,
+            y,
+            accept_sparse=False,
+            dtype=np.float64,
+            ensure_all_finite=True,
+            y_numeric=True,
+        )
+        self.n_features_in_ = X.shape[1]
+
+        outer_depth = 0 if self.max_depth is None else int(self.max_depth)
+        outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
+        inner_depth = 0 if self.inner_max_depth is None else int(self.inner_max_depth)
+        inner_leaves = (
+            0 if self.inner_max_leaf_nodes is None else int(self.inner_max_leaf_nodes)
+        )
+
+        self._est = RegressionShapeGeneralizedTree(
+            str(self.criterion),
+            self.num_partitions,
+            int(self.min_samples_leaf),
+            float(self.min_impurity_decrease),
+            outer_depth,
+            outer_leaves,
+            int(self.inner_min_samples_leaf),
+            float(self.inner_min_impurity_decrease),
+            inner_depth,
+            inner_leaves,
+            int(self.coordinate_descent_max_iters),
+            int(self.coordinate_descent_patience),
+            bool(self.coordinate_descent_smart_init),
+            int(self._get_random_seed()),
+            self.max_features,
+        )
+
+        X32 = np.ascontiguousarray(X, dtype=np.float32)
+        y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
+        self._est.fit(X32, y32)
+        return self
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        from sklearn.utils.validation import check_array, check_is_fitted
+
+        check_is_fitted(self, attributes=("_est",))
+        X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
+        if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but SGTRegressor is expecting "
+                f"{self.n_features_in_} features as in fit."
+            )
+        X32 = np.ascontiguousarray(X, dtype=np.float32)
+        return np.asarray(self._est.predict(X32), dtype=np.float64).ravel()

@@ -15,6 +15,11 @@
 /**
  * Shuffle bins each outer iteration and, for each bin, try all partition moves that improve the objective.
  *
+ * Each bin update compares candidate objectives to the value **before** moving
+ * that bin (holding all other assignments fixed). Reusing a single global
+ * ``best`` across bins was incorrect and could accept worsening moves or reject
+ * valid improvements (observed on MAE regression vs sklearn fidelity).
+ *
  * @param numPartitions number of child partitions (fan-out).
  * @param assignmentObjective live objective; ``assignments`` updated in place.
  * @param rng          non-const generator for shuffling bin order each outer round.
@@ -28,7 +33,6 @@ inline double coordinateDescent(size_t numPartitions,
                                 size_t patience = 5) {
   size_t numBins = assignmentObjective.assignments.size();
   size_t consecutiveTrialsWithoutImprovement = 0;
-  double bestImpurity = assignmentObjective.objective();
 
   for (size_t i = 0; i < maxIters; ++i) {
     bool improved = false;
@@ -38,8 +42,11 @@ inline double coordinateDescent(size_t numPartitions,
     std::shuffle(permutation.begin(), permutation.end(), rng);
 
     for (size_t j : permutation) {
+      const double objectiveBeforeMovingBinJ = assignmentObjective.objective();
       size_t currentAssignedPartition = assignmentObjective.assignments[j];
       size_t bestPartition = currentAssignedPartition;
+      double bestImpurityForBinJ = objectiveBeforeMovingBinJ;
+
       assignmentObjective.removeLeaf(j);
 
       for (size_t partition = 0; partition < numPartitions; ++partition) {
@@ -49,8 +56,8 @@ inline double coordinateDescent(size_t numPartitions,
         assignmentObjective.addLeaf(j, partition);
         double impurity = assignmentObjective.objective();
 
-        if (impurity < bestImpurity) {
-          bestImpurity = impurity;
+        if (impurity < bestImpurityForBinJ) {
+          bestImpurityForBinJ = impurity;
           bestPartition = partition;
           improved = true;
         }

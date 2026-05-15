@@ -3,7 +3,8 @@
 /**
  * @file Estimators/ShapeFunctionNode.h
  * @brief One node in a shape-generalized / shape-function tree: routing, fit
- *        sample set, and classification leaf histogram.
+ *        sample set, and per-bin stats for the winning inner split (classification
+ *        or regression).
  */
 
 #include <algorithm>
@@ -54,6 +55,12 @@ struct ShapeFunctionNode {
    * discretizer (same row count as ``binToPartition``). Cleared after training.
    */
   std::vector<std::vector<size_t>> splitLeafStats;
+  /**
+   * During fit, regression squared error only: per-bin ``[sum y, sum y^2]`` for
+   * the winning inner discretizer (same row count as ``binToPartition``).
+   * Empty for MAE / classification. Cleared after training.
+   */
+  std::vector<std::vector<float>> regressionSplitLeafStats;
 
   std::weak_ordering operator<=>(const ShapeFunctionNode &o) const {
     return std::compare_weak_order_fallback(informationGain, o.informationGain);

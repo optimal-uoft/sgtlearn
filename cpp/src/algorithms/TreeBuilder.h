@@ -34,9 +34,7 @@ public:
    */
   void buildTree(T &root, std::function<bool(T &, size_t)> findBestSplit,
                  std::function<std::vector<T>(T &)> makeChildren,
-                 std::function<void(T &, std::vector<T> &)> commitSplit
-
-  );
+                 std::function<void(T &, std::vector<T> &)> commitSplit);
 };
 
 #include "algorithms/TreeBuilder.tpp"
