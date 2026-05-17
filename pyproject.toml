@@ -43,6 +43,8 @@ module = [
   "sklearn.*",
   "ShapeGeneralizedTrees",
   "ShapeGeneralizedTrees.*",
+  "joblib",
+  "joblib.*",
 ]
 ignore_missing_imports = true
 

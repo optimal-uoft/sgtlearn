@@ -7,11 +7,13 @@ from typing import Any, Optional, Union
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
-from ShapeGeneralizedTrees import ClassificationShapeGeneralizedTree, RegressionShapeGeneralizedTree
+from ShapeGeneralizedTrees import (
+    ClassificationShapeGeneralizedTree,
+    RegressionShapeGeneralizedTree,
+)
 from sklearn.preprocessing import LabelEncoder
 
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
-
 
 
 class BaseShapeCART(BaseEstimator):
@@ -175,7 +177,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         """Predict class labels in the original label space (inverse of ``LabelEncoder``)."""
 
         check_is_fitted(self, attributes=("_est", "_le"))
-        X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
+        X = check_array(
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+        )
         if X.shape[1] != self.n_features_in_:
             raise ValueError(
                 f"X has {X.shape[1]} features, but SGTClassifier is expecting "
@@ -189,7 +193,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         """Return shape ``(n_samples, n_classes)`` probabilities aligned with ``classes_`` order."""
 
         check_is_fitted(self, attributes=("_est", "_le"))
-        X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
+        X = check_array(
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+        )
         if X.shape[1] != self.n_features_in_:
             raise ValueError(
                 f"X has {X.shape[1]} features, but SGTClassifier is expecting "
@@ -300,9 +306,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self._est.fit(X32, y32)
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:        
+    def predict(self, X: np.ndarray) -> np.ndarray:
         check_is_fitted(self, attributes=("_est",))
-        X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
+        X = check_array(
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+        )
         if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
             raise ValueError(
                 f"X has {X.shape[1]} features, but SGTRegressor is expecting "

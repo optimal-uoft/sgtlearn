@@ -10,7 +10,7 @@ import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
-from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from sklearn.utils.validation import check_array, check_is_fitted
 
 
 def _n_samples_bootstrap(
@@ -23,9 +23,7 @@ def _n_samples_bootstrap(
         if n <= 0:
             raise ValueError("max_samples as int must be positive.")
         if n > n_samples:
-            raise ValueError(
-                f"max_samples={n} cannot exceed n_samples={n_samples}."
-            )
+            raise ValueError(f"max_samples={n} cannot exceed n_samples={n_samples}.")
         return n
     m = float(max_samples)
     if not (0.0 < m <= 1.0):
@@ -172,23 +170,21 @@ class RandomSGForest(BaseEstimator, ABC):
         n_jobs_req = 1 if self.n_jobs is None else self.n_jobs
         n_jobs = effective_n_jobs(n_jobs_req)
         if n_jobs == 1:
-            self.estimators_ = [
-                _parallel_fit_tree(ts, *fit_args) for ts in tree_seeds
-            ]
+            self.estimators_ = [_parallel_fit_tree(ts, *fit_args) for ts in tree_seeds]
         else:
             self.estimators_ = Parallel(
                 n_jobs=n_jobs,
                 verbose=self.verbose,
                 prefer="threads",
-            )(
-                delayed(_parallel_fit_tree)(ts, *fit_args) for ts in tree_seeds
-            )
+            )(delayed(_parallel_fit_tree)(ts, *fit_args) for ts in tree_seeds)
 
         return self
 
     def _check_predict_X(self, X: np.ndarray) -> np.ndarray:
         check_is_fitted(self, attributes=("estimators_",))
-        X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
+        X = check_array(
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+        )
         if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
             raise ValueError(
                 f"X has {X.shape[1]} features, but {self._estimator_name} is expecting "
