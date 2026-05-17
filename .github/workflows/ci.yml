@@ -16,16 +16,24 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build build-essential
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential libopenblas-dev
+          pip install numpy
 
       - name: Configure CMake
         working-directory: cpp
-        run: cmake -S . -B build 
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="$(which python3)"
 
       - name: Build project
         working-directory: cpp
-        run: cmake --build build -DCMAKE_BUILD_TYPE=Release
+        run: cmake --build build
 
       - name: Run unit tests
         working-directory: cpp/build
