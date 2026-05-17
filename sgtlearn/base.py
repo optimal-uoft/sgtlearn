@@ -37,6 +37,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     ``\"sqrt\"`` and ``\"log2\"`` use ``max(1, int(sqrt(n_features)))`` and
     ``max(1, int(log2(n_features)))`` respectively (case-insensitive in the
     native binding).
+
+    ``label_encoder``: when not ``None``, it must already be fitted (e.g. by an
+    ensemble). :meth:`fit` then expects ``y`` integer-encoded in
+    ``0 .. len(label_encoder.classes_) - 1`` and assigns ``self._le`` to that same
+    object so ``predict`` / ``predict_proba`` share one encoding (no per-tree
+    ``LabelEncoder.fit``).
     """
 
     def __init__(
@@ -57,6 +63,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
         max_features: Optional[Union[int, float, str]] = None,
+        label_encoder: Any = None,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
@@ -74,6 +81,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
+        self.label_encoder = label_encoder
 
         self._est: Any = None
         self._le: Any = None
@@ -98,14 +106,36 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             ensure_all_finite=True,
         )
         self.n_features_in_ = X.shape[1]
-        le = LabelEncoder()
-        y_enc = le.fit_transform(y)
-        self._le = le
-        self.classes_ = le.classes_
-        self.n_classes_ = int(len(self.classes_))
 
-        if self.n_classes_ < 2:
-            raise ValueError("SGTClassifier requires at least two classes.")
+        if self.label_encoder is not None:
+            le = self.label_encoder
+            if not hasattr(le, "classes_"):
+                raise ValueError(
+                    "``label_encoder`` must be fitted before ``fit`` "
+                    "(e.g. ``LabelEncoder().fit_transform`` on the full ``y``)."
+                )
+            self._le = le
+            self.classes_ = np.asarray(le.classes_)
+            self.n_classes_ = int(self.classes_.shape[0])
+            if self.n_classes_ < 2:
+                raise ValueError("SGTClassifier requires at least two classes.")
+            y_enc = np.asarray(y, dtype=np.int64).ravel()
+            if y_enc.shape[0] != X.shape[0]:
+                raise ValueError("X and y must have the same number of samples.")
+            if np.any(y_enc < 0) or np.any(y_enc >= self.n_classes_):
+                raise ValueError(
+                    "When using a preset ``label_encoder``, y must be integer-encoded in "
+                    f"0..{self.n_classes_ - 1} (inclusive)."
+                )
+        else:
+            le = LabelEncoder()
+            y_enc = le.fit_transform(y)
+            self._le = le
+            self.classes_ = le.classes_
+            self.n_classes_ = int(len(self.classes_))
+
+            if self.n_classes_ < 2:
+                raise ValueError("SGTClassifier requires at least two classes.")
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
