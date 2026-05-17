@@ -19,17 +19,16 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build build-essential
 
-      - name: change directory to cpp
-        run: cd cpp
-
       - name: Configure CMake
+        working-directory: cpp
         run: cmake -S . -B build 
 
       - name: Build project
+        working-directory: cpp
         run: cmake --build build -DCMAKE_BUILD_TYPE=Release
 
       - name: Run unit tests
-        working-directory: build
+        working-directory: cpp/build
         run: ctest --output-on-failure
   lint:
     runs-on: ubuntu-latest
