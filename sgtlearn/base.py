@@ -6,11 +6,10 @@ from typing import Any, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
+from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from ShapeGeneralizedTrees import ClassificationShapeGeneralizedTree, RegressionShapeGeneralizedTree
+from sklearn.preprocessing import LabelEncoder
 
-import ShapeGeneralizedTrees as _shape
-
-ClassificationShapeGeneralizedTree = _shape.ClassificationShapeGeneralizedTree
-RegressionShapeGeneralizedTree = _shape.RegressionShapeGeneralizedTree
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
 
 
@@ -98,8 +97,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTClassifier":
         """Build the native classifier on ``X`` (encoded labels) and record sklearn metadata."""
-        from sklearn.preprocessing import LabelEncoder
-        from sklearn.utils.validation import check_X_y
 
         X, y = check_X_y(
             X,
@@ -176,7 +173,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict class labels in the original label space (inverse of ``LabelEncoder``)."""
-        from sklearn.utils.validation import check_array, check_is_fitted
 
         check_is_fitted(self, attributes=("_est", "_le"))
         X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
@@ -191,7 +187,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Return shape ``(n_samples, n_classes)`` probabilities aligned with ``classes_`` order."""
-        from sklearn.utils.validation import check_array, check_is_fitted
 
         check_is_fitted(self, attributes=("_est", "_le"))
         X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
@@ -264,7 +259,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         return int(self.random_state)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTRegressor":
-        from sklearn.utils.validation import check_X_y
 
         X, y = check_X_y(
             X,
@@ -306,9 +300,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self._est.fit(X32, y32)
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        from sklearn.utils.validation import check_array, check_is_fitted
-
+    def predict(self, X: np.ndarray) -> np.ndarray:        
         check_is_fitted(self, attributes=("_est",))
         X = check_array(X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True)
         if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
