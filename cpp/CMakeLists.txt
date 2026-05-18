@@ -12,6 +12,11 @@ include(FetchContent)
 find_package(Armadillo QUIET)
 
 if (NOT Armadillo_FOUND)
+    # Shared libarmadillo breaks auditwheel repair in manylinux wheels; static
+    # wrapper links OpenBLAS at build time and drops the runtime .so dependency.
+    set(STATIC_LIB ON CACHE BOOL "" FORCE)
+    set(OPENBLAS_PROVIDES_LAPACK ON CACHE BOOL "" FORCE)
+    set(BUILD_SMOKE_TEST OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(armadillo
             GIT_REPOSITORY https://gitlab.com/conradsnicta/armadillo-code.git
             GIT_TAG 14.2.x
