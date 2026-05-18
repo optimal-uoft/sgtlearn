@@ -59,7 +59,12 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v4   
+        with:
+          pattern: wheels-*                  
+          merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@v4
         with:
           name: sdist
           path: dist
