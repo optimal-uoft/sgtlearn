@@ -7,7 +7,7 @@ name = "sgtlearn"
 version = "v0.1.0a1"
 description = "Shape Generalized Trees learning library"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Nakul Upadhaya", email = "nakulupadhya1@gmail.com" },{ name = "Joshua Lee", email = "joshua.lee.9880@gmail.com" }]
 classifiers = [
@@ -31,13 +31,17 @@ cmake.build-type = "Release"
 wheel.packages = ["sgtlearn"]
 cmake.args = ["-DSGTLEARN_BUILD_TESTS=OFF"]
 
+
 [tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-*"
+build = "cp311-* cp312-* cp313-* cp314-*"
+skip = "cp36-* cp37-* cp38-* cp39-* cp310-* pp*"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y openblas-devel"
+# manylinux_2_28 (cibuildwheel 3 default) uses dnf, not yum
+before-all = "dnf install -y openblas-devel"
 
-[tool.cibuildwheel.musllinux]
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
 before-all = "apk add --no-cache openblas-dev"
 
 [tool.pytest.ini_options]
