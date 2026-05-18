@@ -7,31 +7,32 @@ on:
 
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
+    name: Build distribution 📦
     permissions:
       id-token: write
       contents: read
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-
-      - name: Build source distribution
-        run: pipx run build --sdist
-
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v3
-        env:
-          # Place wheels next to the sdist so the publish step can upload dist/*
-          CIBW_OUTPUT_DIR: dist
-
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+      - name: Install pypa/build
+        run: >-
+          python3 -m
+          pip install
+          build
+          --user
+      - name: Build a binary wheel and a source tarball
+        run: python3 -m build
       - name: Store the distribution packages
         uses: actions/upload-artifact@v5
         with:
           name: python-package-distributions
           path: dist/
-
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
     needs:
