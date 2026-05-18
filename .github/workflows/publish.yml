@@ -18,13 +18,15 @@ jobs:
         with:
           python-version: "3.x"
       - name: Install pypa/build
-        run: >-
-          python3 -m
-          pip install
-          build
-          --user
-      - name: Build a binary wheel and a source tarball
-        run: python3 -m build
+        run: python3 -m pip install build --user
+      - name: Build source tarball
+        run: python3 -m build --sdist
+      - name: Build wheels via cibuildwheel
+        uses: pypa/cibuildwheel@v2.22.0
+        env:
+          CIBW_SKIP: "cp36-* cp37-* cp38-* pp*" 
+        with:
+          output-dir: dist/
       - name: Store the distribution packages
         uses: actions/upload-artifact@v5
         with:
