@@ -39,7 +39,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
-        max_features: Optional[Union[int, float, str]] = None,
+        max_features: Optional[Union[int, float, str]] = "sqrt",
         bootstrap: bool = True,
         max_samples: Optional[Union[int, float]] = None,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
