@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "sgtlearn"
-version = "v0.1.0a1"
+version = "0.1.0a1"
 description = "Shape Generalized Trees learning library"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,18 +31,6 @@ cmake.build-type = "Release"
 wheel.packages = ["sgtlearn"]
 cmake.args = ["-DSGTLEARN_BUILD_TESTS=OFF"]
 
-
-[tool.cibuildwheel]
-build = "cp311-* cp312-* cp313-* cp314-*"
-skip = "cp36-* cp37-* cp38-* cp39-* cp310-* pp*"
-
-[tool.cibuildwheel.linux]
-# manylinux_2_28 (cibuildwheel 3 default) uses dnf, not yum
-before-all = "dnf install -y openblas-devel"
-
-[[tool.cibuildwheel.overrides]]
-select = "*-musllinux*"
-before-all = "apk add --no-cache openblas-dev"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
