@@ -55,3 +55,11 @@ def test_plot_tree_rejects_non_sgt_estimator():
     from sklearn.tree import DecisionTreeClassifier
     with pytest.raises(TypeError):
         plot_tree(DecisionTreeClassifier())
+
+
+def test_plot_tree_max_depth_reduces_artist_count(fitted_classifier):
+    full = plot_tree(fitted_classifier)
+    plt.close("all")
+    shallow = plot_tree(fitted_classifier, max_depth=1)
+    plt.close("all")
+    assert len(shallow) < len(full)

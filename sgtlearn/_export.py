@@ -27,6 +27,40 @@ def export_text() -> None:
     raise NotImplementedError("not implemented yet")
 
 
+def _compute_layout(tree: dict, max_depth: Optional[int]) -> dict[int, tuple[float, float]]:
+    """Top-down BFS layout. Returns ``{node_id: (x, y)}`` in axes coords [0, 1]."""
+    nodes_by_id = {n["id"]: n for n in tree["nodes"]}
+    root = tree["root_index"]
+
+    # BFS, truncating subtrees deeper than max_depth (those parents become draw-leaves).
+    visible: list[int] = []
+    levels: dict[int, list[int]] = {}
+    queue: list[tuple[int, int]] = [(root, 0)]
+    while queue:
+        nid, depth = queue.pop(0)
+        visible.append(nid)
+        levels.setdefault(depth, []).append(nid)
+        n = nodes_by_id[nid]
+        if n["is_leaf"]:
+            continue
+        if max_depth is not None and depth >= max_depth:
+            continue
+        for ch in n["children"]:
+            queue.append((ch, depth + 1))
+
+    max_depth_drawn = max(levels)
+    pos: dict[int, tuple[float, float]] = {}
+    for depth, ids in levels.items():
+        m = len(ids)
+        y = 1.0 - (depth / max(1, max_depth_drawn))
+        # Compress y range a bit so the top/bottom nodes don't kiss the axes edge.
+        y = 0.05 + 0.9 * y
+        for i, nid in enumerate(ids):
+            x = (i + 1) / (m + 1)
+            pos[nid] = (x, y)
+    return pos
+
+
 def plot_tree(
     estimator: Any,
     *,
@@ -57,9 +91,10 @@ def plot_tree(
     ax.set_ylim(0, 1)
     ax.set_axis_off()
 
-    # Skeleton: one placeholder artist per node; later tasks render real content.
+    layout = _compute_layout(tree, max_depth)
     artists: list[Any] = []
-    for _ in tree["nodes"]:
-        marker, = ax.plot([0.5], [0.5], marker="o", markersize=1, alpha=0)
+
+    for nid, (x, y) in layout.items():
+        marker, = ax.plot([x], [y], marker="o", markersize=2, color="black")
         artists.append(marker)
     return artists
