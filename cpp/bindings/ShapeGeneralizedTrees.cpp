@@ -25,6 +25,9 @@
 #include <stdexcept>
 #include <string>
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
+
 namespace py = pybind11;
 namespace bridge = sgt::bindings;
 
@@ -242,6 +245,17 @@ private:
 } // namespace
 
 PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
+  // CARMA's allocator may lazily call _import_array() on its first use, which
+  // must happen with the GIL held. The trainer releases the GIL during fit, so
+  // a small first-allocation there can segfault on numpy 2.x. Prime the C-API
+  // table here at module load (the GIL is held) so CARMA's later calls are no-ops.
+  if (_import_array() < 0) {
+    PyErr_Clear();
+    throw std::runtime_error(
+        "ShapeGeneralizedTrees: numpy.core.multiarray failed to import; "
+        "ensure numpy is installed and importable before importing this module");
+  }
+
   m.doc() =
       "Shape-Generalized Tree bindings (classification and regression).";
 
