@@ -158,3 +158,57 @@ def test_plot_tree_fontsize_passes_through(fitted_classifier):
     sizes = {a.get_fontsize() for a in text_artists if a.get_text()}
     assert 6 in sizes
     plt.close("all")
+
+
+def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
+    from matplotlib.patches import Rectangle
+    X, _ = make_classification(n_samples=200, n_features=4, random_state=0)
+
+    def total_bars(artists):
+        # Each internal panel is an inset Axes; histogram bars are Rectangle
+        # patches added to the inset. axvspan slabs are Polygons, not
+        # Rectangles, so they don't count here.
+        total = 0
+        for a in artists:
+            if hasattr(a, "patches"):
+                total += sum(1 for p in a.patches if isinstance(p, Rectangle))
+        return total
+
+    no_x_bars = total_bars(plot_tree(fitted_classifier))
+    plt.close("all")
+    with_x_bars = total_bars(plot_tree(fitted_classifier, X=X))
+    plt.close("all")
+    # With X passed, each internal panel adds ~20 histogram bars;
+    # without X, only slab Polygons are drawn (no Rectangle bars).
+    assert with_x_bars > no_x_bars
+
+
+def test_plot_tree_X_shape_mismatch_raises(fitted_classifier):
+    import numpy as np
+    bad_X = np.zeros((10, fitted_classifier.n_features_in_ + 1))
+    with pytest.raises(ValueError):
+        plot_tree(fitted_classifier, X=bad_X)
+
+
+def test_plot_tree_leaf_uses_partition_color(fitted_classifier):
+    artists = plot_tree(fitted_classifier, cmap="Pastel1")
+    bold = [
+        a for a in artists
+        if hasattr(a, "get_text") and a.get_fontweight() == "bold" and a.get_text()
+    ]
+    assert bold, "expected at least one bold leaf text"
+    cmap = matplotlib.colormaps["Pastel1"]
+    expected_p0 = matplotlib.colors.to_rgb(cmap(0.0))
+    expected_p1 = matplotlib.colors.to_rgb(cmap(1.0))
+    leaf_colors = {
+        tuple(matplotlib.colors.to_rgb(t.get_color())) for t in bold
+    }
+    for c in leaf_colors:
+        assert (
+            all(abs(a - b) < 1e-6 for a, b in zip(c, expected_p0))
+            or all(abs(a - b) < 1e-6 for a, b in zip(c, expected_p1))
+        ), (
+            f"leaf color {c} not one of partition colors "
+            f"{expected_p0}, {expected_p1}"
+        )
+    plt.close("all")
