@@ -63,3 +63,19 @@ def test_plot_tree_max_depth_reduces_artist_count(fitted_classifier):
     shallow = plot_tree(fitted_classifier, max_depth=1)
     plt.close("all")
     assert len(shallow) < len(full)
+
+
+def test_plot_tree_leaves_render_text(fitted_classifier):
+    artists = plot_tree(fitted_classifier)
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    assert text_artists, "expected at least one text artist (leaf box)"
+    samples_texts = [t.get_text() for t in text_artists if "samples" in t.get_text()]
+    assert samples_texts
+    plt.close("all")
+
+
+def test_plot_tree_regressor_leaves_show_value(fitted_regressor):
+    artists = plot_tree(fitted_regressor)
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    assert any("value =" in t.get_text() for t in text_artists)
+    plt.close("all")

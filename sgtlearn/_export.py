@@ -92,9 +92,51 @@ def _level_widths(layout: "dict[int, tuple[float, float]]") -> "dict[float, list
     return by_y
 
 
-def _placeholder_leaf_marker(host_ax, x: float, y: float):
-    """Temporary leaf marker until Task 12 replaces it with a text box."""
-    return host_ax.plot([x], [y], marker="s", markersize=4, color="lightgray")
+def _draw_leaf(
+    host_ax,
+    pos: tuple[float, float],
+    box_size: tuple[float, float],
+    node: dict,
+    *,
+    is_classifier: bool,
+    class_names: Optional[list[str]],
+    criterion: str,
+    precision: int,
+    fontsize: Optional[int],
+):
+    """Draw a leaf as a small filled rectangle with sklearn-style text.
+
+    Returns ``(rect, text)`` for the caller to track as artists.
+    """
+    from matplotlib import patches
+
+    x, y = pos
+    w, h = box_size
+    rect = patches.Rectangle(
+        (x - w / 2, y - h / 2), w, h,
+        fill=True, facecolor="#f0f0f0", edgecolor="black", linewidth=0.5,
+        transform=host_ax.transAxes,
+    )
+    host_ax.add_patch(rect)
+
+    lines = [f"samples = {node['n_samples']}"]
+    if is_classifier:
+        counts = list(node["class_counts"])
+        lines.append(f"value = {counts}")
+        if counts:
+            arg = max(range(len(counts)), key=lambda i: counts[i])
+            label = class_names[arg] if class_names is not None else str(arg)
+            lines.append(f"class = {label}")
+    else:
+        lines.append(f"value = {node['value']:.{precision}f}")
+    lines.append(f"{criterion} = {node['impurity']:.{precision}f}")
+
+    text = host_ax.text(
+        x, y, "\n".join(lines),
+        ha="center", va="center", fontsize=fontsize,
+        transform=host_ax.transAxes,
+    )
+    return rect, text
 
 
 def _compute_layout(tree: dict, max_depth: Optional[int]) -> dict[int, tuple[float, float]]:
@@ -164,6 +206,17 @@ def plot_tree(
     layout = _compute_layout(tree, max_depth)
     palette = _build_palette(cmap, tree["num_partitions"])
 
+    is_classifier = isinstance(estimator, SGTClassifier)
+    resolved_class_names: Optional[list[str]]
+    if not is_classifier:
+        resolved_class_names = None
+    elif class_names is True:
+        resolved_class_names = [str(c) for c in estimator.classes_]
+    elif class_names in (None, False):
+        resolved_class_names = [str(c) for c in range(tree["num_classes"])]
+    else:
+        resolved_class_names = list(class_names)
+
     # Resolve feature names (fall back to "X[i]" placeholders).
     n_features = estimator.n_features_in_ or 0
     feat_names = feature_names or [f"X[{i}]" for i in range(n_features)]
@@ -187,8 +240,17 @@ def plot_tree(
             max_depth is not None and node["depth"] >= max_depth and not node["is_leaf"]
         )
         if drawn_as_leaf:
-            marker = _placeholder_leaf_marker(ax, pos[0], pos[1])
-            artists.extend(marker)
+            box_size = (inset_size[0], inset_size[1])
+            rect, text = _draw_leaf(
+                ax, pos, box_size, node,
+                is_classifier=is_classifier,
+                class_names=resolved_class_names,
+                criterion=tree["criterion"],
+                precision=precision,
+                fontsize=fontsize,
+            )
+            artists.append(rect)
+            artists.append(text)
         else:
             feat = feat_names[node["feature"]] if node["feature"] is not None else ""
             inset = _draw_internal(ax, pos, inset_size, node, palette, feat, proportion, fontsize)
