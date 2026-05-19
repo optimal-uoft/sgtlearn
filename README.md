@@ -17,14 +17,21 @@ Use a **project-local virtual environment** (`.venv`) so Python, pytest, and
 scikit-learn stay isolated and reproducible:
 
 ```bash
+# Requires Python >= 3.11
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -e ".[dev]"
 ```
-
 The editable install builds the C++ extensions via scikit-build-core and
 installs the `sgtlearn` package plus native modules into `.venv`.
+
+Alternatively, one can use `uv` 
+
+```bash
+uv sync --all-extras
+source .venv/bin/activate
+```
 
 > **Anaconda users:** Do not bootstrap the venv from an Anaconda Python.
 > Anaconda ships a `libstdc++.so.6` that lags the symbol versions produced by
@@ -33,11 +40,6 @@ installs the `sgtlearn` package plus native modules into `.venv`.
 > non-Anaconda Python — e.g. `uv venv --python 3.12 .venv` (downloads a
 > hermetic CPython), `pyenv`, or your distro's `python3`.
 
-Optional: run Python tests through Make (uses `.venv/bin/python` when present):
-
-```bash
-make pytest
-```
 
 For a **non-editable** install into the active environment only:
 
@@ -61,22 +63,22 @@ pip install ".[dev]"   # dev extras (pytest, scikit-learn) only if needed
 - `cpp/include/sgtlearn/`: public headers for the core C++ API.
 - `cpp/src/`: internal C++ implementation for the core library.
 - `cpp/bindings/`: pybind11 binding entrypoints; one `.cpp` file maps to one Python extension module.
-- `tests/cpp/`: C++ unit tests consumed by the `cpp_tests` executable target.
+- `cpp/tests/`: C++ unit tests consumed by the `cpp_tests` executable target.
 
 ## CMake Targets
 
 - `sgtlearn_core` (static library): shared C++ logic used by Python modules and tests.
 - `<module_name>` (pybind11 module, one per file in `cpp/bindings/`): compiled extension modules installed into the package.
 - `cpp_tests` (Catch2 executable): optional C++ test target, controlled by:
-  - `-DSGTLEARN_BUILD_TESTS=ON` (default)
-  - `-DSGTLEARN_BUILD_TESTS=OFF` (skip C++ test build)
+  - `-DSGTLEARN_BUILD_TESTS=ON` (build C++ tests)
+  - `-DSGTLEARN_BUILD_TESTS=OFF` (default for `pip install`; the CMake option itself defaults to `ON`, but `pyproject.toml` overrides this so wheels don't ship test binaries)
 
 ### Overriding CMake options from `pip`
 
-Example (skip C++ tests for one install):
+Example (build C++ tests for one install):
 
 ```bash
-pip install . --config-settings=cmake.args="-DSGTLEARN_BUILD_TESTS=OFF"
+pip install . --config-settings=cmake.args="-DSGTLEARN_BUILD_TESTS=ON"
 ```
 
 
