@@ -82,6 +82,57 @@ def _merge_routing_regions(
     return regions
 
 
+def _route_samples(tree: dict, X) -> "dict[int, Any]":
+    """Route ``X`` through the tree; return ``{node_id: column-indices}``.
+
+    The returned array for each node lists the row indices of ``X`` that
+    reach that node. Leaves' sample sets partition the root's sample set.
+
+    Routing rule (matches the C++ trainer): at each internal node, look up
+    the routing feature column; ``bin = np.searchsorted(thresholds, value,
+    side='right')`` gives the inner-tree bin (clamped to
+    ``len(bin_to_partition)-1``); the destination child is
+    ``children[bin_to_partition[bin]]``.
+    """
+    import numpy as np
+
+    X_arr = np.asarray(X)
+    nodes_by_id = {n["id"]: n for n in tree["nodes"]}
+    root = tree["root_index"]
+    n = X_arr.shape[0]
+
+    reach: dict[int, np.ndarray] = {root: np.arange(n, dtype=np.int64)}
+    queue = [root]
+    while queue:
+        nid = queue.pop(0)
+        node = nodes_by_id[nid]
+        if node["is_leaf"]:
+            continue
+        rows = reach[nid]
+        if rows.size == 0:
+            for cid in node["children"]:
+                reach.setdefault(cid, np.empty(0, dtype=np.int64))
+                queue.append(cid)
+            continue
+        feature = node["feature"]
+        thresholds = np.asarray(node["thresholds"], dtype=np.float64)
+        b2p = np.asarray(node["bin_to_partition"], dtype=np.int64)
+        children = list(node["children"])
+
+        values = X_arr[rows, feature]
+        bin_idx = np.searchsorted(thresholds, values, side="right")
+        bin_idx = np.clip(bin_idx, 0, len(b2p) - 1)
+        part_idx = b2p[bin_idx]
+
+        for k, cid in enumerate(children):
+            mask = part_idx == k
+            reach[cid] = rows[mask]
+            queue.append(cid)
+    for nid in nodes_by_id:
+        reach.setdefault(nid, np.empty(0, dtype=np.int64))
+    return reach
+
+
 def _bin_edges(thresholds: list[float]) -> list[float]:
     """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
     if not thresholds:
