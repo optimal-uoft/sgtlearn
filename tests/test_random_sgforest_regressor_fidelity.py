@@ -150,12 +150,12 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
 
     sgt = _standalone_sgt_regressor(forest_rs, **tree_kw)
     sgt.fit(X, y)
-    np.testing.assert_allclose(forest.predict(X), sgt.predict(X), rtol=1e-5, atol=1e-4)
+    np.testing.assert_allclose(forest.predict(X), sgt.predict(X))
 
     dt = DecisionTreeRegressor(criterion=criterion, random_state=0)
     dt.fit(X, y)
     np.testing.assert_allclose(
-        forest.predict(X), dt.predict(X), rtol=1e-5, atol=1e-4
+        forest.predict(X), dt.predict(X)
     )
 
 
@@ -177,8 +177,8 @@ def test_random_sg_forest_single_tree_equals_standalone_sgt() -> None:
     sgt.fit(X, y)
 
     est = forest.estimators_[0]
-    np.testing.assert_allclose(est.predict(X), sgt.predict(X), rtol=1e-6, atol=1e-6)
-    np.testing.assert_allclose(forest.predict(X), sgt.predict(X), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(est.predict(X), sgt.predict(X))
+    np.testing.assert_allclose(forest.predict(X), sgt.predict(X))
 
 
 def test_random_sg_forest_parallel_fit_matches_sequential() -> None:
@@ -206,4 +206,4 @@ def test_random_sg_forest_parallel_fit_matches_sequential() -> None:
     )
     par.fit(X, y)
 
-    np.testing.assert_allclose(seq.predict(X), par.predict(X), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(seq.predict(X), par.predict(X))

@@ -98,6 +98,6 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one(criterion: str) -> No
     assert pred.shape == (X.shape[0],)
     assert np.all(np.isfinite(pred))
 
-    np.testing.assert_allclose(pred, dt.predict(X), rtol=1e-5, atol=1e-4)
+    np.testing.assert_allclose(pred, dt.predict(X))
 
 

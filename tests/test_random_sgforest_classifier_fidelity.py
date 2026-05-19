@@ -149,8 +149,6 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     np.testing.assert_allclose(
         forest.predict_proba(X),
         sgt.predict_proba(X),
-        rtol=1e-6,
-        atol=1e-6,
     )
 
     dt = DecisionTreeClassifier(criterion=sk_crit)
@@ -160,8 +158,6 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     np.testing.assert_allclose(
         forest.predict_proba(X),
         dt.predict_proba(X),
-        rtol=1e-6,
-        atol=1e-6,
     )
 
 
@@ -188,14 +184,12 @@ def test_random_sg_forest_single_tree_equals_standalone_sgt() -> None:
     est = forest.estimators_[0]
     np.testing.assert_array_equal(est.predict(X), sgt.predict(X))
     np.testing.assert_allclose(
-        est.predict_proba(X), sgt.predict_proba(X), rtol=1e-6, atol=1e-6
+        est.predict_proba(X), sgt.predict_proba(X)
     )
     np.testing.assert_array_equal(forest.predict(X), sgt.predict(X))
     np.testing.assert_allclose(
         forest.predict_proba(X),
         sgt.predict_proba(X),
-        rtol=1e-6,
-        atol=1e-6,
     )
 
 
@@ -245,5 +239,5 @@ def test_random_sg_forest_parallel_fit_matches_sequential() -> None:
 
     np.testing.assert_array_equal(seq.predict(X), par.predict(X))
     np.testing.assert_allclose(
-        seq.predict_proba(X), par.predict_proba(X), rtol=1e-6, atol=1e-6
+        seq.predict_proba(X), par.predict_proba(X)
     )
