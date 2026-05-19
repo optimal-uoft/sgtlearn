@@ -83,7 +83,5 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
     np.testing.assert_array_equal(sgt.predict(X), dt.predict(X))
     np.testing.assert_allclose(
         sgt.predict_proba(X),
-        dt.predict_proba(X),
-        rtol=1e-6,
-        atol=1e-6,
+        dt.predict_proba(X)
     )

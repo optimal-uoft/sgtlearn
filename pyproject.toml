@@ -4,10 +4,10 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "sgtlearn"
-version = "0.1.0"
+version = "v0.1.0a5"
 description = "Shape Generalized Trees learning library"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Nakul Upadhaya", email = "nakulupadhya1@gmail.com" },{ name = "Joshua Lee", email = "joshua.lee.9880@gmail.com" }]
 classifiers = [
@@ -18,11 +18,11 @@ classifiers = [
 dependencies = [
   "numpy>=1.20",
   "scikit-learn>=1.3",
-   "joblib>=1.2"
+  "joblib>=1.2",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "pybind11-stubgen"]
+dev = ["pytest>=7", "pybind11-stubgen", "ruff", "black", "mypy"]
 
 [tool.scikit-build]
 cmake.source-dir = "cpp"
@@ -31,8 +31,6 @@ cmake.build-type = "Release"
 wheel.packages = ["sgtlearn"]
 cmake.args = ["-DSGTLEARN_BUILD_TESTS=OFF"]
 
-[tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-*"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -45,6 +43,8 @@ module = [
   "ShapeGeneralizedTrees.*",
   "joblib",
   "joblib.*",
+  "numpy",
+  "numpy.*",
 ]
 ignore_missing_imports = true
 

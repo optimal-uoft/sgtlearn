@@ -35,17 +35,45 @@ def _first_tree_random_state(forest_random_state: int) -> int:
     return int(rng.randint(np.iinfo(np.int32).max))
 
 
-def _tree_hyperparams() -> dict:
+def _forest_tree_defaults() -> dict:
+    """Every kwarg RandomSGForest passes to base trees via ``_tree_kwargs``."""
     return dict(
-        criterion="squared_error",
-        max_depth=4,
-        min_samples_leaf=8,
-        min_impurity_decrease=1e-7,
-        inner_max_depth=8,
-        inner_max_leaf_nodes=48,
-        coordinate_descent_max_iters=25,
-        coordinate_descent_patience=6,
-        max_features=None,
+        num_partitions=2,
+        max_depth=None,
+        max_leaf_nodes=None,
+        min_samples_leaf=1,
+        min_impurity_decrease=0.0,
+        inner_max_depth=1,
+        inner_max_leaf_nodes=32,
+        inner_min_samples_leaf=1,
+        inner_min_impurity_decrease=0.0,
+        coordinate_descent_max_iters=20,
+        coordinate_descent_patience=5,
+        coordinate_descent_smart_init=True,
+        max_features="sqrt",
+    )
+
+
+def _tree_hyperparams() -> dict:
+    """Tuned tree settings for sklearn RF comparisons and structural fidelity checks."""
+    return {
+        **_forest_tree_defaults(),
+        "criterion": "squared_error",
+        "max_depth": 4,
+        "min_samples_leaf": 8,
+        "min_impurity_decrease": 1e-7,
+        "inner_max_depth": 8,
+        "inner_max_leaf_nodes": 48,
+        "coordinate_descent_max_iters": 25,
+        "coordinate_descent_patience": 6,
+    }
+
+
+def _standalone_sgt_regressor(forest_random_state: int, **tree_kw) -> SGTRegressor:
+    """SGTRegressor with the same hyperparameters as one forest tree."""
+    return SGTRegressor(
+        random_state=_first_tree_random_state(forest_random_state),
+        **tree_kw,
     )
 
 
@@ -105,31 +133,29 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     """One tree, no bootstrap, ``inner_max_depth=1``: same in-sample behavior as ``DecisionTreeRegressor()``."""
     X, y = _load_xy()
     forest_rs = 7
-    tree_seed = _first_tree_random_state(forest_rs)
+    tree_kw = {
+        **_forest_tree_defaults(),
+        "criterion": criterion,
+        "inner_max_depth": 1,
+        "max_features": None,
+    }
 
     forest = RandomSGForestRegressor(
         n_estimators=1,
         bootstrap=False,
-        criterion=criterion,
-        inner_max_depth=1,
-        max_features=None,
         random_state=forest_rs,
+        **tree_kw,
     )
     forest.fit(X, y)
 
-    sgt = SGTRegressor(
-        criterion=criterion,
-        inner_max_depth=1,
-        max_features=None,
-        random_state=tree_seed,
-    )
+    sgt = _standalone_sgt_regressor(forest_rs, **tree_kw)
     sgt.fit(X, y)
-    np.testing.assert_allclose(forest.predict(X), sgt.predict(X), rtol=1e-5, atol=1e-4)
+    np.testing.assert_allclose(forest.predict(X), sgt.predict(X))
 
     dt = DecisionTreeRegressor(criterion=criterion, random_state=0)
     dt.fit(X, y)
     np.testing.assert_allclose(
-        forest.predict(X), dt.predict(X), rtol=1e-5, atol=1e-4
+        forest.predict(X), dt.predict(X)
     )
 
 
@@ -147,13 +173,12 @@ def test_random_sg_forest_single_tree_equals_standalone_sgt() -> None:
     )
     forest.fit(X, y)
 
-    sgt = SGTRegressor(
-        random_state=_first_tree_random_state(random_state),
-        **kw,
-    )
+    sgt = _standalone_sgt_regressor(random_state, **kw)
     sgt.fit(X, y)
 
-    np.testing.assert_allclose(forest.predict(X), sgt.predict(X), rtol=1e-6, atol=1e-6)
+    est = forest.estimators_[0]
+    np.testing.assert_allclose(est.predict(X), sgt.predict(X))
+    np.testing.assert_allclose(forest.predict(X), sgt.predict(X))
 
 
 def test_random_sg_forest_parallel_fit_matches_sequential() -> None:
@@ -181,4 +206,4 @@ def test_random_sg_forest_parallel_fit_matches_sequential() -> None:
     )
     par.fit(X, y)
 
-    np.testing.assert_allclose(seq.predict(X), par.predict(X), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(seq.predict(X), par.predict(X))
