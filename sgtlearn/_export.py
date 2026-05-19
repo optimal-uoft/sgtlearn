@@ -62,6 +62,10 @@ def _draw_internal(
     feature_name: str,
     proportion: bool,
     fontsize: Optional[int],
+    label: str,
+    impurity: bool,
+    criterion: str,
+    precision: int,
 ):
     """Draw an internal node as a histogram inset. Returns the inset Axes."""
     x, y = pos
@@ -79,9 +83,17 @@ def _draw_internal(
                   color=color, align="center", edgecolor="none")
     inset.set_yticks([])
     inset.set_xticks([])
-    inset.set_xlabel(feature_name, fontsize=fontsize)
     for spine in inset.spines.values():
         spine.set_visible(False)
+
+    if label == "none":
+        return inset
+    parts = [feature_name]
+    if label == "all":
+        parts.append(f"n = {node['n_samples']}")
+        if impurity:
+            parts.append(f"{criterion} = {node['impurity']:.{precision}f}")
+    inset.set_xlabel("\n".join(parts), fontsize=fontsize)
     return inset
 
 
@@ -273,6 +285,10 @@ def plot_tree(
             artists.append(text)
         else:
             feat = feat_names[node["feature"]] if node["feature"] is not None else ""
-            inset = _draw_internal(ax, pos, inset_size, node, palette, feat, proportion, fontsize)
+            inset = _draw_internal(
+                ax, pos, inset_size, node, palette, feat, proportion, fontsize,
+                label=label, impurity=impurity, criterion=tree["criterion"],
+                precision=precision,
+            )
             artists.append(inset)
     return artists

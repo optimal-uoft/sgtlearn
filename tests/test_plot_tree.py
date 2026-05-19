@@ -88,3 +88,49 @@ def test_plot_tree_draws_edges(fitted_classifier):
     # At least one edge per internal node, at least num_partitions in total.
     assert len(lines) >= 1
     plt.close("all")
+
+
+def test_plot_tree_label_all_adds_metadata(fitted_classifier):
+    artists = plot_tree(fitted_classifier, label="all", impurity=True)
+    inset_axes = [a for a in artists if hasattr(a, "get_xlabel")]
+    labels = [a.get_xlabel() for a in inset_axes]
+    assert any("n =" in lbl for lbl in labels)
+    assert any("gini =" in lbl for lbl in labels)
+    plt.close("all")
+
+
+def test_plot_tree_label_none_strips_xlabel(fitted_classifier):
+    artists = plot_tree(fitted_classifier, label="none")
+    inset_axes = [a for a in artists if hasattr(a, "get_xlabel")]
+    assert inset_axes
+    assert all(a.get_xlabel() == "" for a in inset_axes)
+    plt.close("all")
+
+
+def test_plot_tree_proportion_does_not_crash(fitted_classifier):
+    artists = plot_tree(fitted_classifier, proportion=True)
+    assert artists
+    plt.close("all")
+
+
+def test_plot_tree_custom_cmap(fitted_classifier):
+    artists = plot_tree(fitted_classifier, cmap="viridis")
+    assert artists
+    plt.close("all")
+
+
+def test_plot_tree_custom_feature_names(fitted_classifier):
+    names = [f"feat_{i}" for i in range(fitted_classifier.n_features_in_)]
+    artists = plot_tree(fitted_classifier, feature_names=names, label="all")
+    inset_axes = [a for a in artists if hasattr(a, "get_xlabel")]
+    labels = [a.get_xlabel() for a in inset_axes]
+    assert any("feat_" in lbl for lbl in labels)
+    plt.close("all")
+
+
+def test_plot_tree_class_names(fitted_classifier):
+    artists = plot_tree(fitted_classifier, class_names=["neg", "pos"])
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    leaf_text = "\n".join(a.get_text() for a in text_artists)
+    assert "class = neg" in leaf_text or "class = pos" in leaf_text
+    plt.close("all")
