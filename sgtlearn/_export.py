@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Optional, Union
 
+__all__ = ["plot_tree", "export_graphviz", "export_text"]
+
 import matplotlib.pyplot as plt
 from sklearn.utils.validation import check_is_fitted
 
@@ -30,6 +32,7 @@ def export_text() -> None:
 def _build_palette(cmap: Any, num_partitions: int):
     """Sample `num_partitions` colors from a matplotlib colormap or its name."""
     import numpy as np
+
     if isinstance(cmap, str):
         cm = plt.get_cmap(cmap)
     else:
@@ -70,7 +73,9 @@ def _draw_internal(
     """Draw an internal node as a histogram inset. Returns the inset Axes."""
     x, y = pos
     w, h = inset_size
-    inset = host_ax.inset_axes([x - w / 2, y - h / 2, w, h], transform=host_ax.transAxes)
+    inset = host_ax.inset_axes(
+        [x - w / 2, y - h / 2, w, h], transform=host_ax.transAxes
+    )
     edges = _bin_edges(list(node["thresholds"]))
     counts = list(node["bin_sample_counts"])
     if proportion:
@@ -79,8 +84,14 @@ def _draw_internal(
     for i, count in enumerate(counts):
         left, right = edges[i], edges[i + 1]
         color = palette[node["bin_to_partition"][i]]
-        inset.bar((left + right) / 2.0, count, width=(right - left),
-                  color=color, align="center", edgecolor="none")
+        inset.bar(
+            (left + right) / 2.0,
+            count,
+            width=(right - left),
+            color=color,
+            align="center",
+            edgecolor="none",
+        )
     inset.set_yticks([])
     inset.set_xticks([])
     for spine in inset.spines.values():
@@ -125,8 +136,13 @@ def _draw_leaf(
     x, y = pos
     w, h = box_size
     rect = patches.Rectangle(
-        (x - w / 2, y - h / 2), w, h,
-        fill=True, facecolor="#f0f0f0", edgecolor="black", linewidth=0.5,
+        (x - w / 2, y - h / 2),
+        w,
+        h,
+        fill=True,
+        facecolor="#f0f0f0",
+        edgecolor="black",
+        linewidth=0.5,
         transform=host_ax.transAxes,
     )
     host_ax.add_patch(rect)
@@ -144,14 +160,20 @@ def _draw_leaf(
     lines.append(f"{criterion} = {node['impurity']:.{precision}f}")
 
     text = host_ax.text(
-        x, y, "\n".join(lines),
-        ha="center", va="center", fontsize=fontsize,
+        x,
+        y,
+        "\n".join(lines),
+        ha="center",
+        va="center",
+        fontsize=fontsize,
         transform=host_ax.transAxes,
     )
     return rect, text
 
 
-def _compute_layout(tree: dict, max_depth: Optional[int]) -> dict[int, tuple[float, float]]:
+def _compute_layout(
+    tree: dict, max_depth: Optional[int]
+) -> dict[int, tuple[float, float]]:
     """Top-down BFS layout. Returns ``{node_id: (x, y)}`` in axes coords [0, 1]."""
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     root = tree["root_index"]
@@ -223,11 +245,15 @@ def plot_tree(
     if not is_classifier:
         resolved_class_names = None
     elif class_names is True:
-        resolved_class_names = [str(c) for c in estimator.classes_]
+        clf_estimator: SGTClassifier = estimator  # type: ignore[assignment]
+        classes: Any = (
+            clf_estimator.classes_ if clf_estimator.classes_ is not None else []
+        )
+        resolved_class_names = [str(c) for c in classes]
     elif class_names in (None, False):
         resolved_class_names = [str(c) for c in range(tree["num_classes"])]
     else:
-        resolved_class_names = list(class_names)
+        resolved_class_names = list(class_names)  # type: ignore[arg-type]
 
     # Resolve feature names (fall back to "X[i]" placeholders).
     n_features = estimator.n_features_in_ or 0
@@ -258,8 +284,11 @@ def plot_tree(
             cx, cy = layout[child_id]
             x, y = pos
             line = ax.plot(
-                [x, cx], [y - inset_size[1] / 2, cy + inset_size[1] / 2],
-                color=palette[k], linewidth=1.5, solid_capstyle="round",
+                [x, cx],
+                [y - inset_size[1] / 2, cy + inset_size[1] / 2],
+                color=palette[k],
+                linewidth=1.5,
+                solid_capstyle="round",
                 transform=ax.transAxes,
             )[0]
             artists.append(line)
@@ -274,7 +303,10 @@ def plot_tree(
         if drawn_as_leaf:
             box_size = (inset_size[0], inset_size[1])
             rect, text = _draw_leaf(
-                ax, pos, box_size, node,
+                ax,
+                pos,
+                box_size,
+                node,
                 is_classifier=is_classifier,
                 class_names=resolved_class_names,
                 criterion=tree["criterion"],
@@ -286,8 +318,17 @@ def plot_tree(
         else:
             feat = feat_names[node["feature"]] if node["feature"] is not None else ""
             inset = _draw_internal(
-                ax, pos, inset_size, node, palette, feat, proportion, fontsize,
-                label=label, impurity=impurity, criterion=tree["criterion"],
+                ax,
+                pos,
+                inset_size,
+                node,
+                palette,
+                feat,
+                proportion,
+                fontsize,
+                label=label,
+                impurity=impurity,
+                criterion=tree["criterion"],
                 precision=precision,
             )
             artists.append(inset)

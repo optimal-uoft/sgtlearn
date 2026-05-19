@@ -134,3 +134,20 @@ def test_plot_tree_class_names(fitted_classifier):
     leaf_text = "\n".join(a.get_text() for a in text_artists)
     assert "class = neg" in leaf_text or "class = pos" in leaf_text
     plt.close("all")
+
+
+def test_plot_tree_reuses_existing_axes(fitted_classifier):
+    fig, ax = plt.subplots()
+    artists = plot_tree(fitted_classifier, ax=ax)
+    assert artists
+    # The host ax should still be the one we passed.
+    assert ax in fig.axes
+    plt.close("all")
+
+
+def test_plot_tree_fontsize_passes_through(fitted_classifier):
+    artists = plot_tree(fitted_classifier, fontsize=6)
+    text_artists = [a for a in artists if hasattr(a, "get_fontsize")]
+    sizes = {a.get_fontsize() for a in text_artists if a.get_text()}
+    assert 6 in sizes
+    plt.close("all")
