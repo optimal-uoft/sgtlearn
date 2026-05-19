@@ -133,6 +133,77 @@ def _route_samples(tree: dict, X) -> "dict[int, Any]":
     return reach
 
 
+def _compute_layout_leafcounter(
+    tree: dict, max_depth: Optional[int]
+) -> dict[int, tuple[float, float]]:
+    """Leaf-counter layout in axes coords [0, 1].
+
+    Each visible leaf (or depth-cap-truncated internal node, which renders as
+    a draw-leaf) claims the next integer x in DFS left-to-right order; each
+    visible internal node's x = mean of its drawn children's x. y is set
+    from depth and rescaled into the band ``[0.03, 0.88]`` (top 12% reserved
+    for annotations, bottom 3% margin).
+    """
+    nodes_by_id = {n["id"]: n for n in tree["nodes"]}
+    root = tree["root_index"]
+
+    def is_draw_leaf(nid: int, depth: int) -> bool:
+        n = nodes_by_id[nid]
+        if n["is_leaf"]:
+            return True
+        if max_depth is not None and depth >= max_depth:
+            return True
+        return False
+
+    x_int: dict[int, float] = {}
+    counter = [0]
+
+    def visit(nid: int, depth: int) -> float:
+        if is_draw_leaf(nid, depth):
+            xv = float(counter[0])
+            counter[0] += 1
+            x_int[nid] = xv
+            return xv
+        child_xs = [
+            visit(cid, depth + 1) for cid in nodes_by_id[nid]["children"]
+        ]
+        xv = sum(child_xs) / len(child_xs) if child_xs else float(counter[0])
+        x_int[nid] = xv
+        return xv
+
+    visit(root, 0)
+
+    drawn_depths: dict[int, int] = {}
+
+    def assign_depth(nid: int, depth: int) -> None:
+        drawn_depths[nid] = depth
+        if is_draw_leaf(nid, depth):
+            return
+        for cid in nodes_by_id[nid]["children"]:
+            assign_depth(cid, depth + 1)
+
+    assign_depth(root, 0)
+    max_drawn_depth = max(drawn_depths.values()) if drawn_depths else 0
+
+    n_leaves = counter[0]
+    if n_leaves <= 1:
+        norm_x = {nid: 0.5 for nid in drawn_depths}
+    else:
+        norm_x = {nid: x_int[nid] / (n_leaves - 1) for nid in drawn_depths}
+
+    if max_drawn_depth == 0:
+        norm_y = {nid: 0.5 for nid in drawn_depths}
+    else:
+        top, bot = 0.88, 0.03
+        norm_y = {
+            nid: bot
+            + (top - bot) * (1.0 - drawn_depths[nid] / max_drawn_depth)
+            for nid in drawn_depths
+        }
+
+    return {nid: (norm_x[nid], norm_y[nid]) for nid in drawn_depths}
+
+
 def _bin_edges(thresholds: list[float]) -> list[float]:
     """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
     if not thresholds:

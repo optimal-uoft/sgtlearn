@@ -124,3 +124,79 @@ def test_route_samples_dtype_indices_are_int():
     reach = _route_samples(tree, X)
     for arr in reach.values():
         assert arr.dtype.kind in ("i", "u")
+
+
+from sgtlearn._export import _compute_layout_leafcounter
+
+
+def _toy_tree() -> dict:
+    """Hand-rolled tree dict matching tree_export()'s shape for layout tests.
+
+    Structure::
+
+        0 (root, internal, depth=0) -> [1, 2]
+        1 (internal, depth=1)       -> [3, 4]
+        2 (leaf, depth=1)
+        3 (leaf, depth=2)
+        4 (leaf, depth=2)
+    """
+    return {
+        "num_partitions": 2,
+        "num_nodes": 5,
+        "root_index": 0,
+        "criterion": "gini",
+        "nodes": [
+            {"id": 0, "depth": 0, "is_leaf": False, "children": [1, 2]},
+            {"id": 1, "depth": 1, "is_leaf": False, "children": [3, 4]},
+            {"id": 2, "depth": 1, "is_leaf": True, "children": []},
+            {"id": 3, "depth": 2, "is_leaf": True, "children": []},
+            {"id": 4, "depth": 2, "is_leaf": True, "children": []},
+        ],
+    }
+
+
+def test_layout_returns_one_position_per_node():
+    layout = _compute_layout_leafcounter(_toy_tree(), max_depth=None)
+    assert set(layout) == {0, 1, 2, 3, 4}
+
+
+def test_layout_x_in_unit_interval():
+    layout = _compute_layout_leafcounter(_toy_tree(), max_depth=None)
+    for x, _y in layout.values():
+        assert 0.0 <= x <= 1.0
+
+
+def test_layout_y_top_to_bottom_by_depth():
+    layout = _compute_layout_leafcounter(_toy_tree(), max_depth=None)
+    assert layout[0][1] > layout[1][1]
+    assert layout[0][1] > layout[2][1]
+    assert layout[1][1] > layout[3][1]
+    assert layout[1][1] > layout[4][1]
+
+
+def test_layout_parent_x_centered_over_children():
+    layout = _compute_layout_leafcounter(_toy_tree(), max_depth=None)
+    expected = (layout[3][0] + layout[4][0]) / 2
+    assert layout[1][0] == pytest.approx(expected, abs=1e-9)
+    expected_root = (layout[1][0] + layout[2][0]) / 2
+    assert layout[0][0] == pytest.approx(expected_root, abs=1e-9)
+
+
+def test_layout_max_depth_truncates_subtree():
+    layout = _compute_layout_leafcounter(_toy_tree(), max_depth=1)
+    assert 3 not in layout
+    assert 4 not in layout
+    assert 1 in layout
+
+
+def test_layout_single_node_tree():
+    tree = {
+        "num_partitions": 2,
+        "num_nodes": 1,
+        "root_index": 0,
+        "criterion": "gini",
+        "nodes": [{"id": 0, "depth": 0, "is_leaf": True, "children": []}],
+    }
+    layout = _compute_layout_leafcounter(tree, max_depth=None)
+    assert set(layout) == {0}
+    assert layout[0][0] == pytest.approx(0.5, abs=1e-9)
