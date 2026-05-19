@@ -43,6 +43,45 @@ def _build_palette(cmap: Any, num_partitions: int):
     return [cm(p) for p in points]
 
 
+def _merge_routing_regions(
+    thresholds: list[float],
+    bin_to_partition: list[int],
+    x_min: float,
+    x_max: float,
+) -> list[tuple[float, float, int]]:
+    """Collapse consecutive same-partition bins into contiguous slabs.
+
+    Given the inner-tree thresholds and the bin-to-partition map, return a
+    list of ``(x0, x1, partition_id)`` slabs spanning ``[x_min, x_max]``.
+    Non-contiguous bins with the same partition stay as separate slabs.
+
+    The leftmost slab starts at ``x_min`` (clamped from -inf), the rightmost
+    ends at ``x_max`` (clamped from +inf); interior boundaries are the
+    thresholds where the destination partition changes between adjacent
+    bins. Thresholds inside a run of same-partition bins are dropped.
+    """
+    if not bin_to_partition:
+        return []
+
+    n_bins = len(bin_to_partition)
+    edges = [float("-inf")] + list(thresholds) + [float("inf")]
+    assert len(edges) == n_bins + 1
+
+    regions: list[tuple[float, float, int]] = []
+    i = 0
+    while i < n_bins:
+        partition = bin_to_partition[i]
+        j = i + 1
+        while j < n_bins and bin_to_partition[j] == partition:
+            j += 1
+        x0 = max(x_min, edges[i])
+        x1 = min(x_max, edges[j])
+        if x1 > x0:
+            regions.append((x0, x1, partition))
+        i = j
+    return regions
+
+
 def _bin_edges(thresholds: list[float]) -> list[float]:
     """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
     if not thresholds:
