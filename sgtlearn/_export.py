@@ -29,10 +29,36 @@ def export_text() -> None:
     raise NotImplementedError("not implemented yet")
 
 
+#: Hand-picked pastel sequence used as the default ``cmap`` for ``plot_tree``.
+#: The first two colors (pink, peach) match the reference visualization
+#: aesthetic in ``ex_viz/*.png``; the remaining colors come from matplotlib's
+#: Pastel1 palette in a deterministic order.
+_DEFAULT_PALETTE_COLORS = (
+    "#E8A0BF",  # pink
+    "#FAC898",  # peach
+    "#B3CDE3",  # light blue
+    "#CCEBC5",  # light green
+    "#DECBE4",  # light purple
+    "#FED9A6",  # cream
+    "#FFFFCC",  # light yellow
+    "#E5D8BD",  # tan
+)
+
+
 def _build_palette(cmap: Any, num_partitions: int):
-    """Sample `num_partitions` colors from a matplotlib colormap or its name."""
+    """Sample `num_partitions` colors from a matplotlib colormap or a list.
+
+    When ``cmap`` is a list / tuple of color specs, the first
+    ``num_partitions`` entries are returned (cycling if there aren't enough).
+    When ``cmap`` is a matplotlib Colormap (or its registered name),
+    ``num_partitions`` colors are sampled evenly along its domain.
+    """
     import numpy as np
 
+    if isinstance(cmap, (list, tuple)):
+        if num_partitions <= len(cmap):
+            return [cmap[i] for i in range(num_partitions)]
+        return [cmap[i % len(cmap)] for i in range(num_partitions)]
     if isinstance(cmap, str):
         cm = plt.get_cmap(cmap)
     else:
@@ -194,7 +220,10 @@ def _compute_layout_leafcounter(
     if max_drawn_depth == 0:
         norm_y = {nid: 0.5 for nid in drawn_depths}
     else:
-        top, bot = 0.88, 0.03
+        # Leave headroom at the bottom (10%) so leaf text isn't clipped and
+        # arrows to leaves can land cleanly; small top margin (12%) makes
+        # space for the right-of-panel feature labels.
+        top, bot = 0.88, 0.10
         norm_y = {
             nid: bot
             + (top - bot) * (1.0 - drawn_depths[nid] / max_drawn_depth)
@@ -213,16 +242,19 @@ def _draw_arrow_edge(
     color,
     linewidth: float = 2.0,
     mutation_scale: float = 10.0,
+    host_ax=None,
 ):
     """Draw an arrow from a parent panel's bottom-center to a child's top-center.
 
-    Endpoints are in figure-fraction coordinates so the arrow stays glued to
-    the layout regardless of axes resizing. The patch is added via
-    ``fig.add_artist`` (z-order between background and panels). Returns the
-    FancyArrowPatch for tracking.
+    Endpoints are in ``host_ax``'s axes-fraction coordinates (matching the
+    layout system used by ``_compute_layout_leafcounter``). If ``host_ax`` is
+    omitted, the figure's first axes is used. The patch is added to the host
+    axes via ``add_patch`` and returned for tracking.
     """
     from matplotlib.patches import FancyArrowPatch
 
+    if host_ax is None:
+        host_ax = fig.axes[0]
     px, py = parent_xy
     cx, cy = child_xy
     patch = FancyArrowPatch(
@@ -232,11 +264,11 @@ def _draw_arrow_edge(
         color=color,
         linewidth=linewidth,
         mutation_scale=mutation_scale,
-        transform=fig.transFigure,
-        figure=fig,
+        transform=host_ax.transAxes,
         zorder=1,
+        clip_on=False,
     )
-    fig.add_artist(patch)
+    host_ax.add_patch(patch)
     return patch
 
 
@@ -442,185 +474,26 @@ def _draw_internal_panel(
     return [inset, *extra]
 
 
-def _bin_edges(thresholds: list[float]) -> list[float]:
-    """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
-    if not thresholds:
-        return [0.0, 1.0]
-    if len(thresholds) == 1:
-        delta = 1.0
-    else:
-        delta = (thresholds[-1] - thresholds[0]) / (len(thresholds) - 1)
-        if delta <= 0.0:
-            delta = 1.0
-    return [thresholds[0] - delta] + list(thresholds) + [thresholds[-1] + delta]
-
-
-def _draw_internal(
-    host_ax,
-    pos: tuple[float, float],
-    inset_size: tuple[float, float],
-    node: dict,
-    palette,
-    feature_name: str,
-    proportion: bool,
-    fontsize: Optional[int],
-    label: str,
-    impurity: bool,
-    criterion: str,
-    precision: int,
-):
-    """Draw an internal node as a histogram inset. Returns the inset Axes."""
-    x, y = pos
-    w, h = inset_size
-    inset = host_ax.inset_axes(
-        [x - w / 2, y - h / 2, w, h], transform=host_ax.transAxes
-    )
-    edges = _bin_edges(list(node["thresholds"]))
-    counts = list(node["bin_sample_counts"])
-    if proportion:
-        total = sum(counts) or 1
-        counts = [c / total for c in counts]
-    for i, count in enumerate(counts):
-        left, right = edges[i], edges[i + 1]
-        color = palette[node["bin_to_partition"][i]]
-        inset.bar(
-            (left + right) / 2.0,
-            count,
-            width=(right - left),
-            color=color,
-            align="center",
-            edgecolor="none",
-        )
-    inset.set_yticks([])
-    inset.set_xticks([])
-    for spine in inset.spines.values():
-        spine.set_visible(False)
-
-    if label == "none":
-        return inset
-    parts = [feature_name]
-    if label == "all":
-        parts.append(f"n = {node['n_samples']}")
-        if impurity:
-            parts.append(f"{criterion} = {node['impurity']:.{precision}f}")
-    inset.set_xlabel("\n".join(parts), fontsize=fontsize)
-    return inset
-
-
-def _level_widths(layout: "dict[int, tuple[float, float]]") -> "dict[float, list[int]]":
-    by_y: dict[float, list[int]] = {}
-    for nid, (_x, y) in layout.items():
-        by_y.setdefault(round(y, 6), []).append(nid)
-    return by_y
-
-
-def _draw_leaf(
-    host_ax,
-    pos: tuple[float, float],
-    box_size: tuple[float, float],
-    node: dict,
-    *,
-    is_classifier: bool,
-    class_names: Optional[list[str]],
-    criterion: str,
-    precision: int,
-    fontsize: Optional[int],
-):
-    """Draw a leaf as a small filled rectangle with sklearn-style text.
-
-    Returns ``(rect, text)`` for the caller to track as artists.
-    """
-    from matplotlib import patches
-
-    x, y = pos
-    w, h = box_size
-    rect = patches.Rectangle(
-        (x - w / 2, y - h / 2),
-        w,
-        h,
-        fill=True,
-        facecolor="#f0f0f0",
-        edgecolor="black",
-        linewidth=0.5,
-        transform=host_ax.transAxes,
-    )
-    host_ax.add_patch(rect)
-
-    lines = [f"samples = {node['n_samples']}"]
-    if is_classifier:
-        counts = list(node["class_counts"])
-        lines.append(f"value = {counts}")
-        if counts:
-            arg = max(range(len(counts)), key=lambda i: counts[i])
-            label = class_names[arg] if class_names is not None else str(arg)
-            lines.append(f"class = {label}")
-    else:
-        lines.append(f"value = {node['value']:.{precision}f}")
-    lines.append(f"{criterion} = {node['impurity']:.{precision}f}")
-
-    text = host_ax.text(
-        x,
-        y,
-        "\n".join(lines),
-        ha="center",
-        va="center",
-        fontsize=fontsize,
-        transform=host_ax.transAxes,
-    )
-    return rect, text
-
-
-def _compute_layout(
-    tree: dict, max_depth: Optional[int]
-) -> dict[int, tuple[float, float]]:
-    """Top-down BFS layout. Returns ``{node_id: (x, y)}`` in axes coords [0, 1]."""
-    nodes_by_id = {n["id"]: n for n in tree["nodes"]}
-    root = tree["root_index"]
-
-    # BFS, truncating subtrees deeper than max_depth (those parents become draw-leaves).
-    visible: list[int] = []
-    levels: dict[int, list[int]] = {}
-    queue: list[tuple[int, int]] = [(root, 0)]
-    while queue:
-        nid, depth = queue.pop(0)
-        visible.append(nid)
-        levels.setdefault(depth, []).append(nid)
-        n = nodes_by_id[nid]
-        if n["is_leaf"]:
-            continue
-        if max_depth is not None and depth >= max_depth:
-            continue
-        for ch in n["children"]:
-            queue.append((ch, depth + 1))
-
-    max_depth_drawn = max(levels)
-    pos: dict[int, tuple[float, float]] = {}
-    for depth, ids in levels.items():
-        m = len(ids)
-        y = 1.0 - (depth / max(1, max_depth_drawn))
-        # Compress y range a bit so the top/bottom nodes don't kiss the axes edge.
-        y = 0.05 + 0.9 * y
-        for i, nid in enumerate(ids):
-            x = (i + 1) / (m + 1)
-            pos[nid] = (x, y)
-    return pos
-
-
 def plot_tree(
     estimator: Any,
     *,
+    X=None,
     max_depth: Optional[int] = None,
     feature_names: Optional[list[str]] = None,
     class_names: Union[list[str], bool, None] = None,
     label: str = "feature",
     impurity: bool = False,
     proportion: bool = False,
-    precision: int = 3,
-    cmap: Any = "tab10",
+    precision: int = 2,
+    cmap: Any = _DEFAULT_PALETTE_COLORS,
     ax: Optional[plt.Axes] = None,
     fontsize: Optional[int] = None,
+    node_aspect_ratio: float = 2.5,
+    n_hist_bins: int = 20,
 ) -> list[Any]:
     """Render a fitted SGT estimator with matplotlib (see module docstring)."""
+    import numpy as np
+
     if not isinstance(estimator, (SGTClassifier, SGTRegressor)):
         raise TypeError(
             "plot_tree expects an SGTClassifier or SGTRegressor; got "
@@ -630,13 +503,36 @@ def plot_tree(
 
     tree = estimator.tree_export()
 
+    reach: dict[int, Any] = {}
+    if X is not None:
+        X_arr = np.asarray(X, dtype=np.float64)
+        if X_arr.ndim != 2:
+            raise ValueError(
+                f"X must be 2-D (n_samples, n_features); got shape {X_arr.shape}"
+            )
+        n_features = estimator.n_features_in_ or 0
+        if X_arr.shape[1] != n_features:
+            raise ValueError(
+                f"X has {X_arr.shape[1]} features, but estimator was fit on "
+                f"{n_features}"
+            )
+        reach = _route_samples(tree, X_arr)
+    else:
+        X_arr = None
+
     if ax is None:
-        _, ax = plt.subplots(figsize=(10, 6))
+        n_leaves_est = sum(1 for n in tree["nodes"] if n["is_leaf"]) or 1
+        max_depth_seen = max(n["depth"] for n in tree["nodes"])
+        fig_w = max(n_leaves_est * 1.5, 8.0)
+        fig_h = max((max_depth_seen + 1) * 1.6, 4.0)
+        fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    else:
+        fig = ax.figure
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_axis_off()
 
-    layout = _compute_layout(tree, max_depth)
+    layout = _compute_layout_leafcounter(tree, max_depth)
     palette = _build_palette(cmap, tree["num_partitions"])
 
     is_classifier = isinstance(estimator, SGTClassifier)
@@ -654,81 +550,126 @@ def plot_tree(
     else:
         resolved_class_names = list(class_names)  # type: ignore[arg-type]
 
-    # Resolve feature names (fall back to "X[i]" placeholders).
     n_features = estimator.n_features_in_ or 0
     feat_names = feature_names or [f"X[{i}]" for i in range(n_features)]
 
-    # Inset size derived from level breadth and depth count.
-    levels = _level_widths(layout)
-    max_breadth = max(len(ids) for ids in levels.values())
-    inset_w = (1.0 / (max_breadth + 1)) * 0.85
-    n_levels = len(levels)
-    inset_h = ((0.9 / max(1, n_levels))) * 0.7
-    inset_size = (inset_w, inset_h)
-
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
+    drawn_ids = set(layout)
+    n_drawn_leaves = sum(
+        1
+        for nid in drawn_ids
+        if nodes_by_id[nid]["is_leaf"]
+        or (max_depth is not None and nodes_by_id[nid]["depth"] >= max_depth)
+    )
+    leaf_w = min(0.10, 0.85 / max(n_drawn_leaves, 1))
+    leaf_h = leaf_w / node_aspect_ratio
+    internal_w = leaf_w * 1.5
+    internal_h = internal_w / node_aspect_ratio
+
+    def _size_for(nid: int) -> tuple[float, float]:
+        n = nodes_by_id[nid]
+        drawn_as_leaf = n["is_leaf"] or (
+            max_depth is not None and n["depth"] >= max_depth
+        )
+        return (leaf_w, leaf_h) if drawn_as_leaf else (internal_w, internal_h)
+
     artists: list[Any] = []
 
-    # Edge pass: draw edges BEFORE nodes so they appear under the inset axes.
-    drawn_ids = set(layout)
-    for nid, pos in layout.items():
+    # Map each drawn child back to its partition index (used to color the
+    # leaf text the same as the incoming edge).
+    child_partition_of: dict[int, int] = {}
+    for nid in drawn_ids:
+        node = nodes_by_id[nid]
+        if node["is_leaf"]:
+            continue
+        for k, cid in enumerate(node["children"]):
+            if cid in drawn_ids:
+                child_partition_of[cid] = k
+
+    # Edges first, so panels render on top.
+    for nid in drawn_ids:
         node = nodes_by_id[nid]
         if node["is_leaf"]:
             continue
         if max_depth is not None and node["depth"] >= max_depth:
-            continue  # children not drawn
+            continue
+        parent_pos = layout[nid]
+        _pw, ph = _size_for(nid)
         for k, child_id in enumerate(node["children"]):
             if child_id not in drawn_ids:
                 continue
-            cx, cy = layout[child_id]
-            x, y = pos
-            line = ax.plot(
-                [x, cx],
-                [y - inset_size[1] / 2, cy + inset_size[1] / 2],
+            child_pos = layout[child_id]
+            _cw, ch = _size_for(child_id)
+            patch = _draw_arrow_edge(
+                fig=fig,
+                parent_xy=parent_pos,
+                parent_h=ph,
+                child_xy=child_pos,
+                child_h=ch,
                 color=palette[k],
-                linewidth=1.5,
-                solid_capstyle="round",
-                transform=ax.transAxes,
-            )[0]
-            artists.append(line)
+                host_ax=ax,
+            )
+            artists.append(patch)
 
-    for nid, pos in layout.items():
+    # Nodes.
+    for nid in drawn_ids:
         node = nodes_by_id[nid]
-        # A node renders as a "draw-leaf" when it's a real leaf OR when max_depth
-        # truncates its subtree (its children weren't included in the layout).
+        pos = layout[nid]
         drawn_as_leaf = node["is_leaf"] or (
-            max_depth is not None and node["depth"] >= max_depth and not node["is_leaf"]
+            max_depth is not None and node["depth"] >= max_depth
         )
+
         if drawn_as_leaf:
-            box_size = (inset_size[0], inset_size[1])
-            rect, text = _draw_leaf(
-                ax,
-                pos,
-                box_size,
-                node,
+            partition = child_partition_of.get(nid)
+            leaf_color = palette[partition] if partition is not None else "#444444"
+            text_artists = _draw_leaf_text(
+                host_ax=ax,
+                x=pos[0],
+                y=pos[1],
+                node=node,
                 is_classifier=is_classifier,
                 class_names=resolved_class_names,
                 criterion=tree["criterion"],
                 precision=precision,
                 fontsize=fontsize,
-            )
-            artists.append(rect)
-            artists.append(text)
-        else:
-            feat = feat_names[node["feature"]] if node["feature"] is not None else ""
-            inset = _draw_internal(
-                ax,
-                pos,
-                inset_size,
-                node,
-                palette,
-                feat,
-                proportion,
-                fontsize,
+                color=leaf_color,
                 label=label,
                 impurity=impurity,
-                criterion=tree["criterion"],
-                precision=precision,
             )
-            artists.append(inset)
+            artists.extend(text_artists)
+            continue
+
+        # Internal panel.
+        feat_idx = node["feature"]
+        feat_vals = None
+        if X_arr is not None and reach.get(nid) is not None and len(reach[nid]):
+            feat_vals = X_arr[reach[nid], feat_idx]
+
+        panel_artists = _draw_internal_panel(
+            host_ax=ax,
+            center=pos,
+            size=(internal_w, internal_h),
+            node=node,
+            palette=palette,
+            feature_values=feat_vals,
+            n_hist_bins=n_hist_bins,
+            precision=precision,
+            fontsize=fontsize,
+            label=label,
+        )
+        artists.extend(panel_artists)
+
+        # Feature name floats to the right of the panel (axes coords).
+        feat_name = feat_names[feat_idx] if feat_idx is not None else ""
+        feat_text = ax.text(
+            pos[0] + internal_w * 0.55,
+            pos[1],
+            feat_name,
+            ha="left",
+            va="center",
+            fontsize=fontsize,
+            transform=ax.transAxes,
+        )
+        artists.append(feat_text)
+
     return artists

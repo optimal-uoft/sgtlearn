@@ -212,7 +212,7 @@ from sgtlearn._export import _draw_arrow_edge
 
 
 def test_draw_arrow_edge_returns_fancyarrowpatch():
-    fig, _ax = plt.subplots()
+    fig, ax = plt.subplots()
     patch = _draw_arrow_edge(
         fig=fig,
         parent_xy=(0.3, 0.8),
@@ -220,14 +220,15 @@ def test_draw_arrow_edge_returns_fancyarrowpatch():
         child_xy=(0.5, 0.3),
         child_h=0.05,
         color="#E8A0BF",
+        host_ax=ax,
     )
     assert isinstance(patch, FancyArrowPatch)
-    assert patch in fig.artists
+    assert patch in ax.patches
     plt.close(fig)
 
 
 def test_draw_arrow_edge_uses_supplied_color():
-    fig, _ax = plt.subplots()
+    fig, ax = plt.subplots()
     patch = _draw_arrow_edge(
         fig=fig,
         parent_xy=(0.0, 0.0),
@@ -235,6 +236,7 @@ def test_draw_arrow_edge_uses_supplied_color():
         child_xy=(1.0, 1.0),
         child_h=0.0,
         color="#FAC898",
+        host_ax=ax,
     )
     assert tuple(patch.get_edgecolor())[:3] == pytest.approx(
         matplotlib.colors.to_rgb("#FAC898"), abs=1e-6

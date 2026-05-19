@@ -67,43 +67,51 @@ def test_plot_tree_max_depth_reduces_artist_count(fitted_classifier):
 
 def test_plot_tree_leaves_render_text(fitted_classifier):
     artists = plot_tree(fitted_classifier)
-    text_artists = [a for a in artists if hasattr(a, "get_text")]
-    assert text_artists, "expected at least one text artist (leaf box)"
-    samples_texts = [t.get_text() for t in text_artists if "samples" in t.get_text()]
-    assert samples_texts
+    text_artists = [a for a in artists if hasattr(a, "get_text") and a.get_text()]
+    assert text_artists, "expected at least one text artist (leaf label)"
     plt.close("all")
 
 
 def test_plot_tree_regressor_leaves_show_value(fitted_regressor):
     artists = plot_tree(fitted_regressor)
     text_artists = [a for a in artists if hasattr(a, "get_text")]
-    assert any("value =" in t.get_text() for t in text_artists)
+
+    def _is_number(s: str) -> bool:
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    assert any(_is_number(t.get_text()) for t in text_artists)
     plt.close("all")
 
 
 def test_plot_tree_draws_edges(fitted_classifier):
-    from matplotlib.lines import Line2D
+    from matplotlib.patches import FancyArrowPatch
     artists = plot_tree(fitted_classifier)
-    lines = [a for a in artists if isinstance(a, Line2D)]
-    # At least one edge per internal node, at least num_partitions in total.
-    assert len(lines) >= 1
+    arrows = [a for a in artists if isinstance(a, FancyArrowPatch)]
+    assert len(arrows) >= 1
     plt.close("all")
 
 
 def test_plot_tree_label_all_adds_metadata(fitted_classifier):
     artists = plot_tree(fitted_classifier, label="all", impurity=True)
-    inset_axes = [a for a in artists if hasattr(a, "get_xlabel")]
-    labels = [a.get_xlabel() for a in inset_axes]
-    assert any("n =" in lbl for lbl in labels)
-    assert any("gini =" in lbl for lbl in labels)
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    texts = [t.get_text() for t in text_artists]
+    assert any("n = " in t for t in texts)
+    assert any("gini = " in t for t in texts)
     plt.close("all")
 
 
-def test_plot_tree_label_none_strips_xlabel(fitted_classifier):
+def test_plot_tree_label_none_suppresses_subtitles(fitted_classifier):
     artists = plot_tree(fitted_classifier, label="none")
-    inset_axes = [a for a in artists if hasattr(a, "get_xlabel")]
-    assert inset_axes
-    assert all(a.get_xlabel() == "" for a in inset_axes)
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    for t in text_artists:
+        s = t.get_text()
+        assert "n = " not in s
+        assert "n=" not in s
+        assert "gini = " not in s
     plt.close("all")
 
 
@@ -121,18 +129,17 @@ def test_plot_tree_custom_cmap(fitted_classifier):
 
 def test_plot_tree_custom_feature_names(fitted_classifier):
     names = [f"feat_{i}" for i in range(fitted_classifier.n_features_in_)]
-    artists = plot_tree(fitted_classifier, feature_names=names, label="all")
-    inset_axes = [a for a in artists if hasattr(a, "get_xlabel")]
-    labels = [a.get_xlabel() for a in inset_axes]
-    assert any("feat_" in lbl for lbl in labels)
+    artists = plot_tree(fitted_classifier, feature_names=names)
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    assert any("feat_" in t.get_text() for t in text_artists)
     plt.close("all")
 
 
 def test_plot_tree_class_names(fitted_classifier):
     artists = plot_tree(fitted_classifier, class_names=["neg", "pos"])
     text_artists = [a for a in artists if hasattr(a, "get_text")]
-    leaf_text = "\n".join(a.get_text() for a in text_artists)
-    assert "class = neg" in leaf_text or "class = pos" in leaf_text
+    leaf_text = " ".join(a.get_text() for a in text_artists)
+    assert "neg" in leaf_text or "pos" in leaf_text
     plt.close("all")
 
 
