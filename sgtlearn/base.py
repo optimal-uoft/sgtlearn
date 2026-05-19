@@ -26,25 +26,111 @@ class BaseShapeCART(BaseEstimator):
 
 
 class SGTClassifier(ClassifierMixin, BaseShapeCART):
-    """
-    Shape Generalized Tree classifier (native C++ trainer, sklearn-style API).
+    """Shape Generalized Tree classifier.
 
-    Parameters mirror the underlying ``ClassificationShapeGeneralizedTree`` where
-    possible. ``X`` is always ``float32`` and ``(n_samples, n_features)``; labels
-    may be any discrete targets understood by ``sklearn.preprocessing.LabelEncoder``.
+    A decision tree where each internal node applies a learnable, axis-aligned
+    *shape function* to a single feature rather than a single threshold. The
+    shape function is itself an inner tree (univariate, depth-limited) that
+    partitions the feature's value range into ``num_partitions`` bins; the
+    outer tree then routes samples through those bins to grow the overall
+    classifier. Training is performed by the native ShapeCART C++ trainer
+    exposed through ``ClassificationShapeGeneralizedTree``.
 
-    ``max_features``: ``None`` uses every column at each split. An int ``k>=1``
-    samples ``min(k, n_features)`` columns without replacement. A float ``c``
-    with ``0 < c <= 1`` uses ``max(1, int(c * n_features))`` columns. The strings
-    ``\"sqrt\"`` and ``\"log2\"`` use ``max(1, int(sqrt(n_features)))`` and
-    ``max(1, int(log2(n_features)))`` respectively (case-insensitive in the
-    native binding).
+    The estimator follows the ``scikit-learn`` ``ClassifierMixin`` contract and
+    is compatible with sklearn pipelines, cross-validators, and metaestimators.
 
-    ``label_encoder``: when not ``None``, it must already be fitted (e.g. by an
-    ensemble). :meth:`fit` then expects ``y`` integer-encoded in
-    ``0 .. len(label_encoder.classes_) - 1`` and assigns ``self._le`` to that same
-    object so ``predict`` / ``predict_proba`` share one encoding (no per-tree
-    ``LabelEncoder.fit``).
+    Parameters
+    ----------
+    criterion : {"gini", "entropy"}, default="gini"
+        Impurity criterion used at outer-tree splits, forwarded to the native
+        trainer.
+    num_partitions : int, default=2
+        Number of branches each outer split fans out into (i.e. the arity of
+        the shape function). ``2`` reproduces standard binary tree; larger
+        values yield the ``SGT_K`` multi-way variant.
+    max_depth : int, optional
+        Maximum depth of the *outer* tree. ``None`` (default) means grow until
+        another stopping criterion fires.
+    max_leaf_nodes : int, optional
+        Maximum number of leaves in the outer tree. ``None`` means unlimited.
+    min_samples_leaf : int, default=1
+        Minimum number of training samples required at an outer leaf.
+    min_impurity_decrease : float, default=0.0
+        Minimum impurity decrease required to accept an outer split.
+    inner_max_depth : int, default=1
+        Maximum depth of the *inner* tree that defines the shape function on
+        each feature. ``1`` corresponds to a standard CART threshold split;
+        larger values produce richer shapes.
+    inner_max_leaf_nodes : int, default=32
+        Maximum number of bins (leaves) the inner tree may form on a feature.
+    inner_min_samples_leaf : int, default=1
+        Minimum samples per inner-tree leaf.
+    inner_min_impurity_decrease : float, default=0.0
+        Minimum impurity decrease required to accept an inner split.
+    coordinate_descent_max_iters : int, default=20
+        Maximum coordinate-descent iterations used to refine the bin-to-branch
+        assignment after the inner tree is built.
+    coordinate_descent_patience : int, default=5
+        Number of non-improving iterations tolerated before coordinate descent
+        terminates early.
+    coordinate_descent_smart_init : bool, default=True
+        If ``True``, seed coordinate descent with a k-means clustering of the
+        bin statistics; if ``False``, use round-robin assignment.
+    random_state : int, optional, default=42
+        Seed forwarded to the native trainer. ``None`` is treated as ``42``.
+    max_features : int, float, {"sqrt", "log2"} or None, default=None
+        Number of features sampled (without replacement) when searching for
+        a split:
+
+        - ``None``: use all ``n_features`` columns.
+        - ``int k >= 1``: use ``min(k, n_features)`` columns.
+        - ``float c in (0, 1]``: use ``max(1, int(c * n_features))`` columns.
+        - ``"sqrt"``: use ``max(1, int(sqrt(n_features)))`` columns.
+        - ``"log2"``: use ``max(1, int(log2(n_features)))`` columns.
+
+        String values are case-insensitive in the native binding.
+    label_encoder : sklearn.preprocessing.LabelEncoder, optional
+        Pre-fitted encoder for use by ensemble wrappers. When provided,
+        :meth:`fit` expects ``y`` to be integer-encoded in
+        ``0 .. len(label_encoder.classes_) - 1`` and reuses this encoder
+        (no per-tree ``LabelEncoder.fit``), so ``predict``/``predict_proba``
+        share one label space across the ensemble. When ``None``, a fresh
+        ``LabelEncoder`` is fit on ``y``.
+
+    Attributes
+    ----------
+    classes_ : ndarray of shape (n_classes_,)
+        Class labels in the order used by ``predict_proba``.
+    n_classes_ : int
+        Number of classes seen during :meth:`fit`.
+    n_features_in_ : int
+        Number of features seen during :meth:`fit`.
+
+    Notes
+    -----
+    Internally, ``X`` is cast to C-contiguous ``float32`` and ``y`` to
+    ``uint64`` before being passed to the native trainer. Sparse input is not
+    supported.
+
+    References
+    ----------
+    Upadhya, N. and Cohen, E. "Empowering Decision Trees via Shape Function
+    Branching." NeurIPS, 2025.
+
+    See Also
+    --------
+    SGTRegressor : Regression counterpart.
+    sgtlearn.ensemble.RandomSGForestClassifier : Bootstrap ensemble over
+        :class:`SGTClassifier`.
+
+    Examples
+    --------
+    >>> from sklearn.datasets import make_classification
+    >>> from sgtlearn import SGTClassifier
+    >>> X, y = make_classification(n_samples=500, random_state=0)
+    >>> clf = SGTClassifier(max_depth=4, random_state=42).fit(X, y)
+    >>> clf.predict(X[:5]).shape
+    (5,)
     """
 
     def __init__(
@@ -207,18 +293,93 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
-    """
-    Shape Generalized Tree regressor (native C++ trainer, sklearn-style API).
+    """Shape Generalized Tree regressor.
 
-    ``criterion`` is ``\"squared_error\"`` (or ``\"mse\"``) or ``\"absolute_error\"``
-    (or ``\"mae\"``), matching the native trainer. ``X`` is ``float32`` and
-    ``(n_samples, n_features)``; ``y`` is cast to ``float32`` for the native core.
-    The ``coordinate_descent_smart_init`` argument is accepted for API symmetry with
-    ``SGTClassifier`` but is ignored: regression always round-robin seeds inner
-    bin-to-partition assignments (no k-means). ``squared_error`` / ``mse`` then run
-    coordinate descent and keep the result only if branch MSE improves clearly vs
-    the seed; otherwise the trainer restores the round-robin snapshot.
-    ``absolute_error`` / ``mae`` skip coordinate descent (see native trainer).
+    Regression analogue of :class:`SGTClassifier`. Each internal node applies a
+    learnable shape function (an inner univariate tree) to a single feature,
+    and the outer tree routes samples through the resulting bins. Training is
+    performed by the native ShapeCART C++ trainer exposed through
+    ``RegressionShapeGeneralizedTree``.
+
+    Compatible with the ``scikit-learn`` ``RegressorMixin`` contract.
+
+    Parameters
+    ----------
+    criterion : {"squared_error", "mse", "absolute_error", "mae"}, default="squared_error"
+        Loss used at outer-tree splits. ``"mse"`` and ``"mae"`` are accepted
+        as aliases.
+    num_partitions : int, default=2
+        Number of branches each outer split fans out into (i.e. the arity of
+        the shape function). ``2`` reproduces standard binary tree; larger
+        values yield the ``SGT_K`` multi-way variant.
+    max_depth : int, optional
+        Maximum depth of the outer tree. ``None`` means grow until another
+        stopping criterion fires.
+    max_leaf_nodes : int, optional
+        Maximum number of leaves in the outer tree. ``None`` means unlimited.
+    min_samples_leaf : int, default=1
+        Minimum number of samples required at an outer leaf.
+    min_impurity_decrease : float, default=0.0
+        Minimum impurity decrease required to accept an outer split.
+    inner_max_depth : int, default=1
+        Maximum depth of the inner tree defining the shape function on each
+        feature. ``1`` reduces to a standard threshold split.
+    inner_max_leaf_nodes : int, default=32
+        Maximum number of bins (leaves) the inner tree may form on a feature.
+    inner_min_samples_leaf : int, default=1
+        Minimum samples per inner-tree leaf.
+    inner_min_impurity_decrease : float, default=0.0
+        Minimum impurity decrease required to accept an inner split.
+    coordinate_descent_max_iters : int, default=20
+        Maximum coordinate-descent iterations used to refine the bin-to-branch
+        assignment after the inner tree is built.
+    coordinate_descent_patience : int, default=5
+        Number of non-improving iterations tolerated before coordinate descent
+        terminates early.
+    coordinate_descent_smart_init : bool, default=True
+        Accepted for API symmetry with :class:`SGTClassifier` but **ignored**
+        by the regression trainer: regression always seeds inner
+        bin-to-partition assignments round-robin (no k-means initialisation).
+    random_state : int, optional, default=42
+        Seed forwarded to the native trainer. ``None`` is treated as ``42``.
+    max_features : int, float, {"sqrt", "log2"} or None, default=None
+        Per-split feature subsampling. Same semantics as
+        :class:`SGTClassifier`.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features seen during :meth:`fit`.
+
+    Notes
+    -----
+    Internally, ``X`` and ``y`` are cast to C-contiguous ``float32`` before
+    being passed to the native trainer. Sparse input is not supported.
+
+    For ``squared_error``/``mse``, the trainer runs coordinate descent after
+    the round-robin seed and keeps the refined assignment only if branch MSE
+    improves clearly; otherwise it restores the seed. ``absolute_error``/``mae``
+    skips coordinate descent entirely.
+
+    References
+    ----------
+    Upadhya, N. and Cohen, E. "Empowering Decision Trees via Shape Function
+    Branching." NeurIPS, 2025.
+
+    See Also
+    --------
+    SGTClassifier : Classification counterpart.
+    sgtlearn.ensemble.RandomSGForestRegressor : Bootstrap ensemble over
+        :class:`SGTRegressor`.
+
+    Examples
+    --------
+    >>> from sklearn.datasets import make_regression
+    >>> from sgtlearn import SGTRegressor
+    >>> X, y = make_regression(n_samples=500, random_state=0)
+    >>> reg = SGTRegressor(max_depth=4, random_state=42).fit(X, y)
+    >>> reg.predict(X[:5]).shape
+    (5,)
     """
 
     def __init__(

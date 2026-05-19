@@ -9,7 +9,7 @@ description = "Shape Generalized Trees learning library"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Nakul Upadhaya", email = "nakulupadhya1@gmail.com" },{ name = "Joshua Lee", email = "joshua.lee.9880@gmail.com" }]
+authors = [{ name = "Nakul Upadhya", email = "nakulupadhya1@gmail.com" },{ name = "Joshua Lee", email = "joshua.lee.9880@gmail.com" },{ name = "Eldan Cohen", email = "eldan.cohen@utoronto.ca" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",

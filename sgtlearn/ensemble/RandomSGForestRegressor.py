@@ -13,11 +13,76 @@ from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
 
 class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
-    """
-    Random forest of shape-generalized regression trees (bootstrap per tree).
+    """Random forest of Shape Generalized Trees for regression.
 
-    Matches ``sklearn.ensemble.RandomForestRegressor`` prediction semantics:
-    :meth:`predict` returns the mean of per-tree ``predict`` outputs.
+    Bootstrap ensemble of :class:`sgtlearn.SGTRegressor` base estimators.
+    Prediction semantics match :class:`sklearn.ensemble.RandomForestRegressor`:
+    :meth:`predict` returns the mean of the per-tree :meth:`predict` outputs.
+
+    Parameters
+    ----------
+    n_estimators : int, default=100
+        Number of trees in the forest.
+    criterion : {"squared_error", "mse", "absolute_error", "mae"}, default="squared_error"
+        Loss forwarded to each base tree's outer splits.
+    num_partitions : int, default=2
+        Arity of the shape function at each outer split. See
+        :class:`sgtlearn.SGTRegressor`.
+    max_depth, max_leaf_nodes, min_samples_leaf, min_impurity_decrease : \
+        see :class:`sgtlearn.SGTRegressor`
+        Outer-tree stopping criteria forwarded to each base estimator.
+    inner_max_depth, inner_max_leaf_nodes, inner_min_samples_leaf, \
+    inner_min_impurity_decrease : see :class:`sgtlearn.SGTRegressor`
+        Inner-tree (shape function) controls forwarded to each base estimator.
+    coordinate_descent_max_iters, coordinate_descent_patience, \
+    coordinate_descent_smart_init : see :class:`sgtlearn.SGTRegressor`
+        Coordinate-descent controls forwarded to each base estimator.
+        Note that ``coordinate_descent_smart_init`` is ignored by the regression
+        trainer.
+    max_features : int, float, {"sqrt", "log2"} or None, default="sqrt"
+        Per-split feature subsampling for each base tree. Defaults to
+        ``"sqrt"`` to follow ``RandomForestRegressor`` convention. See
+        :class:`sgtlearn.SGTRegressor` for the full semantics.
+    bootstrap : bool, default=True
+        If ``True``, each tree is fit on a bootstrap resample (with
+        replacement) of the training set. If ``False``, every tree is fit on
+        the full training set — diversity then comes only from
+        ``random_state`` and ``max_features``.
+    max_samples : int or float, optional
+        Size of each bootstrap sample. ``int`` gives an absolute count;
+        ``float`` in ``(0, 1]`` gives a fraction of ``n_samples``. ``None``
+        (default) uses ``n_samples``. Only valid when ``bootstrap=True``.
+    random_state : int, RandomState, optional
+        Controls bootstrap resampling and the per-tree seeds.
+    n_jobs : int, optional
+        Number of joblib workers used to fit trees. ``None`` means one job
+        (sequential); ``-1`` uses all processors. Joblib's threading backend
+        is used.
+    verbose : int, default=0
+        Verbosity of the joblib ``Parallel`` driver.
+
+    Attributes
+    ----------
+    estimators_ : list of SGTRegressor
+        The collection of fitted base estimators.
+    n_features_in_ : int
+        Number of features seen during :meth:`fit`.
+
+    See Also
+    --------
+    sgtlearn.SGTRegressor : Single-tree base estimator.
+    sgtlearn.ensemble.RandomSGForestClassifier : Classification counterpart.
+    sklearn.ensemble.RandomForestRegressor : Standard CART forest with the
+        same prediction semantics.
+
+    Examples
+    --------
+    >>> from sklearn.datasets import make_regression
+    >>> from sgtlearn.ensemble import RandomSGForestRegressor
+    >>> X, y = make_regression(n_samples=500, random_state=0)
+    >>> reg = RandomSGForestRegressor(n_estimators=20, random_state=0).fit(X, y)
+    >>> reg.predict(X[:5]).shape
+    (5,)
     """
 
     _estimator_name = "RandomSGForestRegressor"
