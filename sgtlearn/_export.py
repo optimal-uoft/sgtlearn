@@ -27,6 +27,76 @@ def export_text() -> None:
     raise NotImplementedError("not implemented yet")
 
 
+def _build_palette(cmap: Any, num_partitions: int):
+    """Sample `num_partitions` colors from a matplotlib colormap or its name."""
+    import numpy as np
+    if isinstance(cmap, str):
+        cm = plt.get_cmap(cmap)
+    else:
+        cm = cmap
+    if num_partitions <= 1:
+        return [cm(0.0)]
+    points = np.linspace(0.0, 1.0, num_partitions)
+    return [cm(p) for p in points]
+
+
+def _bin_edges(thresholds: list[float]) -> list[float]:
+    """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
+    if not thresholds:
+        return [0.0, 1.0]
+    if len(thresholds) == 1:
+        delta = 1.0
+    else:
+        delta = (thresholds[-1] - thresholds[0]) / (len(thresholds) - 1)
+        if delta <= 0.0:
+            delta = 1.0
+    return [thresholds[0] - delta] + list(thresholds) + [thresholds[-1] + delta]
+
+
+def _draw_internal(
+    host_ax,
+    pos: tuple[float, float],
+    inset_size: tuple[float, float],
+    node: dict,
+    palette,
+    feature_name: str,
+    proportion: bool,
+    fontsize: Optional[int],
+):
+    """Draw an internal node as a histogram inset. Returns the inset Axes."""
+    x, y = pos
+    w, h = inset_size
+    inset = host_ax.inset_axes([x - w / 2, y - h / 2, w, h], transform=host_ax.transAxes)
+    edges = _bin_edges(list(node["thresholds"]))
+    counts = list(node["bin_sample_counts"])
+    if proportion:
+        total = sum(counts) or 1
+        counts = [c / total for c in counts]
+    for i, count in enumerate(counts):
+        left, right = edges[i], edges[i + 1]
+        color = palette[node["bin_to_partition"][i]]
+        inset.bar((left + right) / 2.0, count, width=(right - left),
+                  color=color, align="center", edgecolor="none")
+    inset.set_yticks([])
+    inset.set_xticks([])
+    inset.set_xlabel(feature_name, fontsize=fontsize)
+    for spine in inset.spines.values():
+        spine.set_visible(False)
+    return inset
+
+
+def _level_widths(layout: "dict[int, tuple[float, float]]") -> "dict[float, list[int]]":
+    by_y: dict[float, list[int]] = {}
+    for nid, (_x, y) in layout.items():
+        by_y.setdefault(round(y, 6), []).append(nid)
+    return by_y
+
+
+def _placeholder_leaf_marker(host_ax, x: float, y: float):
+    """Temporary leaf marker until Task 12 replaces it with a text box."""
+    return host_ax.plot([x], [y], marker="s", markersize=4, color="lightgray")
+
+
 def _compute_layout(tree: dict, max_depth: Optional[int]) -> dict[int, tuple[float, float]]:
     """Top-down BFS layout. Returns ``{node_id: (x, y)}`` in axes coords [0, 1]."""
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
@@ -92,9 +162,35 @@ def plot_tree(
     ax.set_axis_off()
 
     layout = _compute_layout(tree, max_depth)
+    palette = _build_palette(cmap, tree["num_partitions"])
+
+    # Resolve feature names (fall back to "X[i]" placeholders).
+    n_features = estimator.n_features_in_ or 0
+    feat_names = feature_names or [f"X[{i}]" for i in range(n_features)]
+
+    # Inset size derived from level breadth and depth count.
+    levels = _level_widths(layout)
+    max_breadth = max(len(ids) for ids in levels.values())
+    inset_w = (1.0 / (max_breadth + 1)) * 0.85
+    n_levels = len(levels)
+    inset_h = ((0.9 / max(1, n_levels))) * 0.7
+    inset_size = (inset_w, inset_h)
+
+    nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     artists: list[Any] = []
 
-    for nid, (x, y) in layout.items():
-        marker, = ax.plot([x], [y], marker="o", markersize=2, color="black")
-        artists.append(marker)
+    for nid, pos in layout.items():
+        node = nodes_by_id[nid]
+        # A node renders as a "draw-leaf" when it's a real leaf OR when max_depth
+        # truncates its subtree (its children weren't included in the layout).
+        drawn_as_leaf = node["is_leaf"] or (
+            max_depth is not None and node["depth"] >= max_depth and not node["is_leaf"]
+        )
+        if drawn_as_leaf:
+            marker = _placeholder_leaf_marker(ax, pos[0], pos[1])
+            artists.extend(marker)
+        else:
+            feat = feat_names[node["feature"]] if node["feature"] is not None else ""
+            inset = _draw_internal(ax, pos, inset_size, node, palette, feat, proportion, fontsize)
+            artists.append(inset)
     return artists
