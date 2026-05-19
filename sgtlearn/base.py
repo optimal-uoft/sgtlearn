@@ -171,6 +171,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.max_features = max_features
         self.label_encoder = label_encoder
 
+        self._est: Any = None
+        self._le: Any = None
+        self.classes_: Optional[np.ndarray] = None
+        self.n_classes_: Optional[int] = None
+        self.n_features_in_: Optional[int] = None
+
     def _get_random_seed(self) -> int:
         """Integer ``random_state`` passed to the native trainer (default 42 if unset)."""
         if self.random_state is None:
@@ -420,6 +426,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
+
+        self._est: Any = None
+        self.n_features_in_: Optional[int] = None
 
     def _get_random_seed(self) -> int:
         if self.random_state is None:
