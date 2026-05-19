@@ -4,7 +4,11 @@
 ## v0.1.0: Initial Release
 - [ ] ShapeCART Classifier & Regressor
 - [ ] Support for higher branching factors (SGT$_K$)
+- [ ] Plotting
 - [ ] Random Forest Ensembling for ShapeCART and Shape$_K$CART
+
+## v0.1.1: Categorical Features
+- [ ] Superset branching
 
 ## v0.2.0: S$^2$GT and TAO
 - [ ] Shape$^2$CART
