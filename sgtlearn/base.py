@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
+from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from ShapeGeneralizedTrees import (
     ClassificationShapeGeneralizedTree,
@@ -298,8 +299,18 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         ``num_partitions``, ``num_nodes``, ``root_index``, ``num_classes``,
         ``criterion``, ``nodes`` (list of per-node dicts).
         """
-        check_is_fitted(self, attributes=("_est",))
-        return self._est.tree_export()
+        check_is_fitted(self, attributes=("_est", "_le"))
+        if self._est is None:
+            raise NotFittedError("This SGTClassifier instance is not fitted yet.")
+        tr = self._est.tree_export()
+        # Post-process to remove trailing inf thresholds from internal nodes
+        for node in tr.get("nodes", []):
+            if not node.get("is_leaf", True) and node.get("thresholds"):
+                thresholds = node["thresholds"]
+                # Remove trailing inf sentinel if present
+                while thresholds and np.isinf(thresholds[-1]):
+                    thresholds.pop()
+        return tr
 
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
@@ -498,4 +509,14 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         ``nodes`` (list of per-node dicts). Regression has no ``num_classes``.
         """
         check_is_fitted(self, attributes=("_est",))
-        return self._est.tree_export()
+        if self._est is None:
+            raise NotFittedError("This SGTRegressor instance is not fitted yet.")
+        tr = self._est.tree_export()
+        # Post-process to remove trailing inf thresholds from internal nodes
+        for node in tr.get("nodes", []):
+            if not node.get("is_leaf", True) and node.get("thresholds"):
+                thresholds = node["thresholds"]
+                # Remove trailing inf sentinel if present
+                while thresholds and np.isinf(thresholds[-1]):
+                    thresholds.pop()
+        return tr
