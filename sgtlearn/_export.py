@@ -232,6 +232,26 @@ def plot_tree(
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     artists: list[Any] = []
 
+    # Edge pass: draw edges BEFORE nodes so they appear under the inset axes.
+    drawn_ids = set(layout)
+    for nid, pos in layout.items():
+        node = nodes_by_id[nid]
+        if node["is_leaf"]:
+            continue
+        if max_depth is not None and node["depth"] >= max_depth:
+            continue  # children not drawn
+        for k, child_id in enumerate(node["children"]):
+            if child_id not in drawn_ids:
+                continue
+            cx, cy = layout[child_id]
+            x, y = pos
+            line = ax.plot(
+                [x, cx], [y - inset_size[1] / 2, cy + inset_size[1] / 2],
+                color=palette[k], linewidth=1.5, solid_capstyle="round",
+                transform=ax.transAxes,
+            )[0]
+            artists.append(line)
+
     for nid, pos in layout.items():
         node = nodes_by_id[nid]
         # A node renders as a "draw-leaf" when it's a real leaf OR when max_depth

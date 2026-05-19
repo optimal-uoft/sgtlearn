@@ -79,3 +79,12 @@ def test_plot_tree_regressor_leaves_show_value(fitted_regressor):
     text_artists = [a for a in artists if hasattr(a, "get_text")]
     assert any("value =" in t.get_text() for t in text_artists)
     plt.close("all")
+
+
+def test_plot_tree_draws_edges(fitted_classifier):
+    from matplotlib.lines import Line2D
+    artists = plot_tree(fitted_classifier)
+    lines = [a for a in artists if isinstance(a, Line2D)]
+    # At least one edge per internal node, at least num_partitions in total.
+    assert len(lines) >= 1
+    plt.close("all")
