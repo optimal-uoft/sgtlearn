@@ -171,12 +171,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.max_features = max_features
         self.label_encoder = label_encoder
 
-        self._est: Any = None
-        self._le: Any = None
-        self.classes_: Optional[np.ndarray] = None
-        self.n_classes_: Optional[int] = None
-        self.n_features_in_: Optional[int] = None
-
     def _get_random_seed(self) -> int:
         """Integer ``random_state`` passed to the native trainer (default 42 if unset)."""
         if self.random_state is None:
@@ -290,6 +284,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         # Native: (n_samples, n_classes) aligned with encoded labels 0..K-1
         return np.asarray(self._est.predict_proba(X32), dtype=np.float64)
+
+    def tree_export(self) -> dict:
+        """Return a flat dict snapshot of the fitted tree.
+
+        See ``sgtlearn._export.plot_tree`` for the canonical consumer. Keys:
+        ``num_partitions``, ``num_nodes``, ``root_index``, ``num_classes``,
+        ``criterion``, ``nodes`` (list of per-node dicts).
+        """
+        check_is_fitted(self, attributes=("_est",))
+        return self._est.tree_export()
 
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
@@ -417,9 +421,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.random_state = random_state
         self.max_features = max_features
 
-        self._est: Any = None
-        self.n_features_in_: Optional[int] = None
-
     def _get_random_seed(self) -> int:
         if self.random_state is None:
             return 42
@@ -479,3 +480,13 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             )
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         return np.asarray(self._est.predict(X32), dtype=np.float64).ravel()
+
+    def tree_export(self) -> dict:
+        """Return a flat dict snapshot of the fitted tree.
+
+        See ``sgtlearn._export.plot_tree`` for the canonical consumer. Keys:
+        ``num_partitions``, ``num_nodes``, ``root_index``, ``criterion``,
+        ``nodes`` (list of per-node dicts). Regression has no ``num_classes``.
+        """
+        check_is_fitted(self, attributes=("_est",))
+        return self._est.tree_export()
