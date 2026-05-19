@@ -204,6 +204,42 @@ def _compute_layout_leafcounter(
     return {nid: (norm_x[nid], norm_y[nid]) for nid in drawn_depths}
 
 
+def _draw_arrow_edge(
+    fig,
+    parent_xy: tuple[float, float],
+    parent_h: float,
+    child_xy: tuple[float, float],
+    child_h: float,
+    color,
+    linewidth: float = 2.0,
+    mutation_scale: float = 10.0,
+):
+    """Draw an arrow from a parent panel's bottom-center to a child's top-center.
+
+    Endpoints are in figure-fraction coordinates so the arrow stays glued to
+    the layout regardless of axes resizing. The patch is added via
+    ``fig.add_artist`` (z-order between background and panels). Returns the
+    FancyArrowPatch for tracking.
+    """
+    from matplotlib.patches import FancyArrowPatch
+
+    px, py = parent_xy
+    cx, cy = child_xy
+    patch = FancyArrowPatch(
+        posA=(px, py - parent_h / 2),
+        posB=(cx, cy + child_h / 2),
+        arrowstyle="-|>",
+        color=color,
+        linewidth=linewidth,
+        mutation_scale=mutation_scale,
+        transform=fig.transFigure,
+        figure=fig,
+        zorder=1,
+    )
+    fig.add_artist(patch)
+    return patch
+
+
 def _bin_edges(thresholds: list[float]) -> list[float]:
     """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
     if not thresholds:

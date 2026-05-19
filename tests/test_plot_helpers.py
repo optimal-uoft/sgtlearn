@@ -200,3 +200,43 @@ def test_layout_single_node_tree():
     layout = _compute_layout_leafcounter(tree, max_depth=None)
     assert set(layout) == {0}
     assert layout[0][0] == pytest.approx(0.5, abs=1e-9)
+
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch
+
+from sgtlearn._export import _draw_arrow_edge
+
+
+def test_draw_arrow_edge_returns_fancyarrowpatch():
+    fig, _ax = plt.subplots()
+    patch = _draw_arrow_edge(
+        fig=fig,
+        parent_xy=(0.3, 0.8),
+        parent_h=0.1,
+        child_xy=(0.5, 0.3),
+        child_h=0.05,
+        color="#E8A0BF",
+    )
+    assert isinstance(patch, FancyArrowPatch)
+    assert patch in fig.artists
+    plt.close(fig)
+
+
+def test_draw_arrow_edge_uses_supplied_color():
+    fig, _ax = plt.subplots()
+    patch = _draw_arrow_edge(
+        fig=fig,
+        parent_xy=(0.0, 0.0),
+        parent_h=0.0,
+        child_xy=(1.0, 1.0),
+        child_h=0.0,
+        color="#FAC898",
+    )
+    assert tuple(patch.get_edgecolor())[:3] == pytest.approx(
+        matplotlib.colors.to_rgb("#FAC898"), abs=1e-6
+    )
+    plt.close(fig)
