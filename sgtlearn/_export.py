@@ -240,6 +240,76 @@ def _draw_arrow_edge(
     return patch
 
 
+def _draw_leaf_text(
+    host_ax,
+    x: float,
+    y: float,
+    node: dict,
+    *,
+    is_classifier: bool,
+    class_names: Optional[list[str]],
+    criterion: str,
+    precision: int,
+    fontsize: Optional[int],
+    color,
+    label: str,
+    impurity: bool,
+) -> list:
+    """Render a leaf as bold colored text (no box).
+
+    Returns a list of Text artists (one bold class/value line, optional
+    subtitle lines for ``label='all'``).
+    """
+    artists: list = []
+
+    if is_classifier:
+        counts = list(node.get("class_counts", []))
+        if counts:
+            arg = max(range(len(counts)), key=lambda i: counts[i])
+            primary = class_names[arg] if class_names is not None else str(arg)
+        else:
+            primary = ""
+    else:
+        primary = f"{node['value']:.{precision}f}"
+
+    bold = host_ax.text(
+        x,
+        y,
+        primary,
+        ha="center",
+        va="center",
+        fontsize=fontsize,
+        fontweight="bold",
+        color=color,
+        transform=host_ax.transAxes,
+    )
+    artists.append(bold)
+
+    if label == "none":
+        return artists
+
+    if label == "all":
+        subtitle_parts = [f"n = {node['n_samples']}"]
+        if impurity:
+            subtitle_parts.append(
+                f"{criterion} = {node['impurity']:.{precision}f}"
+            )
+        sub_fontsize = (fontsize - 1) if isinstance(fontsize, int) else None
+        sub = host_ax.text(
+            x,
+            y - 0.025,
+            "\n".join(subtitle_parts),
+            ha="center",
+            va="top",
+            fontsize=sub_fontsize,
+            color="#444444",
+            transform=host_ax.transAxes,
+        )
+        artists.append(sub)
+
+    return artists
+
+
 def _bin_edges(thresholds: list[float]) -> list[float]:
     """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
     if not thresholds:

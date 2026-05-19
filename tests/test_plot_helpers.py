@@ -240,3 +240,183 @@ def test_draw_arrow_edge_uses_supplied_color():
         matplotlib.colors.to_rgb("#FAC898"), abs=1e-6
     )
     plt.close(fig)
+
+
+from sgtlearn._export import _draw_leaf_text
+
+
+def _clf_leaf_node():
+    return {
+        "id": 5,
+        "depth": 2,
+        "is_leaf": True,
+        "n_samples": 42,
+        "impurity": 0.123,
+        "class_counts": [10, 32],
+        "children": [],
+    }
+
+
+def _reg_leaf_node():
+    return {
+        "id": 5,
+        "depth": 2,
+        "is_leaf": True,
+        "n_samples": 42,
+        "impurity": 17.5,
+        "value": -3.14,
+        "children": [],
+    }
+
+
+def test_draw_leaf_text_classifier_bold_class_label():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_leaf_text(
+        host_ax=ax,
+        x=0.5,
+        y=0.5,
+        node=_clf_leaf_node(),
+        is_classifier=True,
+        class_names=["neg", "pos"],
+        criterion="gini",
+        precision=2,
+        fontsize=10,
+        color="#E8A0BF",
+        label="feature",
+        impurity=False,
+    )
+    bold_texts = [
+        a for a in artists
+        if hasattr(a, "get_text") and a.get_fontweight() == "bold"
+    ]
+    assert any(a.get_text() == "pos" for a in bold_texts)
+    plt.close(fig)
+
+
+def test_draw_leaf_text_regressor_value_formatted_to_precision():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_leaf_text(
+        host_ax=ax,
+        x=0.5,
+        y=0.5,
+        node=_reg_leaf_node(),
+        is_classifier=False,
+        class_names=None,
+        criterion="squared_error",
+        precision=2,
+        fontsize=10,
+        color="#FAC898",
+        label="feature",
+        impurity=False,
+    )
+    texts = [a.get_text() for a in artists if hasattr(a, "get_text")]
+    assert any(t == "-3.14" for t in texts)
+    plt.close(fig)
+
+
+def test_draw_leaf_text_label_all_adds_n_subtitle():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_leaf_text(
+        host_ax=ax,
+        x=0.5,
+        y=0.5,
+        node=_clf_leaf_node(),
+        is_classifier=True,
+        class_names=["neg", "pos"],
+        criterion="gini",
+        precision=2,
+        fontsize=10,
+        color="#E8A0BF",
+        label="all",
+        impurity=False,
+    )
+    texts = [a.get_text() for a in artists if hasattr(a, "get_text")]
+    assert any("n = 42" in t for t in texts)
+    plt.close(fig)
+
+
+def test_draw_leaf_text_label_all_with_impurity_adds_criterion_line():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_leaf_text(
+        host_ax=ax,
+        x=0.5,
+        y=0.5,
+        node=_clf_leaf_node(),
+        is_classifier=True,
+        class_names=["neg", "pos"],
+        criterion="gini",
+        precision=2,
+        fontsize=10,
+        color="#E8A0BF",
+        label="all",
+        impurity=True,
+    )
+    texts = [a.get_text() for a in artists if hasattr(a, "get_text")]
+    assert any("gini = 0.12" in t for t in texts)
+    plt.close(fig)
+
+
+def test_draw_leaf_text_label_none_suppresses_subtitle():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_leaf_text(
+        host_ax=ax,
+        x=0.5,
+        y=0.5,
+        node=_clf_leaf_node(),
+        is_classifier=True,
+        class_names=["neg", "pos"],
+        criterion="gini",
+        precision=2,
+        fontsize=10,
+        color="#E8A0BF",
+        label="none",
+        impurity=True,
+    )
+    texts = [a.get_text() for a in artists if hasattr(a, "get_text")]
+    assert not any("n =" in t or "gini =" in t for t in texts)
+    plt.close(fig)
+
+
+def test_draw_leaf_text_color_propagates():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_leaf_text(
+        host_ax=ax,
+        x=0.5,
+        y=0.5,
+        node=_clf_leaf_node(),
+        is_classifier=True,
+        class_names=["neg", "pos"],
+        criterion="gini",
+        precision=2,
+        fontsize=10,
+        color="#E8A0BF",
+        label="feature",
+        impurity=False,
+    )
+    bold_texts = [
+        a for a in artists
+        if hasattr(a, "get_text") and a.get_fontweight() == "bold"
+    ]
+    expected_rgb = matplotlib.colors.to_rgb("#E8A0BF")
+    for t in bold_texts:
+        c = matplotlib.colors.to_rgb(t.get_color())
+        assert c == pytest.approx(expected_rgb, abs=1e-6)
+    plt.close(fig)
