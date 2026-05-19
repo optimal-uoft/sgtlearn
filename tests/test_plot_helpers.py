@@ -420,3 +420,123 @@ def test_draw_leaf_text_color_propagates():
         c = matplotlib.colors.to_rgb(t.get_color())
         assert c == pytest.approx(expected_rgb, abs=1e-6)
     plt.close(fig)
+
+
+from matplotlib.patches import Rectangle
+
+from sgtlearn._export import _draw_internal_panel
+
+
+def _internal_node():
+    return {
+        "id": 0,
+        "depth": 0,
+        "is_leaf": False,
+        "feature": 0,
+        "thresholds": [-0.5, 0.5],
+        "bin_to_partition": [0, 1, 0],
+        "bin_sample_counts": [30, 40, 20],
+        "n_samples": 90,
+        "impurity": 0.5,
+        "children": [1, 2],
+    }
+
+
+def test_draw_internal_panel_slabs_only_when_no_X():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    palette = ["#E8A0BF", "#FAC898"]
+    artists = _draw_internal_panel(
+        host_ax=ax,
+        center=(0.5, 0.5),
+        size=(0.3, 0.12),
+        node=_internal_node(),
+        palette=palette,
+        feature_values=None,
+        n_hist_bins=20,
+        precision=2,
+        fontsize=10,
+        label="feature",
+    )
+    inset_axes_objs = [a for a in artists if hasattr(a, "axvspan")]
+    assert inset_axes_objs, "expected an inset Axes in returned artists"
+    inset = inset_axes_objs[0]
+    # axvspan adds a Polygon to inset.patches; non-contiguous [0,1,0]
+    # bin_to_partition yields 3 slabs.
+    assert len(inset.patches) == 3
+    plt.close(fig)
+
+
+def test_draw_internal_panel_histogram_overlay_when_X_provided():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    palette = ["#E8A0BF", "#FAC898"]
+    feat_vals = np.linspace(-1.0, 1.0, 200)
+    artists = _draw_internal_panel(
+        host_ax=ax,
+        center=(0.5, 0.5),
+        size=(0.3, 0.12),
+        node=_internal_node(),
+        palette=palette,
+        feature_values=feat_vals,
+        n_hist_bins=20,
+        precision=2,
+        fontsize=10,
+        label="feature",
+    )
+    inset_axes_objs = [a for a in artists if hasattr(a, "axvspan")]
+    inset = inset_axes_objs[0]
+    bars = [p for p in inset.patches if isinstance(p, Rectangle)]
+    assert len(bars) >= 15
+    plt.close(fig)
+
+
+def test_draw_internal_panel_label_none_hides_sample_count():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_internal_panel(
+        host_ax=ax,
+        center=(0.5, 0.5),
+        size=(0.3, 0.12),
+        node=_internal_node(),
+        palette=["#E8A0BF", "#FAC898"],
+        feature_values=None,
+        n_hist_bins=20,
+        precision=2,
+        fontsize=10,
+        label="none",
+    )
+    text_artists = [
+        a for a in artists
+        if hasattr(a, "get_text") and not hasattr(a, "axvspan")
+    ]
+    assert not any("n=" in t.get_text() for t in text_artists)
+    plt.close(fig)
+
+
+def test_draw_internal_panel_label_feature_shows_sample_count():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
+    artists = _draw_internal_panel(
+        host_ax=ax,
+        center=(0.5, 0.5),
+        size=(0.3, 0.12),
+        node=_internal_node(),
+        palette=["#E8A0BF", "#FAC898"],
+        feature_values=None,
+        n_hist_bins=20,
+        precision=2,
+        fontsize=10,
+        label="feature",
+    )
+    text_artists = [a for a in artists if hasattr(a, "get_text")]
+    assert any("n=90" in t.get_text() for t in text_artists)
+    plt.close(fig)

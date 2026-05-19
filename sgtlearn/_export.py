@@ -310,6 +310,138 @@ def _draw_leaf_text(
     return artists
 
 
+def _draw_internal_panel(
+    host_ax,
+    center: tuple[float, float],
+    size: tuple[float, float],
+    node: dict,
+    palette,
+    feature_values,
+    n_hist_bins: int,
+    precision: int,
+    fontsize: Optional[int],
+    label: str,
+) -> list:
+    """Render a single internal node panel: slabs + optional fine histogram.
+
+    The panel is created as an ``inset_axes`` on ``host_ax`` at the given
+    figure-relative ``center`` and ``size``. Background slabs use
+    ``axvspan``; the optional fine histogram (when ``feature_values`` is
+    given) is overlaid as bar Rectangles. Threshold ticks sit under the
+    panel at the slab boundaries; the sample-count annotation sits in the
+    panel's top-right when ``label != 'none'``. Returns
+    ``[inset_axes, *extra_text_artists]``.
+    """
+    import numpy as np
+
+    cx, cy = center
+    w, h = size
+    inset = host_ax.inset_axes(
+        [cx - w / 2, cy - h / 2, w, h], transform=host_ax.transAxes
+    )
+
+    thresholds = list(node["thresholds"])
+    b2p = list(node["bin_to_partition"])
+
+    # Compute panel x extent.
+    if feature_values is not None and len(feature_values):
+        x_min = float(np.min(feature_values))
+        x_max = float(np.max(feature_values))
+    elif thresholds:
+        if len(thresholds) == 1:
+            delta = 1.0
+        else:
+            delta = (thresholds[-1] - thresholds[0]) / (len(thresholds) - 1)
+            if delta <= 0.0:
+                delta = 1.0
+        x_min = thresholds[0] - delta
+        x_max = thresholds[-1] + delta
+    else:
+        x_min, x_max = 0.0, 1.0
+    if x_max <= x_min:
+        x_max = x_min + 1.0
+
+    slabs = _merge_routing_regions(thresholds, b2p, x_min, x_max)
+    for x0, x1, p in slabs:
+        inset.axvspan(x0, x1, color=palette[p], alpha=0.5, zorder=0)
+
+    if feature_values is not None and len(feature_values):
+        widths = [(x1 - x0) for (x0, x1, _p) in slabs] or [x_max - x_min]
+        total = sum(widths) or 1.0
+        alloc = [max(1, round(n_hist_bins * w / total)) for w in widths]
+        while sum(alloc) > n_hist_bins and any(a > 1 for a in alloc):
+            j = max(range(len(alloc)), key=lambda k: (widths[k], alloc[k]))
+            if alloc[j] <= 1:
+                break
+            alloc[j] -= 1
+        while sum(alloc) < n_hist_bins:
+            j = max(range(len(alloc)), key=lambda k: widths[k])
+            alloc[j] += 1
+
+        bin_edges: list[float] = []
+        for j, (x0, x1, _p) in enumerate(slabs):
+            edges = np.linspace(x0, x1, alloc[j] + 1)
+            if j == 0:
+                bin_edges.extend(edges.tolist())
+            else:
+                bin_edges.extend(edges[1:].tolist())
+        counts, _ = np.histogram(feature_values, bins=bin_edges)
+        bar_colors: list = []
+        for j, (_x0, _x1, p) in enumerate(slabs):
+            bar_colors.extend([palette[p]] * alloc[j])
+        centers = [
+            (bin_edges[k] + bin_edges[k + 1]) / 2 for k in range(len(counts))
+        ]
+        bar_widths = [
+            bin_edges[k + 1] - bin_edges[k] for k in range(len(counts))
+        ]
+        inset.bar(
+            centers,
+            counts,
+            width=bar_widths,
+            color=bar_colors,
+            edgecolor="white",
+            linewidth=0.3,
+            zorder=1,
+            align="center",
+        )
+
+    boundaries = [x1 for (_x0, x1, _p) in slabs[:-1]]
+    inset.set_xlim(x_min, x_max)
+    if boundaries:
+        inset.set_xticks(boundaries)
+        tick_fs = (fontsize - 2) if isinstance(fontsize, int) else None
+        inset.set_xticklabels(
+            [f"{t:.{precision}f}" for t in boundaries],
+            fontsize=tick_fs,
+            rotation=30,
+            ha="right",
+        )
+    else:
+        inset.set_xticks([])
+    inset.set_yticks([])
+    for spine in ("top", "right", "left"):
+        inset.spines[spine].set_visible(False)
+    inset.spines["bottom"].set_linewidth(0.5)
+
+    extra: list = []
+    if label != "none":
+        annot_fs = (fontsize - 2) if isinstance(fontsize, int) else None
+        annot = inset.text(
+            1.0,
+            1.0,
+            f"n={node['n_samples']}",
+            transform=inset.transAxes,
+            ha="right",
+            va="top",
+            fontsize=annot_fs,
+            color="#444444",
+        )
+        extra.append(annot)
+
+    return [inset, *extra]
+
+
 def _bin_edges(thresholds: list[float]) -> list[float]:
     """Closed bin edges suitable for plotting. Open ends are clipped to ±delta."""
     if not thresholds:
