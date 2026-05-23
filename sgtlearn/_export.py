@@ -190,8 +190,7 @@ def _compute_layout_leafcounter(
             counter[0] += 1
             x_int[nid] = xv
             return xv
-        child_xs = [visit(cid, depth + 1)
-                    for cid in nodes_by_id[nid]["children"]]
+        child_xs = [visit(cid, depth + 1) for cid in nodes_by_id[nid]["children"]]
         xv = sum(child_xs) / len(child_xs) if child_xs else float(counter[0])
         x_int[nid] = xv
         return xv
@@ -224,8 +223,7 @@ def _compute_layout_leafcounter(
         # space for the right-of-panel feature labels.
         top, bot = 0.88, 0.10
         norm_y = {
-            nid: bot + (top - bot) *
-            (1.0 - drawn_depths[nid] / max_drawn_depth)
+            nid: bot + (top - bot) * (1.0 - drawn_depths[nid] / max_drawn_depth)
             for nid in drawn_depths
         }
 
@@ -321,8 +319,7 @@ def _draw_leaf_text(
     if label == "all":
         subtitle_parts = [f"n = {node['n_samples']}"]
         if impurity:
-            subtitle_parts.append(
-                f"{criterion} = {node['impurity']:.{precision}f}")
+            subtitle_parts.append(f"{criterion} = {node['impurity']:.{precision}f}")
         sub_fontsize = (fontsize - 1) if isinstance(fontsize, int) else None
         sub = host_ax.text(
             x,
@@ -417,10 +414,8 @@ def _draw_internal_panel(
         bar_colors: list = []
         for j, (_x0, _x1, p) in enumerate(slabs):
             bar_colors.extend([palette[p]] * alloc[j])
-        centers = [(bin_edges[k] + bin_edges[k + 1]) /
-                   2 for k in range(len(counts))]
-        bar_widths = [bin_edges[k + 1] - bin_edges[k]
-                      for k in range(len(counts))]
+        centers = [(bin_edges[k] + bin_edges[k + 1]) / 2 for k in range(len(counts))]
+        bar_widths = [bin_edges[k + 1] - bin_edges[k] for k in range(len(counts))]
         inset.bar(
             centers,
             counts,
@@ -486,8 +481,6 @@ def plot_tree(
     n_hist_bins: int = 20,
 ) -> list[Any]:
     """Render a fitted SGT estimator with matplotlib (see module docstring)."""
-    
-
     if not isinstance(estimator, (SGTClassifier, SGTRegressor)):
         raise TypeError(
             "plot_tree expects an SGTClassifier or SGTRegressor; got "
