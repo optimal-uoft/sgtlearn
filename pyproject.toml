@@ -49,6 +49,12 @@ module = [
   "joblib.*",
   "numpy",
   "numpy.*",
+  "matplotlib",
+  "matplotlib.*",
+  "seaborn",
+  "seaborn.*",
+  "graphviz",
+  "graphviz.*",
 ]
 ignore_missing_imports = true
 
