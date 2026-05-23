@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import matplotlib
-
+import numpy as np
+from sklearn.tree import DecisionTreeClassifier
 matplotlib.use("Agg")  # headless
 
 import matplotlib.pyplot as plt
 import pytest
 from sklearn.datasets import make_classification, make_regression
 from sklearn.exceptions import NotFittedError
-
+from matplotlib.patches import FancyArrowPatch, Rectangle
 from sgtlearn import SGTClassifier, SGTRegressor, plot_tree
 
 
@@ -52,7 +53,6 @@ def test_plot_tree_unfitted_regressor_raises():
 
 
 def test_plot_tree_rejects_non_sgt_estimator():
-    from sklearn.tree import DecisionTreeClassifier
     with pytest.raises(TypeError):
         plot_tree(DecisionTreeClassifier())
 
@@ -88,7 +88,6 @@ def test_plot_tree_regressor_leaves_show_value(fitted_regressor):
 
 
 def test_plot_tree_draws_edges(fitted_classifier):
-    from matplotlib.patches import FancyArrowPatch
     artists = plot_tree(fitted_classifier)
     arrows = [a for a in artists if isinstance(a, FancyArrowPatch)]
     assert len(arrows) >= 1
@@ -161,7 +160,6 @@ def test_plot_tree_fontsize_passes_through(fitted_classifier):
 
 
 def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
-    from matplotlib.patches import Rectangle
     X, _ = make_classification(n_samples=200, n_features=4, random_state=0)
 
     def total_bars(artists):
@@ -184,7 +182,6 @@ def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
 
 
 def test_plot_tree_X_shape_mismatch_raises(fitted_classifier):
-    import numpy as np
     bad_X = np.zeros((10, fitted_classifier.n_features_in_ + 1))
     with pytest.raises(ValueError):
         plot_tree(fitted_classifier, X=bad_X)

@@ -1,9 +1,15 @@
 """Unit tests for ``sgtlearn._export`` private helpers."""
 from __future__ import annotations
+from matplotlib.patches import Rectangle
 
 import pytest
-
-from sgtlearn._export import _merge_routing_regions
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch
+import numpy as np
+from sklearn.datasets import make_classification
+from sgtlearn import SGTClassifier
+from sgtlearn._export import _merge_routing_regions, _route_samples, _compute_layout_leafcounter, _draw_leaf_text, _draw_internal_panel, _draw_arrow_edge
 
 
 def test_merge_two_bins_same_partition_merges():
@@ -68,13 +74,6 @@ def test_merge_x_min_greater_than_first_threshold_clamps_left_edge():
     assert len(regions) == 2
 
 
-import numpy as np
-from sklearn.datasets import make_classification
-
-from sgtlearn import SGTClassifier
-from sgtlearn._export import _route_samples
-
-
 def _fitted_clf():
     X, y = make_classification(n_samples=200, n_features=4, random_state=0)
     return SGTClassifier(
@@ -124,9 +123,6 @@ def test_route_samples_dtype_indices_are_int():
     reach = _route_samples(tree, X)
     for arr in reach.values():
         assert arr.dtype.kind in ("i", "u")
-
-
-from sgtlearn._export import _compute_layout_leafcounter
 
 
 def _toy_tree() -> dict:
@@ -202,15 +198,6 @@ def test_layout_single_node_tree():
     assert layout[0][0] == pytest.approx(0.5, abs=1e-9)
 
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.patches import FancyArrowPatch
-
-from sgtlearn._export import _draw_arrow_edge
-
-
 def test_draw_arrow_edge_returns_fancyarrowpatch():
     fig, ax = plt.subplots()
     patch = _draw_arrow_edge(
@@ -242,9 +229,6 @@ def test_draw_arrow_edge_uses_supplied_color():
         matplotlib.colors.to_rgb("#FAC898"), abs=1e-6
     )
     plt.close(fig)
-
-
-from sgtlearn._export import _draw_leaf_text
 
 
 def _clf_leaf_node():
@@ -422,11 +406,6 @@ def test_draw_leaf_text_color_propagates():
         c = matplotlib.colors.to_rgb(t.get_color())
         assert c == pytest.approx(expected_rgb, abs=1e-6)
     plt.close(fig)
-
-
-from matplotlib.patches import Rectangle
-
-from sgtlearn._export import _draw_internal_panel
 
 
 def _internal_node():
