@@ -8,40 +8,45 @@
 
 SplitCandidate SquaredErrorSplitter::makeRoot() {
   auto stats = makeEmptyStats();
-  for (size_t idx = 0; idx < y.n_cols; idx++) {
-    const float v = y(0, idx);
-    stats[0] += v;
-    stats[1] += v * v;
+  for (size_t idx = 0; idx < targets.n_cols; idx++) {
+    const float v = targets(0, idx);
+    const float w = sampleWeights(idx);
+    stats[0] += w * v;
+    stats[1] += w * v * v;
   }
 
-  splitStats[0][y.n_cols - 1] = stats;
+  splitStats[0][targets.n_cols - 1] = stats;
 
-  return {.height = 0,
-          .start = 0,
-          .end = y.n_cols - 1,
-          .score = score(stats, 0, y.n_cols - 1),
-          .routingThreshold = std::numeric_limits<double>::infinity()};
+  SplitCandidate root{.height = 0,
+                      .start = 0,
+                      .end = targets.n_cols - 1,
+                      .score = score(stats, 0, targets.n_cols - 1),
+                      .routingThreshold =
+                          std::numeric_limits<double>::infinity()};
+  fillIntervalMeta(root);
+  return root;
 }
 
 float SquaredErrorSplitter::predict(const SplitCandidate &split) {
-  const size_t N = split.end - split.start + 1;
-  if (N == 0)
+  const double W = split.nodeWeight;
+  if (W <= 0.0)
     throw std::runtime_error(
-        "Not possible to have a partition of size 0 for a decision tree");
+        "Not possible to have a partition of weight 0 for a decision tree");
 
-  return getStats(split)[0] / static_cast<float>(N);
+  return getStats(split)[0] / static_cast<float>(W);
 }
 
 double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t l,
                                    size_t r) {
-  return Criterion::squaredError(stats, r - l + 1);
+  return Criterion::squaredError(stats, intervalWeight(l, r));
 }
 void SquaredErrorSplitter::moveSample(std::vector<float> &rightStats,
                                       std::vector<float> &leftStats,
                                       size_t idx) {
-  const float v = y(0, idx);
-  rightStats[0] -= v;
-  leftStats[0] += v;
-  rightStats[1] -= v * v;
-  leftStats[1] += v * v;
+  const float v = targets(0, idx);
+  const float w = sampleWeights(idx);
+  rightStats[0] -= w * v;
+  leftStats[0] += w * v;
+  rightStats[1] -= w * v * v;
+  leftStats[1] += w * v * v;
 }

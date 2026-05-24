@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+
+from sgtlearn._weights import (
+    effective_sample_weight_classification,
+    normalize_sample_weight,
+)
 from ShapeGeneralizedTrees import (
     ClassificationShapeGeneralizedTree,
     RegressionShapeGeneralizedTree,
@@ -90,9 +95,14 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         - ``"log2"``: use ``max(1, int(log2(n_features)))`` columns.
 
         String values are case-insensitive in the native binding.
+    class_weight : dict, optional
+        Per-class weights multiplied into ``sample_weight`` before training.
+        Keys are class labels (as in ``y``); values are non-negative floats.
     label_encoder : sklearn.preprocessing.LabelEncoder, optional
         Pre-fitted encoder for use by ensemble wrappers. When provided,
-        :meth:`fit` expects ``y`` to be integer-encoded in
+        ``class_weight`` must be ``None`` here (the ensemble applies it to
+        ``sample_weight`` before calling each tree). :meth:`fit` expects ``y``
+        to be integer-encoded in
         ``0 .. len(label_encoder.classes_) - 1`` and reuses this encoder
         (no per-tree ``LabelEncoder.fit``), so ``predict``/``predict_proba``
         share one label space across the ensemble. When ``None``, a fresh
@@ -152,6 +162,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
         max_features: Optional[Union[int, float, str]] = None,
+        class_weight: Optional[Mapping[Any, float]] = None,
         label_encoder: Any = None,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
@@ -170,6 +181,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
+        self.class_weight = class_weight
         self.label_encoder = label_encoder
 
         self._est: Any = None
@@ -184,7 +196,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             return 42
         return int(self.random_state)
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTClassifier":
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray] = None,
+    ) -> "SGTClassifier":
         """Build the native classifier on ``X`` (encoded labels) and record sklearn metadata."""
 
         X, y = check_X_y(
@@ -257,7 +274,21 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         y_u = np.ascontiguousarray(
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
-        self._est.fit(X32, y_u)
+        if self.label_encoder is not None:
+            if self.class_weight is not None:
+                raise ValueError(
+                    "class_weight must be None when label_encoder is set; "
+                    "apply class_weight on the ensemble estimator instead."
+                )
+            sw = normalize_sample_weight(sample_weight, y_enc.shape[0])
+        else:
+            sw = effective_sample_weight_classification(
+                sample_weight,
+                y_enc,
+                self.class_weight,
+                np.asarray(self.classes_),
+            )
+        self._est.fit(X32, y_u, sw)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -446,7 +477,12 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             return 42
         return int(self.random_state)
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTRegressor":
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray] = None,
+    ) -> "SGTRegressor":
 
         X, y = check_X_y(
             X,
@@ -485,7 +521,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
-        self._est.fit(X32, y32)
+        sw = normalize_sample_weight(sample_weight, X.shape[0])
+        self._est.fit(X32, y32, sw)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

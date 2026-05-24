@@ -9,17 +9,21 @@
 
 SplitCandidate GainHessianSplitter::makeRoot() {
   auto stats = makeEmptyStats();
-  for (size_t idx = 0; idx < y.n_cols; ++idx) {
-    stats[0] += y(0, idx);
-    stats[1] += y(1, idx);
+  for (size_t idx = 0; idx < derivatives.n_cols; ++idx) {
+    const float w = sampleWeights(idx);
+    stats[0] += w * derivatives(0, idx);
+    stats[1] += w * derivatives(1, idx);
   }
 
-  splitStats[0][y.n_cols - 1] = stats;
-  return {.height = 0,
-          .start = 0,
-          .end = y.n_cols - 1,
-          .score = score(stats, 0, y.n_cols - 1),
-          .routingThreshold = std::numeric_limits<double>::infinity()};
+  splitStats[0][derivatives.n_cols - 1] = stats;
+  SplitCandidate root{.height = 0,
+                      .start = 0,
+                      .end = derivatives.n_cols - 1,
+                      .score = score(stats, 0, derivatives.n_cols - 1),
+                      .routingThreshold =
+                          std::numeric_limits<double>::infinity()};
+  fillIntervalMeta(root);
+  return root;
 }
 
 float GainHessianSplitter::predict(const SplitCandidate &split) {
@@ -35,10 +39,11 @@ double GainHessianSplitter::score(const std::vector<float> &stats, size_t l,
 void GainHessianSplitter::moveSample(std::vector<float> &rightStats,
                                      std::vector<float> &leftStats,
                                      size_t idx) {
-  const float g = y(0, idx);
-  const float h = y(1, idx);
-  rightStats[0] -= g;
-  leftStats[0] += g;
-  rightStats[1] -= h;
-  leftStats[1] += h;
+  const float w = sampleWeights(idx);
+  const float g = derivatives(0, idx);
+  const float h = derivatives(1, idx);
+  rightStats[0] -= w * g;
+  leftStats[0] += w * g;
+  rightStats[1] -= w * h;
+  leftStats[1] += w * h;
 }

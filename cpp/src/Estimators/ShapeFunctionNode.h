@@ -54,7 +54,7 @@ struct ShapeFunctionNode {
    * During fit, after a split: per-bin class counts from the winning inner
    * discretizer (same row count as ``binToPartition``). Cleared after training.
    */
-  std::vector<std::vector<size_t>> splitLeafStats;
+  std::vector<std::vector<double>> splitLeafStats;
   /**
    * During fit, regression squared error only: per-bin ``[sum y, sum y^2]`` for
    * the winning inner discretizer (same row count as ``binToPartition``).

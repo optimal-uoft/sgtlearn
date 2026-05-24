@@ -35,4 +35,6 @@ template <typename LeafStat> struct ShapeBranchingResult {
    * error uses ``[sum y, sum y^2]`` per bin.
    */
   std::vector<std::vector<LeafStat>> leafStats;
+  /** Per inner bin: unweighted sample count ``N`` (for ``min_samples_leaf`` checks). */
+  std::vector<size_t> leafNumSamples;
 };

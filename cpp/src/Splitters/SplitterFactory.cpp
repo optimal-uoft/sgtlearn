@@ -15,12 +15,14 @@
 
 std::unique_ptr<ClassificationSplitter>
 makeClassificationSplitter(LearningCriterion criterion, arma::frowvec &X,
+                           arma::frowvec &sampleWeights,
                            arma::Mat<size_t> &labels, size_t numClasses) {
   switch (criterion) {
   case LearningCriterion::Entropy:
-    return std::make_unique<EntropySplitter>(X, labels, numClasses);
+    return std::make_unique<EntropySplitter>(X, sampleWeights, labels,
+                                             numClasses);
   case LearningCriterion::Gini:
-    return std::make_unique<GiniSplitter>(X, labels, numClasses);
+    return std::make_unique<GiniSplitter>(X, sampleWeights, labels, numClasses);
   case LearningCriterion::SquaredError:
   case LearningCriterion::GainHessian:
   case LearningCriterion::AbsoluteError:
@@ -31,16 +33,18 @@ makeClassificationSplitter(LearningCriterion criterion, arma::frowvec &X,
   }
 }
 
-std::unique_ptr<Splitter<float>>
+std::unique_ptr<Splitter<float, float>>
 makeFloatSplitter(LearningCriterion criterion, arma::frowvec &X,
-                  arma::Mat<float> &y, double gainHessianLambda) {
+                  arma::frowvec &sampleWeights, arma::Mat<float> &y,
+                  double gainHessianLambda) {
   switch (criterion) {
   case LearningCriterion::SquaredError:
-    return std::make_unique<SquaredErrorSplitter>(X, y);
+    return std::make_unique<SquaredErrorSplitter>(X, sampleWeights, y);
   case LearningCriterion::GainHessian:
-    return std::make_unique<GainHessianSplitter>(X, y, gainHessianLambda);
+    return std::make_unique<GainHessianSplitter>(X, sampleWeights, y,
+                                                 gainHessianLambda);
   case LearningCriterion::AbsoluteError:
-    return std::make_unique<AbsoluteErrorSplitter>(X, y);
+    return std::make_unique<AbsoluteErrorSplitter>(X, sampleWeights, y);
   case LearningCriterion::Entropy:
   case LearningCriterion::Gini:
     throw std::invalid_argument(

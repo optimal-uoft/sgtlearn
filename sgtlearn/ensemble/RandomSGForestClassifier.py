@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.validation import check_X_y
 
+from sgtlearn._weights import effective_sample_weight_classification
 from sgtlearn.base import SGTClassifier
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
@@ -59,6 +60,10 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         (default) uses ``n_samples``. Only valid when ``bootstrap=True``.
     random_state : int, RandomState, optional
         Controls bootstrap resampling and the per-tree seeds.
+    class_weight : dict, optional
+        Per-class weights multiplied into ``sample_weight`` once at forest
+        :meth:`fit` (not re-applied on each base tree). Keys are class labels
+        as in ``y``.
     n_jobs : int, optional
         Number of joblib workers used to fit trees. ``None`` means one job
         (sequential); ``-1`` uses all processors. Joblib's threading backend
@@ -118,9 +123,11 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         bootstrap: bool = True,
         max_samples: Optional[Union[int, float]] = None,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
+        class_weight: Optional[Mapping[Any, float]] = None,
         n_jobs: Optional[int] = None,
         verbose: int = 0,
     ) -> None:
+        self.class_weight = class_weight
         super().__init__(
             n_estimators=n_estimators,
             criterion=criterion,
@@ -160,6 +167,19 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         if self.n_classes_ < 2:
             raise ValueError("RandomSGForestClassifier requires at least two classes.")
         return X, y_enc
+
+    def _prepare_sample_weight(
+        self,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray],
+        n_samples: int,
+    ) -> np.ndarray:
+        return effective_sample_weight_classification(
+            sample_weight,
+            y,
+            self.class_weight,
+            np.asarray(self.classes_),
+        )
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
         return SGTClassifier(

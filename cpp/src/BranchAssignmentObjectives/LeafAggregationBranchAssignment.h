@@ -26,7 +26,8 @@ public:
   LeafAggregationBranchAssignment(std::vector<size_t> &assignments,
                                   size_t numPartitions,
                                   std::vector<std::vector<T>> &stats,
-                                  std::vector<size_t> &sizes, size_t statsDim,
+                                  std::vector<double> &leafWeights,
+                                  size_t statsDim,
                                   std::unique_ptr<ILeafAggregateProcessor<T>> processor);
 
   double objective() override;
@@ -37,15 +38,15 @@ public:
 
 protected:
   double weightedSumLoss = 0;
-  size_t sumNumberOfSamples = 0;
+  double sumNumberOfSamples = 0;
   bool allLeavesAssigned = true;
 
   std::vector<std::vector<T>> &stats;
-  const std::vector<size_t> &sizes;
+  const std::vector<double> &leafWeights;
   size_t statsDim;
 
   std::vector<std::vector<T>> partitionStats;
-  std::vector<size_t> partitionNumSamples;
+  std::vector<double> partitionWeight;
   std::vector<double> partitionLoss;
 
   std::unique_ptr<ILeafAggregateProcessor<T>> processor_;
@@ -53,7 +54,7 @@ protected:
   double computePartitionLoss(size_t i);
 };
 
-extern template class LeafAggregationBranchAssignment<size_t>;
+extern template class LeafAggregationBranchAssignment<double>;
 extern template class LeafAggregationBranchAssignment<float>;
 
 } // namespace leaf_aggregate

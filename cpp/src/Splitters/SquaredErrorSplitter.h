@@ -2,16 +2,17 @@
 
 /**
  * @file SquaredErrorSplitter.h
- * @brief Regression splitter minimizing MSE via per-interval sums of ``y`` and ``y^2``.
+ * @brief Regression splitter minimizing MSE via per-interval weighted sums of ``y`` and ``y^2``.
  */
 
 #include "Splitter.h"
 
-class SquaredErrorSplitter : public Splitter<float> {
+class SquaredErrorSplitter : public Splitter<float, float> {
 public:
-  ~SquaredErrorSplitter() = default;
-  SquaredErrorSplitter(arma::frowvec &X, arma::Mat<float> &y)
-      : Splitter(X, y, 2) {}
+  ~SquaredErrorSplitter() override = default;
+  SquaredErrorSplitter(arma::frowvec &X, arma::frowvec &sampleWeights,
+                       arma::Mat<float> &y)
+      : Splitter(X, sampleWeights, 2), targets(y) {}
   SplitCandidate makeRoot() override;
   float predict(const SplitCandidate &split) override;
   double score(const SplitCandidate &split) override {
@@ -21,7 +22,8 @@ public:
   double score(const std::vector<float> &stats, size_t l, size_t r) override;
 
 protected:
+  const arma::Mat<float> &targets;
+
   void moveSample(std::vector<float> &rightStats, std::vector<float> &leftStats,
                   size_t idx) override;
-
 };

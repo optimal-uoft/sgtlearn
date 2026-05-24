@@ -97,7 +97,8 @@ public:
    *
    * @throws std::invalid_argument on shape mismatch.
    */
-  void fit(const arma::fmat &X, const arma::Row<float> &y);
+  void fit(const arma::fmat &X, const arma::Row<float> &y,
+           const arma::Row<float> &sampleWeights = arma::Row<float>());
 
   /** Predicted responses, shape (numSamples,). */
   arma::Row<float> predict(const arma::fmat &X) const;
@@ -168,4 +169,6 @@ private:
 
   std::vector<float> aggregateYSquaredStats(const ShapeFunctionNode &node,
                                             const arma::Row<float> &y) const;
+
+  arma::Row<float> fitSampleWeights_;
 };

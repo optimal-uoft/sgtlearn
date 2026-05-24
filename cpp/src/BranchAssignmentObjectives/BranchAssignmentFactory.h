@@ -14,8 +14,8 @@
 /** Entropy or Gini only. Throws if criterion is not classification. */
 std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<size_t>> &classLeafStats,
-    std::vector<size_t> &sizes, size_t numClasses);
+    size_t numPartitions, std::vector<std::vector<double>> &classLeafStats,
+    std::vector<double> &leafWeights, size_t numClasses);
 
 /**
  * SquaredError, GainHessian, or AbsoluteError only.
@@ -28,4 +28,4 @@ std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
 std::unique_ptr<BranchAssignment> makeRegressionBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
     size_t numPartitions, std::vector<std::vector<float>> &leafFloatData,
-    std::vector<size_t> &sizes, double gainHessianLambda = 1.0);
+    std::vector<double> &leafWeights, double gainHessianLambda = 1.0);

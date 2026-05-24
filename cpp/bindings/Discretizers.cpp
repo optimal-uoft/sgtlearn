@@ -112,7 +112,7 @@ public:
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
              const py::array_t<size_t> &y, size_t numClasses,
              size_t minLeafSize, double minGainSplit, size_t maxDepth,
-             size_t maxLeafNodes) {
+             size_t maxLeafNodes, py::object sample_weights = py::none()) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
@@ -133,11 +133,26 @@ public:
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
+    arma::Row<float> wRow;
+    if (!sample_weights.is_none()) {
+      py::array_t<float> wcopy =
+          py::array_t<float>::ensure(sample_weights);
+      if (wcopy.ndim() != 1)
+        throw std::invalid_argument("sample_weights must be a 1D numpy array");
+      const arma::Mat<float> w_mat = carma::arr_to_row<float>(wcopy, true);
+      wRow.set_size(w_mat.n_elem);
+      for (arma::uword i = 0; i < w_mat.n_elem; ++i)
+        wRow(i) = w_mat(i);
+      if (wRow.n_elem != xArma.n_cols)
+        throw std::invalid_argument(
+            "sample_weights length must match X.shape[0]");
+    }
+
     arma::uvec featuresMut = featuresArma;
     std::visit(
         [&](auto &d) {
           d.Train(xArma, featuresMut, yArma, numClasses, minLeafSize,
-                  minGainSplit, maxDepth, maxLeafNodes);
+                  minGainSplit, maxDepth, maxLeafNodes, wRow);
         },
         impl_);
   }
@@ -152,6 +167,17 @@ public:
     arma::Row<size_t> bins;
     std::visit([&](auto &d) { d.transform(xArma, bins); }, impl_);
     return row_to_numpy_1d(bins);
+  }
+
+  py::list getLeafNodeWeights() {
+    return std::visit(
+        [](auto &d) {
+          py::list out;
+          for (double v : d.getLeafNodeWeights())
+            out.append(v);
+          return out;
+        },
+        impl_);
   }
 
   py::list getInSampleDiscretizations() {
@@ -201,7 +227,8 @@ public:
 
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
              const py::array_t<float> &y, size_t minLeafSize,
-             double minGainSplit, size_t maxDepth, size_t maxLeafNodes) {
+             double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+             py::object sample_weights = py::none()) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
@@ -222,11 +249,26 @@ public:
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
+    arma::Row<float> wRow;
+    if (!sample_weights.is_none()) {
+      py::array_t<float> wcopy =
+          py::array_t<float>::ensure(sample_weights);
+      if (wcopy.ndim() != 1)
+        throw std::invalid_argument("sample_weights must be a 1D numpy array");
+      const arma::Mat<float> w_mat = carma::arr_to_row<float>(wcopy, true);
+      wRow.set_size(w_mat.n_elem);
+      for (arma::uword i = 0; i < w_mat.n_elem; ++i)
+        wRow(i) = w_mat(i);
+      if (wRow.n_elem != xArma.n_cols)
+        throw std::invalid_argument(
+            "sample_weights length must match X.shape[0]");
+    }
+
     arma::uvec featuresMut = featuresArma;
     std::visit(
         [&](auto &d) {
           d.Train(xArma, featuresMut, yArma, minLeafSize, minGainSplit, maxDepth,
-                  maxLeafNodes);
+                  maxLeafNodes, wRow);
         },
         impl_);
   }
@@ -241,6 +283,17 @@ public:
     arma::Row<size_t> bins;
     std::visit([&](auto &d) { d.transform(xArma, bins); }, impl_);
     return row_to_numpy_1d(bins);
+  }
+
+  py::list getLeafNodeWeights() {
+    return std::visit(
+        [](auto &d) {
+          py::list out;
+          for (double v : d.getLeafNodeWeights())
+            out.append(v);
+          return out;
+        },
+        impl_);
   }
 
   py::list getInSampleDiscretizations() {
@@ -277,7 +330,10 @@ PYBIND11_MODULE(Discretizers, m) {
       .def("Train", &UnivariateClassificationDiscretizerPy::Train, py::arg("X"),
            py::arg("features"), py::arg("y"), py::arg("numClasses"),
            py::arg("minLeafSize") = 1, py::arg("minGainSplit") = 1e-7,
-           py::arg("maxDepth") = 0, py::arg("maxLeafNodes") = 0)
+           py::arg("maxDepth") = 0,            py::arg("maxLeafNodes") = 0,
+           py::arg("sample_weight") = py::none())
+      .def("getLeafNodeWeights",
+           &UnivariateClassificationDiscretizerPy::getLeafNodeWeights)
       .def("transform", &UnivariateClassificationDiscretizerPy::transform,
            py::arg("X"))
       .def("getInSampleDiscretizations",
@@ -294,7 +350,9 @@ PYBIND11_MODULE(Discretizers, m) {
       .def("Train", &UnivariateRegressionDiscretizerPy::Train, py::arg("X"),
            py::arg("features"), py::arg("y"), py::arg("minLeafSize") = 1,
            py::arg("minGainSplit") = 1e-7, py::arg("maxDepth") = 0,
-           py::arg("maxLeafNodes") = 0)
+           py::arg("maxLeafNodes") = 0, py::arg("sample_weight") = py::none())
+      .def("getLeafNodeWeights",
+           &UnivariateRegressionDiscretizerPy::getLeafNodeWeights)
       .def("transform", &UnivariateRegressionDiscretizerPy::transform,
            py::arg("X"))
       .def("getInSampleDiscretizations",

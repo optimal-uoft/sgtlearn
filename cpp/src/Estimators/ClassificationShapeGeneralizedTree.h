@@ -99,7 +99,8 @@ public:
    *
    * @throws std::invalid_argument on shape / label-range mismatch.
    */
-  void fit(const arma::fmat &X, const arma::Row<size_t> &y);
+  void fit(const arma::fmat &X, const arma::Row<size_t> &y,
+           const arma::Row<float> &sampleWeights = arma::Row<float>());
 
   /** Hard class predictions, shape (numSamples,). */
   arma::Row<size_t> predict(const arma::fmat &X) const;
@@ -117,7 +118,7 @@ public:
   bool isFitted() const;
 
   /** Per-node class histograms (also populated at internal nodes). */
-  std::vector<std::vector<size_t>> classCounts;
+  std::vector<std::vector<double>> classCounts;
 
   /** Read-only access to the fitted node array for introspection / export. */
   const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
@@ -160,8 +161,10 @@ private:
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
 
   /** Gini or entropy from an aggregated class histogram (``N`` = sum of counts). */
-  double impurityForClassCounts(const std::vector<size_t> &classCounts) const;
+  double impurityForClassCounts(const std::vector<double> &classCounts) const;
 
-  std::vector<size_t> fillLeafHistogram(ShapeFunctionNode &node,
-                         const arma::Row<size_t> &y) const;
+  std::vector<double> fillLeafHistogram(ShapeFunctionNode &node,
+                                        const arma::Row<size_t> &y) const;
+
+  arma::Row<float> fitSampleWeights_;
 };

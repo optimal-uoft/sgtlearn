@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <armadillo>
+#include <cmath>
 #include <cctype>
 #include <memory>
 #include <pybind11/numpy.h>
@@ -137,7 +138,8 @@ public:
         parseMaxFeaturesPy(max_features));
   }
 
-  void fit(const py::array &X, const py::array &y) {
+  void fit(const py::array &X, const py::array &y,
+           py::object sample_weight = py::none()) {
     auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
     /** Owning copy: zero-copy Row views from NumPy often fail Armadillo strict
      *  checks on some dtypes / strides; C++ expects `arma::Row<size_t>`. */
@@ -151,10 +153,19 @@ public:
     for (arma::uword i = 0; i < y_col.n_elem; ++i)
       y_row(i) = y_col(i);
 
-    // The C++ trainer can be long-running; release the GIL so Python
-    // threads make progress while we fit.
+    arma::Row<float> w_row;
+    if (!sample_weight.is_none()) {
+      auto wb = bridge::as1DRow<float>(sample_weight, "sample_weight");
+      if (wb.view().n_elem != Xb.view().n_cols)
+        throw std::invalid_argument(
+            "sample_weight length must equal X.shape[0]");
+      w_row = arma::Row<float>(wb.view().n_elem);
+      for (arma::uword i = 0; i < wb.view().n_elem; ++i)
+        w_row(i) = wb.view()(i);
+    }
+
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), y_row);
+    impl_->fit(Xb.view(), y_row, w_row);
   }
 
   py::array_t<size_t> predict(const py::array &X) {
@@ -209,9 +220,9 @@ public:
       py::list cc;
       size_t total = 0;
       if (i < classCounts.size()) {
-        for (size_t c : classCounts[i]) {
+        for (double c : classCounts[i]) {
           cc.append(c);
-          total += c;
+          total += static_cast<size_t>(std::llround(c));
         }
       }
       d["class_counts"] = cc;
@@ -235,7 +246,7 @@ public:
         py::list bc;
         for (const auto &row : n.splitLeafStats) {
           py::list r;
-          for (size_t c : row) r.append(c);
+          for (double c : row) r.append(c);
           bc.append(r);
         }
         d["bin_counts"] = bc;
@@ -283,14 +294,25 @@ public:
         parseMaxFeaturesPy(max_features));
   }
 
-  void fit(const py::array &X, const py::array &y) {
+  void fit(const py::array &X, const py::array &y,
+           py::object sample_weight = py::none()) {
     auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
     auto yb = bridge::as1DRow<float>(y, "y");
     if (yb.view().n_elem != Xb.view().n_cols)
       throw std::invalid_argument(
           "y.shape[0] must equal X.shape[0] (number of samples)");
+    arma::Row<float> w_row;
+    if (!sample_weight.is_none()) {
+      auto wb = bridge::as1DRow<float>(sample_weight, "sample_weight");
+      if (wb.view().n_elem != Xb.view().n_cols)
+        throw std::invalid_argument(
+            "sample_weight length must equal X.shape[0]");
+      w_row = arma::Row<float>(wb.view().n_elem);
+      for (arma::uword i = 0; i < wb.view().n_elem; ++i)
+        w_row(i) = wb.view()(i);
+    }
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), yb.view());
+    impl_->fit(Xb.view(), yb.view(), w_row);
   }
 
   py::array_t<float> predict(const py::array &X) {
@@ -422,9 +444,9 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("random_state") = 42,
            py::arg("max_features") = py::none())
       .def("fit", &ClassificationShapeGeneralizedTreePy::fit, py::arg("X"),
-           py::arg("y"),
+           py::arg("y"), py::arg("sample_weight") = py::none(),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
-           "1-D uint class labels. All feature columns are routing candidates.")
+           "1-D uint class labels. Optional sample_weight is 1-D float32.")
       .def("predict", &ClassificationShapeGeneralizedTreePy::predict,
            py::arg("X"),
            "Predict class labels for X (shape (n_samples, n_features)).")
@@ -463,9 +485,9 @@ otherwise the snapshot is restored and the branch objective is rebuilt.
 ``absolute_error`` / ``mae`` skip coordinate descent. coordinate_descent_smart_init
 is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)")
       .def("fit", &RegressionShapeGeneralizedTreePy::fit, py::arg("X"),
-           py::arg("y"),
+           py::arg("y"), py::arg("sample_weight") = py::none(),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
-           "1-D float32 targets.")
+           "1-D float32 targets. Optional sample_weight is 1-D float32.")
       .def("predict", &RegressionShapeGeneralizedTreePy::predict, py::arg("X"),
            "Predict scalar targets for X (shape (n_samples,)).")
       .def_property_readonly("num_leaves",
