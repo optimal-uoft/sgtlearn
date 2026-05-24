@@ -42,11 +42,6 @@ def effective_sample_weight_classification(
     sw = normalize_sample_weight(sample_weight, y_enc.shape[0])
     if class_weight is None:
         return sw
-    if not isinstance(class_weight, Mapping):
-        raise TypeError(
-            "class_weight must be a dict mapping class labels to weights, "
-            f"got {type(class_weight).__name__}"
-        )
     label_to_idx = {c: i for i, c in enumerate(classes_)}
     per_class = np.ones(len(classes_), dtype=np.float64)
     for label, w in class_weight.items():

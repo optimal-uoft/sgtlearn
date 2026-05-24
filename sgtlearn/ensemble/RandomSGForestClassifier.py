@@ -23,10 +23,6 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     the mean of per-tree :meth:`predict_proba`, and :meth:`predict` returns the
     argmax class label.
 
-    A single :class:`~sklearn.preprocessing.LabelEncoder` is fit once on ``y``
-    and passed to every base tree (via ``label_encoder=``), so the encoding is
-    not re-fit per tree and predictions share a common label space.
-
     Parameters
     ----------
     n_estimators : int, default=100
@@ -61,9 +57,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     random_state : int, RandomState, optional
         Controls bootstrap resampling and the per-tree seeds.
     class_weight : dict, optional
-        Per-class weights multiplied into ``sample_weight`` once at forest
-        :meth:`fit` (not re-applied on each base tree). Keys are class labels
-        as in ``y``.
+        Per-class weights multiplied into ``sample_weight`` before training.
+        Keys are class labels as in ``y``.
     n_jobs : int, optional
         Number of joblib workers used to fit trees. ``None`` means one job
         (sequential); ``-1`` uses all processors. Joblib's threading backend
@@ -77,7 +72,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     estimators_ : list of SGTClassifier
         The collection of fitted base estimators.
     classes_ : ndarray of shape (n_classes_,)
-        Class labels (from the shared ``LabelEncoder``).
+        Class labels in original training label space.
     n_classes_ : int
         Number of classes seen during :meth:`fit`.
     n_features_in_ : int
@@ -182,11 +177,10 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         )
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
-        return SGTClassifier(
-            **tree_kw,
-            label_encoder=self._label_encoder_,
-            random_state=tree_seed,
-        )
+        tree = SGTClassifier(**tree_kw, random_state=tree_seed)
+        tree._label_n_classes = self.n_classes_
+        tree._label_classes = np.arange(self.n_classes_)
+        return tree
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         X32 = self._check_predict_X(X)

@@ -56,7 +56,7 @@ def _parallel_fit_tree(
         sw_b = sample_weight
 
     est = tree_factory(tree_seed, tree_kw)
-    est.fit(X_b, y_b, sample_weight=sw_b)
+    est.fit(X_b, y_b, sample_weight=sw_b, check_input=False)
     return est
 
 
