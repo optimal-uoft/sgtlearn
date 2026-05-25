@@ -116,10 +116,26 @@ public:
   /** True if `fit` has completed successfully. */
   bool isFitted() const;
 
-  // TODO: flat introspection accessors for graphviz / text export, e.g.
-  //   featureOf(node), thresholdsOf(node), binToPartitionOf(node),
-  //   childrenOf(node), classCountsOf(leaf), depthOf(node).
-    std::vector<std::vector<size_t>> classCounts;
+  /** Per-node class histograms (also populated at internal nodes). */
+  std::vector<std::vector<size_t>> classCounts;
+
+  /** Read-only access to the fitted node array for introspection / export. */
+  const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
+
+  /** Per-node child indices; empty inner vector at leaves. */
+  const std::vector<std::vector<size_t>> &childIndices() const { return childIndices_; }
+
+  /** Index of the root node (currently always 0 after fit). */
+  size_t rootIndex() const { return rootIndex_; }
+
+  /** Fan-out used by this tree (constructor arg). */
+  size_t numPartitions() const { return numPartitions_; }
+
+  /** Number of class labels expected by this estimator. */
+  size_t numClasses() const { return numClasses_; }
+
+  /** Impurity criterion this tree was constructed with. */
+  LearningCriterion criterion() const { return criterion_; }
 private:
   LearningCriterion criterion_;
   size_t numClasses_;

@@ -61,6 +61,13 @@ struct ShapeFunctionNode {
    * Empty for MAE / classification. Cleared after training.
    */
   std::vector<std::vector<float>> regressionSplitLeafStats;
+  /**
+   * After a split is chosen and kept: number of training samples that fell
+   * into each bin of the winning inner discretizer (same length as
+   * ``binToPartition``). Retained after training so plotting/introspection
+   * can recover per-bin histograms without re-routing data. Empty at leaves.
+   */
+  std::vector<size_t> binSampleCounts;
 
   std::weak_ordering operator<=>(const ShapeFunctionNode &o) const {
     return std::compare_weak_order_fallback(informationGain, o.informationGain);

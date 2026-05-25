@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
+from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from ShapeGeneralizedTrees import (
     ClassificationShapeGeneralizedTree,
@@ -291,6 +292,26 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         # Native: (n_samples, n_classes) aligned with encoded labels 0..K-1
         return np.asarray(self._est.predict_proba(X32), dtype=np.float64)
 
+    def tree_export(self) -> dict:
+        """Return a flat dict snapshot of the fitted tree.
+
+        See ``sgtlearn._export.plot_tree`` for the canonical consumer. Keys:
+        ``num_partitions``, ``num_nodes``, ``root_index``, ``num_classes``,
+        ``criterion``, ``nodes`` (list of per-node dicts).
+        """
+        check_is_fitted(self, attributes=("_est", "_le"))
+        if self._est is None:
+            raise NotFittedError("This SGTClassifier instance is not fitted yet.")
+        tr = self._est.tree_export()
+        # Post-process to remove trailing inf thresholds from internal nodes
+        for node in tr.get("nodes", []):
+            if not node.get("is_leaf", True) and node.get("thresholds"):
+                thresholds = node["thresholds"]
+                # Remove trailing inf sentinel if present
+                while thresholds and np.isinf(thresholds[-1]):
+                    thresholds.pop()
+        return tr
+
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
     """Shape Generalized Tree regressor.
@@ -479,3 +500,23 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             )
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         return np.asarray(self._est.predict(X32), dtype=np.float64).ravel()
+
+    def tree_export(self) -> dict:
+        """Return a flat dict snapshot of the fitted tree.
+
+        See ``sgtlearn._export.plot_tree`` for the canonical consumer. Keys:
+        ``num_partitions``, ``num_nodes``, ``root_index``, ``criterion``,
+        ``nodes`` (list of per-node dicts). Regression has no ``num_classes``.
+        """
+        check_is_fitted(self, attributes=("_est",))
+        if self._est is None:
+            raise NotFittedError("This SGTRegressor instance is not fitted yet.")
+        tr = self._est.tree_export()
+        # Post-process to remove trailing inf thresholds from internal nodes
+        for node in tr.get("nodes", []):
+            if not node.get("is_leaf", True) and node.get("thresholds"):
+                thresholds = node["thresholds"]
+                # Remove trailing inf sentinel if present
+                while thresholds and np.isinf(thresholds[-1]):
+                    thresholds.pop()
+        return tr

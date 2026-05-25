@@ -152,6 +152,7 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
+          node.binSampleCounts.clear();
 
           return false;
         }
@@ -162,6 +163,7 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
+          node.binSampleCounts.clear();
           return false;
         }
 
@@ -297,6 +299,7 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
+          node.binSampleCounts.clear();
           return false;
         }
 
@@ -306,6 +309,12 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
         node.binToPartition = std::move(brBest.binToPartition);
         node.sampleBins = std::move(brBest.sampleBins);
         node.splitLeafStats = std::move(brBest.leafStats);
+        node.binSampleCounts.assign(node.splitLeafStats.size(), 0);
+        for (size_t b = 0; b < node.splitLeafStats.size(); ++b) {
+          size_t total = 0;
+          for (size_t c : node.splitLeafStats[b]) total += c;
+          node.binSampleCounts[b] = total;
+        }
         node.numPartitions = numPartitions_;
         node.informationGain = brBest.impurityDecrease;
 
@@ -380,7 +389,6 @@ void ClassificationShapeGeneralizedTree::fit(const arma::fmat &X,
   for (auto &node : nodes_) {
     node.sampleIndices.set_size(0);
     node.sampleBins.clear();
-    node.splitLeafStats.clear();
   }
 
   fitted_ = true;

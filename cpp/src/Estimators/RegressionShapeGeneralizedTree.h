@@ -120,6 +120,24 @@ public:
   /** Sample count per leaf (same indexing as ``leafRegressionStats``). */
   std::vector<size_t> leafNumSamples;
 
+  /** Read-only access to the fitted node array for introspection / export. */
+  const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
+
+  /** Per-node child indices; empty inner vector at leaves. */
+  const std::vector<std::vector<size_t>> &childIndices() const { return childIndices_; }
+
+  /** Index of the root node (currently always 0 after fit). */
+  size_t rootIndex() const { return rootIndex_; }
+
+  /** Fan-out used by this tree (constructor arg). */
+  size_t numPartitions() const { return numPartitions_; }
+
+  /** Impurity criterion this tree was constructed with. */
+  LearningCriterion criterion() const { return criterion_; }
+
+  /** Per-leaf prediction (mean or median), keyed by node id. */
+  const std::vector<float> &leafPredictions() const { return leafPredictions_; }
+
 private:
   LearningCriterion criterion_;
   size_t numPartitions_;

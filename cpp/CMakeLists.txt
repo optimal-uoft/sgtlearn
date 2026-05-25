@@ -110,8 +110,24 @@ set_target_properties(sgtlearn_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set(PYBIND11_FINDPYTHON ON)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
 
+FetchContent_Declare(pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG v2.13.6
+)
+FetchContent_MakeAvailable(pybind11)
+
+# Resolve the interpreter pybind11/skbuild selected (Python_EXECUTABLE is set by
+# FindPython; Python3_EXECUTABLE can be unset when hints come from the cache).
+if (DEFINED Python_EXECUTABLE AND Python_EXECUTABLE)
+    set(SGTLEARN_PYTHON_EXECUTABLE "${Python_EXECUTABLE}")
+elseif (DEFINED Python3_EXECUTABLE AND Python3_EXECUTABLE)
+    set(SGTLEARN_PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
+else ()
+    set(SGTLEARN_PYTHON_EXECUTABLE "${_Python3_EXECUTABLE}")
+endif ()
+
 execute_process(
-        COMMAND ${Python3_EXECUTABLE} -c "import pybind11_stubgen"
+        COMMAND "${SGTLEARN_PYTHON_EXECUTABLE}" -m pybind11_stubgen --help
         RESULT_VARIABLE SGTLEARN_PYBIND11_STUBGEN_RC
         OUTPUT_QUIET
         ERROR_QUIET
@@ -120,14 +136,8 @@ if (SGTLEARN_PYBIND11_STUBGEN_RC EQUAL 0)
     set(SGTLEARN_HAVE_PYBIND11_STUBGEN TRUE)
 else ()
     set(SGTLEARN_HAVE_PYBIND11_STUBGEN FALSE)
-    message(STATUS "pybind11_stubgen not found; skipping .pyi generation (pip install pybind11-stubgen)")
+    message(STATUS "pybind11_stubgen not found for ${SGTLEARN_PYTHON_EXECUTABLE}; skipping .pyi generation (listed in [build-system] requires)")
 endif ()
-
-FetchContent_Declare(pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG v2.13.6
-)
-FetchContent_MakeAvailable(pybind11)
 
 set(CARMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(CARMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -158,7 +168,7 @@ foreach (BINDING_SRC ${BINDING_SOURCES})
                 TARGET ${MODULE_NAME} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E env
                 "PYTHONPATH=$<TARGET_FILE_DIR:${MODULE_NAME}>:$ENV{PYTHONPATH}"
-                ${Python3_EXECUTABLE} -c
+                "${SGTLEARN_PYTHON_EXECUTABLE}" -c
                 "import subprocess, sys; subprocess.call([sys.executable, '-m', 'pybind11_stubgen', '${MODULE_NAME}', '-o', r'$<TARGET_FILE_DIR:${MODULE_NAME}>'])"
                 COMMENT "Generating python stubs for ${MODULE_NAME} (non-fatal)..."
                 VERBATIM

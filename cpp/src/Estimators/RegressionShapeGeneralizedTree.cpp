@@ -179,6 +179,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.sampleBins.clear();
           node.splitLeafStats.clear();
           node.regressionSplitLeafStats.clear();
+          node.binSampleCounts.clear();
           return false;
         }
 
@@ -189,6 +190,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.sampleBins.clear();
           node.splitLeafStats.clear();
           node.regressionSplitLeafStats.clear();
+          node.binSampleCounts.clear();
           return false;
         }
 
@@ -208,6 +210,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         double bestPenalizedChild = std::numeric_limits<double>::infinity();
         ShapeBranchingResult<float> brBest{};
+        std::vector<size_t> binSizesForBest;
         arma::uvec featOne(1);
 
         for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
@@ -228,6 +231,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
 
           auto &stats = disc->leafStats();
           auto &sizes = disc->leafNumSamples();
+          const auto sizes_copy = sizes;
           const auto &perBinCols = disc->inSampleDiscretizations();
 
           std::vector<size_t> assignments(B);
@@ -324,6 +328,8 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
               }
             }
 
+            binSizesForBest.assign(sizes_copy.begin(), sizes_copy.end());
+
             if (criterion_ == LearningCriterion::SquaredError) {
               brBest.leafStats = stats;
             } else {
@@ -341,6 +347,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.sampleBins.clear();
           node.splitLeafStats.clear();
           node.regressionSplitLeafStats.clear();
+          node.binSampleCounts.clear();
           return false;
         }
 
@@ -357,6 +364,8 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.regressionSplitLeafStats = std::move(brBest.leafStats);
         else
           node.regressionSplitLeafStats.clear();
+
+        node.binSampleCounts = std::move(binSizesForBest);
 
         return true;
       },
@@ -466,8 +475,6 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
   for (auto &node : nodes_) {
     node.sampleIndices.set_size(0);
     node.sampleBins.clear();
-    node.splitLeafStats.clear();
-    node.regressionSplitLeafStats.clear();
   }
 
   fitted_ = true;

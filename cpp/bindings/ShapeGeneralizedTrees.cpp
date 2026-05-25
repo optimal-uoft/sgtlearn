@@ -25,6 +25,9 @@
 #include <stdexcept>
 #include <string>
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
+
 namespace py = pybind11;
 namespace bridge = sgt::bindings;
 
@@ -119,6 +122,7 @@ public:
       size_t coordinateDescentMaxIters, size_t coordinateDescentPatience,
       bool coordinateDescentSmartInit, uint64_t random_state,
       py::object max_features = py::none()) {
+    criterionStr_ = criterion;
     const LearningCriterion crit = parseClassificationCriterion(criterion);
     const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
                                    outerMaxDepth, outerMaxLeafNodes};
@@ -178,8 +182,81 @@ public:
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
 
+  py::dict tree_export() const {
+    if (!impl_->isFitted())
+      throw std::logic_error("tree_export: model is not fitted");
+    py::dict out;
+    out["num_partitions"] = impl_->numPartitions();
+    out["num_nodes"] = impl_->numNodes();
+    out["root_index"] = impl_->rootIndex();
+    out["num_classes"] = impl_->numClasses();
+    out["criterion"] = criterionStr_;
+
+    const auto &nodes = impl_->nodes();
+    const auto &childIdx = impl_->childIndices();
+    const auto &classCounts = impl_->classCounts;
+
+    py::list nodes_list;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+      const auto &n = nodes[i];
+      py::dict d;
+      d["id"] = n.nodeIndex;
+      d["depth"] = n.height;
+      d["is_leaf"] = n.isLeaf;
+      d["impurity"] = n.score;
+
+      // class_counts at every node (already populated at internal nodes too).
+      py::list cc;
+      size_t total = 0;
+      if (i < classCounts.size()) {
+        for (size_t c : classCounts[i]) {
+          cc.append(c);
+          total += c;
+        }
+      }
+      d["class_counts"] = cc;
+      d["n_samples"] = total;
+
+      if (n.isLeaf) {
+        d["feature"] = py::none();
+        d["thresholds"] = py::list();
+        d["bin_to_partition"] = py::list();
+        d["bin_counts"] = py::list();
+        d["bin_sample_counts"] = py::list();
+        d["children"] = py::list();
+      } else {
+        d["feature"] = n.routingFeature;
+        py::list th;
+        for (float t : n.innerThresholds) th.append(t);
+        d["thresholds"] = th;
+        py::list b2p;
+        for (size_t p : n.binToPartition) b2p.append(p);
+        d["bin_to_partition"] = b2p;
+        py::list bc;
+        for (const auto &row : n.splitLeafStats) {
+          py::list r;
+          for (size_t c : row) r.append(c);
+          bc.append(r);
+        }
+        d["bin_counts"] = bc;
+        py::list bsc;
+        for (size_t v : n.binSampleCounts) bsc.append(v);
+        d["bin_sample_counts"] = bsc;
+        py::list ch;
+        if (i < childIdx.size()) {
+          for (size_t c : childIdx[i]) ch.append(c);
+        }
+        d["children"] = ch;
+      }
+      nodes_list.append(d);
+    }
+    out["nodes"] = nodes_list;
+    return out;
+  }
+
 private:
   std::unique_ptr<ClassificationShapeGeneralizedTree> impl_;
+  std::string criterionStr_;
 };
 
 class RegressionShapeGeneralizedTreePy {
@@ -191,6 +268,7 @@ public:
       size_t innerMaxLeafNodes, size_t coordinateDescentMaxIters,
       size_t coordinateDescentPatience, bool /* coordinateDescentSmartInit */,
       uint64_t random_state, py::object max_features = py::none()) {
+    criterionStr_ = criterion;
     const LearningCriterion crit = parseRegressionCriterion(criterion);
     const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
                                    outerMaxDepth, outerMaxLeafNodes};
@@ -235,13 +313,91 @@ public:
 
   std::vector<size_t> leafNumSamples() const { return impl_->leafNumSamples; }
 
+  py::dict tree_export() const {
+    if (!impl_->isFitted())
+      throw std::logic_error("tree_export: model is not fitted");
+    py::dict out;
+    out["num_partitions"] = impl_->numPartitions();
+    out["num_nodes"] = impl_->numNodes();
+    out["root_index"] = impl_->rootIndex();
+    out["criterion"] = criterionStr_;
+
+    const auto &nodes = impl_->nodes();
+    const auto &childIdx = impl_->childIndices();
+    const auto &leafPred = impl_->leafPredictions();
+    const auto &leafN = impl_->leafNumSamples;
+
+    py::list nodes_list;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+      const auto &n = nodes[i];
+      py::dict d;
+      d["id"] = n.nodeIndex;
+      d["depth"] = n.height;
+      d["is_leaf"] = n.isLeaf;
+      d["impurity"] = n.score;
+
+      if (n.isLeaf) {
+        d["value"] = i < leafPred.size() ? leafPred[i] : 0.0f;
+        d["n_samples"] = i < leafN.size() ? leafN[i] : static_cast<size_t>(0);
+        d["feature"] = py::none();
+        d["thresholds"] = py::list();
+        d["bin_to_partition"] = py::list();
+        d["bin_counts"] = py::list();
+        d["bin_sample_counts"] = py::list();
+        d["children"] = py::list();
+      } else {
+        d["value"] = py::none();
+        size_t total = 0;
+        for (size_t v : n.binSampleCounts) total += v;
+        d["n_samples"] = total;
+        d["feature"] = n.routingFeature;
+        py::list th;
+        for (float t : n.innerThresholds) th.append(t);
+        d["thresholds"] = th;
+        py::list b2p;
+        for (size_t p : n.binToPartition) b2p.append(p);
+        d["bin_to_partition"] = b2p;
+        py::list bc;
+        for (const auto &row : n.regressionSplitLeafStats) {
+          py::list r;
+          for (float v : row) r.append(v);
+          bc.append(r);
+        }
+        d["bin_counts"] = bc;
+        py::list bsc;
+        for (size_t v : n.binSampleCounts) bsc.append(v);
+        d["bin_sample_counts"] = bsc;
+        py::list ch;
+        if (i < childIdx.size()) {
+          for (size_t c : childIdx[i]) ch.append(c);
+        }
+        d["children"] = ch;
+      }
+      nodes_list.append(d);
+    }
+    out["nodes"] = nodes_list;
+    return out;
+  }
+
 private:
   std::unique_ptr<RegressionShapeGeneralizedTree> impl_;
+  std::string criterionStr_;
 };
 
 } // namespace
 
 PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
+  // CARMA's allocator may lazily call _import_array() on its first use, which
+  // must happen with the GIL held. The trainer releases the GIL during fit, so
+  // a small first-allocation there can segfault on numpy 2.x. Prime the C-API
+  // table here at module load (the GIL is held) so CARMA's later calls are no-ops.
+  if (_import_array() < 0) {
+    PyErr_Clear();
+    throw std::runtime_error(
+        "ShapeGeneralizedTrees: numpy.core.multiarray failed to import; "
+        "ensure numpy is installed and importable before importing this module");
+  }
+
   m.doc() =
       "Shape-Generalized Tree bindings (classification and regression).";
 
@@ -281,7 +437,9 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
       .def_property_readonly(
           "num_nodes", &ClassificationShapeGeneralizedTreePy::numNodes)
       .def_property_readonly(
-          "is_fitted", &ClassificationShapeGeneralizedTreePy::isFitted);
+          "is_fitted", &ClassificationShapeGeneralizedTreePy::isFitted)
+      .def("tree_export", &ClassificationShapeGeneralizedTreePy::tree_export,
+           "Return a flat snapshot of the fitted tree as a Python dict.");
 
   py::class_<RegressionShapeGeneralizedTreePy>(
       m, "RegressionShapeGeneralizedTree")
@@ -320,5 +478,7 @@ is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)
           "leaf_regression_stats",
           &RegressionShapeGeneralizedTreePy::leafRegressionStats)
       .def_property_readonly("leaf_num_samples",
-                             &RegressionShapeGeneralizedTreePy::leafNumSamples);
+                             &RegressionShapeGeneralizedTreePy::leafNumSamples)
+      .def("tree_export", &RegressionShapeGeneralizedTreePy::tree_export,
+           "Return a flat snapshot of the fitted tree as a Python dict.");
 }
