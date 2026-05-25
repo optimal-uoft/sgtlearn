@@ -10,8 +10,8 @@ from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from sgtlearn._weights import (
-    effective_sample_weight_classification,
     normalize_sample_weight,
+    effective_sample_weight_classification,
 )
 from ShapeGeneralizedTrees import (
     ClassificationShapeGeneralizedTree,
@@ -206,9 +206,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.n_classes_: Optional[int] = None
         self.n_features_in_: Optional[int] = None
 
-    def _using_preset_label_space(self) -> bool:
-        return getattr(self, "_label_n_classes", None) is not None
-
     def fit(
         self,
         X: np.ndarray,
@@ -231,50 +228,39 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             already ran :func:`~sklearn.utils.validation.check_X_y`).
         """
 
-        if self._using_preset_label_space():
-            self.n_classes_ = int(self._label_n_classes)
-            label_classes = getattr(self, "_label_classes", None)
-            if label_classes is None:
-                raise ValueError("Internal error: preset label classes missing.")
-            self.classes_ = np.asarray(label_classes)
-            if self.classes_.shape[0] != self.n_classes_:
-                raise ValueError("Internal error: preset label space size mismatch.")
-            if self.n_classes_ < 2:
-                raise ValueError("SGTClassifier requires at least two classes.")
-            self._le = _IdentityLabelEncoder(self.classes_)
-            y_enc = self._le.transform(y)
-            if y_enc.shape[0] != X.shape[0]:
-                raise ValueError("X and y must have the same number of samples.")
-            if np.any(y_enc < 0) or np.any(y_enc >= self.n_classes_):
-                raise ValueError(f"y contains labels outside 0..{self.n_classes_ - 1}.")
-            if self.class_weight is not None:
-                sw = effective_sample_weight_classification(
-                    sample_weight, y_enc, self.class_weight, self.classes_
-                )
-            else:
-                sw = normalize_sample_weight(sample_weight, y_enc.shape[0])
-        else:
-            if check_input:
-                X, y = check_X_y(
-                    X,
-                    y,
-                    accept_sparse=False,
-                    dtype=np.float64,
-                    ensure_all_finite=True,
-                )
+        if check_input:
+            X, y = check_X_y(
+                X,
+                y,
+                accept_sparse=False,
+                dtype=np.float64,
+                ensure_all_finite=True,
+            )
             le = LabelEncoder()
             y_enc = le.fit_transform(y)
             self._le = le
             self.classes_ = le.classes_
             self.n_classes_ = int(len(self.classes_))
+        else:
+            if self.classes_ is None or self.n_classes_ is None:
+                raise ValueError(
+                    "SGTClassifier.fit(check_input=False) requires classes_ and "
+                    "n_classes_ to be set by the caller before fit."
+                )
             if self.n_classes_ < 2:
                 raise ValueError("SGTClassifier requires at least two classes.")
+            X = np.asarray(X)
+            self._le = _IdentityLabelEncoder(self.classes_)
+            y_enc = self._le.transform(y)
+            if y_enc.shape[0] != X.shape[0]:
+                raise ValueError("X and y must have the same number of samples.")
+
+        if self.class_weight is not None:
             sw = effective_sample_weight_classification(
-                sample_weight,
-                y_enc,
-                self.class_weight,
-                np.asarray(self.classes_),
+                sample_weight, y_enc, self.class_weight, self.classes_
             )
+        else:
+            sw = normalize_sample_weight(sample_weight, X.shape[0])
 
         self.n_features_in_ = X.shape[1]
 
@@ -309,7 +295,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         y_u = np.ascontiguousarray(
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
-        self._est.fit(X32, y_u, sw)
+        self._est.fit(X32, y_u, sample_weight=sw)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -557,8 +543,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
-        sw = normalize_sample_weight(sample_weight, X.shape[0])
-        self._est.fit(X32, y32, sw)
+        self._est.fit(
+            X32,
+            y32,
+            sample_weight=normalize_sample_weight(sample_weight, X.shape[0]),
+        )
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

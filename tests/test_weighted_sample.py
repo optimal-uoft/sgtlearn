@@ -271,7 +271,7 @@ def test_random_sg_forest_classifier_applies_class_weight_once() -> None:
     for est in forest.estimators_:
         assert est.class_weight is None
         assert isinstance(est._le, _IdentityLabelEncoder)
-        assert hasattr(est, "_label_n_classes")
+        np.testing.assert_array_equal(est.classes_, forest.classes_)
 
 
 def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sklearn() -> None:

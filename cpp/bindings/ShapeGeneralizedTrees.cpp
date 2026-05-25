@@ -44,6 +44,23 @@ std::string normalizeCriterion(std::string s) {
   return s;
 }
 
+arma::Row<float> sampleWeightRowFromPy(const py::object &sample_weight,
+                                       arma::uword n_samples) {
+  if (sample_weight.is_none()) {
+    arma::Row<float> w(n_samples);
+    w.ones();
+    return w;
+  }
+  auto wb = bridge::as1DRow<float>(sample_weight, "sample_weight");
+  if (wb.view().n_elem != n_samples)
+    throw std::invalid_argument(
+        "sample_weight length must equal X.shape[0]");
+  arma::Row<float> w(wb.view().n_elem);
+  for (arma::uword i = 0; i < wb.view().n_elem; ++i)
+    w(i) = wb.view()(i);
+  return w;
+}
+
 LearningCriterion parseClassificationCriterion(const std::string &raw) {
   const std::string s = normalizeCriterion(raw);
   if (s == "gini")
@@ -153,16 +170,8 @@ public:
     for (arma::uword i = 0; i < y_col.n_elem; ++i)
       y_row(i) = y_col(i);
 
-    arma::Row<float> w_row;
-    if (!sample_weight.is_none()) {
-      auto wb = bridge::as1DRow<float>(sample_weight, "sample_weight");
-      if (wb.view().n_elem != Xb.view().n_cols)
-        throw std::invalid_argument(
-            "sample_weight length must equal X.shape[0]");
-      w_row = arma::Row<float>(wb.view().n_elem);
-      for (arma::uword i = 0; i < wb.view().n_elem; ++i)
-        w_row(i) = wb.view()(i);
-    }
+    const arma::Row<float> w_row =
+        sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
 
     py::gil_scoped_release release;
     impl_->fit(Xb.view(), y_row, w_row);
@@ -301,16 +310,8 @@ public:
     if (yb.view().n_elem != Xb.view().n_cols)
       throw std::invalid_argument(
           "y.shape[0] must equal X.shape[0] (number of samples)");
-    arma::Row<float> w_row;
-    if (!sample_weight.is_none()) {
-      auto wb = bridge::as1DRow<float>(sample_weight, "sample_weight");
-      if (wb.view().n_elem != Xb.view().n_cols)
-        throw std::invalid_argument(
-            "sample_weight length must equal X.shape[0]");
-      w_row = arma::Row<float>(wb.view().n_elem);
-      for (arma::uword i = 0; i < wb.view().n_elem; ++i)
-        w_row(i) = wb.view()(i);
-    }
+    const arma::Row<float> w_row =
+        sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
     py::gil_scoped_release release;
     impl_->fit(Xb.view(), yb.view(), w_row);
   }

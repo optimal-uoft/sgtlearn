@@ -40,7 +40,7 @@ def _parallel_fit_tree(
     n_bootstrap: int,
     X: np.ndarray,
     y: np.ndarray,
-    sample_weight: np.ndarray,
+    sample_weight: Optional[np.ndarray],
     tree_kw: dict[str, Any],
     tree_factory: Any,
 ) -> Any:
@@ -50,7 +50,7 @@ def _parallel_fit_tree(
         indices = boot_rng.randint(0, n_samples, n_bootstrap, dtype=np.int32)
         X_b = X[indices]
         y_b = y[indices]
-        sw_b = sample_weight[indices]
+        sw_b = None if sample_weight is None else sample_weight[indices]
     else:
         X_b, y_b = X, y
         sw_b = sample_weight
@@ -146,7 +146,7 @@ class RandomSGForest(BaseEstimator, ABC):
         y: np.ndarray,
         sample_weight: Optional[np.ndarray],
         n_samples: int,
-    ) -> np.ndarray:
+    ) -> Optional[np.ndarray]:
         """Return per-sample weights for tree fitting (subclasses may apply class weights)."""
         return normalize_sample_weight(sample_weight, n_samples)
 

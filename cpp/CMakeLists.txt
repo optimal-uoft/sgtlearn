@@ -79,6 +79,7 @@ add_library(sgtlearn_core STATIC
         src/algorithms/ShapeGeneralizedTreeParams.h
         src/Estimators/ShapeFunctionNode.h
         src/algorithms/ShapeBranchingTypes.h
+        src/algorithms/BinPartitionAssignments.h
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp
         src/Estimators/RegressionShapeGeneralizedTree.h

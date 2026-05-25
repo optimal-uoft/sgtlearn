@@ -37,18 +37,18 @@
  * At every outer-tree node, for each candidate feature:
  *   1. **Discretize**: train `UnivariateClassificationDiscretizer` on the
  *      node's samples (per-bin class counts and training column indices).
- *   2. **K-means init** (when enabled): cluster bin histograms to seed a
- *      bin-to-partition assignment; else round-robin by bin index.
- *   3. **Coordinate descent**: refine that assignment to reduce impurity; if
- *      the objective **clearly worsens** vs the pre-CD value, restore the snapshot
- *      and rebuild the objective. If feasible sizes and gain pass thresholds,
- *      compete to update the node's best branch.
+ *   2. **Partition search** : for each
+ *      ``k`` in ``[2, min(numBins, numPartitions)]``, seed assignments
+ *      (identity when ``k == numBins``, else k-means or round-robin), run
+ *      coordinate descent when ``k < numBins``, score
+ *      ``impurity + branchingPenalty * (k - 1)``, keep the best ``k``.
+ *   3. **Coordinate descent**: if the objective clearly worsens vs the seed,
+ *      restore the snapshot. Enforce ``minLeafSize`` per child partition.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
- * mapping become the routing rule for that node, producing `numPartitions`
- * children. Inner-node fitting matches the Python `BranchingTree` pattern
- * (discretizer + coordinate descent over bins); the outer loop uses
- * `TreeBuilder` like Python's heap over `best_impurity_decrease`.
+ * mapping become the routing rule for that node, with ``k`` children (``k``
+ * may be less than ``numPartitions``). The outer loop uses `TreeBuilder`
+ * like Python's heap over impurity decrease.
  *
  * Inputs use Armadillo's column-major convention: X has shape
  * (numFeatures, numSamples); each column is one sample. Outer routing
@@ -100,7 +100,7 @@ public:
    * @throws std::invalid_argument on shape / label-range mismatch.
    */
   void fit(const arma::fmat &X, const arma::Row<size_t> &y,
-           const arma::Row<float> &sampleWeights = arma::Row<float>());
+           const arma::Row<float> &sampleWeights);
 
   /** Hard class predictions, shape (numSamples,). */
   arma::Row<size_t> predict(const arma::fmat &X) const;
@@ -165,6 +165,13 @@ private:
 
   std::vector<double> fillLeafHistogram(ShapeFunctionNode &node,
                                         const arma::Row<size_t> &y) const;
+
+  /** K-means seed for bin->partition assignment from per-bin class histograms. */
+  void seedBinAssignmentsKMeans(
+      size_t k, size_t numBins,
+      const std::vector<std::vector<double>> &binClassCounts,
+      const std::vector<size_t> &binSizes, const std::vector<double> &binWeights,
+      std::vector<size_t> &assignments);
 
   arma::Row<float> fitSampleWeights_;
 };

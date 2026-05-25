@@ -9,6 +9,7 @@ per-tree ``random_state`` draw as the forest RNG.
 """
 
 from __future__ import annotations
+from sgtlearn import RandomSGForestClassifier, SGTClassifier
 
 import numpy as np
 import pytest
@@ -17,11 +18,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import check_random_state
+from sgtlearn.base import _IdentityLabelEncoder
 
 pytest.importorskip("sklearn")
-
-from sgtlearn import RandomSGForestClassifier, SGTClassifier
-from sgtlearn.base import _IdentityLabelEncoder
 
 
 def _first_tree_random_state(forest_random_state: int) -> int:
@@ -199,9 +198,10 @@ def test_random_sg_forest_fitted_trees_share_forest_label_space() -> None:
         **tree_kw,
     )
     forest.fit(X, y)
+
     for est in forest.estimators_:
         assert isinstance(est._le, _IdentityLabelEncoder)
-        np.testing.assert_array_equal(est.classes_, np.arange(forest.n_classes_))
+        np.testing.assert_array_equal(est.classes_, forest.classes_)
 
 
 def test_random_sg_forest_parallel_fit_matches_sequential() -> None:

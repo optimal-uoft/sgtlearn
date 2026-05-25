@@ -168,7 +168,9 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         y: np.ndarray,
         sample_weight: Optional[np.ndarray],
         n_samples: int,
-    ) -> np.ndarray:
+    ) -> Optional[np.ndarray]:
+        if self.class_weight is None:
+            return super()._prepare_sample_weight(y, sample_weight, n_samples)
         return effective_sample_weight_classification(
             sample_weight,
             y,
@@ -178,8 +180,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
         tree = SGTClassifier(**tree_kw, random_state=tree_seed)
-        tree._label_n_classes = self.n_classes_
-        tree._label_classes = np.arange(self.n_classes_)
+        tree.classes_ = np.asarray(self.classes_)
+        tree.n_classes_ = self.n_classes_
         return tree
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
