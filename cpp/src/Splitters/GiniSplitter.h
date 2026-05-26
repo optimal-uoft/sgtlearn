@@ -10,11 +10,17 @@
 
 class GiniSplitter : public ClassificationSplitter {
 public:
-  GiniSplitter(arma::frowvec &X, arma::Mat<size_t> &y, size_t numClasses)
-      : ClassificationSplitter(X, y, numClasses) {};
+  GiniSplitter(arma::frowvec &X, arma::frowvec &sampleWeights,
+               arma::Mat<size_t> &y, size_t numClasses)
+      : ClassificationSplitter(X, sampleWeights, y, numClasses) {};
 
-  double score(const std::vector<size_t> &stats, size_t l, size_t r) override {
-    return Criterion::gini(stats, r - l + 1);
+  double score(const std::vector<double> &stats, size_t l, size_t r) override {
+    (void)l;
+    (void)r;
+    double W = 0.0;
+    for (double c : stats)
+      W += c;
+    return Criterion::gini(stats, W);
   }
 
   double score(const SplitCandidate &split) override {

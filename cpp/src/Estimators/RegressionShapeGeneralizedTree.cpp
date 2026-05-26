@@ -1,8 +1,9 @@
 /**
  * @file Estimators/RegressionShapeGeneralizedTree.cpp
  * @brief Training, child partitioning, and prediction for the regression
- *        shape-generalized tree. Per-node inner fit: discretize -> round-robin
- *        bin-to-partition seed -> coordinate descent -> record best branch.
+ *        shape-generalized tree. Per-node inner fit: discretize -> search
+ *        partition counts k in [2, numPartitions] -> coordinate descent (MSE)
+ *        or round-robin (MAE) -> record best branch.
  */
 
 #include "Estimators/RegressionShapeGeneralizedTree.h"
@@ -10,9 +11,9 @@
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
 #include "Criterion.h"
 #include "Discretizers/RegressionDiscretizer.h"
+#include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
 #include "algorithms/ShapeBranchingTypes.h"
-
 #include <algorithm>
 #include <armadillo>
 #include <cmath>
@@ -23,28 +24,9 @@
 
 namespace {
 
-double meanAbsoluteDeviationFromMedian(std::vector<float> ys) {
-  if (ys.empty())
-    return 0.0;
-  std::sort(ys.begin(), ys.end());
-  const size_t n = ys.size();
-  const double med = (n % 2 == 1) ? static_cast<double>(ys[n / 2])
-                                  : 0.5 * (static_cast<double>(ys[n / 2 - 1]) +
-                                           static_cast<double>(ys[n / 2]));
-  double sumAbs = 0.0;
-  for (float v : ys)
-    sumAbs += std::abs(static_cast<double>(v) - med);
-  return sumAbs / static_cast<double>(n);
-}
-
-float medianValue(std::vector<float> ys) {
-  if (ys.empty())
-    return 0.f;
-  std::sort(ys.begin(), ys.end());
-  const size_t n = ys.size();
-  if (n % 2 == 1)
-    return ys[n / 2];
-  return 0.5f * (ys[n / 2 - 1] + ys[n / 2]);
+double meanAbsoluteDeviationFromMedian(const std::vector<float> &ys,
+                                       const std::vector<float> &ws) {
+  return Criterion::absoluteError(ys, ws).mae;
 }
 
 /** Regression: keep CD only if branch objective drops by more than this vs seed. */
@@ -75,45 +57,109 @@ RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
         "RegressionShapeGeneralizedTree: numPartitions must be >= 2");
 }
 
+namespace {
+
+arma::Row<float> subSampleWeights(const arma::Row<float> &weights,
+                                  const arma::uvec &subIdx) {
+  arma::Row<float> wsub(subIdx.n_elem);
+  for (arma::uword j = 0; j < subIdx.n_elem; ++j)
+    wsub(j) = weights(subIdx(j));
+  return wsub;
+}
+
+} // namespace
+
+namespace {
+
+double weightedMeanFromAggregates(double sumWY, double sumW) {
+  return sumW > 0.0 ? sumWY / sumW : 0.0;
+}
+
+struct PartitionMoments {
+  double sumWY = 0.0;
+  double sumWY2 = 0.0;
+  double sumW = 0.0;
+};
+
+PartitionMoments aggregatePartitionFromBins(
+    const std::vector<std::vector<double>> &binStats,
+    const std::vector<double> &binWeights,
+    const std::vector<size_t> &binToPartition, size_t partition) {
+  PartitionMoments out;
+  for (size_t b = 0; b < binStats.size(); ++b) {
+    if (binToPartition[b] != partition)
+      continue;
+    if (binStats[b].size() >= 2) {
+      out.sumWY += binStats[b][0];
+      out.sumWY2 += binStats[b][1];
+    }
+    if (b < binWeights.size())
+      out.sumW += binWeights[b];
+  }
+  return out;
+}
+
+} // namespace
+
 double RegressionShapeGeneralizedTree::impurityAtNode(
     const arma::Row<float> &y, const ShapeFunctionNode &node) const {
+  if (criterion_ == LearningCriterion::SquaredError) {
+    const auto st = aggregateYSquaredStats(node, y);
+    double totalWeight = 0.0;
+    for (arma::uword i = 0; i < node.sampleIndices.n_elem; ++i) {
+      const size_t si = static_cast<size_t>(node.sampleIndices(i));
+      totalWeight += static_cast<double>(fitSampleWeights_(si));
+    }
+    return Criterion::squaredError(st, totalWeight);
+  }
   std::vector<float> ys;
+  std::vector<float> ws;
   ys.reserve(node.sampleIndices.n_elem);
+  ws.reserve(node.sampleIndices.n_elem);
   for (arma::uword i = 0; i < node.sampleIndices.n_elem; ++i) {
     const size_t si = static_cast<size_t>(node.sampleIndices(i));
     ys.push_back(y(si));
+    ws.push_back(static_cast<float>(fitSampleWeights_(si)));
   }
-  if (criterion_ == LearningCriterion::SquaredError) {
-    double sy = 0.0, sy2 = 0.0;
-    for (float v : ys) {
-      sy += static_cast<double>(v);
-      sy2 += static_cast<double>(v) * static_cast<double>(v);
+  if (criterion_ == LearningCriterion::AbsoluteError) {
+    if (ys.size() > 1) {
+      std::vector<size_t> order(ys.size());
+      for (size_t i = 0; i < order.size(); ++i)
+        order[i] = i;
+      std::sort(order.begin(), order.end(),
+                [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
+      std::vector<float> ysSorted;
+      std::vector<float> wsSorted;
+      ysSorted.reserve(ys.size());
+      wsSorted.reserve(ws.size());
+      for (size_t idx : order) {
+        ysSorted.push_back(ys[idx]);
+        wsSorted.push_back(ws[idx]);
+      }
+      return meanAbsoluteDeviationFromMedian(ysSorted, wsSorted);
     }
-    std::vector<float> st(2);
-    st[0] = static_cast<float>(sy);
-    st[1] = static_cast<float>(sy2);
-    return Criterion::squaredError(st, ys.size());
+    return meanAbsoluteDeviationFromMedian(ys, ws);
   }
-  if (criterion_ == LearningCriterion::AbsoluteError)
-    return meanAbsoluteDeviationFromMedian(std::move(ys));
   throw std::invalid_argument(
       "RegressionShapeGeneralizedTree::impurityAtNode: invalid criterion");
 }
 
-std::vector<float> RegressionShapeGeneralizedTree::aggregateYSquaredStats(
+std::vector<double> RegressionShapeGeneralizedTree::aggregateYSquaredStats(
     const ShapeFunctionNode &node, const arma::Row<float> &y) const {
-  std::vector<float> st(2, 0.f);
+  std::vector<double> st(2, 0.0);
   for (arma::uword i = 0; i < node.sampleIndices.n_elem; ++i) {
     const size_t si = static_cast<size_t>(node.sampleIndices(i));
-    const float v = y(si);
-    st[0] += v;
-    st[1] += v * v;
+    const double v = static_cast<double>(y(si));
+    const double w = static_cast<double>(fitSampleWeights_(si));
+    st[0] += w * v;
+    st[1] += w * v * v;
   }
   return st;
 }
 
 void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
-                                         const arma::Row<float> &y) {
+                                         const arma::Row<float> &y,
+                                         const arma::Row<float> &sampleWeights) {
   if (X.n_cols != y.n_elem)
     throw std::invalid_argument(
         "RegressionShapeGeneralizedTree::fit: X.n_cols must match y.n_elem");
@@ -123,6 +169,11 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         "feature (row)");
 
   const size_t n = X.n_cols;
+  if (sampleWeights.n_elem != n)
+    throw std::invalid_argument(
+        "RegressionShapeGeneralizedTree::fit: sample_weights length must "
+        "match number of samples");
+  fitSampleWeights_ = sampleWeights;
 
   rng_.seed(static_cast<std::mt19937_64::result_type>(random_state_));
 
@@ -143,20 +194,39 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
   root.isLeaf = true;
 
   if (criterion_ == LearningCriterion::SquaredError) {
-    const auto st = aggregateYSquaredStats(root, y);
-    leafRegressionStats.push_back(st);
+    double sumWY = 0.0;
+    double sumWY2 = 0.0;
+    double rootWeight = 0.0;
+    for (arma::uword i = 0; i < root.sampleIndices.n_elem; ++i) {
+      const size_t si = static_cast<size_t>(root.sampleIndices(i));
+      const double wi = static_cast<double>(fitSampleWeights_(si));
+      const double v = static_cast<double>(y(si));
+      sumWY += wi * v;
+      sumWY2 += wi * v * v;
+      rootWeight += wi;
+    }
+    const std::vector<double> st{sumWY, sumWY2};
+    leafRegressionStats.push_back(
+        {static_cast<float>(sumWY), static_cast<float>(sumWY2)});
     leafNumSamples.push_back(n);
-    leafPredictions_.push_back(n > 0 ? st[0] / static_cast<float>(n) : 0.f);
+    leafPredictions_.push_back(weightedMeanFromAggregates(sumWY, rootWeight));
+    root.score = Criterion::squaredError(st, rootWeight);
   } else {
     leafRegressionStats.push_back({});
     leafNumSamples.push_back(n);
     std::vector<float> ys;
+    std::vector<float> ws;
     ys.reserve(n);
-    for (arma::uword i = 0; i < root.sampleIndices.n_elem; ++i)
-      ys.push_back(y(static_cast<size_t>(root.sampleIndices(i))));
-    leafPredictions_.push_back(medianValue(std::move(ys)));
+    ws.reserve(n);
+    for (arma::uword i = 0; i < root.sampleIndices.n_elem; ++i) {
+      const size_t si = static_cast<size_t>(root.sampleIndices(i));
+      ys.push_back(y(si));
+      ws.push_back(static_cast<float>(fitSampleWeights_(si)));
+    }
+    leafPredictions_.push_back(
+        static_cast<float>(Criterion::absoluteError(ys, ws).median));
+    root.score = impurityAtNode(y, root);
   }
-  root.score = impurityAtNode(y, root);
   nodes_.push_back(root);
 
   childIndices_.emplace_back();
@@ -178,7 +248,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
-          node.regressionSplitLeafStats.clear();
+          node.splitBinWeights.clear();
           node.binSampleCounts.clear();
           return false;
         }
@@ -189,7 +259,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
-          node.regressionSplitLeafStats.clear();
+          node.splitBinWeights.clear();
           node.binSampleCounts.clear();
           return false;
         }
@@ -209,8 +279,9 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
 
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         double bestPenalizedChild = std::numeric_limits<double>::infinity();
-        ShapeBranchingResult<float> brBest{};
+        ShapeBranchingResult<double> brBest{};
         std::vector<size_t> binSizesForBest;
+        std::vector<double> binWeightsForBest;
         arma::uvec featOne(1);
 
         for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
@@ -221,31 +292,30 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
                 ">= X.n_rows");
           featOne(0) = static_cast<arma::uword>(f);
 
+          const arma::Row<float> wsub =
+              subSampleWeights(fitSampleWeights_, subIdx);
+
           auto disc = makeRegressionDiscretizer(criterion_);
           disc->Train(Xsub, featOne, ysub, innerParams_.minLeafSize,
                       innerParams_.minGainSplit, innerParams_.maxDepth,
-                      innerParams_.maxLeafNodes);
+                      innerParams_.maxLeafNodes, wsub);
           const size_t B = disc->numLeaves();
           if (B == 0)
             continue;
 
           auto &stats = disc->leafStats();
           auto &sizes = disc->leafNumSamples();
+          auto &binWeights = disc->leafNodeWeights();
           const auto sizes_copy = sizes;
           const auto &perBinCols = disc->inSampleDiscretizations();
 
-          std::vector<size_t> assignments(B);
-          for (size_t b = 0; b < B; ++b)
-            assignments[b] = b % numPartitions_;
-
-          std::unique_ptr<BranchAssignment> branchObj;
           std::vector<std::vector<float>> maeLeafYsStorage;
-          if (criterion_ == LearningCriterion::SquaredError) {
-            branchObj = makeRegressionBranchAssignment(
-                LearningCriterion::SquaredError, assignments, numPartitions_,
-                stats, sizes);
-          } else {
+          std::vector<std::vector<float>> maeLeafWsStorage;
+          std::vector<std::vector<float>> *maeLeafYsPtr = nullptr;
+          std::vector<std::vector<float>> *maeLeafWsPtr = nullptr;
+          if (criterion_ == LearningCriterion::AbsoluteError) {
             maeLeafYsStorage.resize(B);
+            maeLeafWsStorage.resize(B);
             for (size_t b = 0; b < B; ++b) {
               for (size_t colIdx : perBinCols[b]) {
                 if (colIdx >= xSubCols)
@@ -253,69 +323,91 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
                                            "discretizer sample index "
                                            ">= Xsub columns");
                 maeLeafYsStorage[b].push_back(ysub(colIdx));
+                maeLeafWsStorage[b].push_back(wsub(colIdx));
               }
             }
-            branchObj = makeRegressionBranchAssignment(
-                LearningCriterion::AbsoluteError, assignments, numPartitions_,
-                maeLeafYsStorage, sizes);
+            maeLeafYsPtr = &maeLeafYsStorage;
+            maeLeafWsPtr = &maeLeafWsStorage;
           }
 
-          // Squared error: try coordinate descent on the round-robin seed; keep CD
-          // only if the branch MSE drops by a clear margin vs the seed, else
-          // restore the snapshot and rebuild.
-          //
-          // AbsoluteError: do not run CD. A branch MAE improvement from CD does not
-          // imply sklearn MAE CART alignment (``tests/test_sgt_regressor_fidelity``);
-          // round-robin on sorted bins matches the contiguous split semantics we need.
-          if (criterion_ == LearningCriterion::SquaredError) {
-            const std::vector<size_t> assignmentsSnapshot = assignments;
-            const double objBeforeCd = branchObj->objective();
-            coordinateDescent(numPartitions_, *branchObj, rng_,
-                              cdParams_.maxIters, cdParams_.patience);
-            const double objAfterCd = branchObj->objective();
-            const bool keepCd =
-                std::isfinite(objAfterCd) &&
-                objAfterCd < objBeforeCd - kCdRegressionKeepCdEps;
-            if (!keepCd) {
-              assignments = assignmentsSnapshot;
+          if (B < 2)
+            continue;
+
+          const size_t kMax = std::min(B, numPartitions_);
+          double bestFeatureScore = std::numeric_limits<double>::infinity();
+          size_t chosenK = 0;
+          std::vector<size_t> assignments;
+          double impurityDecrease = 0.0;
+          bool foundK = false;
+
+          for (size_t k = 2; k <= kMax; ++k) {
+            std::vector<size_t> trialAssignments;
+            if (k == B)
+              algorithms::identityBinAssignments(B, trialAssignments);
+            else
+              algorithms::roundRobinBinAssignments(B, k, trialAssignments);
+
+            std::unique_ptr<BranchAssignment> branchObj;
+            if (criterion_ == LearningCriterion::SquaredError) {
               branchObj = makeRegressionBranchAssignment(
-                  LearningCriterion::SquaredError, assignments, numPartitions_,
-                  stats, sizes);
+                  LearningCriterion::SquaredError, trialAssignments, k, stats,
+                  binWeights);
+              if (k < B && cdParams_.smartInit) {
+                const std::vector<size_t> snapshot = trialAssignments;
+                const double objBeforeCd = branchObj->objective();
+                coordinateDescent(k, *branchObj, rng_, cdParams_.maxIters,
+                                  cdParams_.patience);
+                const double objAfterCd = branchObj->objective();
+                const bool keepCd = std::isfinite(objAfterCd) &&
+                                    objAfterCd < objBeforeCd - kCdRegressionKeepCdEps;
+                if (!keepCd) {
+                  trialAssignments = snapshot;
+                  branchObj = makeRegressionBranchAssignment(
+                      LearningCriterion::SquaredError, trialAssignments, k,
+                      stats, binWeights);
+                }
+              }
+            } else {
+              if (!maeLeafYsPtr || !maeLeafWsPtr)
+                continue;
+              branchObj = makeRegressionBranchAssignment(
+                  LearningCriterion::AbsoluteError, trialAssignments, k, stats,
+                  binWeights, 1.0, maeLeafYsPtr, maeLeafWsPtr);
+            }
+
+            if (!algorithms::partitionCountsMeetMinLeaf(
+                    trialAssignments, sizes, k, outerParams_.minLeafSize))
+              continue;
+
+            const double childImp = branchObj->objective();
+            const double gain = parentImp - childImp;
+            if (gain < outerParams_.minGainSplit - outerTreeBuilder_.eps)
+              continue;
+
+            const double score = algorithms::penalizedBranchingScore(
+                childImp, k, outerParams_.branchingPenalty);
+            if (score < bestFeatureScore - outerTreeBuilder_.eps) {
+              bestFeatureScore = score;
+              chosenK = k;
+              assignments = std::move(trialAssignments);
+              impurityDecrease = gain;
+              foundK = true;
             }
           }
 
-          std::vector<size_t> wt(numPartitions_, 0);
-          for (size_t b = 0; b < assignments.size(); ++b)
-            wt[assignments[b]] += sizes[b];
-          bool partitionsOk = true;
-          for (size_t p = 0; p < numPartitions_; ++p) {
-            if (wt[p] < outerParams_.minLeafSize) {
-              partitionsOk = false;
-              break;
-            }
-          }
-          if (!partitionsOk)
+          if (!foundK)
             continue;
 
-          const double childImp = branchObj->objective();
-          const double penalizedChild =
-              childImp + outerParams_.branchingPenalty *
-                             static_cast<double>(
-                                 numPartitions_ > 0 ? numPartitions_ - 1 : 0);
-          const double impurityDecrease = parentImp - childImp;
-          if (impurityDecrease <
-              outerParams_.minGainSplit - outerTreeBuilder_.eps)
-            continue;
-
-          if (penalizedChild < bestPenalizedChild - outerTreeBuilder_.eps) {
-            bestPenalizedChild = penalizedChild;
+          if (bestFeatureScore < bestPenalizedChild - outerTreeBuilder_.eps) {
+            bestPenalizedChild = bestFeatureScore;
             brBest.featureIndex = f;
             const auto &dth = disc->thresholds();
             brBest.innerThresholds.resize(dth.size());
             for (size_t t = 0; t < dth.size(); ++t)
               brBest.innerThresholds[t] = static_cast<float>(dth[t]);
-            brBest.binToPartition = assignments;
+            brBest.binToPartition = std::move(assignments);
             brBest.impurityDecrease = impurityDecrease;
+            brBest.numPartitionsUsed = chosenK;
 
             brBest.sampleBins.assign(xSubCols, 0);
             for (size_t b = 0; b < perBinCols.size(); ++b) {
@@ -329,6 +421,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
             }
 
             binSizesForBest.assign(sizes_copy.begin(), sizes_copy.end());
+            binWeightsForBest.assign(binWeights.begin(), binWeights.end());
 
             if (criterion_ == LearningCriterion::SquaredError) {
               brBest.leafStats = stats;
@@ -346,7 +439,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
-          node.regressionSplitLeafStats.clear();
+          node.splitBinWeights.clear();
           node.binSampleCounts.clear();
           return false;
         }
@@ -356,14 +449,14 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         node.innerThresholds = std::move(brBest.innerThresholds);
         node.binToPartition = std::move(brBest.binToPartition);
         node.sampleBins = std::move(brBest.sampleBins);
-        node.splitLeafStats.clear();
-        node.numPartitions = numPartitions_;
+        node.numPartitions = brBest.numPartitionsUsed;
         node.informationGain = brBest.impurityDecrease;
 
         if (criterion_ == LearningCriterion::SquaredError)
-          node.regressionSplitLeafStats = std::move(brBest.leafStats);
+          node.splitLeafStats = std::move(brBest.leafStats);
         else
-          node.regressionSplitLeafStats.clear();
+          node.splitLeafStats.clear();
+        node.splitBinWeights = std::move(binWeightsForBest);
 
         node.binSampleCounts = std::move(binSizesForBest);
 
@@ -374,16 +467,8 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           throw std::runtime_error("RegressionShapeGeneralizedTree::fit: "
                                    "sampleBins length mismatch");
 
-        std::vector<std::vector<float>> innerBinStats;
-        if (criterion_ == LearningCriterion::SquaredError) {
-          innerBinStats = parent.regressionSplitLeafStats;
-          if (innerBinStats.size() != parent.binToPartition.size())
-            throw std::runtime_error("RegressionShapeGeneralizedTree::fit: "
-                                     "regressionSplitLeafStats / "
-                                     "binToPartition size mismatch");
-        }
-
-        std::vector<std::vector<size_t>> buckets(numPartitions_);
+        const size_t numChildPartitions = parent.numPartitions;
+        std::vector<std::vector<size_t>> buckets(numChildPartitions);
         for (arma::uword i = 0; i < parent.sampleIndices.n_elem; ++i) {
           const size_t si = static_cast<size_t>(parent.sampleIndices(i));
           const size_t bin = parent.sampleBins[static_cast<size_t>(i)];
@@ -391,67 +476,70 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
             throw std::runtime_error(
                 "RegressionShapeGeneralizedTree::fit: bin id out of range");
           size_t p = parent.binToPartition[bin];
-          if (p >= numPartitions_)
-            p = numPartitions_ - 1;
+          if (p >= numChildPartitions)
+            p = numChildPartitions - 1;
           buckets[p].push_back(si);
         }
 
         std::vector<ShapeFunctionNode> children;
-        children.reserve(numPartitions_);
+        children.reserve(numChildPartitions);
 
         if (criterion_ == LearningCriterion::SquaredError) {
-          const auto &binStats = innerBinStats;
-          for (size_t p = 0; p < numPartitions_; ++p) {
+          if (parent.splitLeafStats.size() != parent.splitBinWeights.size())
+            throw std::runtime_error(
+                "RegressionShapeGeneralizedTree::fit: splitBinWeights / "
+                "splitLeafStats size mismatch");
+
+          for (size_t p = 0; p < numChildPartitions; ++p) {
             ShapeFunctionNode ch;
             ch.height = parent.height + 1;
             ch.sampleIndices = arma::conv_to<arma::uvec>::from(buckets[p]);
             ch.numPartitions = numPartitions_;
-            std::vector<float> agg(2, 0.f);
-            for (size_t b = 0; b < binStats.size(); ++b) {
-              if (parent.binToPartition[b] != p)
-                continue;
-              const auto &sb = binStats[b];
-              if (sb.size() >= 2) {
-                agg[0] += sb[0];
-                agg[1] += sb[1];
-              }
-            }
-            const size_t nch = ch.sampleIndices.n_elem;
-            ch.score = Criterion::squaredError(agg, nch);
+            const PartitionMoments moments = aggregatePartitionFromBins(
+                parent.splitLeafStats, parent.splitBinWeights,
+                parent.binToPartition, p);
+            const std::vector<double> agg{moments.sumWY, moments.sumWY2};
+            ch.score = Criterion::squaredError(agg, moments.sumW);
+            const std::vector<float> aggF{
+                static_cast<float>(moments.sumWY),
+                static_cast<float>(moments.sumWY2)};
             ch.isLeaf = true;
-            leafRegressionStats.push_back(std::move(agg));
-            leafNumSamples.push_back(nch);
-            leafPredictions_.push_back(nch > 0 ? leafRegressionStats.back()[0] /
-                                                     static_cast<float>(nch)
-                                               : 0.f);
+            leafRegressionStats.push_back(aggF);
+            leafNumSamples.push_back(ch.sampleIndices.n_elem);
+            leafPredictions_.push_back(
+                weightedMeanFromAggregates(moments.sumWY, moments.sumW));
             children.push_back(std::move(ch));
           }
         } else {
-          for (size_t p = 0; p < numPartitions_; ++p) {
+          for (size_t p = 0; p < numChildPartitions; ++p) {
             ShapeFunctionNode ch;
             ch.height = parent.height + 1;
             ch.sampleIndices = arma::conv_to<arma::uvec>::from(buckets[p]);
             ch.numPartitions = numPartitions_;
             std::vector<float> ys;
+            std::vector<float> ws;
             ys.reserve(ch.sampleIndices.n_elem);
+            ws.reserve(ch.sampleIndices.n_elem);
             for (arma::uword i = 0; i < parent.sampleIndices.n_elem; ++i) {
               const size_t si = static_cast<size_t>(parent.sampleIndices(i));
               const size_t bin = parent.sampleBins[static_cast<size_t>(i)];
               if (bin >= parent.binToPartition.size())
                 throw std::runtime_error(
                     "RegressionShapeGeneralizedTree::fit: bin id out of range");
-              const size_t pp = parent.binToPartition[bin] >= numPartitions_
-                                    ? numPartitions_ - 1
+              const size_t pp = parent.binToPartition[bin] >= numChildPartitions
+                                    ? numChildPartitions - 1
                                     : parent.binToPartition[bin];
               if (pp != p)
                 continue;
               ys.push_back(y(si));
+              ws.push_back(static_cast<float>(fitSampleWeights_(si)));
             }
-            ch.score = meanAbsoluteDeviationFromMedian(ys);
+            ch.score = meanAbsoluteDeviationFromMedian(ys, ws);
             ch.isLeaf = true;
             leafRegressionStats.push_back({});
             leafNumSamples.push_back(ch.sampleIndices.n_elem);
-            leafPredictions_.push_back(medianValue(std::move(ys)));
+            leafPredictions_.push_back(
+                static_cast<float>(Criterion::absoluteError(ys, ws).median));
             children.push_back(std::move(ch));
           }
         }
@@ -462,8 +550,9 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         const size_t pid = parent.nodeIndex;
         nodes_[pid] = parent;
         nodes_[pid].isLeaf = false;
-        childIndices_[pid].assign(numPartitions_, 0);
-        for (size_t p = 0; p < numPartitions_; ++p) {
+        const size_t numChildPartitions = parent.numPartitions;
+        childIndices_[pid].assign(numChildPartitions, 0);
+        for (size_t p = 0; p < numChildPartitions; ++p) {
           const size_t cid = nodes_.size();
           children[p].nodeIndex = cid;
           nodes_.push_back(children[p]);
@@ -480,7 +569,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
   fitted_ = true;
 }
 
-arma::Row<float>
+arma::Row<double>
 RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
   if (!fitted_)
     throw std::logic_error(
@@ -501,7 +590,7 @@ RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
         "mismatch");
 
   const size_t n_samples = X.n_cols;
-  arma::Row<float> yhat(n_samples);
+  arma::Row<double> yhat(n_samples);
 
   for (size_t s = 0; s < n_samples; ++s) {
     size_t idx = rootIndex_;

@@ -51,16 +51,16 @@ struct ShapeFunctionNode {
    */
   std::vector<size_t> sampleBins;
   /**
-   * During fit, after a split: per-bin class counts from the winning inner
-   * discretizer (same row count as ``binToPartition``). Cleared after training.
+   * Per-bin sufficient statistics from the winning inner discretizer (same
+   * length as ``binToPartition``). Classification: weighted class counts.
+   * Regression (squared error): ``[sum w·y, sum w·y²]``. Empty for MAE leaves.
    */
-  std::vector<std::vector<size_t>> splitLeafStats;
+  std::vector<std::vector<double>> splitLeafStats;
   /**
-   * During fit, regression squared error only: per-bin ``[sum y, sum y^2]`` for
-   * the winning inner discretizer (same row count as ``binToPartition``).
-   * Empty for MAE / classification. Cleared after training.
+   * Per-bin sum of sample weights (``sum w``) from the inner discretizer.
+   * Same length as ``binToPartition``.
    */
-  std::vector<std::vector<float>> regressionSplitLeafStats;
+  std::vector<double> splitBinWeights;
   /**
    * After a split is chosen and kept: number of training samples that fell
    * into each bin of the winning inner discretizer (same length as

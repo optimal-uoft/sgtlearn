@@ -9,6 +9,7 @@ per-tree ``random_state`` draw as the forest RNG.
 """
 
 from __future__ import annotations
+from sgtlearn import RandomSGForestClassifier, SGTClassifier
 
 import numpy as np
 import pytest
@@ -17,10 +18,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import check_random_state
+from sgtlearn.base import _IdentityLabelEncoder
 
 pytest.importorskip("sklearn")
-
-from sgtlearn import RandomSGForestClassifier, SGTClassifier
 
 
 def _first_tree_random_state(forest_random_state: int) -> int:
@@ -62,13 +62,10 @@ def _tree_hyperparams() -> dict:
     }
 
 
-def _standalone_sgt_classifier(
-    forest_random_state: int, *, label_encoder, **tree_kw
-) -> SGTClassifier:
-    """SGTClassifier with the same hyperparameters and label encoding as one forest tree."""
+def _standalone_sgt_classifier(forest_random_state: int, **tree_kw) -> SGTClassifier:
+    """SGTClassifier with the same hyperparameters as one forest tree."""
     return SGTClassifier(
         random_state=_first_tree_random_state(forest_random_state),
-        label_encoder=label_encoder,
         **tree_kw,
     )
 
@@ -141,9 +138,7 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     )
     forest.fit(X, y)
 
-    sgt = _standalone_sgt_classifier(
-        forest_rs, label_encoder=forest._label_encoder_, **tree_kw
-    )
+    sgt = _standalone_sgt_classifier(forest_rs, **tree_kw)
     sgt.fit(X, y)
     np.testing.assert_array_equal(forest.predict(X), sgt.predict(X))
     np.testing.assert_allclose(
@@ -176,9 +171,7 @@ def test_random_sg_forest_single_tree_equals_standalone_sgt() -> None:
     )
     forest.fit(X, y)
 
-    sgt = _standalone_sgt_classifier(
-        random_state, label_encoder=forest._label_encoder_, **kw
-    )
+    sgt = _standalone_sgt_classifier(random_state, **kw)
     sgt.fit(X, y)
 
     est = forest.estimators_[0]
@@ -193,8 +186,8 @@ def test_random_sg_forest_single_tree_equals_standalone_sgt() -> None:
     )
 
 
-def test_random_sg_forest_trees_share_forest_label_encoder() -> None:
-    """Each fitted tree must reuse the forest's fitted ``LabelEncoder`` instance."""
+def test_random_sg_forest_fitted_trees_share_forest_label_space() -> None:
+    """Fitted base trees use the forest ``n_classes_`` for probability columns."""
     X, y = load_breast_cancer(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
     tree_kw = {**_forest_tree_defaults(), "inner_max_depth": 2}
@@ -205,9 +198,10 @@ def test_random_sg_forest_trees_share_forest_label_encoder() -> None:
         **tree_kw,
     )
     forest.fit(X, y)
-    le = forest._label_encoder_
+
     for est in forest.estimators_:
-        assert est._le is le
+        assert isinstance(est._le, _IdentityLabelEncoder)
+        np.testing.assert_array_equal(est.classes_, forest.classes_)
 
 
 def test_random_sg_forest_parallel_fit_matches_sequential() -> None:

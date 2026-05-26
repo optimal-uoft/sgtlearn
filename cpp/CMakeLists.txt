@@ -43,7 +43,7 @@ endif ()
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
         src/algorithms/frontiers.h
-        include/UnivariateClassificationDiscretizer.h
+        src/Discretizers/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
         src/Domain/LearningCriterion.h
         src/Domain/LearningFactories.h
@@ -62,8 +62,8 @@ add_library(sgtlearn_core STATIC
         src/Splitters/SquaredErrorSplitter.h
         src/Splitters/SquaredErrorSplitter.cpp
         src/Discretizers/UnivariateRegressionDiscretizer.cpp
-        include/UnivariateRegressionDiscretizer.h
-        include/GainHessianUnivariateDiscretizer.h
+        src/Discretizers/UnivariateRegressionDiscretizer.h
+        src/Discretizers/GainHessianUnivariateDiscretizer.h
         src/algorithms/WaveletTreeMAE.h
         src/algorithms/WaveletTreeMAE.cpp
         src/Discretizers/GainHessianUnivariateDiscretizer.cpp
@@ -79,6 +79,7 @@ add_library(sgtlearn_core STATIC
         src/algorithms/ShapeGeneralizedTreeParams.h
         src/Estimators/ShapeFunctionNode.h
         src/algorithms/ShapeBranchingTypes.h
+        src/algorithms/BinPartitionAssignments.h
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp
         src/Estimators/RegressionShapeGeneralizedTree.h
@@ -98,7 +99,6 @@ add_library(sgtlearn_core STATIC
 
 # PUBLIC headers: accessible to anyone who links to this library
 target_include_directories(sgtlearn_core PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
 )
 # PUBLIC: sgtlearn_core's headers #include <armadillo>, so consumers need it too.

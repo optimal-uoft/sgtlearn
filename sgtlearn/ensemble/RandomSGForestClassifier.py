@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.validation import check_X_y
 
+from sgtlearn._weights import effective_sample_weight_classification
 from sgtlearn.base import SGTClassifier
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
@@ -21,10 +22,6 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     :class:`sklearn.ensemble.RandomForestClassifier`: class probabilities are
     the mean of per-tree :meth:`predict_proba`, and :meth:`predict` returns the
     argmax class label.
-
-    A single :class:`~sklearn.preprocessing.LabelEncoder` is fit once on ``y``
-    and passed to every base tree (via ``label_encoder=``), so the encoding is
-    not re-fit per tree and predictions share a common label space.
 
     Parameters
     ----------
@@ -59,6 +56,9 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         (default) uses ``n_samples``. Only valid when ``bootstrap=True``.
     random_state : int, RandomState, optional
         Controls bootstrap resampling and the per-tree seeds.
+    class_weight : dict, optional
+        Per-class weights multiplied into ``sample_weight`` before training.
+        Keys are class labels as in ``y``.
     n_jobs : int, optional
         Number of joblib workers used to fit trees. ``None`` means one job
         (sequential); ``-1`` uses all processors. Joblib's threading backend
@@ -72,7 +72,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     estimators_ : list of SGTClassifier
         The collection of fitted base estimators.
     classes_ : ndarray of shape (n_classes_,)
-        Class labels (from the shared ``LabelEncoder``).
+        Class labels in original training label space.
     n_classes_ : int
         Number of classes seen during :meth:`fit`.
     n_features_in_ : int
@@ -118,9 +118,11 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         bootstrap: bool = True,
         max_samples: Optional[Union[int, float]] = None,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
+        class_weight: Optional[Mapping[Any, float]] = None,
         n_jobs: Optional[int] = None,
         verbose: int = 0,
     ) -> None:
+        self.class_weight = class_weight
         super().__init__(
             n_estimators=n_estimators,
             criterion=criterion,
@@ -161,12 +163,26 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             raise ValueError("RandomSGForestClassifier requires at least two classes.")
         return X, y_enc
 
-    def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
-        return SGTClassifier(
-            **tree_kw,
-            label_encoder=self._label_encoder_,
-            random_state=tree_seed,
+    def _prepare_sample_weight(
+        self,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray],
+        n_samples: int,
+    ) -> Optional[np.ndarray]:
+        if self.class_weight is None:
+            return super()._prepare_sample_weight(y, sample_weight, n_samples)
+        return effective_sample_weight_classification(
+            sample_weight,
+            y,
+            self.class_weight,
+            np.asarray(self.classes_),
         )
+
+    def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
+        tree = SGTClassifier(**tree_kw, random_state=tree_seed)
+        tree.classes_ = np.asarray(self.classes_)
+        tree.n_classes_ = self.n_classes_
+        return tree
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         X32 = self._check_predict_X(X)

@@ -14,9 +14,11 @@
 #include <vector>
 
 /**
- * @tparam T leaf prediction / statistic type (classification counts use ``size_t``; regression uses ``float``).
+ * @tparam StatsT leaf sufficient-statistic element type (weighted class counts, float sums, …).
+ * @tparam PredictT leaf prediction type routed to downstream code.
  */
-template <typename T> class UnivariateDiscretizer {
+template <typename StatsT, typename PredictT = StatsT>
+class UnivariateDiscretizer {
   enum class Step { Untrained, FitTree, LeavesProcessed };
   Step step = Step::Untrained;
 
@@ -27,16 +29,18 @@ protected:
   bool leavesProcessed = false;
 
   std::vector<std::vector<size_t>> inSampleDiscretizations;
-  std::vector<T> binPredictions;
+  std::vector<PredictT> binPredictions;
   std::vector<double> thresholds;
-  std::vector<std::vector<T>> leafStats;
+  std::vector<std::vector<StatsT>> leafStats;
   std::vector<size_t> leafNumSamples;
+  std::vector<double> leafNodeWeights;
   std::map<std::tuple<size_t, size_t>, SplitCandidate> leaves;
 
-  void processLeaves(arma::uvec sortedOrder, Splitter<T> &splitter);
+  void processLeaves(arma::uvec sortedOrder,
+                     Splitter<StatsT, PredictT> &splitter);
 
-  void buildTree(Splitter<T> &splitter, size_t minLeafSize, double minGainSplit,
-                 size_t maxDepth, size_t maxLeafNodes);
+  void buildTree(Splitter<StatsT, PredictT> &splitter, size_t minLeafSize,
+                 double minGainSplit, size_t maxDepth, size_t maxLeafNodes);
 
 public:
   UnivariateDiscretizer() = default;
@@ -46,11 +50,13 @@ public:
 
   std::vector<std::vector<size_t>> &getInSampleDiscretizations();
 
-  std::vector<T> &getBinPredictions();
+  std::vector<PredictT> &getBinPredictions();
 
-  std::vector<std::vector<T>> &getLeafStats();
+  std::vector<std::vector<StatsT>> &getLeafStats();
 
   std::vector<size_t> &getLeafNumSamples();
+
+  std::vector<double> &getLeafNodeWeights();
 
   /** Sorted-axis cut points; same ordering as `transform` / inner bins. */
   const std::vector<double> &getThresholds() const { return thresholds; }
