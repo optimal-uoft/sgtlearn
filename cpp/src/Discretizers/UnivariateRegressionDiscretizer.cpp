@@ -3,21 +3,17 @@
  * @brief Explicit template instantiations for squared-error and MAE regression discretizers.
  */
 
-#include "UnivariateRegressionDiscretizer.h"
+#include "Discretizers/UnivariateRegressionDiscretizer.h"
 #include "Splitters/AbsoluteErrorSplitter.h"
 
 namespace {
 
 arma::frowvec sortedSampleWeights(const arma::uvec &sortedOrder,
                                   const arma::Row<float> &sampleWeights) {
-  arma::frowvec w(sortedOrder.n_elem);
-  if (sampleWeights.n_elem == 0) {
-    w.ones();
-    return w;
-  }
   if (sampleWeights.n_elem != sortedOrder.n_elem)
     throw std::invalid_argument(
         "sample_weights length must equal number of training samples");
+  arma::frowvec w(sortedOrder.n_elem);
   for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
     w(i) = sampleWeights(sortedOrder(i));
   return w;

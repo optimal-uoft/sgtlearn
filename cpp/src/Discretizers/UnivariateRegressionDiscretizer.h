@@ -24,7 +24,6 @@ public:
 
   /** Fit inner regression tree on selected feature rows of ``X`` with targets ``y``. */
   void Train(const arma::fmat &X, arma::uvec &features, const arma::Row<float> &y,
-             size_t minLeafSize = 1, double minGainSplit = 1e-7,
-             size_t maxDepth = 0, size_t maxLeafNodes = 0,
-             const arma::Row<float> &sampleWeights = arma::Row<float>());
+             size_t minLeafSize, double minGainSplit, size_t maxDepth,
+             size_t maxLeafNodes, const arma::Row<float> &sampleWeights);
 };

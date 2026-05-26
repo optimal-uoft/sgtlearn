@@ -2,7 +2,7 @@
 
 #include "Domain/LearningCriterion.h"
 #include "Splitters/AbsoluteErrorSplitter.h"
-#include "UnivariateRegressionDiscretizer.h"
+#include "Discretizers/UnivariateRegressionDiscretizer.h"
 
 #include <armadillo>
 #include <memory>
@@ -16,7 +16,7 @@ public:
   virtual void Train(const arma::fmat &X, arma::uvec &features,
                      const arma::Row<float> &y, size_t minLeafSize,
                      double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
-                     const arma::Row<float> &sampleWeights = arma::Row<float>()) = 0;
+                     const arma::Row<float> &sampleWeights) = 0;
 
   virtual size_t numLeaves() const = 0;
   virtual std::vector<std::vector<float>> &leafStats() = 0;

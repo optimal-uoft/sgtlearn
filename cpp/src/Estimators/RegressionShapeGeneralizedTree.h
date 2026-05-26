@@ -101,7 +101,7 @@ public:
            const arma::Row<float> &sampleWeights);
 
   /** Predicted responses, shape (numSamples,). */
-  arma::Row<float> predict(const arma::fmat &X) const;
+  arma::Row<double> predict(const arma::fmat &X) const;
 
   /** Number of leaf nodes in the fitted outer tree. */
   size_t numLeaves() const;
@@ -137,7 +137,7 @@ public:
   LearningCriterion criterion() const { return criterion_; }
 
   /** Per-leaf prediction (mean or median), keyed by node id. */
-  const std::vector<float> &leafPredictions() const { return leafPredictions_; }
+  const std::vector<double> &leafPredictions() const { return leafPredictions_; }
 
 private:
   LearningCriterion criterion_;
@@ -162,7 +162,7 @@ private:
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
 
   /** Leaf constant prediction (mean or median) keyed by ``nodeIndex``. */
-  std::vector<float> leafPredictions_;
+  std::vector<double> leafPredictions_;
 
   double impurityAtNode(const arma::Row<float> &y,
                         const ShapeFunctionNode &node) const;

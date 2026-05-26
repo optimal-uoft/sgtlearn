@@ -21,11 +21,13 @@ std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
  * SquaredError, GainHessian, or AbsoluteError only.
  *
  * For SquaredError / GainHessian, @p leafFloatData is per-leaf aggregated
- * statistics. For AbsoluteError, it is raw y samples per leaf.
+ * statistics. For AbsoluteError, it is raw y samples per leaf and
+ * @p leafSampleWeights holds matching per-sample weights.
  *
  * @param gainHessianLambda used only for GainHessian.
  */
 std::unique_ptr<BranchAssignment> makeRegressionBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
     size_t numPartitions, std::vector<std::vector<float>> &leafFloatData,
-    std::vector<double> &leafWeights, double gainHessianLambda = 1.0);
+    std::vector<double> &leafWeights, double gainHessianLambda = 1.0,
+    std::vector<std::vector<float>> *leafSampleWeights = nullptr);

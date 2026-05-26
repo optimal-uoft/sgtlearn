@@ -94,7 +94,7 @@ def test_regressor_mae_has_empty_bin_counts_but_full_sample_counts():
     internals = [n for n in tr["nodes"] if not n["is_leaf"]]
     assert internals
     for n in internals:
-        # bin_counts is empty for MAE (regressionSplitLeafStats not populated)
+        # bin_counts is empty for MAE (splitLeafStats not populated)
         assert n["bin_counts"] == []
         # bin_sample_counts is populated regardless of criterion
         assert len(n["bin_sample_counts"]) == len(n["bin_to_partition"])

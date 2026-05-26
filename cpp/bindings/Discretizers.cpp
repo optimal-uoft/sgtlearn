@@ -16,8 +16,8 @@
 #include <variant>
 
 #include "Splitters/AbsoluteErrorSplitter.h"
-#include "UnivariateClassificationDiscretizer.h"
-#include "UnivariateRegressionDiscretizer.h"
+#include "Discretizers/UnivariateClassificationDiscretizer.h"
+#include "Discretizers/UnivariateRegressionDiscretizer.h"
 
 namespace py = pybind11;
 
@@ -70,10 +70,29 @@ std::string normalize_regression_criterion(std::string s) {
   return s;
 }
 
+arma::Row<float> sampleWeightRowFromPy(const py::object &sample_weights,
+                                       arma::uword n_samples) {
+  if (sample_weights.is_none()) {
+    arma::Row<float> w(n_samples);
+    w.ones();
+    return w;
+  }
+  py::array_t<float> wcopy = py::array_t<float>::ensure(sample_weights);
+  if (wcopy.ndim() != 1)
+    throw std::invalid_argument("sample_weights must be a 1D numpy array");
+  const arma::Mat<float> w_mat = carma::arr_to_row<float>(wcopy, true);
+  if (w_mat.n_elem != n_samples)
+    throw std::invalid_argument(
+        "sample_weights length must match X.shape[0]");
+  arma::Row<float> w(w_mat.n_elem);
+  for (arma::uword i = 0; i < w_mat.n_elem; ++i)
+    w(i) = w_mat(i);
+  return w;
+}
+
 void validate_regression_criterion(const std::string &criterion) {
   if (criterion == "absolute_error" || criterion == "mae")
-    throw std::invalid_argument(
-        "criterion 'absolute_error' / 'mae' is not implemented yet");
+    return;
   if (criterion != "squared_error" && criterion != "friedman_mse")
     throw std::invalid_argument(
         "criterion must be 'squared_error', 'mse' (alias), or "
@@ -133,20 +152,8 @@ public:
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
-    arma::Row<float> wRow;
-    if (!sample_weights.is_none()) {
-      py::array_t<float> wcopy =
-          py::array_t<float>::ensure(sample_weights);
-      if (wcopy.ndim() != 1)
-        throw std::invalid_argument("sample_weights must be a 1D numpy array");
-      const arma::Mat<float> w_mat = carma::arr_to_row<float>(wcopy, true);
-      wRow.set_size(w_mat.n_elem);
-      for (arma::uword i = 0; i < w_mat.n_elem; ++i)
-        wRow(i) = w_mat(i);
-      if (wRow.n_elem != xArma.n_cols)
-        throw std::invalid_argument(
-            "sample_weights length must match X.shape[0]");
-    }
+    const arma::Row<float> wRow =
+        sampleWeightRowFromPy(sample_weights, xArma.n_cols);
 
     arma::uvec featuresMut = featuresArma;
     std::visit(
@@ -249,20 +256,8 @@ public:
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
-    arma::Row<float> wRow;
-    if (!sample_weights.is_none()) {
-      py::array_t<float> wcopy =
-          py::array_t<float>::ensure(sample_weights);
-      if (wcopy.ndim() != 1)
-        throw std::invalid_argument("sample_weights must be a 1D numpy array");
-      const arma::Mat<float> w_mat = carma::arr_to_row<float>(wcopy, true);
-      wRow.set_size(w_mat.n_elem);
-      for (arma::uword i = 0; i < w_mat.n_elem; ++i)
-        wRow(i) = w_mat(i);
-      if (wRow.n_elem != xArma.n_cols)
-        throw std::invalid_argument(
-            "sample_weights length must match X.shape[0]");
-    }
+    const arma::Row<float> wRow =
+        sampleWeightRowFromPy(sample_weights, xArma.n_cols);
 
     arma::uvec featuresMut = featuresArma;
     std::visit(

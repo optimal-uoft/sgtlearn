@@ -191,6 +191,7 @@ void ClassificationShapeGeneralizedTree::fit(
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
+          node.splitBinWeights.clear();
           node.binSampleCounts.clear();
 
           return false;
@@ -202,6 +203,7 @@ void ClassificationShapeGeneralizedTree::fit(
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
+          node.splitBinWeights.clear();
           node.binSampleCounts.clear();
           return false;
         }
@@ -221,6 +223,7 @@ void ClassificationShapeGeneralizedTree::fit(
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         double bestPenalizedChild = std::numeric_limits<double>::infinity();
         ShapeBranchingResult<double> brBest{};
+        std::vector<double> binWeightsForBest;
         arma::uvec featOne(1);
 
         for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
@@ -334,6 +337,7 @@ void ClassificationShapeGeneralizedTree::fit(
 
             brBest.leafStats = stats;
             brBest.leafNumSamples = sizes;
+            binWeightsForBest.assign(weights.begin(), weights.end());
           }
         }
 
@@ -344,6 +348,7 @@ void ClassificationShapeGeneralizedTree::fit(
           node.informationGain = 0.0;
           node.sampleBins.clear();
           node.splitLeafStats.clear();
+          node.splitBinWeights.clear();
           node.binSampleCounts.clear();
           return false;
         }
@@ -354,6 +359,7 @@ void ClassificationShapeGeneralizedTree::fit(
         node.binToPartition = std::move(brBest.binToPartition);
         node.sampleBins = std::move(brBest.sampleBins);
         node.splitLeafStats = std::move(brBest.leafStats);
+        node.splitBinWeights = std::move(binWeightsForBest);
         node.binSampleCounts = std::move(brBest.leafNumSamples);
         node.numPartitions = brBest.numPartitionsUsed;
         node.informationGain = brBest.impurityDecrease;

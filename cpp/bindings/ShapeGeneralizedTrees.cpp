@@ -259,6 +259,9 @@ public:
           bc.append(r);
         }
         d["bin_counts"] = bc;
+        py::list bw;
+        for (double w : n.splitBinWeights) bw.append(w);
+        d["bin_weights"] = bw;
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
@@ -286,7 +289,7 @@ public:
       double outerMinGainSplit, size_t outerMaxDepth, size_t outerMaxLeafNodes,
       size_t innerMinLeafSize, double innerMinGainSplit, size_t innerMaxDepth,
       size_t innerMaxLeafNodes, size_t coordinateDescentMaxIters,
-      size_t coordinateDescentPatience, bool /* coordinateDescentSmartInit */,
+      size_t coordinateDescentPatience, bool coordinateDescentSmartInit,
       uint64_t random_state, py::object max_features = py::none()) {
     criterionStr_ = criterion;
     const LearningCriterion crit = parseRegressionCriterion(criterion);
@@ -297,7 +300,7 @@ public:
     CoordinateDescentParams cd;
     cd.maxIters = coordinateDescentMaxIters;
     cd.patience = coordinateDescentPatience;
-    cd.smartInit = false;
+    cd.smartInit = coordinateDescentSmartInit;
     impl_ = std::make_unique<RegressionShapeGeneralizedTree>(
         crit, numPartitions, outer, inner, cd, random_state,
         parseMaxFeaturesPy(max_features));
@@ -316,9 +319,9 @@ public:
     impl_->fit(Xb.view(), yb.view(), w_row);
   }
 
-  py::array_t<float> predict(const py::array &X) {
+  py::array_t<double> predict(const py::array &X) {
     auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
-    arma::Row<float> preds;
+    arma::Row<double> preds;
     {
       py::gil_scoped_release release;
       preds = impl_->predict(Xb.view());
@@ -360,7 +363,7 @@ public:
       d["impurity"] = n.score;
 
       if (n.isLeaf) {
-        d["value"] = i < leafPred.size() ? leafPred[i] : 0.0f;
+        d["value"] = i < leafPred.size() ? leafPred[i] : 0.0;
         d["n_samples"] = i < leafN.size() ? leafN[i] : static_cast<size_t>(0);
         d["feature"] = py::none();
         d["thresholds"] = py::list();
@@ -381,12 +384,15 @@ public:
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
         py::list bc;
-        for (const auto &row : n.regressionSplitLeafStats) {
+        for (const auto &row : n.splitLeafStats) {
           py::list r;
-          for (float v : row) r.append(v);
+          for (double v : row) r.append(v);
           bc.append(r);
         }
         d["bin_counts"] = bc;
+        py::list bw;
+        for (double w : n.splitBinWeights) bw.append(w);
+        d["bin_weights"] = bw;
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;

@@ -22,5 +22,15 @@ double gini(const std::vector<double> &classCounts, double totalWeight);
  */
 double squaredError(const std::vector<float> &yPowerSum, double totalWeight);
 
+/** Weighted median and mean MAE (sklearn ``precompute_absolute_errors``). */
+struct AbsoluteErrorStats {
+  double median = 0.0;
+  double mae = 0.0;
+  double totalWeight = 0.0;
+};
+
+AbsoluteErrorStats absoluteError(const std::vector<float> &ys,
+                                 const std::vector<float> &weights);
+
 double gainAndHessian(const std::vector<float> &derivatives, double lambda);
 } // namespace Criterion

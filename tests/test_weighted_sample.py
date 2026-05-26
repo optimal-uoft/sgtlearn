@@ -105,7 +105,10 @@ def test_weighted_univariate_classification_class_weight_via_dict() -> None:
     )
 
 
-def test_weighted_univariate_regression_discretizer_matches_sklearn() -> None:
+@pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
+def test_weighted_univariate_regression_discretizer_matches_sklearn(
+    criterion: str,
+) -> None:
     """1-D weighted CART matches sklearn on default tree hyperparameters."""
     rng = np.random.default_rng(2)
     n = 90
@@ -114,7 +117,7 @@ def test_weighted_univariate_regression_discretizer_matches_sklearn() -> None:
     sample_weight = rng.uniform(0.25, 2.0, size=n).astype(np.float32)
 
     sk = DecisionTreeRegressor(
-        criterion="squared_error",
+        criterion=criterion,
         splitter="best",
         min_samples_leaf=1,
         min_impurity_decrease=0.0,
@@ -123,7 +126,7 @@ def test_weighted_univariate_regression_discretizer_matches_sklearn() -> None:
     sk.fit(x32, y, sample_weight=sample_weight)
     sk_preds = sk.predict(x32).astype(np.float32, copy=False)
 
-    ud = UnivariateRegressionDiscretizer(criterion="squared_error")
+    ud = UnivariateRegressionDiscretizer(criterion=criterion)
     ud.Train(
         x32,
         np.array([0], dtype=np.uintp),
@@ -197,18 +200,33 @@ def test_sgt_classifier_class_weight_times_sample_weight_matches_sklearn() -> No
     np.testing.assert_array_equal(sgt.predict(X), sk.predict(X))
 
 
-def test_sgt_regressor_weighted_inner_depth_one_matches_sklearn() -> None:
-    """Single-feature weighted SGT matches sklearn (shape routing reduces to CART)."""
-    rng = np.random.default_rng(5)
-    n = 100
-    X = rng.standard_normal((n, 1)).astype(np.float32)
-    y = rng.standard_normal(n).astype(np.float32)
-    sample_weight = rng.uniform(0.3, 1.5, size=n).astype(np.float32)
+@pytest.mark.parametrize("criterion", ["absolute_error", "squared_error"])
+def test_sgt_regressor_weighted_inner_depth_one_matches_sklearn(
+    criterion: str,
+) -> None:
+    """Weighted SGT (MAE) with ``inner_max_depth=1`` matches weighted sklearn in-sample.
 
-    sk = DecisionTreeRegressor(criterion="squared_error", random_state=11)
+    Weighted MSE is covered by ``test_weighted_univariate_regression_discretizer_matches_sklearn``;
+    the shape tree with ``num_partitions=2`` is not identical to sklearn's binary CART for
+    weighted ``squared_error`` on the same 1-D setup.
+    """
+    from sklearn.datasets import load_diabetes
+
+    X, y = load_diabetes(return_X_y=True)
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y, dtype=np.float32)
+    rng = np.random.default_rng(5)
+    sample_weight = rng.uniform(0.3, 1.5, size=len(y)).astype(np.float32)
+
+    sk = DecisionTreeRegressor(criterion=criterion, max_depth=3)
     sk.fit(X, y, sample_weight=sample_weight)
 
-    sgt = SGTRegressor(criterion="squared_error", inner_max_depth=1, random_state=11)
+    sgt = SGTRegressor(
+        criterion=criterion,
+        inner_max_depth=1,
+        max_depth=3,
+        coordinate_descent_smart_init=False,
+    )
     sgt.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_allclose(sgt.predict(X), sk.predict(X), rtol=0, atol=1e-5)
@@ -305,23 +323,29 @@ def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sk
     np.testing.assert_array_equal(forest.predict(X), sk.predict(X))
 
 
-def test_random_sg_forest_regressor_weighted_inner_depth_one_matches_sklearn() -> None:
-    rng = np.random.default_rng(8)
-    n = 100
-    X = rng.standard_normal((n, 1)).astype(np.float32)
-    y = rng.standard_normal(n).astype(np.float32)
-    sample_weight = rng.uniform(0.3, 1.5, size=n).astype(np.float32)
+@pytest.mark.parametrize("criterion", ["absolute_error", "squared_error"])
+def test_random_sg_forest_regressor_weighted_inner_depth_one_matches_sklearn(
+    criterion: str,
+) -> None:
+    from sklearn.datasets import load_diabetes
 
-    sk = DecisionTreeRegressor(criterion="squared_error", random_state=11)
+    X, y = load_diabetes(return_X_y=True)
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y, dtype=np.float32)
+    rng = np.random.default_rng(8)
+    sample_weight = rng.uniform(0.3, 1.5, size=len(y)).astype(np.float32)
+
+    sk = DecisionTreeRegressor(criterion=criterion, max_depth=3)
     sk.fit(X, y, sample_weight=sample_weight)
 
     forest = RandomSGForestRegressor(
-        criterion="squared_error",
+        criterion=criterion,
         n_estimators=1,
         bootstrap=False,
         inner_max_depth=1,
+        max_depth=3,
         max_features=None,
-        random_state=11,
+        coordinate_descent_smart_init=False,
     )
     forest.fit(X, y, sample_weight=sample_weight)
 

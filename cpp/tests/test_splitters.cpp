@@ -4,6 +4,7 @@
  */
 
 #include <Splitters/AbsoluteErrorSplitter.h>
+#include <Criterion.h>
 #include <Splitters/EntropySplitter.h>
 #include <Splitters/GainHessianSplitter.h>
 #include <Splitters/GiniSplitter.h>
@@ -182,6 +183,22 @@ TEST_CASE("AbsoluteErrorSplitter predict and score match brute-force MAE") {
   REQUIRE_THAT(static_cast<double>(splitter.predict(root)), WithinAbs(3.0, 1e-4));
   REQUIRE_THAT(splitter.score({}, 0, 4), WithinAbs(expected_mae, 1e-4));
   REQUIRE(root.numSamples == 5);
+}
+
+TEST_CASE("AbsoluteErrorSplitter weighted score matches Criterion::absoluteError") {
+  arma::frowvec X{{0.F, 1.F, 2.F, 3.F}};
+  arma::Mat<float> y(1, 4);
+  y.row(0) = arma::Row<float>{{1.F, 5.F, 2.F, 8.F}};
+  arma::frowvec w{{1.F, 2.F, 3.F, 4.F}};
+
+  AbsoluteErrorSplitter splitter(X, w, y);
+  SplitCandidate root = splitter.makeRoot();
+  std::vector<float> ys{{1.F, 5.F, 2.F, 8.F}};
+  std::vector<float> ws{{1.F, 2.F, 3.F, 4.F}};
+  const auto ref = Criterion::absoluteError(ys, ws);
+  REQUIRE_THAT(splitter.score({}, 0, 3), WithinAbs(ref.mae, 1e-5));
+  REQUIRE_THAT(static_cast<double>(splitter.predict(root)),
+               WithinAbs(ref.median, 1e-5));
 }
 
 TEST_CASE("GiniSplitter findBestSplit separates two pure class blocks") {

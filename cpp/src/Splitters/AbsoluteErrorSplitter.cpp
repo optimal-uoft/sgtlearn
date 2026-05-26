@@ -16,7 +16,7 @@ AbsoluteErrorSplitter::AbsoluteErrorSplitter(arma::frowvec &X,
                                              arma::frowvec &sampleWeights,
                                              arma::Mat<float> &y)
     : Splitter(X, sampleWeights, 0), targets(y),
-      waveletTree(arma::Row<float>(y.row(0))) {}
+      waveletTree(arma::Row<float>(y.row(0)), arma::Row<float>(sampleWeights)) {}
 
 SplitCandidate AbsoluteErrorSplitter::makeRoot() {
   SplitCandidate root{.height = 0,

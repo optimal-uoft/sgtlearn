@@ -19,6 +19,7 @@ public:
   AbsoluteErrorBranchAssignment(std::vector<size_t> &assignments,
                                 size_t numPartitions,
                                 std::vector<std::vector<float>> &leafYs,
+                                std::vector<std::vector<float>> &leafWs,
                                 std::vector<double> &leafWeights);
 
   double objective() override;
@@ -29,6 +30,7 @@ public:
 
 private:
   std::vector<std::vector<float>> &leafYs_;
+  std::vector<std::vector<float>> &leafWs_;
   std::vector<double> &leafWeights_;
 
   double weightedSumLoss_ = 0;
@@ -38,8 +40,8 @@ private:
   std::vector<double> partitionWeight_;
   std::vector<double> partitionLoss_;
 
-  std::vector<float> collectPartitionYs(size_t partition) const;
-  static double medianAbsoluteError(std::vector<float> ys);
+  void collectPartitionSamples(size_t partition, std::vector<float> &ys,
+                               std::vector<float> &ws) const;
   double computePartitionMae(size_t partition) const;
 
   /** Valid partitions are [0, numPartitions); this marks a leaf not in any partition. */

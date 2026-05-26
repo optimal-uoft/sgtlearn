@@ -45,7 +45,7 @@ inline bool partitionCountsMeetMinLeaf(const std::vector<size_t> &assignments,
   return true;
 }
 
-/** Python ``construct_mapping`` score: ``impurity + branchingPenalty * (k - 1)``. */
+/** score: ``impurity + branchingPenalty * (k - 1)``. */
 inline double penalizedBranchingScore(double childImpurity, size_t k,
                                       double branchingPenalty) {
   return childImpurity +

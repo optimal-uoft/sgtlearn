@@ -3,7 +3,7 @@
  * @brief Explicit template instantiations for Gini and entropy classification discretizers.
  */
 
-#include "UnivariateClassificationDiscretizer.h"
+#include "Discretizers/UnivariateClassificationDiscretizer.h"
 #include "Splitters/EntropySplitter.h"
 
 namespace {

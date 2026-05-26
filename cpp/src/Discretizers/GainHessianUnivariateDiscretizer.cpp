@@ -3,7 +3,7 @@
  * @brief Training implementation delegating to ``GainHessianSplitter``.
  */
 
-#include "GainHessianUnivariateDiscretizer.h"
+#include "Discretizers/GainHessianUnivariateDiscretizer.h"
 
 #include "Splitters/GainHessianSplitter.h"
 

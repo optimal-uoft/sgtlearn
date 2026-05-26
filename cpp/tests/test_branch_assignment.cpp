@@ -85,8 +85,13 @@ TEST_CASE("AbsoluteErrorBranchAssignment coordinate descent",
       {0.F, 0.F, 0.F},
       {10.F, 10.F, 10.F},
   };
+  std::vector<std::vector<float>> leafWs = {
+      {1.F, 1.F, 1.F},
+      {1.F, 1.F, 1.F},
+  };
   std::vector<double> leafWeights = {3, 3};
-  AbsoluteErrorBranchAssignment obj(assignments, kParts, leafYs, leafWeights);
+  AbsoluteErrorBranchAssignment obj(assignments, kParts, leafYs, leafWs,
+                                    leafWeights);
   assert_coordinate_descent_non_worsening(obj, kParts);
 }
 
@@ -129,10 +134,13 @@ TEST_CASE("makeRegressionBranchAssignment absolute error matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
   std::vector<std::vector<float>> leafYs = {{1.F, 2.F}, {10.F}};
+  std::vector<std::vector<float>> leafWs = {{1.F, 1.F}, {1.F}};
   std::vector<double> leafWeights = {2, 1};
   auto ptr = makeRegressionBranchAssignment(LearningCriterion::AbsoluteError,
-                                            assignments, 2, leafYs, leafWeights);
-  AbsoluteErrorBranchAssignment direct(assignments, 2, leafYs, leafWeights);
+                                            assignments, 2, leafYs, leafWeights,
+                                            1.0, &leafWs);
+  AbsoluteErrorBranchAssignment direct(assignments, 2, leafYs, leafWs,
+                                       leafWeights);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Domain/LearningCriterion.h"
-#include "UnivariateClassificationDiscretizer.h"
+#include "Discretizers/UnivariateClassificationDiscretizer.h"
 
 #include <armadillo>
 #include <memory>
