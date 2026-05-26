@@ -123,12 +123,14 @@ TEST_CASE("SquaredErrorSplitter makeRoot predict and score") {
   SquaredErrorSplitter splitter(X, w, y);
   SplitCandidate root = splitter.makeRoot();
   REQUIRE_THAT(splitter.predict(root), WithinAbs(2.F, 1e-5f));
-  REQUIRE_THAT(root.score, WithinAbs(2.0, kEps));
+  // Weighted MSE for y in {1,2,3}: ((1-2)^2 + 0 + (3-2)^2) / 3 = 2/3
+  const double expectedMse = 2.0 / 3.0;
+  REQUIRE_THAT(root.score, WithinAbs(expectedMse, kEps));
   REQUIRE(root.numSamples == 3);
   REQUIRE_THAT(root.nodeWeight, WithinAbs(3.0, kEps));
 
   std::vector<double> stats{{6.0, 14.0}};
-  REQUIRE_THAT(splitter.score(stats, 0, 2), WithinAbs(2.0, kEps));
+  REQUIRE_THAT(splitter.score(stats, 0, 2), WithinAbs(expectedMse, kEps));
   std::vector<double> one_point{{3.0, 9.0}};
   REQUIRE_THAT(splitter.score(one_point, 0, 0), WithinAbs(0.0, kEps));
 }
