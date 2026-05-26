@@ -12,8 +12,8 @@
 
 std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<size_t>> &classLeafStats,
-    std::vector<size_t> &sizes, size_t numClasses) {
+    size_t numPartitions, std::vector<std::vector<double>> &classLeafStats,
+    std::vector<double> &leafWeights, size_t numClasses) {
   if (numClasses == 0)
     throw std::invalid_argument(
         "makeClassificationBranchAssignment: numClasses must be positive");
@@ -21,10 +21,10 @@ std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
   switch (criterion) {
   case LearningCriterion::Entropy:
     return std::make_unique<EntropyBranchAssignment>(
-        assignments, numPartitions, classLeafStats, sizes, numClasses);
+        assignments, numPartitions, classLeafStats, leafWeights, numClasses);
   case LearningCriterion::Gini:
     return std::make_unique<GiniBranchAssignment>(
-        assignments, numPartitions, classLeafStats, sizes, numClasses);
+        assignments, numPartitions, classLeafStats, leafWeights, numClasses);
   case LearningCriterion::SquaredError:
   case LearningCriterion::GainHessian:
   case LearningCriterion::AbsoluteError:
@@ -38,18 +38,31 @@ std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
 
 std::unique_ptr<BranchAssignment> makeRegressionBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<float>> &leafFloatData,
-    std::vector<size_t> &sizes, double gainHessianLambda) {
+    size_t numPartitions, std::vector<std::vector<double>> &leafRegressionStats,
+    std::vector<double> &leafWeights, double gainHessianLambda,
+    std::vector<std::vector<float>> *maeLeafYs,
+    std::vector<std::vector<float>> *maeLeafWs) {
   switch (criterion) {
   case LearningCriterion::SquaredError:
     return std::make_unique<SquaredErrorBranchAssignment>(
-        assignments, numPartitions, leafFloatData, sizes);
-  case LearningCriterion::GainHessian:
+        assignments, numPartitions, leafRegressionStats, leafWeights);
+  case LearningCriterion::GainHessian: {
+    std::vector<std::vector<float>> ghStats(leafRegressionStats.size());
+    for (size_t b = 0; b < leafRegressionStats.size(); ++b) {
+      ghStats[b].resize(leafRegressionStats[b].size());
+      for (size_t d = 0; d < leafRegressionStats[b].size(); ++d)
+        ghStats[b][d] = static_cast<float>(leafRegressionStats[b][d]);
+    }
     return std::make_unique<GainHessianBranchAssignment>(
-        assignments, numPartitions, leafFloatData, sizes, gainHessianLambda);
+        assignments, numPartitions, ghStats, leafWeights, gainHessianLambda);
+  }
   case LearningCriterion::AbsoluteError:
+    if (!maeLeafYs || !maeLeafWs)
+      throw std::invalid_argument(
+          "makeRegressionBranchAssignment(AbsoluteError): maeLeafYs and "
+          "maeLeafWs required");
     return std::make_unique<AbsoluteErrorBranchAssignment>(
-        assignments, numPartitions, leafFloatData, sizes);
+        assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights);
   case LearningCriterion::Entropy:
   case LearningCriterion::Gini:
     throw std::invalid_argument(

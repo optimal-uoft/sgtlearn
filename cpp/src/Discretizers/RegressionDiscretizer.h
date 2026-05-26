@@ -2,7 +2,7 @@
 
 #include "Domain/LearningCriterion.h"
 #include "Splitters/AbsoluteErrorSplitter.h"
-#include "UnivariateRegressionDiscretizer.h"
+#include "Discretizers/UnivariateRegressionDiscretizer.h"
 
 #include <armadillo>
 #include <memory>
@@ -15,12 +15,13 @@ public:
 
   virtual void Train(const arma::fmat &X, arma::uvec &features,
                      const arma::Row<float> &y, size_t minLeafSize,
-                     double minGainSplit, size_t maxDepth,
-                     size_t maxLeafNodes) = 0;
+                     double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+                     const arma::Row<float> &sampleWeights) = 0;
 
   virtual size_t numLeaves() const = 0;
-  virtual std::vector<std::vector<float>> &leafStats() = 0;
+  virtual std::vector<std::vector<double>> &leafStats() = 0;
   virtual std::vector<size_t> &leafNumSamples() = 0;
+  virtual std::vector<double> &leafNodeWeights() = 0;
   virtual const std::vector<double> &thresholds() const = 0;
   virtual std::vector<std::vector<size_t>> &inSampleDiscretizations() = 0;
 };
@@ -30,17 +31,22 @@ class RegressionDiscretizerImpl final : public RegressionDiscretizer {
 public:
   void Train(const arma::fmat &X, arma::uvec &features,
              const arma::Row<float> &y, size_t minLeafSize, double minGainSplit,
-             size_t maxDepth, size_t maxLeafNodes) override {
+             size_t maxDepth, size_t maxLeafNodes,
+             const arma::Row<float> &sampleWeights) override {
     impl_.Train(X, features, y, minLeafSize, minGainSplit, maxDepth,
-                maxLeafNodes);
+                maxLeafNodes, sampleWeights);
   }
 
   size_t numLeaves() const override { return impl_.numLeaves; }
-  std::vector<std::vector<float>> &leafStats() override {
+  std::vector<std::vector<double>> &leafStats() override {
     return impl_.getLeafStats();
   }
+
   std::vector<size_t> &leafNumSamples() override {
     return impl_.getLeafNumSamples();
+  }
+  std::vector<double> &leafNodeWeights() override {
+    return impl_.getLeafNodeWeights();
   }
   const std::vector<double> &thresholds() const override {
     return impl_.getThresholds();

@@ -12,6 +12,8 @@ from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array, check_is_fitted
 
+from sgtlearn._weights import normalize_sample_weight
+
 
 def _n_samples_bootstrap(
     n_samples: int, max_samples: Optional[Union[int, float]]
@@ -38,6 +40,7 @@ def _parallel_fit_tree(
     n_bootstrap: int,
     X: np.ndarray,
     y: np.ndarray,
+    sample_weight: Optional[np.ndarray],
     tree_kw: dict[str, Any],
     tree_factory: Any,
 ) -> Any:
@@ -47,11 +50,13 @@ def _parallel_fit_tree(
         indices = boot_rng.randint(0, n_samples, n_bootstrap, dtype=np.int32)
         X_b = X[indices]
         y_b = y[indices]
+        sw_b = None if sample_weight is None else sample_weight[indices]
     else:
         X_b, y_b = X, y
+        sw_b = sample_weight
 
     est = tree_factory(tree_seed, tree_kw)
-    est.fit(X_b, y_b)
+    est.fit(X_b, y_b, sample_weight=sw_b, check_input=False)
     return est
 
 
@@ -136,7 +141,21 @@ class RandomSGForest(BaseEstimator, ABC):
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> Any:
         """Construct an unfitted base estimator for one forest tree."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> RandomSGForest:
+    def _prepare_sample_weight(
+        self,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray],
+        n_samples: int,
+    ) -> Optional[np.ndarray]:
+        """Return per-sample weights for tree fitting (subclasses may apply class weights)."""
+        return normalize_sample_weight(sample_weight, n_samples)
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray] = None,
+    ) -> RandomSGForest:
         if self.n_estimators < 1:
             raise ValueError("n_estimators must be at least 1.")
         if not self.bootstrap and self.max_samples is not None:
@@ -146,6 +165,7 @@ class RandomSGForest(BaseEstimator, ABC):
         self.n_features_in_ = X.shape[1]
 
         n_samples = X.shape[0]
+        sample_weight = self._prepare_sample_weight(y, sample_weight, n_samples)
         n_bootstrap = _n_samples_bootstrap(n_samples, self.max_samples)
         rng = check_random_state(self.random_state)
 
@@ -163,6 +183,7 @@ class RandomSGForest(BaseEstimator, ABC):
             n_bootstrap,
             X,
             y,
+            sample_weight,
             tree_kw,
             tree_factory,
         )

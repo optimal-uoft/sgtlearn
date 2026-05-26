@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+
+from sgtlearn._weights import (
+    normalize_sample_weight,
+    effective_sample_weight_classification,
+)
 from ShapeGeneralizedTrees import (
     ClassificationShapeGeneralizedTree,
     RegressionShapeGeneralizedTree,
@@ -17,6 +22,33 @@ from sklearn.preprocessing import LabelEncoder
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
 
 
+class _IdentityLabelEncoder(LabelEncoder):
+    """``LabelEncoder`` for targets already encoded as ``0 .. n_classes - 1``.
+
+    Meta-estimators (e.g. :class:`~sgtlearn.ensemble.RandomSGForestClassifier`)
+    fit a full :class:`~sklearn.preprocessing.LabelEncoder` once and train base
+    trees on integer ``y``. Each base tree holds ``classes_ = np.arange(K)`` so
+    :meth:`inverse_transform` follows the same sklearn contract as a fitted
+    :class:`~sklearn.preprocessing.LabelEncoder` without re-encoding labels.
+    """
+
+    def __init__(self, classes_: np.ndarray) -> None:
+        self.classes_ = np.asarray(classes_)
+
+    def fit(self, y: np.ndarray) -> "_IdentityLabelEncoder":
+        raise NotImplementedError(
+            "_IdentityLabelEncoder is built with preset classes_; "
+            "fit the enclosing meta-estimator instead."
+        )
+
+    def transform(self, y: np.ndarray) -> np.ndarray:
+        return np.asarray(y, dtype=np.int64).ravel()
+
+    def inverse_transform(self, y: np.ndarray) -> np.ndarray:
+        return super().inverse_transform(y)
+
+
+# TODO: flesh out as abstract class so export methods can have a proper type instead of Any
 class BaseShapeCART(BaseEstimator):
     """Shared sklearn ``BaseEstimator`` hook point for shape-generalized trees.
 
@@ -90,22 +122,19 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         - ``"log2"``: use ``max(1, int(log2(n_features)))`` columns.
 
         String values are case-insensitive in the native binding.
-    label_encoder : sklearn.preprocessing.LabelEncoder, optional
-        Pre-fitted encoder for use by ensemble wrappers. When provided,
-        :meth:`fit` expects ``y`` to be integer-encoded in
-        ``0 .. len(label_encoder.classes_) - 1`` and reuses this encoder
-        (no per-tree ``LabelEncoder.fit``), so ``predict``/``predict_proba``
-        share one label space across the ensemble. When ``None``, a fresh
-        ``LabelEncoder`` is fit on ``y``.
+    class_weight : dict, optional
+        Per-class weights multiplied into ``sample_weight`` before training.
+        Keys are class labels as in ``y``; values are non-negative floats.
 
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes_,)
-        Class labels in the order used by ``predict_proba``.
+        Unique class labels observed during :meth:`fit`, in the order used by
+        :meth:`predict_proba` columns.
     n_classes_ : int
-        Number of classes seen during :meth:`fit`.
+        Number of classes.
     n_features_in_ : int
-        Number of features seen during :meth:`fit`.
+        Number of features in ``X`` passed to :meth:`fit`.
 
     Notes
     -----
@@ -152,7 +181,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
         max_features: Optional[Union[int, float, str]] = None,
-        label_encoder: Any = None,
+        class_weight: Optional[Mapping[Any, float]] = None,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
@@ -170,7 +199,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
-        self.label_encoder = label_encoder
+        self.class_weight = class_weight
 
         self._est: Any = None
         self._le: Any = None
@@ -178,53 +207,64 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.n_classes_: Optional[int] = None
         self.n_features_in_: Optional[int] = None
 
-    def _get_random_seed(self) -> int:
-        """Integer ``random_state`` passed to the native trainer (default 42 if unset)."""
-        if self.random_state is None:
-            return 42
-        return int(self.random_state)
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray] = None,
+        check_input: bool = True,
+    ) -> "SGTClassifier":
+        """Fit the tree on ``X`` and class labels ``y``.
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTClassifier":
-        """Build the native classifier on ``X`` (encoded labels) and record sklearn metadata."""
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training features.
+        y : array-like of shape (n_samples,)
+            Target class labels.
+        sample_weight : array-like of shape (n_samples,), optional
+            Per-sample weights.
+        check_input : bool, default=True
+            If ``False``, ``X`` and ``y`` are not validated (for callers that
+            already ran :func:`~sklearn.utils.validation.check_X_y`).
+        """
 
-        X, y = check_X_y(
-            X,
-            y,
-            accept_sparse=False,
-            dtype=np.float64,
-            ensure_all_finite=True,
-        )
-        self.n_features_in_ = X.shape[1]
-
-        if self.label_encoder is not None:
-            le = self.label_encoder
-            if not hasattr(le, "classes_"):
-                raise ValueError(
-                    "``label_encoder`` must be fitted before ``fit`` "
-                    "(e.g. ``LabelEncoder().fit_transform`` on the full ``y``)."
-                )
-            self._le = le
-            self.classes_ = np.asarray(le.classes_)
-            self.n_classes_ = int(self.classes_.shape[0])
-            if self.n_classes_ < 2:
-                raise ValueError("SGTClassifier requires at least two classes.")
-            y_enc = np.asarray(y, dtype=np.int64).ravel()
-            if y_enc.shape[0] != X.shape[0]:
-                raise ValueError("X and y must have the same number of samples.")
-            if np.any(y_enc < 0) or np.any(y_enc >= self.n_classes_):
-                raise ValueError(
-                    "When using a preset ``label_encoder``, y must be integer-encoded in "
-                    f"0..{self.n_classes_ - 1} (inclusive)."
-                )
-        else:
+        if check_input:
+            X, y = check_X_y(
+                X,
+                y,
+                accept_sparse=False,
+                dtype=np.float64,
+                ensure_all_finite=True,
+            )
             le = LabelEncoder()
             y_enc = le.fit_transform(y)
             self._le = le
             self.classes_ = le.classes_
             self.n_classes_ = int(len(self.classes_))
-
+        else:
+            if self.classes_ is None or self.n_classes_ is None:
+                raise ValueError(
+                    "SGTClassifier.fit(check_input=False) requires classes_ and "
+                    "n_classes_ to be set by the caller before fit."
+                )
             if self.n_classes_ < 2:
                 raise ValueError("SGTClassifier requires at least two classes.")
+            X = np.asarray(X)
+            self._le = _IdentityLabelEncoder(self.classes_)
+            y_enc = self._le.transform(y)
+            if y_enc.shape[0] != X.shape[0]:
+                raise ValueError("X and y must have the same number of samples.")
+
+        sw: Optional[np.ndarray] = None
+        if self.class_weight is not None:
+            sw = effective_sample_weight_classification(
+                sample_weight, y_enc, self.class_weight, self.classes_
+            )
+        else:
+            sw = normalize_sample_weight(sample_weight, X.shape[0])
+
+        self.n_features_in_ = X.shape[1]
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -248,7 +288,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
             bool(self.coordinate_descent_smart_init),
-            int(self._get_random_seed()),
+            int(42 if self.random_state is None else self.random_state),
             self.max_features,
         )
 
@@ -257,24 +297,28 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         y_u = np.ascontiguousarray(
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
-        self._est.fit(X32, y_u)
+        self._est.fit(X32, y_u, sample_weight=sw)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict class labels in the original label space (inverse of ``LabelEncoder``)."""
+        """Predict class labels (via the fitted label encoder)."""
 
         check_is_fitted(self, attributes=("_est", "_le"))
-        X = check_array(
-            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+        X32 = np.ascontiguousarray(
+            check_array(
+                X,
+                accept_sparse=False,
+                dtype=np.float64,
+                ensure_all_finite=True,
+            ),
+            dtype=np.float32,
         )
-        if X.shape[1] != self.n_features_in_:
+        if X32.shape[1] != self.n_features_in_:
             raise ValueError(
-                f"X has {X.shape[1]} features, but SGTClassifier is expecting "
+                f"X has {X32.shape[1]} features, but SGTClassifier is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
-        raw = np.asarray(self._est.predict(X32), dtype=np.int64).ravel()
-        return self._le.inverse_transform(raw)
+        return self._le.inverse_transform(self._est.predict(X32))
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Return shape ``(n_samples, n_classes)`` probabilities aligned with ``classes_`` order."""
@@ -441,21 +485,37 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self._est: Any = None
         self.n_features_in_: Optional[int] = None
 
-    def _get_random_seed(self) -> int:
-        if self.random_state is None:
-            return 42
-        return int(self.random_state)
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: Optional[np.ndarray] = None,
+        check_input: bool = True,
+    ) -> "SGTRegressor":
+        """Fit the tree on ``X`` and continuous targets ``y``.
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "SGTRegressor":
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training features.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples,), optional
+            Per-sample weights.
+        check_input : bool, default=True
+            If ``False``, ``X`` and ``y`` are not validated (for callers that
+            already ran :func:`~sklearn.utils.validation.check_X_y`).
+        """
 
-        X, y = check_X_y(
-            X,
-            y,
-            accept_sparse=False,
-            dtype=np.float64,
-            ensure_all_finite=True,
-            y_numeric=True,
-        )
+        if check_input:
+            X, y = check_X_y(
+                X,
+                y,
+                accept_sparse=False,
+                dtype=np.float64,
+                ensure_all_finite=True,
+                y_numeric=True,
+            )
         self.n_features_in_ = X.shape[1]
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
@@ -479,13 +539,17 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
             bool(self.coordinate_descent_smart_init),
-            int(self._get_random_seed()),
+            int(42 if self.random_state is None else self.random_state),
             self.max_features,
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
-        self._est.fit(X32, y32)
+        self._est.fit(
+            X32,
+            y32,
+            sample_weight=normalize_sample_weight(sample_weight, X.shape[0]),
+        )
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

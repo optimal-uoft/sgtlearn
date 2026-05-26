@@ -3,8 +3,36 @@
  * @brief Template implementation of generic ``Splitter`` helpers and ``findBestSplit``.
  */
 
-template <typename T>
-const std::vector<T> &Splitter<T>::getStats(const SplitCandidate &split) {
+template <typename StatsT, typename PredictT>
+void Splitter<StatsT, PredictT>::buildWeightPrefix() {
+  weightPrefix.assign(sampleWeights.n_elem + 1, 0.0);
+  for (size_t i = 0; i < sampleWeights.n_elem; ++i)
+    weightPrefix[i + 1] = weightPrefix[i] + static_cast<double>(sampleWeights(i));
+}
+
+template <typename StatsT, typename PredictT>
+double Splitter<StatsT, PredictT>::intervalWeight(size_t l, size_t r) const {
+  if (r < l)
+    return 0.0;
+  return weightPrefix[r + 1] - weightPrefix[l];
+}
+
+template <typename StatsT, typename PredictT>
+size_t Splitter<StatsT, PredictT>::intervalNumSamples(size_t l, size_t r) {
+  if (r < l)
+    return 0;
+  return r - l + 1;
+}
+
+template <typename StatsT, typename PredictT>
+void Splitter<StatsT, PredictT>::fillIntervalMeta(SplitCandidate &split) const {
+  split.numSamples = intervalNumSamples(split.start, split.end);
+  split.nodeWeight = intervalWeight(split.start, split.end);
+}
+
+template <typename StatsT, typename PredictT>
+const std::vector<StatsT> &
+Splitter<StatsT, PredictT>::getStats(const SplitCandidate &split) {
   if (!splitStats.contains(split.start) ||
       !splitStats[split.start].contains(split.end))
     throw std::runtime_error(
@@ -13,13 +41,14 @@ const std::vector<T> &Splitter<T>::getStats(const SplitCandidate &split) {
   return splitStats[split.start][split.end];
 }
 
-template <typename T> std::vector<T> Splitter<T>::makeEmptyStats() {
-  return std::vector<T>(statsSize, 0);
+template <typename StatsT, typename PredictT>
+std::vector<StatsT> Splitter<StatsT, PredictT>::makeEmptyStats() {
+  return std::vector<StatsT>(statsSize, StatsT{0});
 }
 
-template <typename T>
+template <typename StatsT, typename PredictT>
 std::vector<SplitCandidate>
-Splitter<T>::makeChildren(const SplitCandidate &parent) {
+Splitter<StatsT, PredictT>::makeChildren(const SplitCandidate &parent) {
 
   if (!childrenSplitStats.contains(parent.start) ||
       !childrenSplitStats[parent.start].contains(parent.end))
@@ -31,6 +60,8 @@ Splitter<T>::makeChildren(const SplitCandidate &parent) {
       .height = parent.height + 1,
       .start = parent.leftStart,
       .end = parent.leftEnd,
+      .numSamples = parent.leftNumSamples,
+      .nodeWeight = parent.leftWeight,
       .score = parent.leftScore,
       .routingThreshold = parent.threshold,
   };
@@ -38,6 +69,8 @@ Splitter<T>::makeChildren(const SplitCandidate &parent) {
       .height = parent.height + 1,
       .start = parent.rightStart,
       .end = parent.rightEnd,
+      .numSamples = parent.rightNumSamples,
+      .nodeWeight = parent.rightWeight,
       .score = parent.rightScore,
       .routingThreshold = parent.routingThreshold,
   };
@@ -47,18 +80,20 @@ Splitter<T>::makeChildren(const SplitCandidate &parent) {
   return {right, left};
 }
 
-template <typename T>
-bool Splitter<T>::findBestSplit(SplitCandidate &split, size_t minLeafSize) {
+template <typename StatsT, typename PredictT>
+bool Splitter<StatsT, PredictT>::findBestSplit(SplitCandidate &split,
+                                               size_t minLeafSize) {
 
-  std::vector<T> leftStats = makeEmptyStats();
-  std::vector<T> rightStats(getStats(split));
+  std::vector<StatsT> leftStats = makeEmptyStats();
+  std::vector<StatsT> rightStats(getStats(split));
 
-  const size_t N = split.end - split.start + 1;
-  if (N < 2 * minLeafSize)
+  const size_t N = split.numSamples;
+  const double W = split.nodeWeight;
+  if (N < 2 * minLeafSize || W <= 0.0)
     return false;
 
-  std::vector<T> foundLeftStats;
-  std::vector<T> foundRightStats;
+  std::vector<StatsT> foundLeftStats;
+  std::vector<StatsT> foundRightStats;
   double bestProxyImprovement = -std::numeric_limits<double>::infinity();
   bool found = false;
 
@@ -77,10 +112,11 @@ bool Splitter<T>::findBestSplit(SplitCandidate &split, size_t minLeafSize) {
     if (currValue <= prevValue + static_cast<float>(1e-7))
       continue;
 
+    const double Wl = intervalWeight(split.start, i - 1);
+    const double Wr = intervalWeight(i, split.end);
     const double leftScore = score(leftStats, split.start, i - 1);
     const double rightScore = score(rightStats, i, split.end);
-    const double proxyImprovement = -static_cast<double>(Nr) * rightScore -
-                                    static_cast<double>(Nl) * leftScore;
+    const double proxyImprovement = -Wr * rightScore - Wl * leftScore;
     if (proxyImprovement <= bestProxyImprovement)
       continue;
     found = true;
@@ -96,20 +132,25 @@ bool Splitter<T>::findBestSplit(SplitCandidate &split, size_t minLeafSize) {
 
     split.leftStart = split.start;
     split.leftEnd = i - 1;
+    split.leftNumSamples = Nl;
+    split.leftWeight = Wl;
     split.leftScore = leftScore;
     foundLeftStats = leftStats;
 
     split.rightStart = i;
     split.rightEnd = split.end;
+    split.rightNumSamples = Nr;
+    split.rightWeight = Wr;
     split.rightScore = rightScore;
     foundRightStats = rightStats;
 
     const double gain =
-        split.score -
-        (static_cast<double>(Nl) / static_cast<double>(N) * leftScore +
-         static_cast<double>(Nr) / static_cast<double>(N) * rightScore);
-    split.informationGain =
-        static_cast<double>(N) / static_cast<double>(X.n_cols) * gain;
+        split.score - (Wl / W * leftScore + Wr / W * rightScore);
+    const double weightScale =
+        totalSampleWeight() > 0.0 ? W / totalSampleWeight()
+                                  : static_cast<double>(N) /
+                                        static_cast<double>(X.n_cols);
+    split.informationGain = weightScale * gain;
   }
   if (found)
     childrenSplitStats[split.start][split.end] = {foundLeftStats,

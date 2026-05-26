@@ -3,13 +3,16 @@
 /**
  * @file WaveletTreeMAE.h
  * @brief Wavelet tree on discrete ranks for fast range medians and MAE contributions (used by ``AbsoluteErrorSplitter``).
+ *
+ * Traversal (``b``, ``countLE``, ``kth``) is by sample index/count; each node stores
+ * prefix sums of sample weight and of weight × value for range aggregates.
  */
 
 #include <armadillo>
 #include <memory>
 #include <vector>
 
-/** k-th smallest in [l,r] (0-based k) and sum of elements ≤ that value. */
+/** k-th smallest in [l,r] (0-based k) and weighted sum of y for values ≤ that order statistic. */
 struct QuantileResult {
     double value = 0.0;
     double sum_le = 0.0;
@@ -19,7 +22,7 @@ struct QuantileResult {
 
 struct QuantileStats {
     double median_val;
-    /** Sum of elements ≤ lower central value (even N) or ≤ median (odd N). */
+    /** Weighted sum of y for values ≤ lower central order statistic. */
     double sum_less_k;
     double sum_all;
     /** 0-based order index of that lower central element in the subrange. */
@@ -33,11 +36,8 @@ struct QuantileStats {
 struct WaveletRangeAgg;
 
 /**
- * Static wavelet tree on compressed ranks. Range order statistics and sum by
- * rank use O(log σ) walks (σ = alphabet size).
- *
- * Uses heap allocation: WaveletRangeAgg holds a unique_ptr root; each WNode
- * stores bitrate vectors and prefix sums plus unique_ptr children recursively.
+ * Static wavelet tree on compressed ranks. Range order statistics use O(log σ)
+ * rank walks; ``kth`` / ``countLE`` traverse by sample count.
  */
 class WaveletTreeMAE {
     int alphabet_size;
@@ -45,7 +45,9 @@ class WaveletTreeMAE {
     std::vector<float> unique_elements;
     arma::Row<float> orig_;
     std::vector<double> orig_value_;
-    std::vector<double> global_prefix_sums;
+    std::vector<double> orig_weight_;
+    std::vector<double> global_prefix_wy_;
+    std::vector<double> global_prefix_w_;
     std::unique_ptr<WaveletRangeAgg> range_agg_;
 
     int get_compressed_rank(float val) const;
@@ -53,13 +55,21 @@ class WaveletTreeMAE {
     int last_rank_strict_lt(double m) const;
     int last_rank_le(double m) const;
 
-    double mean_abs_error_log(int L, int R, double m) const;
+    double mean_abs_error(int L, int R, double m) const;
 
-    /** Inclusive 0-based indices within the built row. */
+    /** Smallest rank where cumulative weight in [L,R] exceeds @p half. */
+    int weightedMedianRank(int L, int R, double half) const;
+
+    double sumW(int l, int r) const;
+    double sumWLE(int l, int r, int kmax) const;
+    double sumWyLE(int l, int r, int kmax) const;
+
     bool range_ok(int l, int r) const;
 
 public:
-    explicit WaveletTreeMAE(const arma::Row<float> &arr);
+    /** @p weights must have the same length as @p arr. */
+    explicit WaveletTreeMAE(const arma::Row<float> &arr,
+                            const arma::Row<float> &weights);
     ~WaveletTreeMAE();
 
     WaveletTreeMAE(const WaveletTreeMAE &) = delete;
@@ -67,16 +77,13 @@ public:
     WaveletTreeMAE(WaveletTreeMAE &&) noexcept = default;
     WaveletTreeMAE &operator=(WaveletTreeMAE &&) noexcept = default;
 
-    /** Inclusive 0-based indices. */
+    /** Inclusive 0-based indices: ``sum(w * y)`` on ``[l,r]``. */
     double sum_all(int l, int r) const;
 
-    /** Inclusive 0-based [l,r], 0-based order index k in [0, N). sum_le = sum ≤ k-th. */
+    /** Inclusive 0-based [l,r], 0-based order index k in [0, N). */
     QuantileResult quantile(int l, int r, int k) const;
 
-    /**
-     * Inclusive 0-based [l, r]. Odd N: median at order index N/2; even N: average of
-     * order indices N/2-1 and N/2; sum_less_k is sum_le from quantile(..., N/2-1).
-     */
+    /** Weighted median and mean MAE on ``[l,r]`` (sklearn-style). */
     QuantileStats quantileStatsForMedian(int l, int r) const;
 
     double mae_from_quantile(int l, int r, int k) const;

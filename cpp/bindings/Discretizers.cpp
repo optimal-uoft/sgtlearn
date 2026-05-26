@@ -16,8 +16,8 @@
 #include <variant>
 
 #include "Splitters/AbsoluteErrorSplitter.h"
-#include "UnivariateClassificationDiscretizer.h"
-#include "UnivariateRegressionDiscretizer.h"
+#include "Discretizers/UnivariateClassificationDiscretizer.h"
+#include "Discretizers/UnivariateRegressionDiscretizer.h"
 
 namespace py = pybind11;
 
@@ -70,10 +70,29 @@ std::string normalize_regression_criterion(std::string s) {
   return s;
 }
 
+arma::Row<float> sampleWeightRowFromPy(const py::object &sample_weights,
+                                       arma::uword n_samples) {
+  if (sample_weights.is_none()) {
+    arma::Row<float> w(n_samples);
+    w.ones();
+    return w;
+  }
+  py::array_t<float> wcopy = py::array_t<float>::ensure(sample_weights);
+  if (wcopy.ndim() != 1)
+    throw std::invalid_argument("sample_weights must be a 1D numpy array");
+  const arma::Mat<float> w_mat = carma::arr_to_row<float>(wcopy, true);
+  if (w_mat.n_elem != n_samples)
+    throw std::invalid_argument(
+        "sample_weights length must match X.shape[0]");
+  arma::Row<float> w(w_mat.n_elem);
+  for (arma::uword i = 0; i < w_mat.n_elem; ++i)
+    w(i) = w_mat(i);
+  return w;
+}
+
 void validate_regression_criterion(const std::string &criterion) {
   if (criterion == "absolute_error" || criterion == "mae")
-    throw std::invalid_argument(
-        "criterion 'absolute_error' / 'mae' is not implemented yet");
+    return;
   if (criterion != "squared_error" && criterion != "friedman_mse")
     throw std::invalid_argument(
         "criterion must be 'squared_error', 'mse' (alias), or "
@@ -112,7 +131,7 @@ public:
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
              const py::array_t<size_t> &y, size_t numClasses,
              size_t minLeafSize, double minGainSplit, size_t maxDepth,
-             size_t maxLeafNodes) {
+             size_t maxLeafNodes, py::object sample_weights = py::none()) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
@@ -133,11 +152,14 @@ public:
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
+    const arma::Row<float> wRow =
+        sampleWeightRowFromPy(sample_weights, xArma.n_cols);
+
     arma::uvec featuresMut = featuresArma;
     std::visit(
         [&](auto &d) {
           d.Train(xArma, featuresMut, yArma, numClasses, minLeafSize,
-                  minGainSplit, maxDepth, maxLeafNodes);
+                  minGainSplit, maxDepth, maxLeafNodes, wRow);
         },
         impl_);
   }
@@ -152,6 +174,17 @@ public:
     arma::Row<size_t> bins;
     std::visit([&](auto &d) { d.transform(xArma, bins); }, impl_);
     return row_to_numpy_1d(bins);
+  }
+
+  py::list getLeafNodeWeights() {
+    return std::visit(
+        [](auto &d) {
+          py::list out;
+          for (double v : d.getLeafNodeWeights())
+            out.append(v);
+          return out;
+        },
+        impl_);
   }
 
   py::list getInSampleDiscretizations() {
@@ -201,7 +234,8 @@ public:
 
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
              const py::array_t<float> &y, size_t minLeafSize,
-             double minGainSplit, size_t maxDepth, size_t maxLeafNodes) {
+             double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+             py::object sample_weights = py::none()) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
     if (Xcopy.ndim() != 2)
       throw std::invalid_argument(
@@ -222,11 +256,14 @@ public:
     if (yArma.n_elem != xArma.n_cols)
       throw std::invalid_argument("y length must match X.shape[0]");
 
+    const arma::Row<float> wRow =
+        sampleWeightRowFromPy(sample_weights, xArma.n_cols);
+
     arma::uvec featuresMut = featuresArma;
     std::visit(
         [&](auto &d) {
           d.Train(xArma, featuresMut, yArma, minLeafSize, minGainSplit, maxDepth,
-                  maxLeafNodes);
+                  maxLeafNodes, wRow);
         },
         impl_);
   }
@@ -241,6 +278,17 @@ public:
     arma::Row<size_t> bins;
     std::visit([&](auto &d) { d.transform(xArma, bins); }, impl_);
     return row_to_numpy_1d(bins);
+  }
+
+  py::list getLeafNodeWeights() {
+    return std::visit(
+        [](auto &d) {
+          py::list out;
+          for (double v : d.getLeafNodeWeights())
+            out.append(v);
+          return out;
+        },
+        impl_);
   }
 
   py::list getInSampleDiscretizations() {
@@ -277,7 +325,10 @@ PYBIND11_MODULE(Discretizers, m) {
       .def("Train", &UnivariateClassificationDiscretizerPy::Train, py::arg("X"),
            py::arg("features"), py::arg("y"), py::arg("numClasses"),
            py::arg("minLeafSize") = 1, py::arg("minGainSplit") = 1e-7,
-           py::arg("maxDepth") = 0, py::arg("maxLeafNodes") = 0)
+           py::arg("maxDepth") = 0,            py::arg("maxLeafNodes") = 0,
+           py::arg("sample_weight") = py::none())
+      .def("getLeafNodeWeights",
+           &UnivariateClassificationDiscretizerPy::getLeafNodeWeights)
       .def("transform", &UnivariateClassificationDiscretizerPy::transform,
            py::arg("X"))
       .def("getInSampleDiscretizations",
@@ -294,7 +345,9 @@ PYBIND11_MODULE(Discretizers, m) {
       .def("Train", &UnivariateRegressionDiscretizerPy::Train, py::arg("X"),
            py::arg("features"), py::arg("y"), py::arg("minLeafSize") = 1,
            py::arg("minGainSplit") = 1e-7, py::arg("maxDepth") = 0,
-           py::arg("maxLeafNodes") = 0)
+           py::arg("maxLeafNodes") = 0, py::arg("sample_weight") = py::none())
+      .def("getLeafNodeWeights",
+           &UnivariateRegressionDiscretizerPy::getLeafNodeWeights)
       .def("transform", &UnivariateRegressionDiscretizerPy::transform,
            py::arg("X"))
       .def("getInSampleDiscretizations",

@@ -9,18 +9,28 @@
 
 namespace Criterion {
 
-/** Multiclass Shannon entropy from histogram counts. */
-double entropy(const std::vector<size_t> &classCounts, size_t N);
+/** Multiclass Shannon entropy from weighted histogram counts. */
+double entropy(const std::vector<double> &classCounts, double totalWeight);
 
-/** Multiclass Gini impurity from histogram counts. */
-double gini(const std::vector<size_t> &classCounts, size_t N);
+/** Multiclass Gini impurity from weighted histogram counts. */
+double gini(const std::vector<double> &classCounts, double totalWeight);
 
 /**
- * @param yPowerSum sum of y^(i + 1) accross all samples in set
- * @param N number of samples in set
- * @return MSE
+ * @param yPowerSum weighted sum of y and y^2 (index 0 and 1).
+ * @param totalWeight sum of sample weights in the set.
+ * @return weighted MSE
  */
-double squaredError(const std::vector<float> &yPowerSum, size_t N);
+double squaredError(const std::vector<double> &yPowerSum, double totalWeight);
+
+/** Weighted median and mean MAE (sklearn ``precompute_absolute_errors``). */
+struct AbsoluteErrorStats {
+  double median = 0.0;
+  double mae = 0.0;
+  double totalWeight = 0.0;
+};
+
+AbsoluteErrorStats absoluteError(const std::vector<float> &ys,
+                                 const std::vector<float> &weights);
 
 double gainAndHessian(const std::vector<float> &derivatives, double lambda);
 } // namespace Criterion
