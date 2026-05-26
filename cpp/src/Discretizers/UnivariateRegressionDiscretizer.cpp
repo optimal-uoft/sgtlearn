@@ -21,8 +21,8 @@ arma::frowvec sortedSampleWeights(const arma::uvec &sortedOrder,
 
 } // namespace
 
-template <TRegressionSplitter Tsplitter>
-void UnivariateRegressionDiscretizer<Tsplitter>::Train(
+template <TRegressionSplitter TSplitter>
+void UnivariateRegressionDiscretizer<TSplitter>::Train(
     const arma::fmat &X, arma::uvec &features, const arma::Row<float> &y,
     size_t minLeafSize, double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
     const arma::Row<float> &sampleWeights) {
@@ -30,21 +30,21 @@ void UnivariateRegressionDiscretizer<Tsplitter>::Train(
     throw std::invalid_argument("y length must equal X.n_cols");
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
-  feature = features(0);
-  arma::uvec sortedOrder = arma::sort_index(X.row(feature));
+  this->feature = features(0);
+  arma::uvec sortedOrder = arma::sort_index(X.row(this->feature));
   arma::Mat<float> sortedY(1, sortedOrder.n_elem);
   for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
     sortedY(0, i) = y(sortedOrder(i));
   arma::fmat XSorted = X.cols(sortedOrder);
-  arma::frowvec sortedX = XSorted.row(feature);
+  arma::frowvec sortedX = XSorted.row(this->feature);
   arma::frowvec sortedWeights =
       sortedSampleWeights(sortedOrder, sampleWeights);
 
-  Tsplitter splitter(sortedX, sortedWeights, sortedY);
-  UnivariateDiscretizer<float, float>::buildTree(splitter, minLeafSize,
-                                                 minGainSplit, maxDepth,
-                                                 maxLeafNodes);
-  UnivariateDiscretizer<float, float>::processLeaves(sortedOrder, splitter);
+  TSplitter splitter(sortedX, sortedWeights, sortedY);
+  UnivariateDiscretizer<double, float>::buildTree(splitter, minLeafSize,
+                                                  minGainSplit, maxDepth,
+                                                  maxLeafNodes);
+  UnivariateDiscretizer<double, float>::processLeaves(sortedOrder, splitter);
 }
 
 template class UnivariateRegressionDiscretizer<SquaredErrorSplitter>;

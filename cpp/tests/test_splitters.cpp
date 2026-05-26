@@ -127,9 +127,9 @@ TEST_CASE("SquaredErrorSplitter makeRoot predict and score") {
   REQUIRE(root.numSamples == 3);
   REQUIRE_THAT(root.nodeWeight, WithinAbs(3.0, kEps));
 
-  std::vector<float> stats{{6.F, 14.F}};
+  std::vector<double> stats{{6.0, 14.0}};
   REQUIRE_THAT(splitter.score(stats, 0, 2), WithinAbs(2.0, kEps));
-  std::vector<float> one_point{{3.F, 9.F}};
+  std::vector<double> one_point{{3.0, 9.0}};
   REQUIRE_THAT(splitter.score(one_point, 0, 0), WithinAbs(0.0, kEps));
 }
 

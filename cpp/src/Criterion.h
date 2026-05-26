@@ -20,7 +20,7 @@ double gini(const std::vector<double> &classCounts, double totalWeight);
  * @param totalWeight sum of sample weights in the set.
  * @return weighted MSE
  */
-double squaredError(const std::vector<float> &yPowerSum, double totalWeight);
+double squaredError(const std::vector<double> &yPowerSum, double totalWeight);
 
 /** Weighted median and mean MAE (sklearn ``precompute_absolute_errors``). */
 struct AbsoluteErrorStats {

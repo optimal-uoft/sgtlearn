@@ -167,8 +167,8 @@ private:
   double impurityAtNode(const arma::Row<float> &y,
                         const ShapeFunctionNode &node) const;
 
-  std::vector<float> aggregateYSquaredStats(const ShapeFunctionNode &node,
-                                            const arma::Row<float> &y) const;
+  std::vector<double> aggregateYSquaredStats(const ShapeFunctionNode &node,
+                                             const arma::Row<float> &y) const;
 
   arma::Row<float> fitSampleWeights_;
 };

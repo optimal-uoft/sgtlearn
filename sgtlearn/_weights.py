@@ -22,8 +22,7 @@ def _validate_sample_weight_array(sw: np.ndarray, n_samples: int) -> None:
     if np.any(sw < 0):
         raise ValueError("sample_weight must be non-negative")
     if not np.any(sw > 0):
-        raise ValueError(
-            "sample_weight must contain at least one positive value")
+        raise ValueError("sample_weight must contain at least one positive value")
 
 
 def normalize_sample_weight(

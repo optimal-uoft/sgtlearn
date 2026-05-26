@@ -33,7 +33,7 @@ float AbsoluteErrorSplitter::predict(const SplitCandidate &split) {
   return getMedianQuantileStats(split.start, split.end).median_val;
 }
 
-double AbsoluteErrorSplitter::score(const std::vector<float> &stats, size_t l,
+double AbsoluteErrorSplitter::score(const std::vector<double> &stats, size_t l,
                                     size_t r) {
   (void)stats;
   return getMedianQuantileStats(l, r).mae();
@@ -43,14 +43,14 @@ double AbsoluteErrorSplitter::score(const SplitCandidate &split) {
   return score(makeEmptyStats(), split.start, split.end);
 }
 
-const std::vector<float> &
+const std::vector<double> &
 AbsoluteErrorSplitter::getStats(const SplitCandidate &split) {
   (void)split;
   return empty_stats_cache_;
 }
 
-void AbsoluteErrorSplitter::moveSample(std::vector<float> &rightStats,
-                                       std::vector<float> &leftStats,
+void AbsoluteErrorSplitter::moveSample(std::vector<double> &rightStats,
+                                       std::vector<double> &leftStats,
                                        size_t idx) {
   (void)rightStats;
   (void)leftStats;

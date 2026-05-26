@@ -19,7 +19,7 @@ public:
                      const arma::Row<float> &sampleWeights) = 0;
 
   virtual size_t numLeaves() const = 0;
-  virtual std::vector<std::vector<float>> &leafStats() = 0;
+  virtual std::vector<std::vector<double>> &leafStats() = 0;
   virtual std::vector<size_t> &leafNumSamples() = 0;
   virtual std::vector<double> &leafNodeWeights() = 0;
   virtual const std::vector<double> &thresholds() const = 0;
@@ -38,9 +38,10 @@ public:
   }
 
   size_t numLeaves() const override { return impl_.numLeaves; }
-  std::vector<std::vector<float>> &leafStats() override {
+  std::vector<std::vector<double>> &leafStats() override {
     return impl_.getLeafStats();
   }
+
   std::vector<size_t> &leafNumSamples() override {
     return impl_.getLeafNumSamples();
   }

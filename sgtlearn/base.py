@@ -48,6 +48,7 @@ class _IdentityLabelEncoder(LabelEncoder):
         return super().inverse_transform(y)
 
 
+# TODO: flesh out as abstract class so export methods can have a proper type instead of Any
 class BaseShapeCART(BaseEstimator):
     """Shared sklearn ``BaseEstimator`` hook point for shape-generalized trees.
 
@@ -255,6 +256,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             if y_enc.shape[0] != X.shape[0]:
                 raise ValueError("X and y must have the same number of samples.")
 
+        sw: Optional[np.ndarray] = None
         if self.class_weight is not None:
             sw = effective_sample_weight_classification(
                 sample_weight, y_enc, self.class_weight, self.classes_

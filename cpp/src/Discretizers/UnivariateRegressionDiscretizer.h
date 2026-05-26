@@ -6,19 +6,19 @@
  */
 
 #include "Discretizers/UnivariateDiscretizer.h"
-#include "Splitters/Splitter.h"
+#include "Splitters/AbsoluteErrorSplitter.h"
 #include "Splitters/SquaredErrorSplitter.h"
 
 #include <armadillo>
 
 template <typename T>
 concept TRegressionSplitter =
-    std::derived_from<T, Splitter<float, float>> &&
-    std::constructible_from<T, arma::frowvec &, arma::frowvec &, arma::Mat<float> &>;
+    std::constructible_from<T, arma::frowvec &, arma::frowvec &,
+                            arma::Mat<float> &>;
 
-template <TRegressionSplitter = SquaredErrorSplitter>
+template <TRegressionSplitter TSplitter>
 class UnivariateRegressionDiscretizer
-    : public UnivariateDiscretizer<float, float> {
+    : public UnivariateDiscretizer<double, float> {
 public:
   ~UnivariateRegressionDiscretizer() = default;
 

@@ -39,12 +39,14 @@ makeFloatSplitter(LearningCriterion criterion, arma::frowvec &X,
                   double gainHessianLambda) {
   switch (criterion) {
   case LearningCriterion::SquaredError:
-    return std::make_unique<SquaredErrorSplitter>(X, sampleWeights, y);
+    throw std::invalid_argument(
+        "makeFloatSplitter: SquaredError path uses regression discretizer directly");
   case LearningCriterion::GainHessian:
     return std::make_unique<GainHessianSplitter>(X, sampleWeights, y,
                                                  gainHessianLambda);
   case LearningCriterion::AbsoluteError:
-    return std::make_unique<AbsoluteErrorSplitter>(X, sampleWeights, y);
+    throw std::invalid_argument(
+        "makeFloatSplitter: AbsoluteError path uses regression discretizer directly");
   case LearningCriterion::Entropy:
   case LearningCriterion::Gini:
     throw std::invalid_argument(

@@ -28,6 +28,7 @@ std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
  */
 std::unique_ptr<BranchAssignment> makeRegressionBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<float>> &leafFloatData,
+    size_t numPartitions, std::vector<std::vector<double>> &leafRegressionStats,
     std::vector<double> &leafWeights, double gainHessianLambda = 1.0,
-    std::vector<std::vector<float>> *leafSampleWeights = nullptr);
+    std::vector<std::vector<float>> *maeLeafYs = nullptr,
+    std::vector<std::vector<float>> *maeLeafWs = nullptr);

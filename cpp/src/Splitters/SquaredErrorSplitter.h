@@ -7,7 +7,7 @@
 
 #include "Splitter.h"
 
-class SquaredErrorSplitter : public Splitter<float, float> {
+class SquaredErrorSplitter : public Splitter<double, float> {
 public:
   ~SquaredErrorSplitter() override = default;
   SquaredErrorSplitter(arma::frowvec &X, arma::frowvec &sampleWeights,
@@ -19,11 +19,11 @@ public:
     return score(getStats(split), split.start, split.end);
   }
 
-  double score(const std::vector<float> &stats, size_t l, size_t r) override;
+  double score(const std::vector<double> &stats, size_t l, size_t r) override;
 
 protected:
   const arma::Mat<float> &targets;
 
-  void moveSample(std::vector<float> &rightStats, std::vector<float> &leftStats,
+  void moveSample(std::vector<double> &rightStats, std::vector<double> &leftStats,
                   size_t idx) override;
 };

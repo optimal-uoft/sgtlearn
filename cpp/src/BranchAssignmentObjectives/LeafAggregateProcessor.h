@@ -44,9 +44,9 @@ public:
   }
 };
 
-class SquaredErrorProcessor final : public ILeafAggregateProcessor<float> {
+class SquaredErrorProcessor final : public ILeafAggregateProcessor<double> {
 public:
-  double compute(const std::vector<float> &aggregatedStats,
+  double compute(const std::vector<double> &aggregatedStats,
                  double totalWeight) const override {
     return Criterion::squaredError(aggregatedStats, totalWeight);
   }

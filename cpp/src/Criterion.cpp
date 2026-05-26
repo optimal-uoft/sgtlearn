@@ -36,7 +36,7 @@ double Criterion::gini(const std::vector<double> &classCounts,
                       });
   return 1.0 - sumP2;
 }
-double Criterion::squaredError(const std::vector<float> &yPowerSum,
+double Criterion::squaredError(const std::vector<double> &yPowerSum,
                                double totalWeight) {
   if (totalWeight <= 0.0)
     return 0;

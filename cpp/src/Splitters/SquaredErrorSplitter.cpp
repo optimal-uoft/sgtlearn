@@ -9,8 +9,8 @@
 SplitCandidate SquaredErrorSplitter::makeRoot() {
   auto stats = makeEmptyStats();
   for (size_t idx = 0; idx < targets.n_cols; idx++) {
-    const float v = targets(0, idx);
-    const float w = sampleWeights(idx);
+    const double v = static_cast<double>(targets(0, idx));
+    const double w = static_cast<double>(sampleWeights(idx));
     stats[0] += w * v;
     stats[1] += w * v * v;
   }
@@ -33,18 +33,18 @@ float SquaredErrorSplitter::predict(const SplitCandidate &split) {
     throw std::runtime_error(
         "Not possible to have a partition of weight 0 for a decision tree");
 
-  return getStats(split)[0] / static_cast<float>(W);
+  return static_cast<float>(getStats(split)[0] / W);
 }
 
-double SquaredErrorSplitter::score(const std::vector<float> &stats, size_t l,
+double SquaredErrorSplitter::score(const std::vector<double> &stats, size_t l,
                                    size_t r) {
   return Criterion::squaredError(stats, intervalWeight(l, r));
 }
-void SquaredErrorSplitter::moveSample(std::vector<float> &rightStats,
-                                      std::vector<float> &leftStats,
+void SquaredErrorSplitter::moveSample(std::vector<double> &rightStats,
+                                      std::vector<double> &leftStats,
                                       size_t idx) {
-  const float v = targets(0, idx);
-  const float w = sampleWeights(idx);
+  const double v = static_cast<double>(targets(0, idx));
+  const double w = static_cast<double>(sampleWeights(idx));
   rightStats[0] -= w * v;
   leftStats[0] += w * v;
   rightStats[1] -= w * v * v;
