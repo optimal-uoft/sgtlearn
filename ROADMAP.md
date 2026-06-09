@@ -2,11 +2,11 @@
 
 
 ## v0.1.0
-- [ ] ShapeCART Classifier & Regressor
-- [ ] Support for higher branching factors (SGT$_K$)
-- [ ] Basic Plotting via `matplotlib`
-- [ ] Random Forest Ensembling for ShapeCART and Shape$_K$CART
-- [ ] Weighted samples for all SGTs
+- [x] ShapeCART Classifier & Regressor
+- [x] Support for higher branching factors (SGT$_K$)
+- [x] Basic Plotting via `matplotlib`
+- [x] Random Forest Ensembling for ShapeCART and Shape$_K$CART
+- [x] Weighted samples for all SGTs
 
 ## v0.1.1
 - [ ] Superset branching on categorical features
