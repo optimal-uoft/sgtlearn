@@ -90,11 +90,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Minimum number of training samples required at an outer leaf.
     min_impurity_decrease : float, default=0.0
         Minimum impurity decrease required to accept an outer split.
-    inner_max_depth : int, default=1
+    inner_max_depth : int, default=3
         Maximum depth of the *inner* tree that defines the shape function on
         each feature. ``1`` corresponds to a standard CART threshold split;
         larger values produce richer shapes.
-    inner_max_leaf_nodes : int, default=32
+    inner_max_leaf_nodes : int, default=8
         Maximum number of bins (leaves) the inner tree may form on a feature.
     inner_min_samples_leaf : int, default=1
         Minimum samples per inner-tree leaf.
@@ -172,8 +172,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         max_leaf_nodes: Optional[int] = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
-        inner_max_depth: int = 1,
-        inner_max_leaf_nodes: int = 32,
+        inner_max_depth: int = 3,
+        inner_max_leaf_nodes: int = 8,
         inner_min_samples_leaf: int = 1,
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
@@ -386,10 +386,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Minimum number of samples required at an outer leaf.
     min_impurity_decrease : float, default=0.0
         Minimum impurity decrease required to accept an outer split.
-    inner_max_depth : int, default=1
+    inner_max_depth : int, default=3
         Maximum depth of the inner tree defining the shape function on each
         feature. ``1`` reduces to a standard threshold split.
-    inner_max_leaf_nodes : int, default=32
+    inner_max_leaf_nodes : int, default=8
         Maximum number of bins (leaves) the inner tree may form on a feature.
     inner_min_samples_leaf : int, default=1
         Minimum samples per inner-tree leaf.
@@ -456,8 +456,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         max_leaf_nodes: Optional[int] = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
-        inner_max_depth: int = 1,
-        inner_max_leaf_nodes: int = 32,
+        inner_max_depth: int = 3,
+        inner_max_leaf_nodes: int = 8,
         inner_min_samples_leaf: int = 1,
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
