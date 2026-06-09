@@ -11,6 +11,12 @@
   - **SGT<sub>K</sub>:** Multi-way branching generalization.
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
+> [!NOTE]
+> This codebase is an efficient, but working implementation of the algorithms in the paper "Empowering Decision Trees via Shape Function Branching". Please refer to the [ROADMAP](ROADMAP.md) for a detailed list of features that are currently implemented and those that are planned for future releases. For the canonical code base for the paper, please refer to https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions. Features in the paper that are not yet implemented in this codebase include: 
+> * Bivariate shape functions (Shape$^2$CART) + Higher branching factors for bivariate splits (Shape$^2$SGT$_K$)
+> * TAO Refinement for SGTs and S$^2$GTs
+> * Visualization for bivariate splits (ex. contour plots)
+
 ## Installation
 
 ```bash
@@ -24,6 +30,7 @@ source instead, see [Developer Setup](#developer-setup).
 ## Quick Start
 
 ```python
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sgtlearn import SGTClassifier, plot_tree, make_plus
 
@@ -35,7 +42,9 @@ model = SGTClassifier(max_depth=4, random_state=42)
 model.fit(X_train, y_train)
 
 plot_tree(model, X=X_train)
+plt.show()
 ```
+
 
 ## Developer Setup
 
@@ -120,7 +129,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 Contributions are welcome. Please feel free to submit a pull request.
 
 ## Citation
-For the canonical code base for the paper "Empowering Decision Trees via Shape Function Branching", please refer to https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions. 
 
 If you use this package in your research, please cite:
 
