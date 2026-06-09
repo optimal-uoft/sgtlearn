@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "sgtlearn"
-version = "v0.1.0a5"
+version = "0.1.0"
 description = "Shape Generalized Trees learning library"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,6 +26,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "pybind11-stubgen", "ruff", "black", "mypy"]
+
+# Build deps injected when installing with --no-build-isolation (uv only).
+# Mirrors [build-system].requires so repeated editable rebuilds skip isolation.
+[tool.uv.extra-build-dependencies]
+sgtlearn = ["scikit-build-core>=0.9", "pybind11", "numpy", "pybind11-stubgen"]
 
 
 [tool.scikit-build]

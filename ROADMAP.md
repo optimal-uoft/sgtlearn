@@ -1,22 +1,20 @@
 # Release Roadmap
 
 
-## v0.1.0: Initial Release
+## v0.1.0
 - [ ] ShapeCART Classifier & Regressor
 - [ ] Support for higher branching factors (SGT$_K$)
-- [ ] Plotting
+- [ ] Basic Plotting via `matplotlib`
 - [ ] Random Forest Ensembling for ShapeCART and Shape$_K$CART
-- [ ] Weighted samples
+- [ ] Weighted samples for all SGTs
 
-## v0.1.1: Categorical Features
-- [ ] Superset branching
+## v0.1.1
+- [ ] Superset branching on categorical features
 - [ ] multioutput support
-
-## v0.2.0: S$^2$GT and TAO
-- [ ] Shape$^2$CART
-- [ ] Shape$^2$CART Random Forest Ensembling
+- [ ] More plotting options (ex. exporting to Graphviz)
+- [ ] Feature importances matching scikit-learn's API for SGTs and SGT$_K$
 - [ ] Adding TAO Refinement
-Estimated Release Date: End of June
 
-## v0.3.0: Boosting
-- [ ] SGT Boosting
+## v0.2.0
+- [ ] Shape$^2$CART
+- [ ] Shape$^2$CART Random Forest Ensembling  

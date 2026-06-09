@@ -11,10 +11,19 @@
   - **SGT<sub>K</sub>:** Multi-way branching generalization.
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
+## Installation
+
+```bash
+pip install sgtlearn
+```
+
+Wheels are published for CPython 3.11–3.14 on Linux, macOS, and Windows
+(x86_64 + arm64); no compiler is needed for a binary install. To build from
+source instead, see [Developer Setup](#developer-setup).
+
 ## Quick Start
 
 ```python
-from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sgtlearn import SGTClassifier, plot_tree, make_plus
 
@@ -31,23 +40,35 @@ plot_tree(model, X=X_train)
 ## Developer Setup
 
 Use a **project-local virtual environment** (`.venv`) so Python, pytest, and
-scikit-learn stay isolated and reproducible:
+scikit-learn stay isolated and reproducible. Pick one of the paths below
+(`uv` is recommended). All require **Python ≥ 3.11**.
+
+### Path 1 — `uv` (recommended)
+
+`uv` provisions a hermetic CPython and resolves the dev extras in one step:
 
 ```bash
-# Requires Python >= 3.11
+uv sync --all-extras
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+```
+
+### Path 2 — `pip` + `venv` (editable)
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -e ".[dev]"
 ```
+
 The editable install builds the C++ extensions via scikit-build-core and
 installs the `sgtlearn` package plus native modules into `.venv`.
 
-Alternatively, one can use `uv` 
+### Path 3 — `pip` non-editable (into the active environment)
 
 ```bash
-uv sync --all-extras
-source .venv/bin/activate
+pip install .
+pip install ".[dev]"   # dev extras (pytest, scikit-learn) only if needed
 ```
 
 > **Anaconda users:** Do not bootstrap the venv from an Anaconda Python.
@@ -56,14 +77,6 @@ source .venv/bin/activate
 > `import sgtlearn` fails with `ImportError: GLIBCXX_3.4.NN not found`. Use a
 > non-Anaconda Python — e.g. `uv venv --python 3.12 .venv` (downloads a
 > hermetic CPython), `pyenv`, or your distro's `python3`.
-
-
-For a **non-editable** install into the active environment only:
-
-```bash
-pip install .
-pip install ".[dev]"   # dev extras (pytest, scikit-learn) only if needed
-```
 
 ## Build Workflow (scikit-build + CMake)
 
@@ -112,11 +125,13 @@ For the canonical code base for the paper "Empowering Decision Trees via Shape F
 If you use this package in your research, please cite:
 
 ```text
-@inproceedings{upadhyaempowering,
+@article{upadhya2026empowering,
   title={Empowering Decision Trees via Shape Function Branching},
   author={Upadhya, Nakul and Cohen, Eldan},
-  booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
-  year={2025}
+  journal={Advances in Neural Information Processing Systems},
+  volume={38},
+  pages={122263--122308},
+  year={2026}
 }
 ```
 
