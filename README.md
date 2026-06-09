@@ -11,6 +11,24 @@
   - **SGT<sub>K</sub>:** Multi-way branching generalization.
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
+
+## Quick Start
+
+```python
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sgtlearn import SGTClassifier, plot_tree, make_plus
+
+X, y = make_plus(n_samples=1500, grid=3, margin=0.07, random_state=42)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = SGTClassifier(max_depth=4, random_state=42)
+model.fit(X_train, y_train)
+
+plot_tree(model, X=X_train)
+```
+
 ## Developer Setup
 
 Use a **project-local virtual environment** (`.venv`) so Python, pytest, and
@@ -79,23 +97,6 @@ Example (build C++ tests for one install):
 
 ```bash
 pip install . --config-settings=cmake.args="-DSGTLEARN_BUILD_TESTS=ON"
-```
-
-
-## Quick Start
-
-```python
-from sklearn.datasets import make_classification
-from sklearn.model_selection import train_test_split
-import sgtlearn
-
-X, y = make_classification(
-    n_samples=500,
-)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-model = sgtlearn.SGTClassifier(max_depth=4, random_state=42)
-model.fit(X_train, y_train)
 ```
 
 ## License
