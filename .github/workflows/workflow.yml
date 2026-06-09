@@ -144,7 +144,7 @@ jobs:
         with:
           name: sdist
           path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@release/v2
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
@@ -169,4 +169,4 @@ jobs:
         with:
           name: sdist
           path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@release/v2
