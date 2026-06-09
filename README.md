@@ -11,7 +11,6 @@
   - **SGT<sub>K</sub>:** Multi-way branching generalization.
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
-
 ## Quick Start
 
 ```python
@@ -108,6 +107,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 Contributions are welcome. Please feel free to submit a pull request.
 
 ## Citation
+For the canonical code base for the paper "Empowering Decision Trees via Shape Function Branching", please refer to https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions. 
 
 If you use this package in your research, please cite:
 
