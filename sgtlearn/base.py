@@ -128,7 +128,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     Attributes
     ----------
-    classes_ : ndarray of shape (n_classes_,)
+    classes_ : ndarray of shape (n_classes,)
         Unique class labels observed during :meth:`fit`, in the order used by
         :meth:`predict_proba` columns.
     n_classes_ : int
