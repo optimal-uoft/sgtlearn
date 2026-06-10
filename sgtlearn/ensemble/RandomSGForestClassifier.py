@@ -71,7 +71,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     ----------
     estimators_ : list of SGTClassifier
         The collection of fitted base estimators.
-    classes_ : ndarray of shape (n_classes_,)
+    classes_ : ndarray of shape (n_classes,)
         Class labels in original training label space.
     n_classes_ : int
         Number of classes seen during :meth:`fit`.

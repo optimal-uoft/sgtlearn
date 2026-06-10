@@ -1,0 +1,23 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html
+
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: false
+
+# Docs import sgtlearn from source with the native C++ extension mocked
+# (see autodoc_mock_imports in docs/conf.py), so no compiler is needed.
+python:
+  install:
+    - requirements: docs/requirements.txt
+
+formats:
+  - pdf
+  - htmlzip
