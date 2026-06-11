@@ -45,7 +45,7 @@ plot_tree(model, X=X_train)
 plt.show()
 ```
 
-
+Read the full docs here: https://sgtlearn.readthedocs.io/en/latest/index.html 
 ## Developer Setup
 
 Use a **project-local virtual environment** (`.venv`) so Python, pytest, and
