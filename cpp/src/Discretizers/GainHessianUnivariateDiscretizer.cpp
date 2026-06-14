@@ -3,6 +3,8 @@
  * @brief Training implementation delegating to ``GainHessianSplitter``.
  */
 
+#include "algorithms/missing_values.h"
+
 #include "Discretizers/GainHessianUnivariateDiscretizer.h"
 
 #include "Splitters/GainHessianSplitter.h"
@@ -41,7 +43,7 @@ void GainHessianUnivariateDiscretizer::Train(
     throw std::invalid_argument("features(0) must be < X.n_rows");
 
   feature = features(0);
-  arma::uvec sortedOrder = arma::sort_index(X.row(feature));
+  arma::uvec sortedOrder = missing_values::sort_index_finite_first(X.row(feature));
   arma::fmat sortedY = y.cols(sortedOrder);
   arma::fmat XSorted = X.cols(sortedOrder);
   arma::frowvec sortedX = XSorted.row(feature);

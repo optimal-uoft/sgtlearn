@@ -3,6 +3,7 @@
  * @brief Explicit template instantiations for squared-error and MAE regression discretizers.
  */
 
+#include "algorithms/missing_values.h"
 #include "Discretizers/UnivariateRegressionDiscretizer.h"
 #include "Splitters/AbsoluteErrorSplitter.h"
 
@@ -31,7 +32,8 @@ void UnivariateRegressionDiscretizer<TSplitter>::Train(
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
   this->feature = features(0);
-  arma::uvec sortedOrder = arma::sort_index(X.row(this->feature));
+  arma::uvec sortedOrder =
+      missing_values::sort_index_finite_first(X.row(this->feature));
   arma::Mat<float> sortedY(1, sortedOrder.n_elem);
   for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
     sortedY(0, i) = y(sortedOrder(i));

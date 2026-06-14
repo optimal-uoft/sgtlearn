@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 /**
  * @file Estimators/ShapeFunctionNode.h
  * @brief One node in a shape-generalized / shape-function tree: routing, fit
@@ -80,6 +82,8 @@ struct ShapeFunctionNode {
   size_t routeFeatureValueToPartition(float featureValue) const {
     if (binToPartition.empty())
       return 0;
+    if (!std::isfinite(static_cast<double>(featureValue)))
+      return binToPartition.back();
     const auto it = std::lower_bound(innerThresholds.begin(),
                                      innerThresholds.end(), featureValue);
     size_t bin = static_cast<size_t>(it - innerThresholds.begin());

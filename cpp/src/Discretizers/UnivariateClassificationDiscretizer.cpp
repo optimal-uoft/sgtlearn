@@ -3,6 +3,7 @@
  * @brief Explicit template instantiations for Gini and entropy classification discretizers.
  */
 
+#include "algorithms/missing_values.h"
 #include "Discretizers/UnivariateClassificationDiscretizer.h"
 #include "Splitters/EntropySplitter.h"
 
@@ -35,7 +36,7 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
   feature = features(0);
-  arma::uvec sortedOrder = arma::sort_index(X.row(feature));
+  arma::uvec sortedOrder = missing_values::sort_index_finite_first(X.row(feature));
   arma::Mat<size_t> sortedY(1, sortedOrder.n_elem);
   for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
     sortedY(0, i) = y(sortedOrder(i));

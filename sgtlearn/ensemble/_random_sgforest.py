@@ -204,7 +204,7 @@ class RandomSGForest(BaseEstimator, ABC):
     def _check_predict_X(self, X: np.ndarray) -> np.ndarray:
         check_is_fitted(self, attributes=("estimators_",))
         X = check_array(
-            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite="allow-nan"
         )
         if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
             raise ValueError(

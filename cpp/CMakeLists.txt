@@ -43,6 +43,7 @@ endif ()
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
         src/algorithms/frontiers.h
+        src/algorithms/missing_values.h
         src/Discretizers/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
         src/Domain/LearningCriterion.h
@@ -191,6 +192,7 @@ if (SGTLEARN_BUILD_TESTS)
             tests/test_wavelet_tree_mae.cpp
             tests/test_splitters.cpp
             tests/test_branch_assignment.cpp
+            tests/test_missing_values.cpp
     )
 
     target_link_libraries(cpp_tests PRIVATE

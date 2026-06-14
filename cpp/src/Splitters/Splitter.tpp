@@ -98,6 +98,10 @@ bool Splitter<StatsT, PredictT>::findBestSplit(SplitCandidate &split,
   bool found = false;
 
   for (size_t i = split.start + 1; i <= split.end; ++i) {
+    const float currValue = X(i);
+    if (!missing_values::is_finite(currValue))
+      break;
+
     moveSample(rightStats, leftStats, i - 1);
 
     const size_t Nl = i - split.start;
@@ -107,8 +111,9 @@ bool Splitter<StatsT, PredictT>::findBestSplit(SplitCandidate &split,
     if (Nr < minLeafSize)
       break;
 
-    const float currValue = X(i);
     const float prevValue = X(i - 1);
+    if (!missing_values::is_finite(prevValue))
+      continue;
     if (currValue <= prevValue + static_cast<float>(1e-7))
       continue;
 

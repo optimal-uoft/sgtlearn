@@ -4,6 +4,7 @@
  */
 
 #include "../algorithms/TreeBuilder.h"
+#include "../algorithms/missing_values.h"
 
 template <typename StatsT, typename PredictT>
 void UnivariateDiscretizer<StatsT, PredictT>::processLeaves(
@@ -67,8 +68,8 @@ void UnivariateDiscretizer<StatsT, PredictT>::transform(const arma::fmat &X,
   binLoc = arma::Row<size_t>(X.n_cols);
   const arma::frowvec featureRow = X.row(feature);
   for (size_t col = 0; col < X.n_cols; ++col) {
-    const auto it = std::ranges::lower_bound(thresholds, featureRow(col));
-    binLoc(col) = std::distance(thresholds.begin(), it);
+    binLoc(col) = missing_values::discretizer_bin(
+        featureRow(col), thresholds.begin(), thresholds.end());
   }
 }
 
