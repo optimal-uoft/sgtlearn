@@ -23,8 +23,9 @@
  *
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
- *   split / child / commit steps are local lambdas in `fit`.
- * - **Per-node split search** (inside `fit`): for each candidate feature,
+ *   split search via ``RegressionShapeFunctionBuilder``; child / commit steps
+ *   remain local lambdas in ``fit``.
+ * - **Per-node split search** (``RegressionShapeFunctionBuilder``): for each
  *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
  *   ``SquaredError`` only: keep CD only if branch MSE drops by a fixed margin vs
  *   the seed, else restore the snapshot and rebuild. ``AbsoluteError`` keeps the
@@ -57,7 +58,11 @@
  *       `LearningCriterion::AbsoluteError` are accepted; other criteria throw
  *       from the constructor.
  */
+class RegressionShapeFunctionBuilder;
+
 class RegressionShapeGeneralizedTree {
+  friend class RegressionShapeFunctionBuilder;
+
 public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and

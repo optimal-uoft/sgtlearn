@@ -16,11 +16,13 @@ arma::frowvec sortedSampleWeights(const arma::uvec &sortedOrder,
     w.ones();
     return w;
   }
-  if (sampleWeights.n_elem != sortedOrder.n_elem)
-    throw std::invalid_argument(
-        "sample_weights length must equal number of training samples");
-  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
-    w(i) = sampleWeights(sortedOrder(i));
+  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i) {
+    const arma::uword idx = sortedOrder(i);
+    if (idx >= sampleWeights.n_elem)
+      throw std::invalid_argument(
+          "sample_weights index out of range for training sample order");
+    w(i) = sampleWeights(idx);
+  }
   return w;
 }
 
@@ -36,21 +38,26 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
   feature = features(0);
-  arma::uvec sortedOrder = missing_values::sort_index_finite_first(X.row(feature));
-  arma::Mat<size_t> sortedY(1, sortedOrder.n_elem);
-  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
-    sortedY(0, i) = y(sortedOrder(i));
-  arma::fmat XSorted = X.cols(sortedOrder);
+  const auto sort = missing_values::sort_index_finite_first(X.row(feature));
+  const arma::uword n_finite =
+      static_cast<arma::uword>(sort.first_non_finite_index);
+  if (n_finite == 0)
+    return;
+  const arma::uvec finiteOrder = sort.order.subvec(0, n_finite - 1);
+  arma::Mat<size_t> sortedY(1, n_finite);
+  for (arma::uword i = 0; i < n_finite; ++i)
+    sortedY(0, i) = y(finiteOrder(i));
+  arma::fmat XSorted = X.cols(finiteOrder);
   arma::frowvec sortedX = XSorted.row(feature);
   arma::frowvec sortedWeights =
-      sortedSampleWeights(sortedOrder, sampleWeights);
+      sortedSampleWeights(finiteOrder, sampleWeights);
 
   Tsplitter splitter(sortedX, sortedWeights, sortedY, numClasses);
   UnivariateDiscretizer<double, size_t>::buildTree(splitter, minLeafSize,
                                                    minGainSplit, maxDepth,
                                                    maxLeafNodes);
 
-  UnivariateDiscretizer<double, size_t>::processLeaves(sortedOrder, splitter);
+  UnivariateDiscretizer<double, size_t>::processLeaves(finiteOrder, splitter);
 }
 
 template class UnivariateClassificationDiscretizer<GiniSplitter>;

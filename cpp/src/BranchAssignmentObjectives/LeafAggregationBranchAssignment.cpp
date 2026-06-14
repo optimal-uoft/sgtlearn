@@ -13,13 +13,17 @@ template <typename T>
 LeafAggregationBranchAssignment<T>::LeafAggregationBranchAssignment(
     std::vector<size_t> &assignments, size_t numPartitions,
     std::vector<std::vector<T>> &stats, std::vector<double> &leafWeights,
-    size_t statsDim, std::unique_ptr<ILeafAggregateProcessor<T>> processor)
-    : BranchAssignment(assignments, numPartitions), stats(stats),
-      leafWeights(leafWeights), statsDim(statsDim),
+    const std::vector<size_t> &leafSampleCounts, size_t statsDim,
+    std::unique_ptr<ILeafAggregateProcessor<T>> processor)
+    : BranchAssignment(assignments, numPartitions, leafSampleCounts),
+      stats(stats), leafWeights(leafWeights), statsDim(statsDim),
       processor_(std::move(processor)) {
 
   if (assignments.size() != stats.size() || stats.size() != leafWeights.size())
     throw std::runtime_error("bin statistics must all be the same length");
+  if (leafSampleCounts.size() != stats.size())
+    throw std::runtime_error(
+        "leafSampleCounts must have the same length as bin statistics");
 
   for (size_t b = 0; b < assignments.size(); ++b) {
     if (assignments[b] >= numPartitions)
@@ -36,6 +40,7 @@ LeafAggregationBranchAssignment<T>::LeafAggregationBranchAssignment(
   for (size_t b = 0; b < numLeaves; b++) {
     const size_t partition = assignments[b];
     partitionWeight[partition] += leafWeights[b];
+    partitionSampleCount_[partition] += leafSampleCounts_[b];
     for (size_t d = 0; d < statsDim; d++)
       partitionStats[partition][d] += stats[b][d];
   }
@@ -66,6 +71,7 @@ void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) 
   for (size_t d = 0; d < statsDim; d++)
     partitionStats[partition][d] += stats[leaf][d];
   partitionWeight[partition] += leafWeights[leaf];
+  partitionSampleCount_[partition] += leafSampleCounts_[leaf];
   sumNumberOfSamples += leafWeights[leaf];
 
   partitionLoss[partition] = computePartitionLoss(partition);
@@ -89,6 +95,7 @@ void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
   weightedSumLoss -= partitionWeight[partition] * partitionLoss[partition];
   sumNumberOfSamples -= leafWeights[leaf];
   partitionWeight[partition] -= leafWeights[leaf];
+  partitionSampleCount_[partition] -= leafSampleCounts_[leaf];
   for (size_t d = 0; d < statsDim; d++)
     partitionStats[partition][d] -= stats[leaf][d];
 

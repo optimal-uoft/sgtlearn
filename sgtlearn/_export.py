@@ -116,9 +116,9 @@ def _route_samples(tree: dict, X) -> "dict[int, Any]":
     reach that node. Leaves' sample sets partition the root's sample set.
 
     Routing rule (matches the C++ trainer): at each internal node, look up
-    the routing feature column; ``bin = np.searchsorted(thresholds, value,
-    side='right')`` gives the inner-tree bin (clamped to
-    ``len(bin_to_partition)-1``); the destination child is
+    the routing feature column. Non-finite values use
+    ``nan_prediction_partition``; finite values use
+    ``bin = np.searchsorted(thresholds, value, side='right')`` (clamped) and
     ``children[bin_to_partition[bin]]``.
     """
 
@@ -146,9 +146,15 @@ def _route_samples(tree: dict, X) -> "dict[int, Any]":
         children = list(node["children"])
 
         values = X_arr[rows, feature]
-        bin_idx = np.searchsorted(thresholds, values, side="right")
-        bin_idx = np.clip(bin_idx, 0, len(b2p) - 1)
-        part_idx = b2p[bin_idx]
+        nan_part = int(node.get("nan_prediction_partition", 0))
+        finite_mask = np.isfinite(values)
+        part_idx = np.empty(rows.size, dtype=np.int64)
+        if np.any(~finite_mask):
+            part_idx[~finite_mask] = nan_part
+        if np.any(finite_mask):
+            bin_idx = np.searchsorted(thresholds, values[finite_mask], side="right")
+            bin_idx = np.clip(bin_idx, 0, len(b2p) - 1)
+            part_idx[finite_mask] = b2p[bin_idx]
 
         for k, cid in enumerate(children):
             mask = part_idx == k

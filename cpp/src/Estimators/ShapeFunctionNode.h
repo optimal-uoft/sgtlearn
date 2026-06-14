@@ -40,6 +40,12 @@ struct ShapeFunctionNode {
   std::vector<float> innerThresholds;
   /** Length equals inner discretizer bin count; maps bin -> child partition. */
   std::vector<size_t> binToPartition;
+  /**
+   * Outer child partition for non-finite values of ``routingFeature``.
+   * Set during training: best-scoring partition when NaN was seen, else the
+   * finite-sample majority partition (smallest index on ties).
+   */
+  size_t nanPredictionPartition = 0;
 
   /**
    * During fit: original column indices into X at this node (Python
@@ -83,7 +89,7 @@ struct ShapeFunctionNode {
     if (binToPartition.empty())
       return 0;
     if (!std::isfinite(static_cast<double>(featureValue)))
-      return binToPartition.back();
+      return nanPredictionPartition;
     const auto it = std::lower_bound(innerThresholds.begin(),
                                      innerThresholds.end(), featureValue);
     size_t bin = static_cast<size_t>(it - innerThresholds.begin());

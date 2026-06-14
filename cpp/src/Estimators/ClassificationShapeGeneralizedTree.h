@@ -22,11 +22,13 @@
  *
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
- *   split / child / commit steps are local lambdas in `fit`.
- * - **Per-node split search** (inside `fit`): for each candidate feature,
+ *   split search via ``ClassificationShapeFunctionBuilder``; child / commit
+ *   steps remain local lambdas in ``fit``.
+ * - **Per-node split search** (``ClassificationShapeFunctionBuilder``): for each
  *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
  *   partition map; if the post-CD objective is **clearly worse** than the seed
- *   (absolute margin ``kCdObjectiveImprovementEps`` in the ``.cpp``), restore the
+ *   (absolute margin ``ShapeFunctionBuilder::kCdObjectiveImprovementEps``),
+ *   restore the
  *   assignment snapshot and rebuild the ``BranchAssignment``; keep the best branch
  *   by penalized child impurity.
  * - **Leaf state**: `fillLeafHistogram` or aggregated discretizer stats after a
@@ -57,7 +59,11 @@
  * @note Only `LearningCriterion::Entropy` and `LearningCriterion::Gini` are
  *       accepted; other criteria throw from the constructor.
  */
+class ClassificationShapeFunctionBuilder;
+
 class ClassificationShapeGeneralizedTree {
+  friend class ClassificationShapeFunctionBuilder;
+
 public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and
@@ -165,13 +171,6 @@ private:
 
   std::vector<double> fillLeafHistogram(ShapeFunctionNode &node,
                                         const arma::Row<size_t> &y) const;
-
-  /** K-means seed for bin->partition assignment from per-bin class histograms. */
-  void seedBinAssignmentsKMeans(
-      size_t k, size_t numBins,
-      const std::vector<std::vector<double>> &binClassCounts,
-      const std::vector<size_t> &binSizes, const std::vector<double> &binWeights,
-      std::vector<size_t> &assignments);
 
   arma::Row<float> fitSampleWeights_;
 };

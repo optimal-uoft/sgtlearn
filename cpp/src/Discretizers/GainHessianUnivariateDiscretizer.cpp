@@ -18,11 +18,13 @@ arma::frowvec sortedSampleWeights(const arma::uvec &sortedOrder,
     w.ones();
     return w;
   }
-  if (sampleWeights.n_elem != sortedOrder.n_elem)
-    throw std::invalid_argument(
-        "sample_weights length must equal number of training samples");
-  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
-    w(i) = sampleWeights(sortedOrder(i));
+  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i) {
+    const arma::uword idx = sortedOrder(i);
+    if (idx >= sampleWeights.n_elem)
+      throw std::invalid_argument(
+          "sample_weights index out of range for training sample order");
+    w(i) = sampleWeights(idx);
+  }
   return w;
 }
 
@@ -43,17 +45,22 @@ void GainHessianUnivariateDiscretizer::Train(
     throw std::invalid_argument("features(0) must be < X.n_rows");
 
   feature = features(0);
-  arma::uvec sortedOrder = missing_values::sort_index_finite_first(X.row(feature));
-  arma::fmat sortedY = y.cols(sortedOrder);
-  arma::fmat XSorted = X.cols(sortedOrder);
+  const auto sort = missing_values::sort_index_finite_first(X.row(feature));
+  const arma::uword n_finite =
+      static_cast<arma::uword>(sort.first_non_finite_index);
+  if (n_finite == 0)
+    return;
+  const arma::uvec finiteOrder = sort.order.subvec(0, n_finite - 1);
+  arma::fmat sortedY = y.cols(finiteOrder);
+  arma::fmat XSorted = X.cols(finiteOrder);
   arma::frowvec sortedX = XSorted.row(feature);
   arma::frowvec sortedWeights =
-      sortedSampleWeights(sortedOrder, sampleWeights);
+      sortedSampleWeights(finiteOrder, sampleWeights);
 
   GainHessianSplitter splitter(sortedX, sortedWeights, sortedY,
                                  static_cast<double>(lambda));
   UnivariateDiscretizer<float, float>::buildTree(splitter, minLeafSize,
                                                  minGainSplit, maxDepth,
                                                  maxLeafNodes);
-  UnivariateDiscretizer<float, float>::processLeaves(sortedOrder, splitter);
+  UnivariateDiscretizer<float, float>::processLeaves(finiteOrder, splitter);
 }

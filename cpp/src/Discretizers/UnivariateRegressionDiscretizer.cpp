@@ -11,12 +11,18 @@ namespace {
 
 arma::frowvec sortedSampleWeights(const arma::uvec &sortedOrder,
                                   const arma::Row<float> &sampleWeights) {
-  if (sampleWeights.n_elem != sortedOrder.n_elem)
-    throw std::invalid_argument(
-        "sample_weights length must equal number of training samples");
   arma::frowvec w(sortedOrder.n_elem);
-  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
-    w(i) = sampleWeights(sortedOrder(i));
+  if (sampleWeights.n_elem == 0) {
+    w.ones();
+    return w;
+  }
+  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i) {
+    const arma::uword idx = sortedOrder(i);
+    if (idx >= sampleWeights.n_elem)
+      throw std::invalid_argument(
+          "sample_weights index out of range for training sample order");
+    w(i) = sampleWeights(idx);
+  }
   return w;
 }
 
@@ -32,21 +38,26 @@ void UnivariateRegressionDiscretizer<TSplitter>::Train(
   if (features(0) >= X.n_rows)
     throw std::invalid_argument("features(0) must be < X.n_rows");
   this->feature = features(0);
-  arma::uvec sortedOrder =
+  const auto sort =
       missing_values::sort_index_finite_first(X.row(this->feature));
-  arma::Mat<float> sortedY(1, sortedOrder.n_elem);
-  for (arma::uword i = 0; i < sortedOrder.n_elem; ++i)
-    sortedY(0, i) = y(sortedOrder(i));
-  arma::fmat XSorted = X.cols(sortedOrder);
+  const arma::uword n_finite =
+      static_cast<arma::uword>(sort.first_non_finite_index);
+  if (n_finite == 0)
+    return;
+  const arma::uvec finiteOrder = sort.order.subvec(0, n_finite - 1);
+  arma::Mat<float> sortedY(1, n_finite);
+  for (arma::uword i = 0; i < n_finite; ++i)
+    sortedY(0, i) = y(finiteOrder(i));
+  arma::fmat XSorted = X.cols(finiteOrder);
   arma::frowvec sortedX = XSorted.row(this->feature);
   arma::frowvec sortedWeights =
-      sortedSampleWeights(sortedOrder, sampleWeights);
+      sortedSampleWeights(finiteOrder, sampleWeights);
 
   TSplitter splitter(sortedX, sortedWeights, sortedY);
   UnivariateDiscretizer<double, float>::buildTree(splitter, minLeafSize,
                                                   minGainSplit, maxDepth,
                                                   maxLeafNodes);
-  UnivariateDiscretizer<double, float>::processLeaves(sortedOrder, splitter);
+  UnivariateDiscretizer<double, float>::processLeaves(finiteOrder, splitter);
 }
 
 template class UnivariateRegressionDiscretizer<SquaredErrorSplitter>;

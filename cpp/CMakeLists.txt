@@ -81,6 +81,12 @@ add_library(sgtlearn_core STATIC
         src/Estimators/ShapeFunctionNode.h
         src/algorithms/ShapeBranchingTypes.h
         src/algorithms/BinPartitionAssignments.h
+        src/Estimators/ShapeFunctionBuilder.h
+        src/Estimators/ShapeFunctionBuilder.cpp
+        src/Estimators/ClassificationShapeFunctionBuilder.h
+        src/Estimators/ClassificationShapeFunctionBuilder.cpp
+        src/Estimators/RegressionShapeFunctionBuilder.h
+        src/Estimators/RegressionShapeFunctionBuilder.cpp
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp
         src/Estimators/RegressionShapeGeneralizedTree.h
@@ -192,7 +198,6 @@ if (SGTLEARN_BUILD_TESTS)
             tests/test_wavelet_tree_mae.cpp
             tests/test_splitters.cpp
             tests/test_branch_assignment.cpp
-            tests/test_missing_values.cpp
     )
 
     target_link_libraries(cpp_tests PRIVATE

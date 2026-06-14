@@ -20,7 +20,8 @@ public:
                                 size_t numPartitions,
                                 std::vector<std::vector<float>> &leafYs,
                                 std::vector<std::vector<float>> &leafWs,
-                                std::vector<double> &leafWeights);
+                                std::vector<double> &leafWeights,
+                                const std::vector<size_t> &leafSampleCounts);
 
   double objective() override;
 

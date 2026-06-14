@@ -17,10 +17,12 @@ class EntropyBranchAssignment
 public:
   EntropyBranchAssignment(std::vector<size_t> &assignments, size_t numPartitions,
                           std::vector<std::vector<double>> &stats,
-                          std::vector<double> &leafWeights, size_t numClasses)
+                          std::vector<double> &leafWeights,
+                          const std::vector<size_t> &leafSampleCounts,
+                          size_t numClasses)
       : leaf_aggregate::LeafAggregationBranchAssignment<double>(
-            assignments, numPartitions, stats, leafWeights, numClasses,
-            std::make_unique<leaf_aggregate::EntropyProcessor>()) {}
+            assignments, numPartitions, stats, leafWeights, leafSampleCounts,
+            numClasses, std::make_unique<leaf_aggregate::EntropyProcessor>()) {}
 };
 
 /** Classification: statsDim = numClasses; Gini impurity. */
@@ -29,10 +31,12 @@ class GiniBranchAssignment
 public:
   GiniBranchAssignment(std::vector<size_t> &assignments, size_t numPartitions,
                        std::vector<std::vector<double>> &stats,
-                       std::vector<double> &leafWeights, size_t numClasses)
+                       std::vector<double> &leafWeights,
+                       const std::vector<size_t> &leafSampleCounts,
+                       size_t numClasses)
       : leaf_aggregate::LeafAggregationBranchAssignment<double>(
-            assignments, numPartitions, stats, leafWeights, numClasses,
-            std::make_unique<leaf_aggregate::GiniProcessor>()) {}
+            assignments, numPartitions, stats, leafWeights, leafSampleCounts,
+            numClasses, std::make_unique<leaf_aggregate::GiniProcessor>()) {}
 };
 
 /** Regression MSE: statsDim = 2 (sum y, sum y²). */
@@ -44,9 +48,11 @@ public:
   SquaredErrorBranchAssignment(std::vector<size_t> &assignments,
                                size_t numPartitions,
                                std::vector<std::vector<double>> &stats,
-                               std::vector<double> &leafWeights)
+                               std::vector<double> &leafWeights,
+                               const std::vector<size_t> &leafSampleCounts)
       : leaf_aggregate::LeafAggregationBranchAssignment<double>(
-            assignments, numPartitions, stats, leafWeights, kStatsDim,
+            assignments, numPartitions, stats, leafWeights, leafSampleCounts,
+            kStatsDim,
             std::make_unique<leaf_aggregate::SquaredErrorProcessor>()) {}
 };
 
@@ -59,8 +65,11 @@ public:
   GainHessianBranchAssignment(std::vector<size_t> &assignments,
                               size_t numPartitions,
                               std::vector<std::vector<float>> &stats,
-                              std::vector<double> &leafWeights, double lambda)
+                              std::vector<double> &leafWeights,
+                              const std::vector<size_t> &leafSampleCounts,
+                              double lambda)
       : leaf_aggregate::LeafAggregationBranchAssignment<float>(
-            assignments, numPartitions, stats, leafWeights, kStatsDim,
+            assignments, numPartitions, stats, leafWeights, leafSampleCounts,
+            kStatsDim,
             std::make_unique<leaf_aggregate::GainHessianProcessor>(lambda)) {}
 };
