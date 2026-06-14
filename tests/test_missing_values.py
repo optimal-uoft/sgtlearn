@@ -1,16 +1,13 @@
 """Fidelity contract: shape trees with NaN and ``inner_max_depth=1``.
 
-These tests define the sklearn parity bar once full missing-value handling is in
-place (fit shape functions on finite values only, route training NaN through the
-chosen partition, track ``sawMissingInTraining``, fall back to the most-populated
-bin when a feature had no training NaN).
+Shape trees fit inner shape functions on finite values only, route training NaN
+through the chosen partition, and fall back to the most-populated bin when a
+feature had no training NaN at predict time.
 
 With ``inner_max_depth=1`` each shape function is a single binary threshold split
 (standard CART node). References are ``sklearn.tree.DecisionTreeClassifier`` /
-``DecisionTreeRegressor`` with matching criterion and default hyperparameters.
-
-Tests may fail or be marked ``xfail`` until that routing work lands; they are
-written for robustness, not for the current partial implementation.
+``DecisionTreeRegressor`` (``scikit-learn>=1.9`` for ``absolute_error`` NaN
+support) with matching criterion and aligned hyperparameters.
 """
 
 from __future__ import annotations
@@ -55,6 +52,8 @@ _SKLEARN_PARITY_LARGE_SHAPES: list[tuple[int, int]] = [
     (2000, 5),
     (3000, 10),
 ]
+
+_REGRESSION_SKLEARN_PARITY_CRITERIA: list[str] = ["squared_error", "absolute_error"]
 
 
 def _large_scale_rng(n_samples: int, n_features: int, salt: str) -> np.random.Generator:
@@ -193,21 +192,25 @@ def test_sgt_classifier_inner_depth_one_handcrafted_multivariate_with_nan() -> N
     assert sgt.predict(X)[2] == 0
 
 
+@pytest.mark.parametrize("criterion", _REGRESSION_SKLEARN_PARITY_CRITERIA)
 def test_sgt_regressor_inner_depth_one_matches_sklearn_diabetes_with_nan(
+    criterion: str,
     rng: np.random.Generator,
 ) -> None:
     bunch = load_diabetes()
     X = _inject_nan(np.asarray(bunch.data, dtype=np.float32), rng, n_cells=14)
     y = np.asarray(bunch.target, dtype=np.float64)
 
-    sgt, dt = _make_inner_depth_one_pair("regression", "squared_error")
+    sgt, dt = _make_inner_depth_one_pair("regression", criterion)
     sgt.fit(X, y)
     dt.fit(X, y)
 
     np.testing.assert_allclose(sgt.predict(X), dt.predict(X))
 
 
+@pytest.mark.parametrize("criterion", _REGRESSION_SKLEARN_PARITY_CRITERIA)
 def test_sgt_regressor_inner_depth_one_matches_sklearn_synthetic_with_nan(
+    criterion: str,
     rng: np.random.Generator,
 ) -> None:
     n_samples, n_features = 80, 4
@@ -215,7 +218,7 @@ def test_sgt_regressor_inner_depth_one_matches_sklearn_synthetic_with_nan(
     X = _inject_nan(X, rng, n_cells=8)
     y = rng.standard_normal(n_samples)
 
-    sgt, dt = _make_inner_depth_one_pair("regression", "squared_error")
+    sgt, dt = _make_inner_depth_one_pair("regression", criterion)
     sgt.fit(X, y)
     dt.fit(X, y)
 
@@ -241,7 +244,12 @@ def test_sgt_classifier_inner_depth_one_predict_with_new_nan_matches_sklearn(
 
 
 def test_sgt_regressor_inner_depth_one_predict_with_new_nan_matches_sklearn() -> None:
-    """NaN introduced only at predict time: route like sklearn majority-bin fallback."""
+    """NaN introduced only at predict time: route like sklearn majority-bin fallback.
+
+    ``absolute_error`` is omitted here: with clean training data, MAE trees can
+    match sklearn in-sample yet disagree on predict-time NaN when the two fitted
+    trees route samples through different feature paths.
+    """
     X, y = load_diabetes(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
     y = np.asarray(y, dtype=np.float64)
@@ -256,24 +264,6 @@ def test_sgt_regressor_inner_depth_one_predict_with_new_nan_matches_sklearn() ->
     X_pred[42, 2] = np.nan
 
     np.testing.assert_allclose(sgt.predict(X_pred), dt.predict(X_pred))
-
-
-def test_sgt_regressor_absolute_error_fit_predict_with_nan(
-    rng: np.random.Generator,
-) -> None:
-    """MAE shape tree should accept NaN once routing is complete."""
-    X = rng.standard_normal((60, 4)).astype(np.float32)
-    X = _inject_nan(X, rng, n_cells=6)
-    y = rng.standard_normal(60)
-
-    reg = SGTRegressor(criterion="absolute_error", inner_max_depth=1)
-    reg.fit(X, y)
-    preds = reg.predict(X)
-    assert preds.shape == (60,)
-    assert np.all(np.isfinite(preds))
-
-    with pytest.raises(ValueError, match="NaN"):
-        DecisionTreeRegressor(criterion="absolute_error").fit(X, y)
 
 
 def test_sgt_classifier_still_rejects_inf_in_x() -> None:
@@ -373,16 +363,18 @@ def test_sgt_classifier_large_scale_predict_with_new_nan_smoke(
 
 
 @pytest.mark.parametrize("n_samples,n_features", _SKLEARN_PARITY_LARGE_SHAPES)
-def test_sgt_regressor_squared_error_large_scale_nan_matches_sklearn(
+@pytest.mark.parametrize("criterion", _REGRESSION_SKLEARN_PARITY_CRITERIA)
+def test_sgt_regressor_large_scale_nan_matches_sklearn(
     n_samples: int,
     n_features: int,
+    criterion: str,
 ) -> None:
     """Large synthetic regression with scattered NaN matches sklearn in-sample."""
-    rng = _large_scale_rng(n_samples, n_features, "squared_error")
+    rng = _large_scale_rng(n_samples, n_features, criterion)
     X, y = _make_large_regression_xy(n_samples, n_features, rng)
     X = _inject_nan(X, rng, frac=0.02)
 
-    sgt, dt = _make_inner_depth_one_pair("regression", "squared_error")
+    sgt, dt = _make_inner_depth_one_pair("regression", criterion)
     sgt.fit(X, y)
     dt.fit(X, y)
 
@@ -390,16 +382,18 @@ def test_sgt_regressor_squared_error_large_scale_nan_matches_sklearn(
 
 
 @pytest.mark.parametrize("n_samples,n_features", _LARGE_SCALE_SHAPES)
-def test_sgt_regressor_squared_error_large_scale_nan_smoke(
+@pytest.mark.parametrize("criterion", _REGRESSION_SKLEARN_PARITY_CRITERIA)
+def test_sgt_regressor_large_scale_nan_smoke(
     n_samples: int,
     n_features: int,
+    criterion: str,
 ) -> None:
-    """All large shapes: MSE fit/predict with training NaN completes."""
-    rng = _large_scale_rng(n_samples, n_features, "sq_smoke")
+    """All large shapes: regression fit/predict with training NaN completes."""
+    rng = _large_scale_rng(n_samples, n_features, f"{criterion}_smoke")
     X, y = _make_large_regression_xy(n_samples, n_features, rng)
     X = _inject_nan(X, rng, frac=0.02)
 
-    sgt, _ = _make_inner_depth_one_pair("regression", "squared_error")
+    sgt, _ = _make_inner_depth_one_pair("regression", criterion)
     sgt.fit(X, y)
     pred = sgt.predict(X)
 
@@ -408,14 +402,16 @@ def test_sgt_regressor_squared_error_large_scale_nan_smoke(
 
 
 @pytest.mark.parametrize("n_samples,n_features", _LARGE_SCALE_SHAPES)
-def test_sgt_regressor_squared_error_large_scale_predict_with_new_nan_smoke(
+@pytest.mark.parametrize("criterion", _REGRESSION_SKLEARN_PARITY_CRITERIA)
+def test_sgt_regressor_large_scale_predict_with_new_nan_smoke(
     n_samples: int,
     n_features: int,
+    criterion: str,
 ) -> None:
-    rng = _large_scale_rng(n_samples, n_features, "sq_predict_new_nan")
+    rng = _large_scale_rng(n_samples, n_features, f"{criterion}_predict_new_nan")
     X, y = _make_large_regression_xy(n_samples, n_features, rng)
 
-    sgt, _ = _make_inner_depth_one_pair("regression", "squared_error")
+    sgt, _ = _make_inner_depth_one_pair("regression", criterion)
     sgt.fit(X, y)
 
     X_pred = X.copy()
@@ -426,29 +422,3 @@ def test_sgt_regressor_squared_error_large_scale_predict_with_new_nan_smoke(
     pred = sgt.predict(X_pred)
     assert pred.shape == (n_samples,)
     assert np.all(np.isfinite(pred))
-
-
-@pytest.mark.parametrize("n_samples,n_features", _LARGE_SCALE_SHAPES)
-def test_sgt_regressor_absolute_error_large_scale_nan_fit_predict(
-    n_samples: int,
-    n_features: int,
-) -> None:
-    """MAE at scale: fit/predict with NaN completes and returns finite values."""
-    rng = _large_scale_rng(n_samples, n_features, "absolute_error")
-    X, y = _make_large_regression_xy(n_samples, n_features, rng)
-    X = _inject_nan(X, rng, frac=0.02)
-
-    reg = SGTRegressor(criterion="absolute_error", inner_max_depth=1, random_state=42)
-    reg.fit(X, y)
-    preds = reg.predict(X)
-
-    assert preds.shape == (n_samples,)
-    assert np.all(np.isfinite(preds))
-
-    X_pred = X.copy()
-    n_pred_nan = max(20, n_samples // 50)
-    for _ in range(n_pred_nan):
-        X_pred[rng.integers(0, n_samples), rng.integers(0, n_features)] = np.nan
-    preds_pred = reg.predict(X_pred)
-    assert preds_pred.shape == (n_samples,)
-    assert np.all(np.isfinite(preds_pred))

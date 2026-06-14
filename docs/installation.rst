@@ -16,7 +16,7 @@ Requirements
 
 - Python ≥ 3.11
 - ``numpy`` ≥ 1.20
-- ``scikit-learn`` ≥ 1.3
+- ``scikit-learn`` ≥ 1.9
 - ``joblib`` ≥ 1.2
 - ``matplotlib`` ≥ 3.10.9, ``seaborn`` ≥ 0.13.2, ``graphviz`` ≥ 0.21 (plotting)
 
