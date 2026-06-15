@@ -8,9 +8,8 @@
 
  #include "Estimators/ClassificationShapeGeneralizedTree.h"
  
- #include "Estimators/ClassificationShapeFunctionBuilder.h"
- #include "Criterion.h"
- #include "algorithms/missing_values.h"
+#include "Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h"
+#include "Criterion.h"
  
  #include <algorithm>
  #include <armadillo>
@@ -154,80 +153,14 @@
        [&splitBuilder](ShapeFunctionNode &node, size_t minLeaf) {
          return splitBuilder.findBestSplit(node, minLeaf);
        },
-       [this, &X, &y](ShapeFunctionNode &parent) {
- 
-         const size_t numChildPartitions = parent.numPartitions;
-         if (parent.sampleBins.size() != parent.sampleIndices.n_elem)
-           throw std::runtime_error(
-               "ClassificationShapeGeneralizedTree::fit: sampleBins length "
-               "mismatch");
- 
-         std::vector<std::vector<size_t>> buckets(numChildPartitions);
-         for (arma::uword i = 0; i < parent.sampleIndices.n_elem; ++i) {
-           const size_t si = static_cast<size_t>(parent.sampleIndices(i));
-           size_t p = parent.nanPredictionPartition;
-           if (missing_values::is_finite(
-                   X(parent.routingFeature, static_cast<arma::uword>(si)))) {
-             const size_t bin = parent.sampleBins[static_cast<size_t>(i)];
-             if (bin >= parent.binToPartition.size())
-               throw std::runtime_error("ClassificationShapeGeneralizedTree::"
-                                        "fit: bin id out of range");
-             p = parent.binToPartition[bin];
-           }
-           if (p >= numChildPartitions)
-             p = numChildPartitions - 1;
-           buckets[p].push_back(si);
-         }
- 
- 
- 
-         const auto &binStats = parent.splitLeafStats;
-         if (binStats.size() != parent.binToPartition.size())
-           throw std::runtime_error(
-               "ClassificationShapeGeneralizedTree::fit: splitLeafStats / "
-               "binToPartition size mismatch");
- 
-         std::vector<ShapeFunctionNode> children;
-         children.reserve(numChildPartitions);
-         for (size_t p = 0; p < numChildPartitions; ++p) {
-           ShapeFunctionNode ch;
-           ch.height = parent.height + 1;
-           ch.sampleIndices = arma::conv_to<arma::uvec>::from(buckets[p]);
-           ch.numPartitions = numPartitions_;
-           std::vector<double> childClassCounts(numClasses_, 0.0);
-           for (size_t b = 0; b < binStats.size(); ++b) {
-             if (parent.binToPartition[b] != p)
-               continue;
-             const auto &sb = binStats[b];
-             for (size_t c = 0; c < numClasses_; ++c) {
-               const double add =
-                   (c < sb.size()) ? static_cast<double>(sb[c]) : 0.0;
-               childClassCounts[c] += add;
-             }
-           }
-           for (size_t si : buckets[p]) {
-             if (missing_values::is_finite(
-                     X(parent.routingFeature, static_cast<arma::uword>(si))))
-               continue;
-             const size_t lab = y(static_cast<arma::uword>(si));
-             if (lab < numClasses_)
-               childClassCounts[lab] +=
-                   static_cast<double>(fitSampleWeights_(si));
-           }
-           ch.score = impurityForClassCounts(childClassCounts);
-           ch.isLeaf = true;
-           classCounts.push_back(childClassCounts);
-           children.push_back(std::move(ch));
-         }
- 
- 
-         return children;
+       [&splitBuilder](ShapeFunctionNode &parent) {
+         return splitBuilder.makeChildren(parent);
        },
        [this](ShapeFunctionNode &parent,
               std::vector<ShapeFunctionNode> &children) {
  
          const size_t pid = parent.nodeIndex;
-         nodes_[pid] = parent;
+         nodes_[pid] = std::move(parent);
          nodes_[pid].isLeaf = false;
          const size_t numChildPartitions = parent.numPartitions;
          childIndices_[pid].assign(numChildPartitions, 0);

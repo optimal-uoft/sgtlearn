@@ -3,7 +3,7 @@
 #include <cmath>
 
 /**
- * @file Estimators/ShapeFunctionNode.h
+ * @file Estimators/ShapeFunctions/ShapeFunctionNode.h
  * @brief One node in a shape-generalized / shape-function tree: routing, fit
  *        sample set, and per-bin stats for the winning inner split (classification
  *        or regression).
@@ -76,6 +76,15 @@ struct ShapeFunctionNode {
    * can recover per-bin histograms without re-routing data. Empty at leaves.
    */
   std::vector<size_t> binSampleCounts;
+  /**
+   * Weighted sufficient statistics for samples with non-finite
+   * ``routingFeature``. Classification: weighted class counts. Regression
+   * (squared error): ``[sum w·y, sum w·y²]``. Empty when no missing values,
+   * at leaves, or for MAE splits.
+   */
+  std::vector<double> splitMissingStats;
+  /** Sum of sample weights in ``splitMissingStats`` (regression squared error). */
+  double splitMissingWeight = 0.0;
 
   std::weak_ordering operator<=>(const ShapeFunctionNode &o) const {
     return std::compare_weak_order_fallback(informationGain, o.informationGain);
@@ -87,14 +96,14 @@ struct ShapeFunctionNode {
 
   size_t routeFeatureValueToPartition(float featureValue) const {
     if (binToPartition.empty())
-      return 0;
+      throw std::runtime_error("binToPartition is empty");
     if (!std::isfinite(static_cast<double>(featureValue)))
       return nanPredictionPartition;
     const auto it = std::lower_bound(innerThresholds.begin(),
                                      innerThresholds.end(), featureValue);
     size_t bin = static_cast<size_t>(it - innerThresholds.begin());
     if (bin >= binToPartition.size())
-      bin = binToPartition.size() - 1;
+      throw std::runtime_error("bin out of range");
     return binToPartition[bin];
   }
 };

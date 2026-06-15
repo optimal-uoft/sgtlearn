@@ -6,7 +6,7 @@
  */
 
 #include "Domain/LearningCriterion.h"
-#include "Estimators/ShapeFunctionNode.h"
+#include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 #include "algorithms/TreeBuilder.h"

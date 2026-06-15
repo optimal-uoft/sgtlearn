@@ -1,16 +1,17 @@
 /**
- * @file Estimators/RegressionShapeFunctionBuilder.cpp
+ * @file Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.cpp
  * @brief Per-node regression shape-function split search.
  */
 
-#include "Estimators/RegressionShapeFunctionBuilder.h"
+#include "Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h"
 
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
+#include "Criterion.h"
 #include "Discretizers/RegressionDiscretizer.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
-#include "algorithms/NanPartitionRouting.h"
+#include "Estimators/ShapeFunctions/NanPartitionRouting.h"
 #include "algorithms/missing_values.h"
 
 #include <armadillo>
@@ -19,6 +20,43 @@
 #include <span>
 #include <stdexcept>
 #include <vector>
+
+namespace {
+
+double meanAbsoluteDeviationFromMedian(const std::vector<float> &ys,
+                                       const std::vector<float> &ws) {
+  return Criterion::absoluteError(ys, ws).mae;
+}
+
+double weightedMeanFromAggregates(double sumWY, double sumW) {
+  return sumW > 0.0 ? sumWY / sumW : 0.0;
+}
+
+struct PartitionMoments {
+  double sumWY = 0.0;
+  double sumWY2 = 0.0;
+  double sumW = 0.0;
+};
+
+PartitionMoments aggregatePartitionFromBins(
+    const std::vector<std::vector<double>> &binStats,
+    const std::vector<double> &binWeights,
+    const std::vector<size_t> &binToPartition, size_t partition) {
+  PartitionMoments out;
+  for (size_t b = 0; b < binStats.size(); ++b) {
+    if (binToPartition[b] != partition)
+      continue;
+    if (binStats[b].size() >= 2) {
+      out.sumWY += binStats[b][0];
+      out.sumWY2 += binStats[b][1];
+    }
+    if (b < binWeights.size())
+      out.sumW += binWeights[b];
+  }
+  return out;
+}
+
+} // namespace
 
 RegressionShapeFunctionBuilder::RegressionShapeFunctionBuilder(
     RegressionShapeGeneralizedTree &tree, const arma::fmat &X,
@@ -95,62 +133,52 @@ RegressionShapeFunctionBuilder::searchBestBranchAssignment(
   return result;
 }
 
-bool RegressionShapeFunctionBuilder::adoptFeatureBranchIfBetter(
-    double bestFeatureScore, double &bestPenalizedChild,
-    ShapeBranchingResult<double> &brBest, std::vector<size_t> &binSizesForBest,
-    std::vector<double> &binWeightsForBest, size_t featureIndex,
-    const BranchAssignmentSearchResult &featureBest, size_t numBins,
-    size_t xSubCols, RegressionDiscretizer &disc,
-    const std::vector<std::vector<double>> &stats,
-    const std::vector<size_t> &sizesCopy,
-    const std::vector<double> &binWeights) {
-  if (bestFeatureScore >= bestPenalizedChild - tree_.outerTreeBuilder_.eps)
-    return false;
-
-  bestPenalizedChild = bestFeatureScore;
-  brBest.featureIndex = featureIndex;
-  const auto &dth = disc.thresholds();
-  brBest.innerThresholds.resize(dth.size());
-  for (size_t t = 0; t < dth.size(); ++t)
-    brBest.innerThresholds[t] = static_cast<float>(dth[t]);
-  brBest.binToPartition = featureBest.assignments;
-  brBest.impurityDecrease = featureBest.impurityDecrease;
-  brBest.numPartitionsUsed = featureBest.chosenK;
-  brBest.partitionSampleCounts = featureBest.partitionSampleCounts;
-  fillSampleBinsFromDiscretizer(xSubCols, disc.inSampleDiscretizations(),
-                                brBest.sampleBins);
-  binSizesForBest.assign(sizesCopy.begin(), sizesCopy.end());
-  binWeightsForBest.assign(binWeights.begin(), binWeights.end());
-
+void RegressionShapeFunctionBuilder::applyTaskBranchingFields(
+    BestBranchingState &best, const BranchAssignmentSearchResult &search,
+    const std::vector<std::vector<double>> &leafStats) {
+  (void)search;
   if (tree_.criterion_ == LearningCriterion::SquaredError) {
-    brBest.leafStats = stats;
+    best.branching.leafStats = leafStats;
   } else {
-    brBest.leafStats.clear();
-    brBest.leafStats.resize(numBins);
+    best.branching.leafStats.clear();
+    best.branching.leafStats.resize(leafStats.size());
   }
-  return true;
 }
 
-size_t RegressionShapeFunctionBuilder::chooseNanPredictionPartition(
-    const ShapeFunctionNode &node,
+void RegressionShapeFunctionBuilder::assignNanPredictionPartition(
+    ShapeFunctionNode &node,
     const std::vector<size_t> &partitionSampleCounts, const arma::fmat &Xsub,
     const arma::Row<float> &ysub, const arma::uvec &subIdx) const {
+  node.splitMissingStats.clear();
+  node.splitMissingWeight = 0.0;
+
   const arma::Row<float> wsub = subSampleWeights(tree_.fitSampleWeights_, subIdx);
   const arma::frowvec featRow = Xsub.row(node.routingFeature);
   const auto missingCols =
       nan_partition_routing::missing_column_indices(featRow);
   if (missingCols.empty()) {
-    return missing_values::partition_with_max_count_min_index_tie(
-        partitionSampleCounts);
+    node.nanPredictionPartition =
+        missing_values::partition_with_max_count_min_index_tie(
+            partitionSampleCounts);
+    return;
   }
+
   if (tree_.criterion_ == LearningCriterion::SquaredError) {
-    return nan_partition_routing::choose_nan_partition_squared_error(
-        node.numPartitions, node.binToPartition, node.splitLeafStats,
-        node.splitBinWeights, missingCols, ysub, wsub);
+    double missingSumWY = 0.0;
+    double missingSumWY2 = 0.0;
+    node.nanPredictionPartition =
+        nan_partition_routing::choose_nan_partition_squared_error(
+            node.numPartitions, node.binToPartition, node.splitLeafStats,
+            node.splitBinWeights, missingCols, ysub, wsub, &missingSumWY,
+            &missingSumWY2, &node.splitMissingWeight);
+    node.splitMissingStats = {missingSumWY, missingSumWY2};
+    return;
   }
-  return nan_partition_routing::choose_nan_partition_absolute_error(
-      node.numPartitions, featRow, node.sampleBins, node.binToPartition,
-      missingCols, ysub, wsub);
+
+  node.nanPredictionPartition =
+      nan_partition_routing::choose_nan_partition_absolute_error(
+          node.numPartitions, featRow, node.sampleBins, node.binToPartition,
+          missingCols, ysub, wsub);
 }
 
 bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
@@ -183,10 +211,7 @@ bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
       tree_.rng_);
 
   const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
-  double bestPenalizedChild = std::numeric_limits<double>::infinity();
-  ShapeBranchingResult<double> brBest{};
-  std::vector<size_t> binSizesForBest;
-  std::vector<double> binWeightsForBest;
+  BestBranchingState best{};
   arma::uvec featOne(1);
 
   for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
@@ -211,7 +236,6 @@ bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
     auto &stats = disc->leafStats();
     auto &sizes = disc->leafNumSamples();
     auto &binWeights = disc->leafNodeWeights();
-    const auto sizes_copy = sizes;
     const auto &perBinCols = disc->inSampleDiscretizations();
 
     std::vector<std::vector<float>> maeLeafYsStorage;
@@ -241,35 +265,87 @@ bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
     if (!featureBest.found)
       continue;
 
-    adoptFeatureBranchIfBetter(featureBest.bestFeatureScore, bestPenalizedChild,
-                               brBest, binSizesForBest, binWeightsForBest, f,
-                               featureBest, B, xSubCols, *disc, stats,
-                               sizes_copy, binWeights);
+    featureHasBetterBranching(featureBest, best, f, xSubCols, *disc,
+                              tree_.outerTreeBuilder_.eps);
   }
 
-  if (!std::isfinite(bestPenalizedChild) ||
-      bestPenalizedChild >= std::numeric_limits<double>::infinity() ||
-      brBest.impurityDecrease <= tree_.outerTreeBuilder_.eps) {
+  if (!std::isfinite(best.penalizedChildScore) ||
+      best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
+      best.branching.impurityDecrease <= tree_.outerTreeBuilder_.eps) {
     markLeafNoSplit(node);
     return false;
   }
 
   node.isLeaf = false;
-  node.routingFeature = brBest.featureIndex;
-  node.innerThresholds = std::move(brBest.innerThresholds);
-  node.binToPartition = std::move(brBest.binToPartition);
-  node.sampleBins = std::move(brBest.sampleBins);
-  node.numPartitions = brBest.numPartitionsUsed;
-  node.informationGain = brBest.impurityDecrease;
+  node.routingFeature = best.branching.featureIndex;
+  node.innerThresholds = std::move(best.branching.innerThresholds);
+  node.binToPartition = std::move(best.branching.binToPartition);
+  node.sampleBins = std::move(best.branching.sampleBins);
+  node.numPartitions = best.branching.numPartitionsUsed;
+  node.informationGain = best.branching.impurityDecrease;
 
   if (tree_.criterion_ == LearningCriterion::SquaredError)
-    node.splitLeafStats = std::move(brBest.leafStats);
+    node.splitLeafStats = std::move(best.branching.leafStats);
   else
     node.splitLeafStats.clear();
-  node.splitBinWeights = std::move(binWeightsForBest);
-  node.binSampleCounts = std::move(binSizesForBest);
-  node.nanPredictionPartition = chooseNanPredictionPartition(
-      node, brBest.partitionSampleCounts, Xsub, ysub, subIdx);
+  node.splitBinWeights = std::move(best.binWeights);
+  node.binSampleCounts = std::move(best.branching.leafNumSamples);
+  assignNanPredictionPartition(node, best.branching.partitionSampleCounts, Xsub,
+                               ysub, subIdx);
 
   return true;
+}
+
+std::vector<ShapeFunctionNode> RegressionShapeFunctionBuilder::makeChildren(
+    const ShapeFunctionNode &parent) {
+  const auto buckets = routeSamplesToPartitions(parent, X_);
+  auto children = makeRoutedChildNodes(parent, buckets, tree_.numPartitions_);
+
+  if (tree_.criterion_ == LearningCriterion::SquaredError) {
+    if (parent.splitLeafStats.size() != parent.splitBinWeights.size())
+      throw std::runtime_error(
+          "RegressionShapeFunctionBuilder::makeChildren: splitBinWeights / "
+          "splitLeafStats size mismatch");
+
+    for (size_t p = 0; p < children.size(); ++p) {
+      PartitionMoments moments = aggregatePartitionFromBins(
+          parent.splitLeafStats, parent.splitBinWeights,
+          parent.binToPartition, p);
+      if (p == parent.nanPredictionPartition &&
+          parent.splitMissingStats.size() >= 2) {
+        moments.sumWY += parent.splitMissingStats[0];
+        moments.sumWY2 += parent.splitMissingStats[1];
+        moments.sumW += parent.splitMissingWeight;
+      }
+      const std::vector<double> agg{moments.sumWY, moments.sumWY2};
+      children[p].score = Criterion::squaredError(agg, moments.sumW);
+      const std::vector<float> aggF{static_cast<float>(moments.sumWY),
+                                    static_cast<float>(moments.sumWY2)};
+      children[p].isLeaf = true;
+      tree_.leafRegressionStats.push_back(aggF);
+      tree_.leafNumSamples.push_back(children[p].sampleIndices.n_elem);
+      tree_.leafPredictions_.push_back(
+          weightedMeanFromAggregates(moments.sumWY, moments.sumW));
+    }
+  } else {
+    for (size_t p = 0; p < children.size(); ++p) {
+      std::vector<float> ys;
+      std::vector<float> ws;
+      ys.reserve(children[p].sampleIndices.n_elem);
+      ws.reserve(children[p].sampleIndices.n_elem);
+      for (arma::uword j = 0; j < children[p].sampleIndices.n_elem; ++j) {
+        const size_t si = static_cast<size_t>(children[p].sampleIndices(j));
+        ys.push_back(y_(static_cast<arma::uword>(si)));
+        ws.push_back(static_cast<float>(tree_.fitSampleWeights_(si)));
+      }
+      children[p].score = meanAbsoluteDeviationFromMedian(ys, ws);
+      children[p].isLeaf = true;
+      tree_.leafRegressionStats.push_back({});
+      tree_.leafNumSamples.push_back(children[p].sampleIndices.n_elem);
+      tree_.leafPredictions_.push_back(
+          static_cast<float>(Criterion::absoluteError(ys, ws).median));
+    }
+  }
+
+  return children;
 }

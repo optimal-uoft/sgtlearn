@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Domain/LearningCriterion.h"
+#include "Discretizers/ShapeDiscretizer.h"
 #include "Discretizers/UnivariateClassificationDiscretizer.h"
 
 #include <armadillo>
@@ -8,22 +9,15 @@
 #include <stdexcept>
 #include <vector>
 
-class ClassificationDiscretizer {
+class ClassificationDiscretizer : public ShapeDiscretizer {
 public:
-  virtual ~ClassificationDiscretizer() = default;
+  ~ClassificationDiscretizer() override = default;
 
   virtual void Train(const arma::fmat &X, arma::uvec &features,
                      const arma::Row<size_t> &y, size_t numClasses,
                      size_t minLeafSize, double minGainSplit, size_t maxDepth,
                      size_t maxLeafNodes,
                      const arma::Row<float> &sampleWeights = arma::Row<float>()) = 0;
-
-  virtual size_t numLeaves() const = 0;
-  virtual std::vector<std::vector<double>> &leafStats() = 0;
-  virtual std::vector<size_t> &leafNumSamples() = 0;
-  virtual std::vector<double> &leafNodeWeights() = 0;
-  virtual const std::vector<double> &thresholds() const = 0;
-  virtual std::vector<std::vector<size_t>> &inSampleDiscretizations() = 0;
 };
 
 template <typename TSplitter>

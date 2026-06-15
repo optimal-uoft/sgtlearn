@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file NanPartitionRouting.h
+ * @file Estimators/ShapeFunctions/NanPartitionRouting.h
  * @brief Choose the outer partition for non-finite routing-feature values.
  */
 
@@ -33,7 +33,8 @@ inline size_t choose_nan_partition_squared_error(
     const std::vector<std::vector<double>> &binStats,
     const std::vector<double> &binWeights,
     const std::vector<size_t> &missingCols, const arma::Row<float> &ysub,
-    const arma::Row<float> &wsub) {
+    const arma::Row<float> &wsub, double *missingSumWYOut = nullptr,
+    double *missingSumWY2Out = nullptr, double *missingWeightOut = nullptr) {
   std::vector<double> partSumWY(numPartitions, 0.0);
   std::vector<double> partSumWY2(numPartitions, 0.0);
   std::vector<double> partWeights(numPartitions, 0.0);
@@ -64,6 +65,12 @@ inline size_t choose_nan_partition_squared_error(
     missingSumWY2 += w * v * v;
     missingWeight += w;
   }
+  if (missingSumWYOut)
+    *missingSumWYOut = missingSumWY;
+  if (missingSumWY2Out)
+    *missingSumWY2Out = missingSumWY2;
+  if (missingWeightOut)
+    *missingWeightOut = missingWeight;
 
   double baseWeightedLoss = 0.0;
   double totalWeight = missingWeight;

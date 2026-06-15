@@ -1,9 +1,9 @@
 /**
- * @file Estimators/ClassificationShapeFunctionBuilder.cpp
+ * @file Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.cpp
  * @brief Per-node classification shape-function split search.
  */
 
-#include "Estimators/ClassificationShapeFunctionBuilder.h"
+#include "Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h"
 
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
@@ -12,7 +12,7 @@
 #include "Discretizers/ClassificationDiscretizer.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
-#include "algorithms/NanPartitionRouting.h"
+#include "Estimators/ShapeFunctions/NanPartitionRouting.h"
 #include "algorithms/missing_values.h"
 
 #include <armadillo>
@@ -25,7 +25,28 @@
 ClassificationShapeFunctionBuilder::ClassificationShapeFunctionBuilder(
     ClassificationShapeGeneralizedTree &tree, const arma::fmat &X,
     const arma::Row<size_t> &y, const arma::uvec &featureCandidates)
-    : tree_(tree), X_(X), y_(y), featureCandidates_(featureCandidates) {}
+    : partitionImpurity_(partitionImpurityFnFor(tree.criterion_)), tree_(tree),
+      X_(X), y_(y), featureCandidates_(featureCandidates) {}
+
+ClassificationShapeFunctionBuilder::PartitionImpurityFn
+ClassificationShapeFunctionBuilder::partitionImpurityFnFor(
+    LearningCriterion criterion) {
+  if (criterion == LearningCriterion::Gini)
+    return &Criterion::gini;
+  if (criterion == LearningCriterion::Entropy)
+    return &Criterion::entropy;
+  throw std::invalid_argument(
+      "ClassificationShapeFunctionBuilder: criterion must be Entropy or Gini");
+}
+
+double ClassificationShapeFunctionBuilder::partitionImpurity(
+    const std::vector<double> &classCounts, double totalWeight) const {
+  if (!partitionImpurity_)
+    throw std::runtime_error(
+        "ClassificationShapeFunctionBuilder::partitionImpurity: "
+        "impurity function not set");
+  return partitionImpurity_(classCounts, totalWeight);
+}
 
 ClassificationShapeFunctionBuilder::BranchAssignmentSearchResult
 ClassificationShapeFunctionBuilder::searchBestBranchAssignment(
@@ -98,57 +119,37 @@ ClassificationShapeFunctionBuilder::searchBestBranchAssignment(
   return result;
 }
 
-bool ClassificationShapeFunctionBuilder::adoptFeatureBranchIfBetter(
-    double bestFeatureScore, double &bestPenalizedChild,
-    ShapeBranchingResult<double> &brBest,
-    std::vector<double> &binWeightsForBest,
-    std::vector<std::vector<double>> &partitionClassCountsForBest,
-    std::vector<double> &partitionWeightsForBest, size_t featureIndex,
-    const BranchAssignmentSearchResult &featureBest, size_t xSubCols,
-    ClassificationDiscretizer &disc,
-    const std::vector<std::vector<double>> &stats,
-    const std::vector<size_t> &sizes, const std::vector<double> &weights) {
-  if (bestFeatureScore >= bestPenalizedChild - tree_.outerTreeBuilder_.eps)
-    return false;
-
-  bestPenalizedChild = bestFeatureScore;
-  brBest.featureIndex = featureIndex;
-  const auto &dth = disc.thresholds();
-  brBest.innerThresholds.resize(dth.size());
-  for (size_t t = 0; t < dth.size(); ++t)
-    brBest.innerThresholds[t] = static_cast<float>(dth[t]);
-  brBest.binToPartition = featureBest.assignments;
-  brBest.impurityDecrease = featureBest.impurityDecrease;
-  brBest.numPartitionsUsed = featureBest.chosenK;
-  brBest.partitionSampleCounts = featureBest.partitionSampleCounts;
-  fillSampleBinsFromDiscretizer(xSubCols, disc.inSampleDiscretizations(),
-                                brBest.sampleBins);
-  brBest.leafStats = stats;
-  brBest.leafNumSamples = sizes;
-  binWeightsForBest.assign(weights.begin(), weights.end());
-  partitionClassCountsForBest = featureBest.partitionClassCounts;
-  partitionWeightsForBest = featureBest.partitionWeights;
-  return true;
+void ClassificationShapeFunctionBuilder::applyTaskBranchingFields(
+    BestBranchingState &best, const BranchAssignmentSearchResult &search,
+    const std::vector<std::vector<double>> &leafStats) {
+  best.branching.leafStats = leafStats;
+  best.partitionClassCounts = search.partitionClassCounts;
+  best.partitionWeights = search.partitionWeights;
 }
 
-size_t ClassificationShapeFunctionBuilder::chooseNanPredictionPartition(
-    size_t numPartitions, size_t routingFeature,
+void ClassificationShapeFunctionBuilder::assignNanPredictionPartition(
+    ShapeFunctionNode &node,
     const std::vector<size_t> &partitionSampleCounts,
     const std::vector<std::vector<double>> &partitionClassCounts,
     const std::vector<double> &partitionWeights, const arma::fmat &Xsub,
     const arma::Row<size_t> &ysub, const arma::uvec &subIdx) const {
+  node.splitMissingStats.clear();
+  node.splitMissingWeight = 0.0;
+
   const arma::Row<float> wsub = subSampleWeights(tree_.fitSampleWeights_, subIdx);
-  const arma::frowvec featRow = Xsub.row(routingFeature);
+  const arma::frowvec featRow = Xsub.row(node.routingFeature);
   const auto missingCols =
       nan_partition_routing::missing_column_indices(featRow);
   if (missingCols.empty()) {
-    return missing_values::partition_with_max_count_min_index_tie(
-        partitionSampleCounts);
+    node.nanPredictionPartition =
+        missing_values::partition_with_max_count_min_index_tie(
+            partitionSampleCounts);
+    return;
   }
 
   const size_t numClasses = tree_.numClasses_;
-  std::vector<double> missingCounts(numClasses, 0.0);
-  double missingWeight = 0.0;
+  const size_t numPartitions = node.numPartitions;
+  node.splitMissingStats.assign(numClasses, 0.0);
   for (size_t col : missingCols) {
     if (col >= static_cast<size_t>(ysub.n_elem))
       continue;
@@ -156,26 +157,23 @@ size_t ClassificationShapeFunctionBuilder::chooseNanPredictionPartition(
     if (lab >= numClasses)
       continue;
     const double w = static_cast<double>(wsub(col));
-    missingCounts[lab] += w;
-    missingWeight += w;
+    node.splitMissingStats[lab] += w;
+    node.splitMissingWeight += w;
   }
 
   double baseWeightedLoss = 0.0;
-  double totalWeight = missingWeight;
+  double totalWeight = node.splitMissingWeight;
   for (size_t p = 0; p < numPartitions; ++p) {
     const double pw = p < partitionWeights.size() ? partitionWeights[p] : 0.0;
     totalWeight += pw;
-    if (pw > 0.0 && p < partitionClassCounts.size()) {
-      if (tree_.criterion_ == LearningCriterion::Gini)
-        baseWeightedLoss +=
-            pw * Criterion::gini(partitionClassCounts[p], pw);
-      else
-        baseWeightedLoss +=
-            pw * Criterion::entropy(partitionClassCounts[p], pw);
-    }
+    if (pw > 0.0 && p < partitionClassCounts.size())
+      baseWeightedLoss +=
+          pw * partitionImpurity(partitionClassCounts[p], pw);
   }
-  if (totalWeight <= 0.0)
-    return 0;
+  if (totalWeight <= 0.0) {
+    node.nanPredictionPartition = 0;
+    return;
+  }
 
   std::vector<double> trialScores(numPartitions,
                                   std::numeric_limits<double>::infinity());
@@ -185,27 +183,20 @@ size_t ClassificationShapeFunctionBuilder::chooseNanPredictionPartition(
         p < partitionClassCounts.size() ? partitionClassCounts[p]
                                       : std::vector<double>(numClasses, 0.0);
     for (size_t c = 0; c < numClasses; ++c)
-      trialCounts[c] += missingCounts[c];
-    const double trialWeight = pw + missingWeight;
+      trialCounts[c] += node.splitMissingStats[c];
+    const double trialWeight = pw + node.splitMissingWeight;
     double trialLoss = 0.0;
-    if (trialWeight > 0.0) {
-      if (tree_.criterion_ == LearningCriterion::Gini)
-        trialLoss = Criterion::gini(trialCounts, trialWeight);
-      else
-        trialLoss = Criterion::entropy(trialCounts, trialWeight);
-    }
+    if (trialWeight > 0.0)
+      trialLoss = partitionImpurity(trialCounts, trialWeight);
     double basePartLoss = 0.0;
-    if (pw > 0.0 && p < partitionClassCounts.size()) {
-      if (tree_.criterion_ == LearningCriterion::Gini)
-        basePartLoss = Criterion::gini(partitionClassCounts[p], pw);
-      else
-        basePartLoss = Criterion::entropy(partitionClassCounts[p], pw);
-    }
+    if (pw > 0.0 && p < partitionClassCounts.size())
+      basePartLoss = partitionImpurity(partitionClassCounts[p], pw);
     const double weightedLoss =
         baseWeightedLoss - pw * basePartLoss + trialWeight * trialLoss;
     trialScores[p] = weightedLoss / totalWeight;
   }
-  return missing_values::pick_lowest_score_min_index_tie(trialScores);
+  node.nanPredictionPartition =
+      missing_values::pick_lowest_score_min_index_tie(trialScores);
 }
 
 bool ClassificationShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
@@ -239,11 +230,7 @@ bool ClassificationShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
       tree_.rng_);
 
   const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
-  double bestPenalizedChild = std::numeric_limits<double>::infinity();
-  ShapeBranchingResult<double> brBest{};
-  std::vector<double> binWeightsForBest;
-  std::vector<std::vector<double>> partitionClassCountsForBest;
-  std::vector<double> partitionWeightsForBest;
+  BestBranchingState best{};
   arma::uvec featOne(1);
 
   for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
@@ -275,34 +262,64 @@ bool ClassificationShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
     if (!featureBest.found)
       continue;
 
-    adoptFeatureBranchIfBetter(featureBest.bestFeatureScore, bestPenalizedChild,
-                               brBest, binWeightsForBest,
-                               partitionClassCountsForBest,
-                               partitionWeightsForBest, f, featureBest, xSubCols,
-                               *disc, stats, sizes, weights);
+    featureHasBetterBranching(featureBest, best, f, xSubCols, *disc,
+                              tree_.outerTreeBuilder_.eps);
   }
 
-  if (!std::isfinite(bestPenalizedChild) ||
-      bestPenalizedChild >= std::numeric_limits<double>::infinity() ||
-      brBest.impurityDecrease <= tree_.outerTreeBuilder_.eps) {
+  if (!std::isfinite(best.penalizedChildScore) ||
+      best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
+      best.branching.impurityDecrease <= tree_.outerTreeBuilder_.eps) {
     markLeafNoSplit(node);
     return false;
   }
 
   node.isLeaf = false;
-  node.routingFeature = brBest.featureIndex;
-  node.innerThresholds = std::move(brBest.innerThresholds);
-  node.binToPartition = std::move(brBest.binToPartition);
-  node.sampleBins = std::move(brBest.sampleBins);
-  node.splitLeafStats = std::move(brBest.leafStats);
-  node.splitBinWeights = std::move(binWeightsForBest);
-  node.binSampleCounts = std::move(brBest.leafNumSamples);
-  node.numPartitions = brBest.numPartitionsUsed;
-  node.informationGain = brBest.impurityDecrease;
-  node.nanPredictionPartition = chooseNanPredictionPartition(
-      brBest.numPartitionsUsed, brBest.featureIndex,
-      brBest.partitionSampleCounts, partitionClassCountsForBest,
-      partitionWeightsForBest, Xsub, ysub, subIdx);
+  node.routingFeature = best.branching.featureIndex;
+  node.innerThresholds = std::move(best.branching.innerThresholds);
+  node.binToPartition = std::move(best.branching.binToPartition);
+  node.sampleBins = std::move(best.branching.sampleBins);
+  node.splitLeafStats = std::move(best.branching.leafStats);
+  node.splitBinWeights = std::move(best.binWeights);
+  node.binSampleCounts = std::move(best.branching.leafNumSamples);
+  node.numPartitions = best.branching.numPartitionsUsed;
+  node.informationGain = best.branching.impurityDecrease;
+  assignNanPredictionPartition(
+      node, best.branching.partitionSampleCounts, best.partitionClassCounts,
+      best.partitionWeights, Xsub, ysub, subIdx);
 
   return true;
+}
+
+std::vector<ShapeFunctionNode> ClassificationShapeFunctionBuilder::makeChildren(
+    const ShapeFunctionNode &parent) {
+  const auto buckets = routeSamplesToPartitions(parent, X_);
+  const auto &binStats = parent.splitLeafStats;
+  if (binStats.size() != parent.binToPartition.size())
+    throw std::runtime_error(
+        "ClassificationShapeFunctionBuilder::makeChildren: splitLeafStats / "
+        "binToPartition size mismatch");
+
+  auto children = makeRoutedChildNodes(parent, buckets, tree_.numPartitions_);
+  for (size_t p = 0; p < children.size(); ++p) {
+    std::vector<double> childClassCounts(tree_.numClasses_, 0.0);
+    for (size_t b = 0; b < binStats.size(); ++b) {
+      if (parent.binToPartition[b] != p)
+        continue;
+      const auto &sb = binStats[b];
+      for (size_t c = 0; c < tree_.numClasses_; ++c)
+        childClassCounts[c] +=
+            (c < sb.size()) ? static_cast<double>(sb[c]) : 0.0;
+    }
+    if (p == parent.nanPredictionPartition && !parent.splitMissingStats.empty()) {
+      for (size_t c = 0; c < tree_.numClasses_; ++c)
+        childClassCounts[c] +=
+            (c < parent.splitMissingStats.size())
+                ? parent.splitMissingStats[c]
+                : 0.0;
+    }
+    children[p].score = tree_.impurityForClassCounts(childClassCounts);
+    children[p].isLeaf = true;
+    tree_.classCounts.push_back(childClassCounts);
+  }
+  return children;
 }

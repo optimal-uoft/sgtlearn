@@ -8,14 +8,12 @@
 
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 
-#include "Estimators/RegressionShapeFunctionBuilder.h"
+#include "Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h"
 #include "Criterion.h"
-#include "algorithms/missing_values.h"
 #include <algorithm>
 #include <armadillo>
 #include <stdexcept>
 #include <vector>
-
 
 namespace {
 
@@ -28,33 +26,7 @@ double weightedMeanFromAggregates(double sumWY, double sumW) {
   return sumW > 0.0 ? sumWY / sumW : 0.0;
 }
 
-struct PartitionMoments {
-  double sumWY = 0.0;
-  double sumWY2 = 0.0;
-  double sumW = 0.0;
-};
-
-PartitionMoments aggregatePartitionFromBins(
-    const std::vector<std::vector<double>> &binStats,
-    const std::vector<double> &binWeights,
-    const std::vector<size_t> &binToPartition, size_t partition) {
-  PartitionMoments out;
-  for (size_t b = 0; b < binStats.size(); ++b) {
-    if (binToPartition[b] != partition)
-      continue;
-    if (binStats[b].size() >= 2) {
-      out.sumWY += binStats[b][0];
-      out.sumWY2 += binStats[b][1];
-    }
-    if (b < binWeights.size())
-      out.sumW += binWeights[b];
-  }
-  return out;
-}
-
 } // namespace
-
-
 
 RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
     LearningCriterion criterion, size_t numPartitions,
@@ -227,99 +199,8 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
       [&splitBuilder](ShapeFunctionNode &node, size_t minLeaf) {
         return splitBuilder.findBestSplit(node, minLeaf);
       },
-      [this, &X, &y](ShapeFunctionNode &parent) {
-
-
-        if (parent.sampleBins.size() != parent.sampleIndices.n_elem)
-          throw std::runtime_error("RegressionShapeGeneralizedTree::fit: "
-                                   "sampleBins length mismatch");
-
-        const size_t numChildPartitions = parent.numPartitions;
-        std::vector<std::vector<size_t>> buckets(numChildPartitions);
-        for (arma::uword i = 0; i < parent.sampleIndices.n_elem; ++i) {
-          const size_t si = static_cast<size_t>(parent.sampleIndices(i));
-          size_t p = parent.nanPredictionPartition;
-          if (missing_values::is_finite(
-                  X(parent.routingFeature, static_cast<arma::uword>(si)))) {
-            const size_t bin = parent.sampleBins[static_cast<size_t>(i)];
-            if (bin >= parent.binToPartition.size())
-              throw std::runtime_error(
-                  "RegressionShapeGeneralizedTree::fit: bin id out of range");
-            p = parent.binToPartition[bin];
-          }
-          if (p >= numChildPartitions)
-            p = numChildPartitions - 1;
-          buckets[p].push_back(si);
-        }
-
-
-
-        std::vector<ShapeFunctionNode> children;
-        children.reserve(numChildPartitions);
-
-        if (criterion_ == LearningCriterion::SquaredError) {
-          if (parent.splitLeafStats.size() != parent.splitBinWeights.size())
-            throw std::runtime_error(
-                "RegressionShapeGeneralizedTree::fit: splitBinWeights / "
-                "splitLeafStats size mismatch");
-
-          for (size_t p = 0; p < numChildPartitions; ++p) {
-            ShapeFunctionNode ch;
-            ch.height = parent.height + 1;
-            ch.sampleIndices = arma::conv_to<arma::uvec>::from(buckets[p]);
-            ch.numPartitions = numPartitions_;
-            PartitionMoments moments = aggregatePartitionFromBins(
-                parent.splitLeafStats, parent.splitBinWeights,
-                parent.binToPartition, p);
-            for (size_t si : buckets[p]) {
-              if (missing_values::is_finite(X(parent.routingFeature,
-                                              static_cast<arma::uword>(si))))
-                continue;
-              const double wi = static_cast<double>(fitSampleWeights_(si));
-              const double v = static_cast<double>(y(static_cast<arma::uword>(si)));
-              moments.sumWY += wi * v;
-              moments.sumWY2 += wi * v * v;
-              moments.sumW += wi;
-            }
-            const std::vector<double> agg{moments.sumWY, moments.sumWY2};
-            ch.score = Criterion::squaredError(agg, moments.sumW);
-            const std::vector<float> aggF{
-                static_cast<float>(moments.sumWY),
-                static_cast<float>(moments.sumWY2)};
-            ch.isLeaf = true;
-            leafRegressionStats.push_back(aggF);
-            leafNumSamples.push_back(ch.sampleIndices.n_elem);
-            leafPredictions_.push_back(
-                weightedMeanFromAggregates(moments.sumWY, moments.sumW));
-            children.push_back(std::move(ch));
-          }
-        } else {
-          for (size_t p = 0; p < numChildPartitions; ++p) {
-            ShapeFunctionNode ch;
-            ch.height = parent.height + 1;
-            ch.sampleIndices = arma::conv_to<arma::uvec>::from(buckets[p]);
-            ch.numPartitions = numPartitions_;
-            std::vector<float> ys;
-            std::vector<float> ws;
-            ys.reserve(ch.sampleIndices.n_elem);
-            ws.reserve(ch.sampleIndices.n_elem);
-            for (arma::uword j = 0; j < ch.sampleIndices.n_elem; ++j) {
-              const size_t si = static_cast<size_t>(ch.sampleIndices(j));
-              ys.push_back(y(static_cast<arma::uword>(si)));
-              ws.push_back(static_cast<float>(fitSampleWeights_(si)));
-            }
-            ch.score = meanAbsoluteDeviationFromMedian(ys, ws);
-            ch.isLeaf = true;
-            leafRegressionStats.push_back({});
-            leafNumSamples.push_back(ch.sampleIndices.n_elem);
-            leafPredictions_.push_back(
-                static_cast<float>(Criterion::absoluteError(ys, ws).median));
-            children.push_back(std::move(ch));
-          }
-        }
-
-
-        return children;
+      [&splitBuilder](ShapeFunctionNode &parent) {
+        return splitBuilder.makeChildren(parent);
       },
       [this](ShapeFunctionNode &parent,
              std::vector<ShapeFunctionNode> &children) {
