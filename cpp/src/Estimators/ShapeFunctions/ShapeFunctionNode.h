@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Estimators/ShapeGeneralizedTree.h"
 #include <cmath>
 
 /**
@@ -24,6 +25,8 @@
  * `TreeBuilder` orders nodes by `informationGain` for the best-first heap.
  */
 struct ShapeFunctionNode {
+  ShapeGeneralizedTree* tree = nullptr;
+
   size_t height = 0;
   double score = 0.0;
   double informationGain = 0.0;
@@ -106,4 +109,17 @@ struct ShapeFunctionNode {
       throw std::runtime_error("bin out of range");
     return binToPartition[bin];
   }
+
+  std::vector<ShapeFunctionNode*> getChildren() const {
+    if (tree == nullptr) {
+      throw std::runtime_error("tree is null");
+    }
+
+
+    std::vector<ShapeFunctionNode*> children;
+    for (size_t childIndex : tree->childIndices()[nodeIndex]) {
+      children.push_back(&tree->nodes()[childIndex]);
+    }
+    return children;
+  };
 };

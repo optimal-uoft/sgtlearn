@@ -289,19 +289,3 @@ RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
 }
 
 
-
-size_t RegressionShapeGeneralizedTree::numLeaves() const {
-  size_t c = 0;
-  for (const auto &node : nodes_) {
-    if (node.isLeaf)
-      ++c;
-  }
-  return c;
-}
-
-size_t RegressionShapeGeneralizedTree::numNodes() const {
-  return nodes_.size();
-}
-
-bool RegressionShapeGeneralizedTree::isFitted() const { return fitted_; }
-

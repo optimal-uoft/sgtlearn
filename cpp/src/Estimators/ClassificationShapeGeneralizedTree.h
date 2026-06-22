@@ -6,6 +6,7 @@
  */
 
 #include "Domain/LearningCriterion.h"
+#include "Estimators/ShapeGeneralizedTree.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
@@ -61,7 +62,7 @@
  */
 class ClassificationShapeFunctionBuilder;
 
-class ClassificationShapeGeneralizedTree {
+class ClassificationShapeGeneralizedTree : public ShapeGeneralizedTree {
   friend class ClassificationShapeFunctionBuilder;
 
 public:
@@ -114,26 +115,8 @@ public:
   /** Class probabilities, shape (numClasses, numSamples). */
   arma::fmat predictProba(const arma::fmat &X) const;
 
-  /** Number of leaf nodes in the fitted outer tree. */
-  size_t numLeaves() const;
-
-  /** Total number of nodes (internal + leaf) in the fitted outer tree. */
-  size_t numNodes() const;
-
-  /** True if `fit` has completed successfully. */
-  bool isFitted() const;
-
   /** Per-node class histograms (also populated at internal nodes). */
   std::vector<std::vector<double>> classCounts;
-
-  /** Read-only access to the fitted node array for introspection / export. */
-  const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
-
-  /** Per-node child indices; empty inner vector at leaves. */
-  const std::vector<std::vector<size_t>> &childIndices() const { return childIndices_; }
-
-  /** Index of the root node (currently always 0 after fit). */
-  size_t rootIndex() const { return rootIndex_; }
 
   /** Fan-out used by this tree (constructor arg). */
   size_t numPartitions() const { return numPartitions_; }
@@ -153,15 +136,6 @@ private:
   uint64_t random_state_;
   std::mt19937_64 rng_;
   FeatureBaggingPickFn featureBagging_;
-  bool fitted_ = false;
-
-  std::vector<ShapeFunctionNode> nodes_;
-  /**
-   * For node i, childIndices_[i][p] is the node index of child partition p.
-   * Empty for leaves.
-   */
-  std::vector<std::vector<size_t>> childIndices_;
-  size_t rootIndex_ = 0;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
