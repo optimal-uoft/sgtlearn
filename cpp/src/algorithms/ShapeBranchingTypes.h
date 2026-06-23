@@ -39,4 +39,6 @@ template <typename LeafStat> struct ShapeBranchingResult {
   std::vector<size_t> leafNumSamples;
   /** Fan-out chosen for this split (``2`` .. ``numPartitions`` cap). */
   size_t numPartitionsUsed = 0;
+  /** Unweighted sample count per child partition after coordinate descent. */
+  std::vector<size_t> partitionSampleCounts;
 };

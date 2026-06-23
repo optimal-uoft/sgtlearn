@@ -68,4 +68,6 @@ private:
   void buildWeightPrefix();
 };
 
+#include "../algorithms/missing_values.h"
+
 #include "Splitter.tpp"

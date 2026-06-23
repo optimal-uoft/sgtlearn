@@ -43,6 +43,7 @@ endif ()
 # region --- 1. Core Library ---
 add_library(sgtlearn_core STATIC
         src/algorithms/frontiers.h
+        src/algorithms/missing_values.h
         src/Discretizers/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
         src/Domain/LearningCriterion.h
@@ -77,9 +78,18 @@ add_library(sgtlearn_core STATIC
         src/algorithms/FeatureBagging.h
         src/algorithms/KMeansUtils.h
         src/algorithms/ShapeGeneralizedTreeParams.h
-        src/Estimators/ShapeFunctionNode.h
+        src/Estimators/ShapeFunctions/ShapeFunctionNode.h
+        src/Estimators/ShapeFunctions/ShapeFunctionNode.cpp
         src/algorithms/ShapeBranchingTypes.h
         src/algorithms/BinPartitionAssignments.h
+        src/Estimators/ShapeFunctions/ShapeFunctionBuilder.h
+        src/Estimators/ShapeFunctions/ShapeFunctionBuilder.cpp
+        src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h
+        src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.cpp
+        src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h
+        src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.cpp
+        src/Estimators/ShapeGeneralizedTree.h
+        src/Estimators/ShapeGeneralizedTree.cpp
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp
         src/Estimators/RegressionShapeGeneralizedTree.h

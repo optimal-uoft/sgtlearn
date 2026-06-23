@@ -140,7 +140,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             y,
             accept_sparse=False,
             dtype=np.float64,
-            ensure_all_finite=True,
+            ensure_all_finite="allow-nan",
             y_numeric=True,
         )
 

@@ -13,14 +13,18 @@
 AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
     std::vector<size_t> &assignments, size_t numPartitions,
     std::vector<std::vector<float>> &leafYs,
-    std::vector<std::vector<float>> &leafWs, std::vector<double> &leafWeights)
-    : BranchAssignment(assignments, numPartitions), leafYs_(leafYs),
-      leafWs_(leafWs), leafWeights_(leafWeights) {
+    std::vector<std::vector<float>> &leafWs, std::vector<double> &leafWeights,
+    const std::vector<size_t> &leafSampleCounts)
+    : BranchAssignment(assignments, numPartitions, leafSampleCounts),
+      leafYs_(leafYs), leafWs_(leafWs), leafWeights_(leafWeights) {
 
   if (assignments.size() != leafYs.size() || leafYs.size() != leafWs.size() ||
       leafYs.size() != leafWeights.size())
     throw std::runtime_error(
         "assignments, leafYs, leafWs, and leafWeights must have the same length");
+  if (leafSampleCounts.size() != leafYs.size())
+    throw std::runtime_error(
+        "leafSampleCounts must have the same length as bin statistics");
 
   for (size_t i = 0; i < leafYs.size(); ++i) {
     if (assignments[i] >= numPartitions)
@@ -34,8 +38,10 @@ AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
 
   const size_t numLeaves = assignments.size();
   for (size_t b = 0; b < numLeaves; b++) {
-    if (assignments[b] < numPartitions)
+    if (assignments[b] < numPartitions) {
       partitionWeight_[assignments[b]] += leafWeights_[b];
+      partitionSampleCount_[assignments[b]] += leafSampleCounts_[b];
+    }
   }
 
   for (size_t p = 0; p < numPartitions; p++) {
@@ -61,6 +67,7 @@ void AbsoluteErrorBranchAssignment::addLeaf(size_t leaf, size_t partition) {
   weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
 
   partitionWeight_[partition] += leafWeights_[leaf];
+  partitionSampleCount_[partition] += leafSampleCounts_[leaf];
   sumNumberOfSamples_ += leafWeights_[leaf];
 
   partitionLoss_[partition] = computePartitionMae(partition);
@@ -83,6 +90,7 @@ void AbsoluteErrorBranchAssignment::removeLeaf(size_t leaf) {
   weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
   sumNumberOfSamples_ -= leafWeights_[leaf];
   partitionWeight_[partition] -= leafWeights_[leaf];
+  partitionSampleCount_[partition] -= leafSampleCounts_[leaf];
 
   partitionLoss_[partition] = computePartitionMae(partition);
   weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];

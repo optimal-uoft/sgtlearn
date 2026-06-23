@@ -9,7 +9,7 @@ sphinx-copybutton>=0.5
 
 # sgtlearn runtime dependencies (imported by autodoc when documenting the API)
 numpy>=1.20
-scikit-learn>=1.3
+scikit-learn>=1.9
 joblib>=1.2
 matplotlib>=3.10.9
 seaborn>=0.13.2

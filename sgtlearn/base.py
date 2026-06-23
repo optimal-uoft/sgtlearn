@@ -140,7 +140,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     -----
     Internally, ``X`` is cast to C-contiguous ``float32`` and ``y`` to
     ``uint64`` before being passed to the native trainer. Sparse input is not
-    supported.
+    supported. NaN in ``X`` is handled by the native trainer (non-finite
+    values are sorted to the feature tail and routed to the last bin at
+    inference). Infinity in ``X`` is rejected.
 
     References
     ----------
@@ -235,7 +237,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 y,
                 accept_sparse=False,
                 dtype=np.float64,
-                ensure_all_finite=True,
+                ensure_all_finite="allow-nan",
             )
             le = LabelEncoder()
             y_enc = le.fit_transform(y)
@@ -309,7 +311,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 X,
                 accept_sparse=False,
                 dtype=np.float64,
-                ensure_all_finite=True,
+                ensure_all_finite="allow-nan",
             ),
             dtype=np.float32,
         )
@@ -325,7 +327,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
         check_is_fitted(self, attributes=("_est", "_le"))
         X = check_array(
-            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite="allow-nan"
         )
         if X.shape[1] != self.n_features_in_:
             raise ValueError(
@@ -419,7 +421,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     Notes
     -----
     Internally, ``X`` and ``y`` are cast to C-contiguous ``float32`` before
-    being passed to the native trainer. Sparse input is not supported.
+    being passed to the native trainer. Sparse input is not supported. NaN in
+    ``X`` is handled by the native trainer (non-finite values are sorted to the
+    feature tail and routed to the last bin at inference). Infinity in ``X`` is
+    rejected.
 
     For ``squared_error``/``mse``, the trainer runs coordinate descent after
     the round-robin seed and keeps the refined assignment only if branch MSE
@@ -513,9 +518,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 y,
                 accept_sparse=False,
                 dtype=np.float64,
-                ensure_all_finite=True,
+                ensure_all_finite="allow-nan",
                 y_numeric=True,
             )
+            if np.isnan(np.asarray(y, dtype=np.float64)).any():
+                raise ValueError("Input y contains NaN.")
         self.n_features_in_ = X.shape[1]
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
@@ -555,7 +562,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     def predict(self, X: np.ndarray) -> np.ndarray:
         check_is_fitted(self, attributes=("_est",))
         X = check_array(
-            X, accept_sparse=False, dtype=np.float64, ensure_all_finite=True
+            X, accept_sparse=False, dtype=np.float64, ensure_all_finite="allow-nan"
         )
         if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
             raise ValueError(

@@ -265,6 +265,7 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
+        d["nan_prediction_partition"] = n.nanPredictionPartition;
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);
@@ -396,6 +397,7 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
+        d["nan_prediction_partition"] = n.nanPredictionPartition;
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);

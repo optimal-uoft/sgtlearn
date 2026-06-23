@@ -4,6 +4,10 @@
  */
 
 #include "../algorithms/TreeBuilder.h"
+#include "../algorithms/missing_values.h"
+
+#include <algorithm>
+#include <iterator>
 
 template <typename StatsT, typename PredictT>
 void UnivariateDiscretizer<StatsT, PredictT>::processLeaves(
@@ -66,9 +70,23 @@ void UnivariateDiscretizer<StatsT, PredictT>::transform(const arma::fmat &X,
     throw std::invalid_argument("Trained feature must be an index < X.n_rows");
   binLoc = arma::Row<size_t>(X.n_cols);
   const arma::frowvec featureRow = X.row(feature);
+  const size_t nanBin = thresholds.size();
   for (size_t col = 0; col < X.n_cols; ++col) {
-    const auto it = std::ranges::lower_bound(thresholds, featureRow(col));
-    binLoc(col) = std::distance(thresholds.begin(), it);
+    const float value = featureRow(col);
+    if (!missing_values::is_finite(value)) {
+      // The NaN bucket only exists if a non-finite value was seen in training.
+      // Otherwise inferring the missing-value route is the outer shape tree's
+      // responsibility, not the univariate discretizer's.
+      if (!nanSeen_)
+        throw std::runtime_error(
+            "Encountered a non-finite feature value during transform, but the "
+            "discretizer observed no missing values during training");
+      binLoc(col) = nanBin;
+      continue;
+    }
+    const auto it =
+        std::lower_bound(thresholds.begin(), thresholds.end(), value);
+    binLoc(col) = static_cast<size_t>(std::distance(thresholds.begin(), it));
   }
 }
 

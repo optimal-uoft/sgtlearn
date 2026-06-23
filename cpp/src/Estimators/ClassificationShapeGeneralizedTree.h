@@ -6,7 +6,8 @@
  */
 
 #include "Domain/LearningCriterion.h"
-#include "Estimators/ShapeFunctionNode.h"
+#include "Estimators/ShapeGeneralizedTree.h"
+#include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 #include "algorithms/TreeBuilder.h"
@@ -22,11 +23,13 @@
  *
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
- *   split / child / commit steps are local lambdas in `fit`.
- * - **Per-node split search** (inside `fit`): for each candidate feature,
+ *   split search via ``ClassificationShapeFunctionBuilder``; child / commit
+ *   steps remain local lambdas in ``fit``.
+ * - **Per-node split search** (``ClassificationShapeFunctionBuilder``): for each
  *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
  *   partition map; if the post-CD objective is **clearly worse** than the seed
- *   (absolute margin ``kCdObjectiveImprovementEps`` in the ``.cpp``), restore the
+ *   (absolute margin ``ShapeFunctionBuilder::kCdObjectiveImprovementEps``),
+ *   restore the
  *   assignment snapshot and rebuild the ``BranchAssignment``; keep the best branch
  *   by penalized child impurity.
  * - **Leaf state**: `fillLeafHistogram` or aggregated discretizer stats after a
@@ -57,7 +60,11 @@
  * @note Only `LearningCriterion::Entropy` and `LearningCriterion::Gini` are
  *       accepted; other criteria throw from the constructor.
  */
-class ClassificationShapeGeneralizedTree {
+class ClassificationShapeFunctionBuilder;
+
+class ClassificationShapeGeneralizedTree : public ShapeGeneralizedTree {
+  friend class ClassificationShapeFunctionBuilder;
+
 public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and
@@ -108,26 +115,8 @@ public:
   /** Class probabilities, shape (numClasses, numSamples). */
   arma::fmat predictProba(const arma::fmat &X) const;
 
-  /** Number of leaf nodes in the fitted outer tree. */
-  size_t numLeaves() const;
-
-  /** Total number of nodes (internal + leaf) in the fitted outer tree. */
-  size_t numNodes() const;
-
-  /** True if `fit` has completed successfully. */
-  bool isFitted() const;
-
   /** Per-node class histograms (also populated at internal nodes). */
   std::vector<std::vector<double>> classCounts;
-
-  /** Read-only access to the fitted node array for introspection / export. */
-  const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
-
-  /** Per-node child indices; empty inner vector at leaves. */
-  const std::vector<std::vector<size_t>> &childIndices() const { return childIndices_; }
-
-  /** Index of the root node (currently always 0 after fit). */
-  size_t rootIndex() const { return rootIndex_; }
 
   /** Fan-out used by this tree (constructor arg). */
   size_t numPartitions() const { return numPartitions_; }
@@ -147,15 +136,6 @@ private:
   uint64_t random_state_;
   std::mt19937_64 rng_;
   FeatureBaggingPickFn featureBagging_;
-  bool fitted_ = false;
-
-  std::vector<ShapeFunctionNode> nodes_;
-  /**
-   * For node i, childIndices_[i][p] is the node index of child partition p.
-   * Empty for leaves.
-   */
-  std::vector<std::vector<size_t>> childIndices_;
-  size_t rootIndex_ = 0;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
@@ -165,13 +145,6 @@ private:
 
   std::vector<double> fillLeafHistogram(ShapeFunctionNode &node,
                                         const arma::Row<size_t> &y) const;
-
-  /** K-means seed for bin->partition assignment from per-bin class histograms. */
-  void seedBinAssignmentsKMeans(
-      size_t k, size_t numBins,
-      const std::vector<std::vector<double>> &binClassCounts,
-      const std::vector<size_t> &binSizes, const std::vector<double> &binWeights,
-      std::vector<size_t> &assignments);
 
   arma::Row<float> fitSampleWeights_;
 };

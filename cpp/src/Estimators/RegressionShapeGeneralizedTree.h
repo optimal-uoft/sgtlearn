@@ -7,7 +7,8 @@
  */
 
 #include "Domain/LearningCriterion.h"
-#include "Estimators/ShapeFunctionNode.h"
+#include "Estimators/ShapeGeneralizedTree.h"
+#include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 #include "algorithms/TreeBuilder.h"
@@ -23,8 +24,9 @@
  *
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
- *   split / child / commit steps are local lambdas in `fit`.
- * - **Per-node split search** (inside `fit`): for each candidate feature,
+ *   split search via ``RegressionShapeFunctionBuilder``; child / commit steps
+ *   remain local lambdas in ``fit``.
+ * - **Per-node split search** (``RegressionShapeFunctionBuilder``): for each
  *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
  *   ``SquaredError`` only: keep CD only if branch MSE drops by a fixed margin vs
  *   the seed, else restore the snapshot and rebuild. ``AbsoluteError`` keeps the
@@ -57,7 +59,11 @@
  *       `LearningCriterion::AbsoluteError` are accepted; other criteria throw
  *       from the constructor.
  */
-class RegressionShapeGeneralizedTree {
+class RegressionShapeFunctionBuilder;
+
+class RegressionShapeGeneralizedTree : public ShapeGeneralizedTree {
+  friend class RegressionShapeFunctionBuilder;
+
 public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and
@@ -103,15 +109,6 @@ public:
   /** Predicted responses, shape (numSamples,). */
   arma::Row<double> predict(const arma::fmat &X) const;
 
-  /** Number of leaf nodes in the fitted outer tree. */
-  size_t numLeaves() const;
-
-  /** Total number of nodes (internal + leaf) in the fitted outer tree. */
-  size_t numNodes() const;
-
-  /** True if `fit` has completed successfully. */
-  bool isFitted() const;
-
   /**
    * Per outer-tree node index: for squared error, ``{sum y, sum y^2}`` at
    * leaves (empty at internal nodes after fit). For absolute error, empty at
@@ -120,15 +117,6 @@ public:
   std::vector<std::vector<float>> leafRegressionStats;
   /** Sample count per leaf (same indexing as ``leafRegressionStats``). */
   std::vector<size_t> leafNumSamples;
-
-  /** Read-only access to the fitted node array for introspection / export. */
-  const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
-
-  /** Per-node child indices; empty inner vector at leaves. */
-  const std::vector<std::vector<size_t>> &childIndices() const { return childIndices_; }
-
-  /** Index of the root node (currently always 0 after fit). */
-  size_t rootIndex() const { return rootIndex_; }
 
   /** Fan-out used by this tree (constructor arg). */
   size_t numPartitions() const { return numPartitions_; }
@@ -148,15 +136,6 @@ private:
   uint64_t random_state_;
   std::mt19937_64 rng_;
   FeatureBaggingPickFn featureBagging_;
-  bool fitted_ = false;
-
-  std::vector<ShapeFunctionNode> nodes_;
-  /**
-   * For node i, childIndices_[i][p] is the node index of child partition p.
-   * Empty for leaves.
-   */
-  std::vector<std::vector<size_t>> childIndices_;
-  size_t rootIndex_ = 0;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;

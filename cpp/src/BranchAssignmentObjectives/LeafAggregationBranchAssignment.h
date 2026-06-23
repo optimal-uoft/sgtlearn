@@ -27,6 +27,7 @@ public:
                                   size_t numPartitions,
                                   std::vector<std::vector<T>> &stats,
                                   std::vector<double> &leafWeights,
+                                  const std::vector<size_t> &leafSampleCounts,
                                   size_t statsDim,
                                   std::unique_ptr<ILeafAggregateProcessor<T>> processor);
 
@@ -35,6 +36,14 @@ public:
   void addLeaf(size_t leaf, size_t partition) override;
 
   void removeLeaf(size_t leaf) override;
+
+  const std::vector<std::vector<T>> &aggregatedPartitionStats() const {
+    return partitionStats;
+  }
+
+  const std::vector<double> &aggregatedPartitionWeights() const {
+    return partitionWeight;
+  }
 
 protected:
   double weightedSumLoss = 0;
