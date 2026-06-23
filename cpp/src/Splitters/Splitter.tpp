@@ -113,7 +113,7 @@ bool Splitter<StatsT, PredictT>::findBestSplit(SplitCandidate &split,
 
     const float prevValue = X(i - 1);
     if (!missing_values::is_finite(prevValue))
-      continue;
+      throw std::runtime_error("NaN value passed to findBestSplit");
     if (currValue <= prevValue + static_cast<float>(1e-7))
       continue;
 

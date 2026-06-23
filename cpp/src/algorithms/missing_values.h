@@ -10,9 +10,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <iterator>
-#include <limits>
-#include <utility>
 #include <vector>
 
 namespace missing_values {
@@ -82,15 +79,6 @@ inline size_t pick_lowest_score_min_index_tie(const std::vector<double> &scores,
       best = p;
   }
   return best;
-}
-
-/** Bin index for ``value`` against sorted cut points (``lower_bound``). */
-template <typename ThresholdIter>
-size_t discretizer_bin(float value, ThresholdIter begin, ThresholdIter end) {
-  if (!is_finite(value))
-    return static_cast<size_t>(std::distance(begin, end));
-  const auto it = std::lower_bound(begin, end, value);
-  return static_cast<size_t>(std::distance(begin, it));
 }
 
 } // namespace missing_values

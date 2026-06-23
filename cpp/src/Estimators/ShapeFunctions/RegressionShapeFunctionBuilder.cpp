@@ -147,16 +147,16 @@ void RegressionShapeFunctionBuilder::applyTaskBranchingFields(
 
 void RegressionShapeFunctionBuilder::assignNanPredictionPartition(
     ShapeFunctionNode &node,
-    const std::vector<size_t> &partitionSampleCounts, const arma::fmat &Xsub,
+    const std::vector<size_t> &partitionSampleCounts, bool nanSeen,
+    const std::vector<double> &nanStats, double nanWeight,
+    const std::vector<size_t> &nanInSampleIndices, const arma::fmat &Xsub,
     const arma::Row<float> &ysub, const arma::uvec &subIdx) const {
   node.splitMissingStats.clear();
   node.splitMissingWeight = 0.0;
 
-  const arma::Row<float> wsub = subSampleWeights(tree_.fitSampleWeights_, subIdx);
-  const arma::frowvec featRow = Xsub.row(node.routingFeature);
-  const auto missingCols =
-      nan_partition_routing::missing_column_indices(featRow);
-  if (missingCols.empty()) {
+  // No NaN observed for this feature during training: route NaN at inference to
+  // the largest child partition (smallest index on ties).
+  if (!nanSeen) {
     node.nanPredictionPartition =
         missing_values::partition_with_max_count_min_index_tie(
             partitionSampleCounts);
@@ -164,21 +164,24 @@ void RegressionShapeFunctionBuilder::assignNanPredictionPartition(
   }
 
   if (tree_.criterion_ == LearningCriterion::SquaredError) {
-    double missingSumWY = 0.0;
-    double missingSumWY2 = 0.0;
+    const double missingSumWY = nanStats.size() > 0 ? nanStats[0] : 0.0;
+    const double missingSumWY2 = nanStats.size() > 1 ? nanStats[1] : 0.0;
     node.nanPredictionPartition =
-        nan_partition_routing::choose_nan_partition_squared_error(
+        nan_partition_routing::choose_nan_partition_squared_error_from_moments(
             node.numPartitions, node.binToPartition, node.splitLeafStats,
-            node.splitBinWeights, missingCols, ysub, wsub, &missingSumWY,
-            &missingSumWY2, &node.splitMissingWeight);
+            node.splitBinWeights, missingSumWY, missingSumWY2, nanWeight);
     node.splitMissingStats = {missingSumWY, missingSumWY2};
+    node.splitMissingWeight = nanWeight;
     return;
   }
 
+  // Absolute error: the NaN bucket needs the raw targets to recompute medians.
+  const arma::Row<float> wsub = subSampleWeights(tree_.fitSampleWeights_, subIdx);
+  const arma::frowvec featRow = Xsub.row(node.routingFeature);
   node.nanPredictionPartition =
       nan_partition_routing::choose_nan_partition_absolute_error(
           node.numPartitions, featRow, node.sampleBins, node.binToPartition,
-          missingCols, ysub, wsub);
+          nanInSampleIndices, ysub, wsub);
 }
 
 bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
@@ -290,8 +293,9 @@ bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
     node.splitLeafStats.clear();
   node.splitBinWeights = std::move(best.binWeights);
   node.binSampleCounts = std::move(best.branching.leafNumSamples);
-  assignNanPredictionPartition(node, best.branching.partitionSampleCounts, Xsub,
-                               ysub, subIdx);
+  assignNanPredictionPartition(node, best.branching.partitionSampleCounts,
+                               best.nanSeen, best.nanStats, best.nanNodeWeight,
+                               best.nanInSampleIndices, Xsub, ysub, subIdx);
 
   return true;
 }

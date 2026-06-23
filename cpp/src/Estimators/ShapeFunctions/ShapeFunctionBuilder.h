@@ -84,6 +84,15 @@ protected:
     /** Classification only: partition aggregates used for NaN routing. */
     std::vector<std::vector<double>> partitionClassCounts;
     std::vector<double> partitionWeights;
+    /**
+     * NaN bucket of the winning feature's discretizer, captured so the NaN
+     * branch can be assigned after coordinate descent runs on numeric bins.
+     */
+    bool nanSeen = false;
+    std::vector<double> nanStats;
+    size_t nanNumSamples = 0;
+    double nanNodeWeight = 0.0;
+    std::vector<size_t> nanInSampleIndices;
   };
 
   /**

@@ -24,4 +24,15 @@ public:
   virtual std::vector<double> &leafNodeWeights() = 0;
   virtual const std::vector<double> &thresholds() const = 0;
   virtual std::vector<std::vector<size_t>> &inSampleDiscretizations() = 0;
+
+  /**
+   * NaN-bucket view: aggregates over non-finite training rows for the routing
+   * feature. Used to assign the NaN branch after coordinate descent has run on
+   * the numeric bins.
+   */
+  virtual bool nanSeen() const = 0;
+  virtual const std::vector<double> &nanStats() const = 0;
+  virtual size_t nanNumSamples() const = 0;
+  virtual double nanNodeWeight() const = 0;
+  virtual const std::vector<size_t> &nanInSampleIndices() const = 0;
 };

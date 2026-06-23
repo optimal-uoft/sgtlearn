@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Estimators/ShapeGeneralizedTree.h"
 #include <cmath>
 
 /**
@@ -15,6 +14,8 @@
 #include <compare>
 #include <cstddef>
 #include <vector>
+
+class ShapeGeneralizedTree;
 
 /**
  * Outer-tree node: routing rule when internal, plus training sample indices
@@ -110,16 +111,11 @@ struct ShapeFunctionNode {
     return binToPartition[bin];
   }
 
-  std::vector<ShapeFunctionNode*> getChildren() const {
-    if (tree == nullptr) {
-      throw std::runtime_error("tree is null");
-    }
-
-
-    std::vector<ShapeFunctionNode*> children;
-    for (size_t childIndex : tree->childIndices()[nodeIndex]) {
-      children.push_back(&tree->nodes()[childIndex]);
-    }
-    return children;
-  };
+  /**
+   * Child nodes of this internal node via the owning tree's child index map.
+   * Defined out-of-line in ShapeFunctionNode.cpp because it needs the complete
+   * ``ShapeGeneralizedTree`` type (only forward-declared here to break the
+   * ShapeGeneralizedTree <-> ShapeFunctionNode include cycle).
+   */
+  std::vector<ShapeFunctionNode *> getChildren() const;
 };

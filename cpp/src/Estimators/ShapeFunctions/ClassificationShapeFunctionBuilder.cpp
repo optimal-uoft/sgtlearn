@@ -12,7 +12,6 @@
 #include "Discretizers/ClassificationDiscretizer.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
-#include "Estimators/ShapeFunctions/NanPartitionRouting.h"
 #include "algorithms/missing_values.h"
 
 #include <armadillo>
@@ -131,16 +130,14 @@ void ClassificationShapeFunctionBuilder::assignNanPredictionPartition(
     ShapeFunctionNode &node,
     const std::vector<size_t> &partitionSampleCounts,
     const std::vector<std::vector<double>> &partitionClassCounts,
-    const std::vector<double> &partitionWeights, const arma::fmat &Xsub,
-    const arma::Row<size_t> &ysub, const arma::uvec &subIdx) const {
+    const std::vector<double> &partitionWeights, bool nanSeen,
+    const std::vector<double> &nanStats, double nanWeight) const {
   node.splitMissingStats.clear();
   node.splitMissingWeight = 0.0;
 
-  const arma::Row<float> wsub = subSampleWeights(tree_.fitSampleWeights_, subIdx);
-  const arma::frowvec featRow = Xsub.row(node.routingFeature);
-  const auto missingCols =
-      nan_partition_routing::missing_column_indices(featRow);
-  if (missingCols.empty()) {
+  // No NaN observed for this feature during training: route NaN at inference to
+  // the largest child partition (smallest index on ties).
+  if (!nanSeen) {
     node.nanPredictionPartition =
         missing_values::partition_with_max_count_min_index_tie(
             partitionSampleCounts);
@@ -150,16 +147,9 @@ void ClassificationShapeFunctionBuilder::assignNanPredictionPartition(
   const size_t numClasses = tree_.numClasses_;
   const size_t numPartitions = node.numPartitions;
   node.splitMissingStats.assign(numClasses, 0.0);
-  for (size_t col : missingCols) {
-    if (col >= static_cast<size_t>(ysub.n_elem))
-      continue;
-    const size_t lab = ysub(col);
-    if (lab >= numClasses)
-      continue;
-    const double w = static_cast<double>(wsub(col));
-    node.splitMissingStats[lab] += w;
-    node.splitMissingWeight += w;
-  }
+  for (size_t c = 0; c < numClasses; ++c)
+    node.splitMissingStats[c] = c < nanStats.size() ? nanStats[c] : 0.0;
+  node.splitMissingWeight = nanWeight;
 
   double baseWeightedLoss = 0.0;
   double totalWeight = node.splitMissingWeight;
@@ -285,7 +275,7 @@ bool ClassificationShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
   node.informationGain = best.branching.impurityDecrease;
   assignNanPredictionPartition(
       node, best.branching.partitionSampleCounts, best.partitionClassCounts,
-      best.partitionWeights, Xsub, ysub, subIdx);
+      best.partitionWeights, best.nanSeen, best.nanStats, best.nanNodeWeight);
 
   return true;
 }

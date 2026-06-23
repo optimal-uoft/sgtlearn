@@ -50,9 +50,18 @@ private:
       BestBranchingState &best, const BranchAssignmentSearchResult &search,
       const std::vector<std::vector<double>> &leafStats) override;
 
+  /**
+   * Assign the NaN branch after coordinate descent has run on the numeric bins.
+   * Routes NaN to the largest child partition when the discretizer saw no NaN
+   * (``nanSeen == false``); otherwise picks the partition whose loss grows
+   * least when the NaN bucket is merged in (squared error from precomputed
+   * moments, absolute error from the NaN rows directly).
+   */
   void assignNanPredictionPartition(
       ShapeFunctionNode &node,
-      const std::vector<size_t> &partitionSampleCounts, const arma::fmat &Xsub,
+      const std::vector<size_t> &partitionSampleCounts, bool nanSeen,
+      const std::vector<double> &nanStats, double nanWeight,
+      const std::vector<size_t> &nanInSampleIndices, const arma::fmat &Xsub,
       const arma::Row<float> &ysub, const arma::uvec &subIdx) const;
 
   RegressionShapeGeneralizedTree &tree_;

@@ -41,6 +41,26 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
   const auto sort = missing_values::sort_index_finite_first(X.row(feature));
   const arma::uword n_finite =
       static_cast<arma::uword>(sort.first_non_finite_index);
+
+  // NaN bucket: aggregate the non-finite tail (weighted class counts). The
+  // inner tree below is fit on finite values only, so the splitter operates on
+  // N_numeric = N - N_nan samples and min_samples_leaf applies to numerics.
+  this->nanSeen_ = (n_finite < X.n_cols);
+  this->nanStats_.assign(numClasses, 0.0);
+  this->nanNumSamples_ = 0;
+  this->nanNodeWeight_ = 0.0;
+  this->nanInSampleIndices_.clear();
+  for (arma::uword i = n_finite; i < X.n_cols; ++i) {
+    const arma::uword idx = sort.order(i);
+    const double w =
+        sampleWeights.n_elem == 0 ? 1.0 : static_cast<double>(sampleWeights(idx));
+    const size_t lab = y(idx);
+    this->nanStats_[lab] += w;
+    this->nanNodeWeight_ += w;
+    ++this->nanNumSamples_;
+    this->nanInSampleIndices_.push_back(static_cast<size_t>(idx));
+  }
+
   if (n_finite == 0)
     return;
   const arma::uvec finiteOrder = sort.order.subvec(0, n_finite - 1);

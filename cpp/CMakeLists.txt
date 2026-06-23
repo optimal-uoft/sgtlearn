@@ -79,6 +79,7 @@ add_library(sgtlearn_core STATIC
         src/algorithms/KMeansUtils.h
         src/algorithms/ShapeGeneralizedTreeParams.h
         src/Estimators/ShapeFunctions/ShapeFunctionNode.h
+        src/Estimators/ShapeFunctions/ShapeFunctionNode.cpp
         src/algorithms/ShapeBranchingTypes.h
         src/algorithms/BinPartitionAssignments.h
         src/Estimators/ShapeFunctions/ShapeFunctionBuilder.h
@@ -87,6 +88,8 @@ add_library(sgtlearn_core STATIC
         src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.cpp
         src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h
         src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.cpp
+        src/Estimators/ShapeGeneralizedTree.h
+        src/Estimators/ShapeGeneralizedTree.cpp
         src/Estimators/ClassificationShapeGeneralizedTree.h
         src/Estimators/ClassificationShapeGeneralizedTree.cpp
         src/Estimators/RegressionShapeGeneralizedTree.h

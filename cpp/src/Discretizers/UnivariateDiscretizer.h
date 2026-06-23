@@ -36,6 +36,20 @@ protected:
   std::vector<double> leafNodeWeights;
   std::map<std::tuple<size_t, size_t>, SplitCandidate> leaves;
 
+  /**
+   * NaN bucket: conceptually the trailing bin (index ``numLeaves``) past the
+   * ``+inf`` threshold, used to route non-finite feature values. The inner
+   * tree / splitter is fit on finite values only; these aggregate the
+   * non-finite training samples so callers can decide the NaN branch after
+   * coordinate descent has run on the numeric bins.
+   */
+  bool nanSeen_ = false;
+  std::vector<StatsT> nanStats_;
+  size_t nanNumSamples_ = 0;
+  double nanNodeWeight_ = 0.0;
+  /** Training column indices (into the columns passed to ``Train``) of NaN rows. */
+  std::vector<size_t> nanInSampleIndices_;
+
   void processLeaves(arma::uvec sortedOrder,
                      Splitter<StatsT, PredictT> &splitter);
 
@@ -60,6 +74,23 @@ public:
 
   /** Sorted-axis cut points; same ordering as `transform` / inner bins. */
   const std::vector<double> &getThresholds() const { return thresholds; }
+
+  /** True if any non-finite feature value was observed during ``Train``. */
+  bool nanSeen() const { return nanSeen_; }
+
+  /** Aggregated NaN-bucket stats (class counts, or ``[sum w*y, sum w*y^2]``). */
+  const std::vector<StatsT> &getNanStats() const { return nanStats_; }
+
+  /** Unweighted count of non-finite training samples. */
+  size_t getNanNumSamples() const { return nanNumSamples_; }
+
+  /** Summed sample weight of the NaN bucket. */
+  double getNanNodeWeight() const { return nanNodeWeight_; }
+
+  /** Training column indices of the NaN-bucket samples. */
+  const std::vector<size_t> &getNanInSampleIndices() const {
+    return nanInSampleIndices_;
+  }
 
   ~UnivariateDiscretizer() = default;
 };

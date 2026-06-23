@@ -74,6 +74,11 @@ bool ShapeFunctionBuilder::featureHasBetterBranching(
   best.branching.leafNumSamples = disc.leafNumSamples();
   best.binWeights.assign(disc.leafNodeWeights().begin(),
                          disc.leafNodeWeights().end());
+  best.nanSeen = disc.nanSeen();
+  best.nanStats = disc.nanStats();
+  best.nanNumSamples = disc.nanNumSamples();
+  best.nanNodeWeight = disc.nanNodeWeight();
+  best.nanInSampleIndices = disc.nanInSampleIndices();
   applyTaskBranchingFields(best, search, disc.leafStats());
   return true;
 }

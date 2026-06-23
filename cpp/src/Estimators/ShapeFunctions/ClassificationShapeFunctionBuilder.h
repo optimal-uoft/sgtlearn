@@ -51,12 +51,18 @@ private:
       BestBranchingState &best, const BranchAssignmentSearchResult &search,
       const std::vector<std::vector<double>> &leafStats) override;
 
+  /**
+   * Assign the NaN branch after coordinate descent has run on the numeric bins.
+   * If the discretizer saw no NaN (``nanSeen == false``) route NaN to the
+   * largest child partition; otherwise pick the partition whose impurity grows
+   * least when the NaN bucket (``nanStats`` / ``nanWeight``) is merged in.
+   */
   void assignNanPredictionPartition(
       ShapeFunctionNode &node,
       const std::vector<size_t> &partitionSampleCounts,
       const std::vector<std::vector<double>> &partitionClassCounts,
-      const std::vector<double> &partitionWeights, const arma::fmat &Xsub,
-      const arma::Row<size_t> &ysub, const arma::uvec &subIdx) const;
+      const std::vector<double> &partitionWeights, bool nanSeen,
+      const std::vector<double> &nanStats, double nanWeight) const;
 
   using PartitionImpurityFn = double (*)(const std::vector<double> &classCounts,
                                          double totalWeight);
