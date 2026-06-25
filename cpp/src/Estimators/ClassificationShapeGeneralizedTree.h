@@ -126,6 +126,12 @@ public:
 
   /** Impurity criterion this tree was constructed with. */
   LearningCriterion criterion() const { return criterion_; }
+
+  /** Outer routing-tree hyperparameters (read-only). */
+  const TreeBuildingParams &outerParams() const { return outerParams_; }
+
+  /** Inner per-feature discretizer hyperparameters (read-only). */
+  const TreeBuildingParams &innerParams() const { return innerParams_; }
 private:
   LearningCriterion criterion_;
   size_t numClasses_;

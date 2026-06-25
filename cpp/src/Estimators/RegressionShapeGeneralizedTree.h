@@ -124,6 +124,9 @@ public:
   /** Impurity criterion this tree was constructed with. */
   LearningCriterion criterion() const { return criterion_; }
 
+  /** Inner per-feature discretizer hyperparameters (read-only). */
+  const TreeBuildingParams &innerParams() const { return innerParams_; }
+
   /** Per-leaf prediction (mean or median), keyed by node id. */
   const std::vector<double> &leafPredictions() const { return leafPredictions_; }
 

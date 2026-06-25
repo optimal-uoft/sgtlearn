@@ -12,6 +12,7 @@ from sgtlearn.base import (
 from sgtlearn.ensemble import RandomSGForestClassifier, RandomSGForestRegressor
 from sgtlearn._export import export_graphviz, export_text, plot_tree
 from sgtlearn.datasets import make_plus
+from sgtlearn import tao
 
 __all__ = [
     "BaseShapeCART",
@@ -23,4 +24,5 @@ __all__ = [
     "export_text",
     "plot_tree",
     "make_plus",
+    "tao",
 ]
