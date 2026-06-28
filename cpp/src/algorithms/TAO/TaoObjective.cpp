@@ -14,7 +14,23 @@ namespace tao {
 
 TaoObjective::TaoObjective(const NodeCareSet &care, const arma::fmat &X,
                            double lambda)
-    : care_(care), X_(X), lambda_(lambda), nCare_(care.size()) {}
+    : care_(care), X_(X), lambda_(lambda), nCare_(care.size()),
+      totalCareWeight_(0.0) {
+  if (care_.careWeights.empty()) {
+    totalCareWeight_ = static_cast<double>(nCare_);
+    return;
+  }
+  for (double w : care_.careWeights)
+    totalCareWeight_ += w;
+  if (totalCareWeight_ <= 0.0)
+    totalCareWeight_ = static_cast<double>(nCare_);
+}
+
+double TaoObjective::careWeight(size_t i) const {
+  if (care_.careWeights.empty())
+    return 1.0;
+  return care_.careWeights[i];
+}
 
 size_t TaoObjective::argMax(const std::vector<double> &counts) {
   return static_cast<size_t>(std::distance(
@@ -37,7 +53,7 @@ size_t TaoObjective::routeValue(float value, const std::vector<float> &threshold
 }
 
 double TaoObjective::meanReward(double rewardSum) const {
-  return rewardSum / static_cast<double>(nCare_);
+  return rewardSum / totalCareWeight_;
 }
 
 double TaoObjective::penalizedScore(double rewardSum) const {
@@ -52,7 +68,7 @@ double TaoObjective::rewardSumForPartition(
     const float v = X_(feature, care_.careCols[i]);
     const size_t child =
         routeValue(v, thresholds, binToPartition, care_.dummyChild);
-    rewardSum += care_.careRewards[i][child];
+    rewardSum += careWeight(i) * care_.careRewards[i][child];
   }
   return rewardSum;
 }
@@ -62,7 +78,7 @@ double TaoObjective::scoreCurrent(const ShapeFunctionNode &node) const {
   for (size_t i = 0; i < nCare_; ++i) {
     const float v = X_(node.routingFeature, care_.careCols[i]);
     const size_t child = node.routeFeatureValueToPartition(v);
-    rewardSum += care_.careRewards[i][child];
+    rewardSum += careWeight(i) * care_.careRewards[i][child];
   }
   return penalizedScore(rewardSum);
 }
@@ -70,7 +86,7 @@ double TaoObjective::scoreCurrent(const ShapeFunctionNode &node) const {
 double TaoObjective::scoreDummy() const {
   double rewardSum = 0.0;
   for (size_t i = 0; i < nCare_; ++i)
-    rewardSum += care_.careRewards[i][care_.dummyChild];
+    rewardSum += careWeight(i) * care_.careRewards[i][care_.dummyChild];
   return meanReward(rewardSum);
 }
 

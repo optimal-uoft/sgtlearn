@@ -77,11 +77,13 @@ private:
 
   double meanReward(double rewardSum) const;
   double penalizedScore(double rewardSum) const;
+  double careWeight(size_t i) const;
 
   const NodeCareSet &care_;
   const arma::fmat &X_;
   double lambda_;
   size_t nCare_;
+  double totalCareWeight_;
 };
 
 } // namespace tao

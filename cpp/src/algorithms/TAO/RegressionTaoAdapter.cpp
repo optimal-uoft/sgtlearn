@@ -63,6 +63,7 @@ NodeCareSet RegressionTaoAdapter::buildCareSet(
 
     care.careCols.push_back(col);
     care.careRewards.push_back(reward);
+    care.careWeights.push_back(static_cast<double>(w_(col)));
     pseudolabels.push_back(bestChild);
   }
 
@@ -70,13 +71,14 @@ NodeCareSet RegressionTaoAdapter::buildCareSet(
   care.Xexp.set_size(numFeatures(), nCare);
   care.yexp.set_size(nCare);
   care.wexp.set_size(nCare);
-  care.wexp.ones();
   std::vector<double> childCounts(k, 0.0);
   for (size_t i = 0; i < nCare; ++i) {
     const size_t child = pseudolabels[i];
+    const float wi = w_(care.careCols[i]);
     care.Xexp.col(i) = X_.col(care.careCols[i]);
     care.yexp(i) = child;
-    childCounts[child] += 1.0;
+    care.wexp(i) = wi;
+    childCounts[child] += static_cast<double>(wi);
   }
   care.dummyChild = argMax(childCounts);
   return care;

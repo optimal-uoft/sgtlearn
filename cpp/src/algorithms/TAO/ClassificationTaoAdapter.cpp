@@ -78,6 +78,7 @@ NodeCareSet ClassificationTaoAdapter::buildCareSet(
 
     care.careCols.push_back(col);
     care.careRewards.push_back(reward);
+    care.careWeights.push_back(static_cast<double>(w_(col)));
     goodChildren.push_back(std::move(good));
   }
 
@@ -87,14 +88,15 @@ NodeCareSet ClassificationTaoAdapter::buildCareSet(
   care.Xexp.set_size(numFeatures(), nExpanded);
   care.yexp.set_size(nExpanded);
   care.wexp.set_size(nExpanded);
-  care.wexp.ones();
   std::vector<double> childCounts(k, 0.0);
   size_t pos = 0;
   for (size_t i = 0; i < care.size(); ++i) {
+    const float wi = w_(care.careCols[i]);
     for (size_t child : goodChildren[i]) {
       care.Xexp.col(pos) = X_.col(care.careCols[i]);
       care.yexp(pos) = child;
-      childCounts[child] += 1.0;
+      care.wexp(pos) = wi;
+      childCounts[child] += static_cast<double>(wi);
       ++pos;
     }
   }

@@ -37,6 +37,8 @@ namespace tao {
 struct NodeCareSet {
   std::vector<arma::uword> careCols;
   std::vector<std::vector<double>> careRewards;
+  /** Per care sample; empty means uniform weight 1. */
+  std::vector<double> careWeights;
 
   arma::fmat Xexp;
   arma::Row<size_t> yexp;
