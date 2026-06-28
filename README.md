@@ -1,5 +1,4 @@
 # SGTLearn
-[![Monthly](https://img.shields.io/pypi/dm/sgtlearn)](https://pypistats.org/packages/sgtlearn)
 [![Total](https://img.shields.io/pepy/dt/sgtlearn)](https://pepy.tech/project/sgtlearn)
 ![sgt visualization](assets/SGT_Viz.png)
 
