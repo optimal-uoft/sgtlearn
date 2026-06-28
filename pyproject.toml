@@ -50,6 +50,8 @@ module = [
   "sklearn.*",
   "ShapeGeneralizedTrees",
   "ShapeGeneralizedTrees.*",
+  "TreeAlternatingOptimization",
+  "TreeAlternatingOptimization.*",
   "joblib",
   "joblib.*",
   "numpy",

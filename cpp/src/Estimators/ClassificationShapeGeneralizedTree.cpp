@@ -33,24 +33,23 @@ ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
     TreeBuildingParams outerParams, TreeBuildingParams innerParams,
     CoordinateDescentParams cdParams, uint64_t random_state,
     FeatureBaggingPickFn featureBagging)
-    : criterion_(criterion), numClasses_(numClasses),
-      numPartitions_(numPartitions), outerParams_(outerParams),
-      innerParams_(innerParams), cdParams_(cdParams),
+    : ShapeGeneralizedTree(criterion, numPartitions, outerParams, innerParams),
+      numClasses_(numClasses), cdParams_(cdParams),
       random_state_(random_state), rng_(),
       featureBagging_(featureBagging
                           ? std::move(featureBagging)
                           : FeatureBaggingPickFn(pickAllFeatureIndices)),
       outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
                         outerParams_.maxDepth, outerParams_.maxLeafNodes) {
-  if (criterion_ != LearningCriterion::Entropy &&
-      criterion_ != LearningCriterion::Gini)
+  if (criterion != LearningCriterion::Entropy &&
+      criterion != LearningCriterion::Gini)
     throw std::invalid_argument(
         "ClassificationShapeGeneralizedTree: criterion must be Entropy or "
         "Gini");
   if (numClasses_ < 2)
     throw std::invalid_argument(
         "ClassificationShapeGeneralizedTree: numClasses must be >= 2");
-  if (numPartitions_ < 2)
+  if (numPartitions < 2)
     throw std::invalid_argument(
         "ClassificationShapeGeneralizedTree: numPartitions must be >= 2");
 }

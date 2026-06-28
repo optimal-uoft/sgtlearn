@@ -118,26 +118,11 @@ public:
   /** Per-node class histograms (also populated at internal nodes). */
   std::vector<std::vector<double>> classCounts;
 
-  /** Fan-out used by this tree (constructor arg). */
-  size_t numPartitions() const { return numPartitions_; }
-
   /** Number of class labels expected by this estimator. */
   size_t numClasses() const { return numClasses_; }
 
-  /** Impurity criterion this tree was constructed with. */
-  LearningCriterion criterion() const { return criterion_; }
-
-  /** Outer routing-tree hyperparameters (read-only). */
-  const TreeBuildingParams &outerParams() const { return outerParams_; }
-
-  /** Inner per-feature discretizer hyperparameters (read-only). */
-  const TreeBuildingParams &innerParams() const { return innerParams_; }
 private:
-  LearningCriterion criterion_;
   size_t numClasses_;
-  size_t numPartitions_;
-  TreeBuildingParams outerParams_;
-  TreeBuildingParams innerParams_;
   CoordinateDescentParams cdParams_;
   uint64_t random_state_;
   std::mt19937_64 rng_;

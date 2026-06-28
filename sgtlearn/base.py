@@ -17,10 +17,6 @@ from ShapeGeneralizedTrees import (
     ClassificationShapeGeneralizedTree,
     RegressionShapeGeneralizedTree,
 )
-from TreeAlternatingOptimization import (
-    optimize_classification,
-    optimize_regression,
-)
 from sklearn.preprocessing import LabelEncoder
 
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
@@ -58,29 +54,6 @@ class BaseShapeCART(BaseEstimator):
 
     Subclasses own the native backend handle (``_est``) and validation rules.
     """
-
-    def _refine_with_tao(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: Optional[np.ndarray],
-        n_runs: int,
-        lambda_: float,
-        check_input: bool,
-    ) -> None:
-        """Refine this fitted tree in place with Tree-Alternating Optimization.
-
-        Task-agnostic refinement hook. Concrete estimators override this with
-        the backend call and any task-specific target/weight preprocessing
-        (e.g. label encoding for classification). The base implementation
-        signals that the estimator's backend does not provide a TAO routine.
-
-        See :func:`sgtlearn.tao.optimize` for the public entry point; callers
-        should go through it rather than invoking this hook directly.
-        """
-        raise NotImplementedError(
-            f"{type(self).__name__} does not support TAO refinement."
-        )
 
 
 class SGTClassifier(ClassifierMixin, BaseShapeCART):
@@ -383,62 +356,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                     thresholds.pop()
         return tr
 
-    def _refine_with_tao(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: Optional[np.ndarray],
-        n_runs: int,
-        lambda_: float,
-        check_input: bool,
-    ) -> None:
-        """Refine the fitted classifier in place via TAO (see :func:`sgtlearn.tao.optimize`)."""
-        if self._est is None or self._le is None or self.n_features_in_ is None:
-            raise NotFittedError(
-                "This SGTClassifier instance is not fitted yet. Call 'fit' "
-                "before running TAO refinement."
-            )
-
-        if check_input:
-            X = check_array(
-                X,
-                accept_sparse=False,
-                dtype=np.float64,
-                ensure_all_finite="allow-nan",
-            )
-        else:
-            X = np.asarray(X)
-
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(
-                f"X has {X.shape[1]} features, but SGTClassifier was fitted "
-                f"with {self.n_features_in_} features."
-            )
-
-        y_enc = self._le.transform(np.asarray(y).ravel())
-        if y_enc.shape[0] != X.shape[0]:
-            raise ValueError("X and y must have the same number of samples.")
-
-        if self.class_weight is not None:
-            sw = effective_sample_weight_classification(
-                sample_weight, y_enc, self.class_weight, self.classes_
-            )
-        else:
-            sw = normalize_sample_weight(sample_weight, X.shape[0])
-
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
-        y_u = np.ascontiguousarray(
-            np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
-        )
-        optimize_classification(
-            self._est,
-            X32,
-            y_u,
-            sample_weight=sw,
-            n_runs=int(n_runs),
-            lambda_=float(lambda_),
-        )
-
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
     """Shape Generalized Tree regressor.
@@ -672,55 +589,3 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 while thresholds and np.isinf(thresholds[-1]):
                     thresholds.pop()
         return tr
-
-    def _refine_with_tao(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: Optional[np.ndarray],
-        n_runs: int,
-        lambda_: float,
-        check_input: bool,
-    ) -> None:
-        """Refine the fitted regressor in place via TAO (see :func:`sgtlearn.tao.optimize`)."""
-        if self._est is None or self.n_features_in_ is None:
-            raise NotFittedError(
-                "This SGTRegressor instance is not fitted yet. Call 'fit' "
-                "before running TAO refinement."
-            )
-
-        if check_input:
-            X, y = check_X_y(
-                X,
-                y,
-                accept_sparse=False,
-                dtype=np.float64,
-                ensure_all_finite="allow-nan",
-                y_numeric=True,
-            )
-            if np.isnan(np.asarray(y, dtype=np.float64)).any():
-                raise ValueError("Input y contains NaN.")
-        else:
-            X = np.asarray(X)
-            y = np.asarray(y)
-
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(
-                f"X has {X.shape[1]} features, but SGTRegressor was fitted "
-                f"with {self.n_features_in_} features."
-            )
-        if y.shape[0] != X.shape[0]:
-            raise ValueError("X and y must have the same number of samples.")
-
-        sw = normalize_sample_weight(sample_weight, X.shape[0])
-
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
-        y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
-        optimize_regression(
-            self._est,
-            X32,
-            y32,
-            sample_weight=sw,
-            n_runs=int(n_runs),
-            lambda_=float(lambda_),
-        )

@@ -75,4 +75,16 @@ Bootstrap-aggregate SGTs into a random forest:
    forest.fit(X_train, y_train)
    forest.predict_proba(X_test[:5])
 
+TAO refinement
+--------------
+
+Refine a fitted tree or forest in place with
+:func:`~sgtlearn.tao.TAO_refine` (see :doc:`api/tao`):
+
+.. code-block:: python
+
+   from sgtlearn import tao
+
+   tao.TAO_refine(model, X_train, y_train)  # single tree or forest
+
 See the :doc:`api/index` for the full parameter reference.

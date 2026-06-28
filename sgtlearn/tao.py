@@ -1,32 +1,165 @@
 """Tree-Alternating Optimization (TAO) refinement for shape-generalized trees.
 
-TAO refines an *already fitted* tree without changing its topology: it sweeps
-the internal nodes bottom-up and replaces each node's routing rule whenever
-doing so sends more training samples toward a correctly-classifying subtree.
-Leaf statistics are refreshed as routing changes. Because the refinement only
-ever accepts a rule that does not decrease training accuracy at that node, the
-optimized tree never scores worse on the training data than it did before.
-
-This module is intentionally a single, task-agnostic entry point. It accepts
-any :class:`~sgtlearn.base.BaseShapeCART` estimator and delegates the actual
-refinement to the estimator's own polymorphic hook, so the optimizer is not
-coupled to any particular backend handle or to whether the tree solves a
-classification or regression problem.
+TAO refines an *already fitted* tree or forest in place without changing topology.
+See :func:`TAO_refine`.
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TypeVar, Union
 
 import numpy as np
+from joblib import Parallel, delayed, effective_n_jobs
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from TreeAlternatingOptimization import TreeAlternatingOptimization
 
-from sgtlearn.base import BaseShapeCART
+from sgtlearn._weights import (
+    effective_sample_weight_classification,
+    normalize_sample_weight,
+)
+from sgtlearn.base import BaseShapeCART, SGTClassifier, SGTRegressor
+from sgtlearn.ensemble._random_sgforest import RandomSGForest
+from sgtlearn.ensemble.RandomSGForestClassifier import RandomSGForestClassifier
+from sgtlearn.ensemble.RandomSGForestRegressor import RandomSGForestRegressor
 
-__all__ = ["optimize"]
+__all__ = ["TAO_refine"]
+
+TaoModel = TypeVar("TaoModel", bound=Union[BaseShapeCART, RandomSGForest])
 
 
-def optimize(
-    tree: BaseShapeCART,
+def _tao_targets(model: TaoModel) -> list[SGTClassifier | SGTRegressor]:
+    """Extract base tree estimators to refine (one tree or ``estimators_``)."""
+    if isinstance(model, RandomSGForest):
+        check_is_fitted(model, attributes=("estimators_",))
+        if model.n_features_in_ is None:
+            raise NotFittedError(
+                f"This {type(model).__name__} instance is not fitted yet."
+            )
+        return list(model.estimators_)
+
+    if isinstance(model, (SGTClassifier, SGTRegressor)):
+        if isinstance(model, SGTClassifier):
+            check_is_fitted(model, attributes=("_est", "_le"))
+        else:
+            check_is_fitted(model, attributes=("_est",))
+        if model._est is None or model.n_features_in_ is None:
+            raise NotFittedError(
+                f"This {type(model).__name__} instance is not fitted yet."
+            )
+        return [model]
+
+    raise TypeError(
+        "tao.TAO_refine expects BaseShapeCART or RandomSGForest; "
+        f"got {type(model).__name__}"
+    )
+
+
+def _validate_X_y(
+    model: TaoModel,
+    X: np.ndarray,
+    y: np.ndarray,
+    *,
+    check_input: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    if check_input:
+        if isinstance(model, (SGTRegressor, RandomSGForestRegressor)):
+            X, y = check_X_y(
+                X,
+                y,
+                accept_sparse=False,
+                dtype=np.float64,
+                ensure_all_finite="allow-nan",
+                y_numeric=True,
+            )
+            if np.isnan(np.asarray(y, dtype=np.float64)).any():
+                raise ValueError("Input y contains NaN.")
+        else:
+            X = check_array(
+                X,
+                accept_sparse=False,
+                dtype=np.float64,
+                ensure_all_finite="allow-nan",
+            )
+            y = np.asarray(y)
+    else:
+        X = np.asarray(X)
+        y = np.asarray(y)
+
+    n_features = model.n_features_in_
+    if n_features is None:
+        raise NotFittedError(f"This {type(model).__name__} instance is not fitted yet.")
+    if X.shape[1] != n_features:
+        raise ValueError(
+            f"X has {X.shape[1]} features, but {type(model).__name__} was fitted "
+            f"with {n_features} features."
+        )
+    if y.shape[0] != X.shape[0]:
+        raise ValueError("X and y must have the same number of samples.")
+    return X, y
+
+
+def _prepare_tao_arrays(
+    model: TaoModel,
+    X: np.ndarray,
+    y: np.ndarray,
+    sample_weight: Optional[np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build ``(X32, y_native, sample_weights)`` shared by all trees in ``model``."""
+    X32 = np.ascontiguousarray(X, dtype=np.float32)
+
+    if isinstance(model, (SGTClassifier, RandomSGForestClassifier)):
+        if isinstance(model, SGTClassifier):
+            y_enc = model._le.transform(y.ravel())  # type: ignore[union-attr]
+            classes_ = model.classes_
+            class_weight = model.class_weight
+        else:
+            y_enc = model._label_encoder_.transform(np.asarray(y).ravel())
+            classes_ = model.classes_
+            class_weight = model.class_weight
+
+        if classes_ is None:
+            raise NotFittedError(
+                f"This {type(model).__name__} instance is not fitted yet."
+            )
+
+        y_out = np.ascontiguousarray(y_enc, dtype=np.uint64).reshape(-1)
+        if class_weight is not None:
+            sw = effective_sample_weight_classification(
+                sample_weight, y_enc, class_weight, classes_
+            )
+        else:
+            sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
+            sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
+        return X32, y_out, sw
+
+    y_reg = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
+    sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
+    sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
+    return X32, y_reg, sw
+
+
+def _run_tao_native(
+    tree: SGTClassifier | SGTRegressor,
+    X32: np.ndarray,
+    y_native: np.ndarray,
+    sample_weights: np.ndarray,
+    *,
+    n_runs: int,
+    lambda_: float,
+) -> None:
+    TreeAlternatingOptimization(
+        tree._est,
+        X32,
+        y_native,
+        sample_weight=sample_weights,
+        n_runs=int(n_runs),
+        lambda_=float(lambda_),
+    )
+
+
+def TAO_refine(
+    model: TaoModel,
     X: np.ndarray,
     y: np.ndarray,
     *,
@@ -34,69 +167,36 @@ def optimize(
     n_runs: int = 10,
     lambda_: float = 0.0,
     check_input: bool = True,
-) -> BaseShapeCART:
-    """Refine a fitted shape-generalized tree in place with TAO.
+    n_jobs: Optional[int] = None,
+) -> TaoModel:
+    """Refine a fitted shape-generalized tree or forest in place with TAO.
 
-    The estimator's routing rules and leaf statistics are mutated; the tree
-    topology (node/child structure) is preserved. The training data must be
-    supplied again because per-sample partitions are not retained after
-    ``fit``.
+    Accepts a single :class:`~sgtlearn.base.BaseShapeCART` or a
+    :class:`~sgtlearn.ensemble._random_sgforest.RandomSGForest` ensemble.
+    Forests refine each base estimator independently; pass ``n_jobs`` (or rely on
+    the forest's own ``n_jobs`` when ``n_jobs`` is ``None``) to run those passes
+    in parallel via joblib.
 
-    The contract is agnostic to the learning task: any
-    :class:`~sgtlearn.base.BaseShapeCART` subclass may be passed. Task-specific
-    handling (e.g. label encoding for classification) is performed by the
-    estimator itself. An estimator whose backend does not implement TAO raises
-    :class:`NotImplementedError`.
-
-    Parameters
-    ----------
-    tree : BaseShapeCART
-        A fitted shape-generalized tree estimator. Modified in place.
-    X : array-like of shape (n_samples, n_features)
-        Training features (the same data used to fit ``tree``).
-    y : array-like of shape (n_samples,)
-        Training targets, in the estimator's original (un-encoded) label space.
-    sample_weight : array-like of shape (n_samples,), optional
-        Per-sample weights for the refreshed leaf statistics. Defaults to
-        uniform weighting.
-    n_runs : int, default=10
-        Maximum number of bottom-up sweeps. The algorithm stops early once a
-        full sweep changes nothing.
-    lambda_ : float, default=0.0
-        Per-split complexity penalty subtracted from a routing rule's accuracy.
-        ``0`` disables it.
-    check_input : bool, default=True
-        If ``False``, ``X`` is not validated (for callers that already ran
-        :func:`~sklearn.utils.validation.check_array`).
-
-    Returns
-    -------
-    BaseShapeCART
-        The same ``tree`` instance, refined in place (returned for chaining).
-
-    Raises
-    ------
-    TypeError
-        If ``tree`` is not a :class:`~sgtlearn.base.BaseShapeCART`.
-    NotImplementedError
-        If the estimator's backend does not provide a TAO routine.
-    sklearn.exceptions.NotFittedError
-        If ``tree`` has not been fitted.
-    ValueError
-        On shape mismatches between ``X``, ``y``, and the fitted estimator.
+    Training data must be supplied again because per-sample partitions are not
+    retained after ``fit``.
     """
-    if not isinstance(tree, BaseShapeCART):
-        raise TypeError(
-            "tao.optimize expects a BaseShapeCART estimator; "
-            f"got {type(tree).__name__}"
+    targets = _tao_targets(model)
+    X, y = _validate_X_y(model, X, y, check_input=check_input)
+    X32, y_native, sw = _prepare_tao_arrays(model, X, y, sample_weight)
+
+    if isinstance(model, RandomSGForest) and n_jobs is None:
+        n_jobs = model.n_jobs
+
+    n_jobs_eff = effective_n_jobs(1 if n_jobs is None else n_jobs)
+    if len(targets) == 1 or n_jobs_eff == 1:
+        for tree in targets:
+            _run_tao_native(tree, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_)
+    else:
+        Parallel(n_jobs=n_jobs_eff, prefer="threads")(
+            delayed(_run_tao_native)(
+                tree, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_
+            )
+            for tree in targets
         )
 
-    tree._refine_with_tao(
-        X,
-        y,
-        sample_weight=sample_weight,
-        n_runs=n_runs,
-        lambda_=lambda_,
-        check_input=check_input,
-    )
-    return tree
+    return model

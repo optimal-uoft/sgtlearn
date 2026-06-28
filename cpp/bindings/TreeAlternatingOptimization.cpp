@@ -17,14 +17,20 @@
 
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "Estimators/RegressionShapeGeneralizedTree.h"
-#include "algorithms/TreeAlternatingOptimization.h"
+#include "algorithms/TAO/ClassificationTaoAdapter.h"
+#include "algorithms/TAO/RegressionTaoAdapter.h"
+#include "algorithms/TAO/TaoAdapter.h"
+#include "algorithms/TAO/TreeAlternatingOptimization.h"
 
 #include <armadillo>
 #include <cstddef>
+#include <memory>
+#include <optional>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <stdexcept>
+#include <utility>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
@@ -34,66 +40,106 @@ namespace bridge = sgt::bindings;
 
 namespace {
 
-/**
- * Refine a fitted classification tree in place with TAO.
- *
- * Runs up to ``n_runs`` bottom-up sweeps over the internal nodes, replacing
- * each node's routing rule when doing so routes more samples toward a
- * correctly-classifying subtree. The training data must be supplied again
- * because sample partitions are not retained after ``fit``.
- */
-void optimizeClassification(bridge::ClassificationShapeGeneralizedTreePy &tree,
-                            const py::array &X, const py::array &y,
-                            py::object sample_weight = py::none(),
-                            size_t n_runs = 10, double lambda_ = 0.0) {
-  if (!tree.isFitted())
-    throw std::logic_error("optimize_classification: model is not fitted");
+/** Owns parsed training data and the task-specific ``TaoAdapter`` for one run. */
+class TaoRunContext {
+public:
+  static TaoRunContext make(py::object tree, const py::array &X,
+                            const py::array &y, py::object sample_weight);
 
+  bool isFitted() const { return fitted_; }
+
+  tao::TaoAdapter &adapter() { return *adapter_; }
+
+private:
+  TaoRunContext(
+      bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
+      arma::Row<size_t> yClassification,
+      ClassificationShapeGeneralizedTree &tree);
+
+  TaoRunContext(
+      bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
+      bridge::ArmaRowBridge<float> yRegression, RegressionShapeGeneralizedTree &tree);
+
+  bool fitted_ = false;
+  bridge::ArmaMatBridge<float> Xb_;
+  arma::Row<float> sampleWeights_;
+  arma::Row<size_t> yClassification_;
+  std::optional<bridge::ArmaRowBridge<float>> yRegression_;
+  std::unique_ptr<tao::TaoAdapter> adapter_;
+};
+
+TaoRunContext::TaoRunContext(
+    bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
+    arma::Row<size_t> yClassification, ClassificationShapeGeneralizedTree &tree)
+    : fitted_(fitted), Xb_(std::move(Xb)),
+      sampleWeights_(std::move(sampleWeights)),
+      yClassification_(std::move(yClassification)),
+      adapter_(std::make_unique<tao::ClassificationTaoAdapter>(
+          tree, Xb_.view(), yClassification_, sampleWeights_)) {}
+
+TaoRunContext::TaoRunContext(
+    bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
+    bridge::ArmaRowBridge<float> yRegression, RegressionShapeGeneralizedTree &tree)
+    : fitted_(fitted), Xb_(std::move(Xb)),
+      sampleWeights_(std::move(sampleWeights)),
+      yRegression_(std::move(yRegression)),
+      adapter_(std::make_unique<tao::RegressionTaoAdapter>(
+          tree, Xb_.view(), yRegression_->view(), sampleWeights_)) {}
+
+TaoRunContext TaoRunContext::make(py::object tree, const py::array &X,
+                                  const py::array &y, py::object sample_weight) {
   auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
-  arma::Col<size_t> y_col = bridge::as1DColOwning<size_t>(y, "y");
-  if (y_col.n_elem != Xb.view().n_cols)
-    throw std::invalid_argument(
-        "y.shape[0] must equal X.shape[0] (number of samples)");
-
-  arma::Row<size_t> y_row(y_col.n_elem);
-  for (arma::uword i = 0; i < y_col.n_elem; ++i)
-    y_row(i) = y_col(i);
-
-  const arma::Row<float> w_row =
+  arma::Row<float> w_row =
       bridge::sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
 
-  py::gil_scoped_release release;
-  tao::optimizeClassification(tree.impl(), Xb.view(), y_row, w_row, n_runs,
-                              lambda_);
+  if (py::isinstance<bridge::ClassificationShapeGeneralizedTreePy>(tree)) {
+    auto &clsTree = tree.cast<bridge::ClassificationShapeGeneralizedTreePy &>();
+    arma::Col<size_t> y_col = bridge::as1DColOwning<size_t>(y, "y");
+    if (y_col.n_elem != Xb.view().n_cols)
+      throw std::invalid_argument(
+          "y.shape[0] must equal X.shape[0] (number of samples)");
+    arma::Row<size_t> y_row(y_col.n_elem);
+    for (arma::uword i = 0; i < y_col.n_elem; ++i)
+      y_row(i) = y_col(i);
+
+    return TaoRunContext(clsTree.isFitted(), std::move(Xb), std::move(w_row),
+                         std::move(y_row), clsTree.impl());
+  }
+
+  if (py::isinstance<bridge::RegressionShapeGeneralizedTreePy>(tree)) {
+    auto &regTree = tree.cast<bridge::RegressionShapeGeneralizedTreePy &>();
+    auto yb = bridge::as1DRow<float>(y, "y");
+    if (yb.view().n_elem != Xb.view().n_cols)
+      throw std::invalid_argument(
+          "y.shape[0] must equal X.shape[0] (number of samples)");
+
+    return TaoRunContext(regTree.isFitted(), std::move(Xb), std::move(w_row),
+                         std::move(yb), regTree.impl());
+  }
+
+  throw std::runtime_error(
+      "TreeAlternatingOptimization: tree type is not supported; expected a "
+      "ClassificationShapeGeneralizedTree or RegressionShapeGeneralizedTree "
+      "from ShapeGeneralizedTrees");
 }
 
 /**
- * Refine a fitted regression tree in place with TAO.
+ * Refine a fitted shape-generalized tree in place with TAO.
  *
- * Identical sweep to ``optimizeClassification``; the only task-specific
- * differences (care set + pseudolabels and the leaf-statistic refresh) live in
- * the C++ ``tao::RegressionTask`` policy. The training data must be supplied
- * again because sample partitions are not retained after ``fit``.
+ * Dispatches to a task-specific ``TaoAdapter`` via ``TaoRunContext::make``.
+ * Training data must be supplied again because sample partitions are not
+ * retained after ``fit``.
  */
-void optimizeRegression(bridge::RegressionShapeGeneralizedTreePy &tree,
-                        const py::array &X, const py::array &y,
-                        py::object sample_weight = py::none(),
-                        size_t n_runs = 10, double lambda_ = 0.0) {
-  if (!tree.isFitted())
-    throw std::logic_error("optimize_regression: model is not fitted");
-
-  auto Xb = bridge::asSamplesByFeatures<float>(X, "X");
-  auto yb = bridge::as1DRow<float>(y, "y");
-  if (yb.view().n_elem != Xb.view().n_cols)
-    throw std::invalid_argument(
-        "y.shape[0] must equal X.shape[0] (number of samples)");
-
-  const arma::Row<float> w_row =
-      bridge::sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
+void TreeAlternatingOptimization(py::object tree, const py::array &X,
+                                 const py::array &y,
+                                 py::object sample_weight = py::none(),
+                                 size_t n_runs = 10, double lambda_ = 0.0) {
+  TaoRunContext ctx = TaoRunContext::make(tree, X, y, sample_weight);
+  if (!ctx.isFitted())
+    throw std::logic_error("TreeAlternatingOptimization: model is not fitted");
 
   py::gil_scoped_release release;
-  tao::optimizeRegression(tree.impl(), Xb.view(), yb.view(), w_row, n_runs,
-                          lambda_);
+  tao::optimize(ctx.adapter(), n_runs, lambda_);
 }
 
 } // namespace
@@ -113,21 +159,13 @@ PYBIND11_MODULE(TreeAlternatingOptimization, m) {
   m.doc() = "Tree-Alternating Optimization (TAO) refinement for fitted "
             "shape-generalized trees.";
 
-  m.def("optimize_classification", &optimizeClassification, py::arg("tree"),
-        py::arg("X"), py::arg("y"), py::arg("sample_weight") = py::none(),
-        py::arg("n_runs") = 10, py::arg("lambda_") = 0.0,
-        "Refine a fitted ClassificationShapeGeneralizedTree in place with "
-        "Tree-Alternating Optimization. X is (n_samples, n_features) float32; "
-        "y is 1-D uint class labels (same data used for fit). Runs up to "
-        "n_runs bottom-up sweeps; lambda_ penalizes per-split routing "
-        "accuracy.");
-
-  m.def("optimize_regression", &optimizeRegression, py::arg("tree"),
-        py::arg("X"), py::arg("y"), py::arg("sample_weight") = py::none(),
-        py::arg("n_runs") = 10, py::arg("lambda_") = 0.0,
-        "Refine a fitted RegressionShapeGeneralizedTree in place with "
-        "Tree-Alternating Optimization. X is (n_samples, n_features) float32; "
-        "y is 1-D float32 targets (same data used for fit). Runs up to "
-        "n_runs bottom-up sweeps; lambda_ penalizes per-split routing "
-        "reward.");
+  m.def("TreeAlternatingOptimization", &TreeAlternatingOptimization,
+        py::arg("tree"), py::arg("X"), py::arg("y"),
+        py::arg("sample_weight") = py::none(), py::arg("n_runs") = 10,
+        py::arg("lambda_") = 0.0,
+        "Refine a fitted ClassificationShapeGeneralizedTree or "
+        "RegressionShapeGeneralizedTree in place. X is "
+        "(n_samples, n_features) float32; y is 1-D class labels (uint) or "
+        "float targets matching the tree type. Runs up to n_runs bottom-up "
+        "sweeps; lambda_ penalizes non-constant routing splits.");
 }
