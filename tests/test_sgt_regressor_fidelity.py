@@ -41,8 +41,11 @@ def _mean_absolute_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.mean(np.abs(y_true - y_pred)))
 
 
+@pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
 @pytest.mark.parametrize("criterion", ["squared_error"])
-def test_sgt_train_error_at_most_sklearn_decision_tree(criterion: str) -> None:
+def test_sgt_train_error_at_most_sklearn_decision_tree(
+    criterion: str, tao_n_runs: int
+) -> None:
     """Training MSE or MAE on the fit set must be at most the sklearn reference tree."""
     X, y = _load_xy()
     max_depth = 4
@@ -60,6 +63,7 @@ def test_sgt_train_error_at_most_sklearn_decision_tree(criterion: str) -> None:
         coordinate_descent_max_iters=25,
         coordinate_descent_patience=6,
         random_state=42,
+        tao_n_runs=tao_n_runs,
     )
     sgt.fit(X, y)
     dt = DecisionTreeRegressor(
@@ -86,11 +90,16 @@ def test_sgt_train_error_at_most_sklearn_decision_tree(criterion: str) -> None:
         )
 
 
+@pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
 @pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
-def test_sgt_matches_sklearn_decision_tree_inner_depth_one(criterion: str) -> None:
+def test_sgt_matches_sklearn_decision_tree_inner_depth_one(
+    criterion: str, tao_n_runs: int
+) -> None:
     """``inner_max_depth=1``: in-sample predictions match sklearn for MSE and MAE."""
     X, y = _load_xy()
-    sgt = SGTRegressor(criterion=criterion, inner_max_depth=1)
+    sgt = SGTRegressor(
+        criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
+    )
     sgt.fit(X, y)
     dt = DecisionTreeRegressor(criterion=criterion, random_state=0)
     dt.fit(X, y)

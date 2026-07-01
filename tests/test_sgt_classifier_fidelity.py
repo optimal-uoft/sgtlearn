@@ -19,8 +19,11 @@ from sgtlearn import SGTClassifier
 pytest.importorskip("sklearn")
 
 
+@pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
-def test_sgt_train_accuracy_at_least_sklearn_decision_tree(criterion: str) -> None:
+def test_sgt_train_accuracy_at_least_sklearn_decision_tree(
+    criterion: str, tao_n_runs: int
+) -> None:
     """``SGTClassifier`` training accuracy on breast cancer must be >= a tuned ``DecisionTreeClassifier``."""
     X, y = load_breast_cancer(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
@@ -38,6 +41,7 @@ def test_sgt_train_accuracy_at_least_sklearn_decision_tree(criterion: str) -> No
         coordinate_descent_max_iters=25,
         coordinate_descent_patience=6,
         random_state=42,
+        tao_n_runs=tao_n_runs,
     )
     sgt.fit(X, y)
 
@@ -59,9 +63,11 @@ def test_sgt_train_accuracy_at_least_sklearn_decision_tree(criterion: str) -> No
     )
 
 
+@pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
     criterion: str,
+    tao_n_runs: int,
 ) -> None:
     """``inner_max_depth=1`` only; all other hyperparameters are estimator defaults.
 
@@ -73,7 +79,9 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
 
     sk_criterion = "entropy" if criterion == "log_loss" else criterion
 
-    sgt = SGTClassifier(criterion=criterion, inner_max_depth=1)
+    sgt = SGTClassifier(
+        criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
+    )
     sgt.fit(X, y)
 
     dt = DecisionTreeClassifier(criterion=sk_criterion)

@@ -22,6 +22,8 @@ pytest.importorskip("sklearn")
 
 from sgtlearn import RandomSGForestRegressor, SGTRegressor
 
+from tests.constants import TEST_TAO_N_RUNS
+
 
 def _load_xy():
     bunch = load_diabetes()
@@ -51,6 +53,7 @@ def _forest_tree_defaults() -> dict:
         coordinate_descent_patience=5,
         coordinate_descent_smart_init=True,
         max_features="sqrt",
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
 
 

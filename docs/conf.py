@@ -47,6 +47,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 autodoc_mock_imports = [
     "ShapeGeneralizedTrees",
     "Discretizers",
+    "TreeAlternatingOptimization",
 ]
 
 autosummary_generate = True

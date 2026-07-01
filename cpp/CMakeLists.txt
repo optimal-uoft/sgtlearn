@@ -75,6 +75,17 @@ add_library(sgtlearn_core STATIC
         src/Splitters/SplitterFactory.h
         src/Splitters/SplitterFactory.cpp
         src/algorithms/CoordinateDescent.h
+        src/algorithms/TAO/TaoAdapter.h
+        src/algorithms/TAO/TaoObjective.h
+        src/algorithms/TAO/TaoObjective.cpp
+        src/algorithms/TAO/ShapeGeneralizedTaoAdapter.h
+        src/algorithms/TAO/ShapeGeneralizedTaoAdapter.cpp
+        src/algorithms/TAO/ClassificationTaoAdapter.h
+        src/algorithms/TAO/ClassificationTaoAdapter.cpp
+        src/algorithms/TAO/RegressionTaoAdapter.h
+        src/algorithms/TAO/RegressionTaoAdapter.cpp
+        src/algorithms/TAO/TreeAlternatingOptimization.h
+        src/algorithms/TAO/TreeAlternatingOptimization.cpp
         src/algorithms/FeatureBagging.h
         src/algorithms/KMeansUtils.h
         src/algorithms/ShapeGeneralizedTreeParams.h

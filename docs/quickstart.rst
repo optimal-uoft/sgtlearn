@@ -75,4 +75,37 @@ Bootstrap-aggregate SGTs into a random forest:
    forest.fit(X_train, y_train)
    forest.predict_proba(X_test[:5])
 
-See the :doc:`api/index` for the full parameter reference.
+TAO refinement
+--------------
+
+TAO (Tree-Alternating Optimization) improves routing rules after the native
+trainer finishes. All tree estimators run TAO automatically at the end of
+``fit`` unless you disable it:
+
+.. code-block:: python
+
+   # Default: tao_n_runs=10, tao_lambda=0.0 (training score does not decrease)
+   model = SGTClassifier(max_depth=4, random_state=42).fit(X_train, y_train)
+
+   # Skip fit-time TAO
+   model = SGTClassifier(max_depth=4, tao_n_runs=0, random_state=42).fit(
+       X_train, y_train
+   )
+
+   # Forest: same params are forwarded to each base tree (TAO on bootstrap data)
+   forest = RandomSGForestClassifier(
+       n_estimators=50, max_depth=4, tao_n_runs=10, random_state=42
+   ).fit(X_train, y_train)
+
+You can also refine a fitted model in place with
+:func:`~sgtlearn.tao.TAO_refine` — useful for extra passes or refining a
+forest on the full training set:
+
+.. code-block:: python
+
+   from sgtlearn import tao
+
+   tao.TAO_refine(model, X_train, y_train)  # single tree or forest
+
+See :doc:`api/tao` for ``tao_lambda``, post-hoc ``n_jobs``, and the full
+parameter reference.

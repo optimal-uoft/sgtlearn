@@ -55,8 +55,6 @@ class BaseShapeCART(BaseEstimator):
     Subclasses own the native backend handle (``_est``) and validation rules.
     """
 
-    pass
-
 
 class SGTClassifier(ClassifierMixin, BaseShapeCART):
     """Shape Generalized Tree classifier.
@@ -184,6 +182,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         random_state: Optional[int] = 42,
         max_features: Optional[Union[int, float, str]] = None,
         class_weight: Optional[Mapping[Any, float]] = None,
+        tao_n_runs: int = 10,
+        tao_lambda: float = 0.0,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
@@ -203,6 +203,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.max_features = max_features
         self.class_weight = class_weight
 
+        self.tao_n_runs = tao_n_runs
+        self.tao_lambda = tao_lambda
         self._est: Any = None
         self._le: Any = None
         self.classes_: Optional[np.ndarray] = None
@@ -300,6 +302,19 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
         self._est.fit(X32, y_u, sample_weight=sw)
+
+        if self.tao_n_runs > 0:
+            from sgtlearn.tao import TAO_refine
+
+            TAO_refine(
+                self,
+                X32,
+                y_u,
+                sample_weight=sw,
+                check_input=check_input,
+                n_runs=self.tao_n_runs,
+                lambda_=self.tao_lambda,
+            )
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -470,6 +485,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
         max_features: Optional[Union[int, float, str]] = None,
+        tao_n_runs: int = 10,
+        tao_lambda: float = 0.0,
     ) -> None:
         self.criterion = criterion
         self.num_partitions = int(num_partitions)
@@ -486,7 +503,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
-
+        self.tao_n_runs = tao_n_runs
+        self.tao_lambda = tao_lambda
         self._est: Any = None
         self.n_features_in_: Optional[int] = None
 
@@ -552,11 +570,25 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
+        sw = normalize_sample_weight(sample_weight, X.shape[0])
         self._est.fit(
             X32,
             y32,
-            sample_weight=normalize_sample_weight(sample_weight, X.shape[0]),
+            sample_weight=sw,
         )
+
+        if self.tao_n_runs > 0:
+            from sgtlearn.tao import TAO_refine
+
+            TAO_refine(
+                self,
+                X32,
+                y32,
+                sample_weight=sw,
+                check_input=check_input,
+                n_runs=self.tao_n_runs,
+                lambda_=self.tao_lambda,
+            )
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

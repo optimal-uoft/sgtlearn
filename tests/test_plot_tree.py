@@ -13,19 +13,31 @@ from sklearn.exceptions import NotFittedError
 from matplotlib.patches import FancyArrowPatch, Rectangle
 from sgtlearn import SGTClassifier, SGTRegressor, plot_tree
 
+from tests.constants import TEST_TAO_N_RUNS
+
 
 @pytest.fixture
 def fitted_classifier():
     X, y = make_classification(n_samples=200, n_features=4, random_state=0)
-    return SGTClassifier(max_depth=3, inner_max_depth=2,
-                         inner_max_leaf_nodes=8, random_state=0).fit(X, y)
+    return SGTClassifier(
+        max_depth=3,
+        inner_max_depth=2,
+        inner_max_leaf_nodes=8,
+        random_state=0,
+        tao_n_runs=TEST_TAO_N_RUNS,
+    ).fit(X, y)
 
 
 @pytest.fixture
 def fitted_regressor():
     X, y = make_regression(n_samples=200, n_features=4, random_state=0)
-    return SGTRegressor(max_depth=3, inner_max_depth=2,
-                        inner_max_leaf_nodes=8, random_state=0).fit(X, y)
+    return SGTRegressor(
+        max_depth=3,
+        inner_max_depth=2,
+        inner_max_leaf_nodes=8,
+        random_state=0,
+        tao_n_runs=TEST_TAO_N_RUNS,
+    ).fit(X, y)
 
 
 def test_plot_tree_classifier_returns_artists(fitted_classifier):

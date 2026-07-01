@@ -91,6 +91,8 @@ class RandomSGForest(BaseEstimator, ABC):
         bootstrap: bool = True,
         max_samples: Optional[Union[int, float]] = None,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
+        tao_n_runs: int = 10,
+        tao_lambda: float = 0.0,
         n_jobs: Optional[int] = None,
         verbose: int = 0,
     ) -> None:
@@ -112,6 +114,8 @@ class RandomSGForest(BaseEstimator, ABC):
         self.bootstrap = bool(bootstrap)
         self.max_samples = max_samples
         self.random_state = random_state
+        self.tao_n_runs = int(tao_n_runs)
+        self.tao_lambda = float(tao_lambda)
         self.n_jobs = n_jobs
         self.verbose = int(verbose)
 
@@ -131,6 +135,8 @@ class RandomSGForest(BaseEstimator, ABC):
             coordinate_descent_patience=self.coordinate_descent_patience,
             coordinate_descent_smart_init=self.coordinate_descent_smart_init,
             max_features=self.max_features,
+            tao_n_runs=self.tao_n_runs,
+            tao_lambda=self.tao_lambda,
         )
 
     @abstractmethod

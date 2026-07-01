@@ -33,20 +33,20 @@ RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
     TreeBuildingParams outerParams, TreeBuildingParams innerParams,
     CoordinateDescentParams cdParams, uint64_t random_state,
     FeatureBaggingPickFn featureBagging)
-    : criterion_(criterion), numPartitions_(numPartitions),
-      outerParams_(outerParams), innerParams_(innerParams), cdParams_(cdParams),
+    : ShapeGeneralizedTree(criterion, numPartitions, outerParams, innerParams),
+      cdParams_(cdParams),
       random_state_(random_state), rng_(),
       featureBagging_(featureBagging
                           ? std::move(featureBagging)
                           : FeatureBaggingPickFn(pickAllFeatureIndices)),
       outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
                         outerParams_.maxDepth, outerParams_.maxLeafNodes) {
-  if (criterion_ != LearningCriterion::SquaredError &&
-      criterion_ != LearningCriterion::AbsoluteError)
+  if (criterion != LearningCriterion::SquaredError &&
+      criterion != LearningCriterion::AbsoluteError)
     throw std::invalid_argument(
         "RegressionShapeGeneralizedTree: criterion must be SquaredError or "
         "AbsoluteError");
-  if (numPartitions_ < 2)
+  if (numPartitions < 2)
     throw std::invalid_argument(
         "RegressionShapeGeneralizedTree: numPartitions must be >= 2");
 }

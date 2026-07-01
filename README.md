@@ -1,4 +1,5 @@
 # SGTLearn
+[![Total](https://img.shields.io/pepy/dt/sgtlearn)](https://pepy.tech/project/sgtlearn)
 ![sgt visualization](assets/SGT_Viz.png)
 
 `sgtlearn` is a Python package for learning [Shape Generalized Trees (SGTs)](https://neurips.cc/virtual/2025/loc/san-diego/poster/115950).

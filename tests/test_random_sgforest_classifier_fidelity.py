@@ -20,6 +20,8 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import check_random_state
 from sgtlearn.base import _IdentityLabelEncoder
 
+from tests.constants import TEST_TAO_N_RUNS
+
 pytest.importorskip("sklearn")
 
 
@@ -44,6 +46,7 @@ def _forest_tree_defaults() -> dict:
         coordinate_descent_patience=5,
         coordinate_descent_smart_init=True,
         max_features="sqrt",
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
 
 

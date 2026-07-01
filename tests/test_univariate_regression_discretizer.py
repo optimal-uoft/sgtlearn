@@ -13,7 +13,7 @@ from itertools import product
 from Discretizers import UnivariateRegressionDiscretizer
 from sklearn.tree import DecisionTreeRegressor
 
-from discretizer_grid import (
+from tests.discretizer_grid import (
     MAX_DEPTH_VALUES,
     MAX_LEAF_VALUES,
     MIN_GAIN_VALUES,

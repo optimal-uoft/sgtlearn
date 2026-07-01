@@ -118,20 +118,13 @@ public:
   /** Sample count per leaf (same indexing as ``leafRegressionStats``). */
   std::vector<size_t> leafNumSamples;
 
-  /** Fan-out used by this tree (constructor arg). */
-  size_t numPartitions() const { return numPartitions_; }
-
-  /** Impurity criterion this tree was constructed with. */
-  LearningCriterion criterion() const { return criterion_; }
-
   /** Per-leaf prediction (mean or median), keyed by node id. */
   const std::vector<double> &leafPredictions() const { return leafPredictions_; }
 
+  /** Mutable leaf predictions for in-place refinement (e.g. TAO). */
+  std::vector<double> &mutableLeafPredictions() { return leafPredictions_; }
+
 private:
-  LearningCriterion criterion_;
-  size_t numPartitions_;
-  TreeBuildingParams outerParams_;
-  TreeBuildingParams innerParams_;
   CoordinateDescentParams cdParams_;
   uint64_t random_state_;
   std::mt19937_64 rng_;
