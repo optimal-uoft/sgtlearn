@@ -26,6 +26,7 @@ from sgtlearn._weights import (
     effective_sample_weight_classification,
     normalize_sample_weight,
 )
+from tests.constants import TEST_TAO_N_RUNS
 
 pytest.importorskip("sklearn")
 
@@ -57,6 +58,7 @@ def _fit_classifier(
         inner_max_leaf_nodes=16,
         random_state=42,
         class_weight=class_weight,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     params.update(tree_kwargs)
     est = SGTClassifier(**params)
@@ -79,6 +81,7 @@ def _fit_regressor(
         inner_max_depth=4,
         inner_max_leaf_nodes=16,
         random_state=42,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     params.update(tree_kwargs)
     est = SGTRegressor(**params)
@@ -394,6 +397,7 @@ def _fit_forest_classifier(
         inner_max_leaf_nodes=16,
         random_state=42,
         n_jobs=n_jobs,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     params.update(kwargs)
     return RandomSGForestClassifier(**params).fit(X, y)
@@ -417,6 +421,7 @@ def _fit_forest_regressor(
         inner_max_leaf_nodes=16,
         random_state=42,
         n_jobs=n_jobs,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     params.update(kwargs)
     return RandomSGForestRegressor(**params).fit(X, y)

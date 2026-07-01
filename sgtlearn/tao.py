@@ -176,7 +176,9 @@ def TAO_refine(
     n_jobs_eff = effective_n_jobs(1 if n_jobs is None else n_jobs)
     if len(targets) == 1 or n_jobs_eff == 1:
         for tree in targets:
-            TreeAlternatingOptimization(tree._est, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_)
+            TreeAlternatingOptimization(
+                tree._est, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_
+            )
     else:
         Parallel(n_jobs=n_jobs_eff, prefer="threads")(
             delayed(TreeAlternatingOptimization)(

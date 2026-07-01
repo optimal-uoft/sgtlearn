@@ -10,7 +10,7 @@ from itertools import product
 from Discretizers import UnivariateClassificationDiscretizer
 from sklearn.tree import DecisionTreeClassifier
 
-from discretizer_grid import (
+from tests.discretizer_grid import (
     MAX_DEPTH_VALUES,
     MAX_LEAF_VALUES,
     MIN_GAIN_VALUES,

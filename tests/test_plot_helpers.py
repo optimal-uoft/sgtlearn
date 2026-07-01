@@ -11,6 +11,8 @@ from sklearn.datasets import make_classification
 from sgtlearn import SGTClassifier
 from sgtlearn._export import _merge_routing_regions, _route_samples, _compute_layout_leafcounter, _draw_leaf_text, _draw_internal_panel, _draw_arrow_edge
 
+from tests.constants import TEST_TAO_N_RUNS
+
 
 def test_merge_two_bins_same_partition_merges():
     regions = _merge_routing_regions(
@@ -77,7 +79,8 @@ def test_merge_x_min_greater_than_first_threshold_clamps_left_edge():
 def _fitted_clf():
     X, y = make_classification(n_samples=200, n_features=4, random_state=0)
     return SGTClassifier(
-        max_depth=2, inner_max_depth=2, inner_max_leaf_nodes=8, random_state=0
+        max_depth=2, inner_max_depth=2, inner_max_leaf_nodes=8, random_state=0,
+        tao_n_runs=TEST_TAO_N_RUNS,
     ).fit(X, y), X
 
 

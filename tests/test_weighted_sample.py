@@ -18,6 +18,8 @@ from sgtlearn import (
 )
 from sgtlearn._weights import effective_sample_weight_classification
 
+from tests.constants import TEST_TAO_N_RUNS
+
 pytest.importorskip("sklearn")
 
 
@@ -165,6 +167,7 @@ def test_sgt_classifier_weighted_inner_depth_one_matches_sklearn(
         inner_max_depth=1,
         random_state=42,
         coordinate_descent_smart_init=False,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     sgt.fit(X, y, sample_weight=sample_weight)
 
@@ -194,6 +197,7 @@ def test_sgt_classifier_class_weight_times_sample_weight_matches_sklearn() -> No
         class_weight=class_weight,
         random_state=7,
         coordinate_descent_smart_init=False,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     sgt.fit(X, y, sample_weight=sample_weight)
 
@@ -226,6 +230,7 @@ def test_sgt_regressor_weighted_inner_depth_one_matches_sklearn(
         inner_max_depth=1,
         max_depth=3,
         coordinate_descent_smart_init=False,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     sgt.fit(X, y, sample_weight=sample_weight)
 
@@ -259,6 +264,7 @@ def test_random_sg_forest_classifier_weighted_inner_depth_one_matches_sklearn(
         max_features=None,
         random_state=42,
         coordinate_descent_smart_init=False,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     forest.fit(X, y, sample_weight=sample_weight)
 
@@ -281,6 +287,7 @@ def test_random_sg_forest_classifier_applies_class_weight_once() -> None:
         bootstrap=False,
         class_weight=class_weight,
         random_state=0,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     forest.fit(X, y)
 
@@ -317,6 +324,7 @@ def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sk
         class_weight=class_weight,
         random_state=7,
         coordinate_descent_smart_init=False,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     forest.fit(X, y, sample_weight=sample_weight)
 
@@ -346,6 +354,7 @@ def test_random_sg_forest_regressor_weighted_inner_depth_one_matches_sklearn(
         max_depth=3,
         max_features=None,
         coordinate_descent_smart_init=False,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     forest.fit(X, y, sample_weight=sample_weight)
 

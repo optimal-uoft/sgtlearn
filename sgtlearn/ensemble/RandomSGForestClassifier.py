@@ -119,6 +119,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         max_samples: Optional[Union[int, float]] = None,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
         class_weight: Optional[Mapping[Any, float]] = None,
+        tao_n_runs: int = 10,
+        tao_lambda: float = 0.0,
         n_jobs: Optional[int] = None,
         verbose: int = 0,
     ) -> None:
@@ -142,6 +144,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             bootstrap=bootstrap,
             max_samples=max_samples,
             random_state=random_state,
+            tao_n_runs=tao_n_runs,
+            tao_lambda=tao_lambda,
             n_jobs=n_jobs,
             verbose=verbose,
         )

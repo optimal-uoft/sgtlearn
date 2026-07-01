@@ -21,6 +21,8 @@ pytest.importorskip("sklearn")
 
 from sgtlearn import SGTClassifier, SGTRegressor
 
+from tests.constants import TEST_TAO_N_RUNS
+
 
 def _inject_nan(
     X: np.ndarray,
@@ -101,11 +103,21 @@ def _make_inner_depth_one_pair(
     if task == "classification":
         sk_criterion = _sklearn_classification_criterion(criterion)
         return (
-            SGTClassifier(criterion=criterion, inner_max_depth=1, **common),
+            SGTClassifier(
+                criterion=criterion,
+                inner_max_depth=1,
+                tao_n_runs=TEST_TAO_N_RUNS,
+                **common,
+            ),
             DecisionTreeClassifier(criterion=sk_criterion, **common),
         )
     return (
-        SGTRegressor(criterion=criterion, inner_max_depth=1, **common),
+        SGTRegressor(
+            criterion=criterion,
+            inner_max_depth=1,
+            tao_n_runs=TEST_TAO_N_RUNS,
+            **common,
+        ),
         DecisionTreeRegressor(criterion=criterion, **common),
     )
 
@@ -184,6 +196,7 @@ def test_sgt_classifier_inner_depth_one_handcrafted_multivariate_with_nan() -> N
         inner_max_depth=1,
         min_samples_leaf=1,
         min_impurity_decrease=0.0,
+        tao_n_runs=TEST_TAO_N_RUNS,
     )
     sgt.fit(X, y)
     tree = sgt.tree_export()
@@ -270,7 +283,9 @@ def test_sgt_classifier_still_rejects_inf_in_x() -> None:
     X, y = load_breast_cancer(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
     X[0, 0] = np.inf
-    clf = SGTClassifier(inner_max_depth=1, random_state=42)
+    clf = SGTClassifier(
+        inner_max_depth=1, random_state=42, tao_n_runs=TEST_TAO_N_RUNS
+    )
     with pytest.raises(ValueError, match="infinity"):
         clf.fit(X, y)
 

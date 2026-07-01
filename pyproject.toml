@@ -43,6 +43,15 @@ wheel.packages = ["sgtlearn"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.pyright]
+include = ["sgtlearn", "tests"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "off"
+useLibraryCodeForTypes = true
 
 [[tool.mypy.overrides]]
 module = [

@@ -8,13 +8,15 @@ from sklearn.exceptions import NotFittedError
 
 from sgtlearn import SGTClassifier, SGTRegressor
 
+from tests.constants import TEST_TAO_N_RUNS
+
 
 def _fitted_classifier(num_partitions: int = 2) -> SGTClassifier:
     X, y = make_classification(n_samples=200, n_features=5, n_informative=3,
                                n_redundant=0, random_state=0)
     return SGTClassifier(
         num_partitions=num_partitions, max_depth=3, inner_max_depth=2,
-        inner_max_leaf_nodes=8, random_state=0,
+        inner_max_leaf_nodes=8, random_state=0, tao_n_runs=TEST_TAO_N_RUNS,
     ).fit(X, y)
 
 
@@ -25,6 +27,7 @@ def _fitted_regressor(criterion: str = "squared_error",
     return SGTRegressor(
         criterion=criterion, num_partitions=num_partitions, max_depth=3,
         inner_max_depth=2, inner_max_leaf_nodes=8, random_state=0,
+        tao_n_runs=TEST_TAO_N_RUNS,
     ).fit(X, y)
 
 
