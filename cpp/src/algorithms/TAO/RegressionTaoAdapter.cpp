@@ -40,9 +40,9 @@ NodeCareSet RegressionTaoAdapter::buildCareSet(
     const std::vector<size_t> &children) const {
   NodeCareSet care;
   const size_t k = children.size();
+  std::vector<std::vector<size_t>> goodChildren;
   std::vector<size_t> childLeaves(k);
   std::vector<double> reward(k);
-  std::vector<size_t> pseudolabels;
   for (arma::uword col : samples) {
     for (size_t c = 0; c < k; ++c)
       childLeaves[c] = walkToLeaf(children[c], col);
@@ -50,35 +50,42 @@ NodeCareSet RegressionTaoAdapter::buildCareSet(
 
     double best = reward[0];
     double worst = reward[0];
-    size_t bestChild = 0;
     for (size_t c = 1; c < k; ++c) {
       best = std::max(best, reward[c]);
       worst = std::min(worst, reward[c]);
-      if (reward[c] > reward[bestChild])
-        bestChild = c;
     }
     const double tol = 1e-9 * (1.0 + std::fabs(best));
     if (best - worst <= tol)
       continue;
 
+    std::vector<size_t> good;
+    for (size_t c = 0; c < k; ++c)
+      if (reward[c] - worst > tol)
+        good.push_back(c);
+
     care.careCols.push_back(col);
     care.careRewards.push_back(reward);
     care.careWeights.push_back(static_cast<double>(w_(col)));
-    pseudolabels.push_back(bestChild);
+    goodChildren.push_back(std::move(good));
   }
 
-  const size_t nCare = care.size();
-  care.Xexp.set_size(numFeatures(), nCare);
-  care.yexp.set_size(nCare);
-  care.wexp.set_size(nCare);
+  size_t nExpanded = 0;
+  for (const auto &good : goodChildren)
+    nExpanded += good.size();
+  care.Xexp.set_size(numFeatures(), nExpanded);
+  care.yexp.set_size(nExpanded);
+  care.wexp.set_size(nExpanded);
   std::vector<double> childCounts(k, 0.0);
-  for (size_t i = 0; i < nCare; ++i) {
-    const size_t child = pseudolabels[i];
+  size_t pos = 0;
+  for (size_t i = 0; i < care.size(); ++i) {
     const float wi = w_(care.careCols[i]);
-    care.Xexp.col(i) = X_.col(care.careCols[i]);
-    care.yexp(i) = child;
-    care.wexp(i) = wi;
-    childCounts[child] += static_cast<double>(wi);
+    for (size_t child : goodChildren[i]) {
+      care.Xexp.col(pos) = X_.col(care.careCols[i]);
+      care.yexp(pos) = child;
+      care.wexp(pos) = wi;
+      childCounts[child] += static_cast<double>(wi);
+      ++pos;
+    }
   }
   care.dummyChild = argMax(childCounts);
   return care;

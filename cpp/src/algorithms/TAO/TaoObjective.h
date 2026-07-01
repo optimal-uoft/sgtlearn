@@ -22,12 +22,15 @@ namespace tao {
 /**
  * Mean care-set reward under a routing rule, with optional split penalty.
  *
- * ``dummyScore`` omits ``lambda``; ``scoreCurrent`` and discretizer scores
- * subtract ``lambda`` to penalize non-constant splits.
+ * Non-dummy candidates subtract ``lambda * totalSampleWeight / careWeight`` from
+ * the mean reward (equivalently ``lambda * totalSampleWeight`` from the weighted
+ * reward sum). ``scoreDummy`` is unpenalized. ``totalSampleWeight`` is the sum
+ * of training sample weights (or the sample count when weights are uniform).
  */
 class TaoObjective {
 public:
-  TaoObjective(const NodeCareSet &care, const arma::fmat &X, double lambda);
+  TaoObjective(const NodeCareSet &care, const arma::fmat &X, double lambda,
+               double totalSampleWeight);
 
   /** Number of care samples at this node. */
   size_t nCare() const { return nCare_; }
@@ -37,9 +40,7 @@ public:
 
   const NodeCareSet &careSet() const { return care_; }
 
-  /**
-   * Mean care reward under the node's current routing rule, minus ``lambda_``.
-   */
+  /** Mean care reward under the node's current routing rule, minus split penalty. */
   double scoreCurrent(const ShapeFunctionNode &node) const;
 
   /** Mean care reward when every care sample routes to ``dummyChild``. */
@@ -57,10 +58,7 @@ public:
                           std::vector<float> &thresholdsOut,
                           std::vector<size_t> &binToPartitionOut) const;
 
-  /**
-   * Mean care reward for an explicit single-feature routing rule, minus
-   * ``lambda_``.
-   */
+  /** Mean care reward for an explicit single-feature routing rule, minus penalty. */
   double scoreRouting(size_t feature, const std::vector<float> &thresholds,
                       const std::vector<size_t> &binToPartition) const;
 
@@ -82,6 +80,7 @@ private:
   const NodeCareSet &care_;
   const arma::fmat &X_;
   double lambda_;
+  double totalSampleWeight_;
   size_t nCare_;
   double totalCareWeight_;
 };

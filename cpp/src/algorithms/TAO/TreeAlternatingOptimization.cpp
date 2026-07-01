@@ -50,6 +50,18 @@ computeNodeSamples(const std::vector<ShapeFunctionNode> &nodes,
   return nodeSamples;
 }
 
+double totalSampleWeight(const arma::Row<float> &sampleWeights,
+                         arma::uword numSamples) {
+  if (sampleWeights.is_empty())
+    return static_cast<double>(numSamples);
+  double sum = 0.0;
+  for (arma::uword i = 0; i < sampleWeights.n_elem; ++i)
+    sum += static_cast<double>(sampleWeights(i));
+  if (sum <= 0.0)
+    return static_cast<double>(numSamples);
+  return sum;
+}
+
 } // namespace
 
 bool optimizeNodeInPlace(
@@ -79,7 +91,9 @@ bool optimizeNodeInPlace(
   if (care.empty())
     return false;
 
-  TaoObjective objective(care, X, lambda);
+  const double nTotal =
+      totalSampleWeight(adapter.sampleWeights(), X.n_cols);
+  TaoObjective objective(care, X, lambda, nTotal);
   const double currScore = objective.scoreCurrent(node);
   const double dummyScore = objective.scoreDummy();
 

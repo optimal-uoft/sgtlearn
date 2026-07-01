@@ -167,5 +167,6 @@ PYBIND11_MODULE(TreeAlternatingOptimization, m) {
         "RegressionShapeGeneralizedTree in place. X is "
         "(n_samples, n_features) float32; y is 1-D class labels (uint) or "
         "float targets matching the tree type. Runs up to n_runs bottom-up "
-        "sweeps; lambda_ penalizes non-constant routing splits.");
+        "sweeps; lambda_ penalizes non-constant routing splits by "
+        "lambda_ * totalSampleWeight in weighted reward units.");
 }

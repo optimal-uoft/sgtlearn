@@ -10,8 +10,8 @@
  *   and score child ``c`` with reward ``-(y - pred_c)^2`` (MSE) or
  *   ``-|y - pred_c|`` (MAE).
  * - Samples where all children tie are excluded from the care set.
- * - Each remaining care sample gets a single pseudolabel: the child with
- *   highest reward.
+ * - Each remaining care sample contributes one expanded router-training row per
+ *   non-worst child (every branch strictly better than the minimum reward).
  *
  * Leaf refresh recomputes per-leaf means (squared error) or weighted medians
  * (absolute error) and updates ``leafRegressionStats`` / ``leafNumSamples``.

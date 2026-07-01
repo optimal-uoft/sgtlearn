@@ -34,6 +34,9 @@ Single tree
 ``y`` must be in the same label space used for :meth:`~sgtlearn.SGTClassifier.fit`.
 Pass the **same** ``(X, y)`` used to fit the model (partitions are not stored after
 fit). With ``lambda_=0`` (the default), training accuracy / loss does not decrease.
+When ``lambda_ > 0``, non-constant routing rules must improve weighted training
+reward by more than ``lambda_ * n_samples`` (cost-complexity style) to beat the
+constant dummy rule at each node.
 
 Random forest
 -------------

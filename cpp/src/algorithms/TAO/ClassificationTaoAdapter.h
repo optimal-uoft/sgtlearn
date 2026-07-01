@@ -7,8 +7,8 @@
  * Care-set logic (classification variant):
  *
  * - For each sample at an internal node, walk each child subtree to its leaf
- *   and score child ``c`` with reward ``1`` if the leaf's majority class equals
- *   the sample label, else ``0``.
+ *   and score child ``c`` with reward ``1/x`` if the leaf's majority class equals
+ *   the sample label, where ``x`` is the number of correct children; else ``0``.
  * - Samples where all children tie are excluded from the care set.
  * - Samples with multiple equally good children contribute one expanded router-
  *   training row per good child (multi-to-single pseudolabel expansion).
@@ -52,8 +52,8 @@ public:
 
 private:
   /**
-   * Per-child correctness rewards for one sample: ``1`` if child leaf predicts
-   * the sample label, else ``0``.
+   * Per-child correctness rewards for one sample: ``1/x`` split uniformly across
+   * correct children (``x`` = count of correct), else ``0``.
    */
   void childRewards(const std::vector<size_t> &childLeaves, arma::uword col,
                     std::vector<double> &reward) const;

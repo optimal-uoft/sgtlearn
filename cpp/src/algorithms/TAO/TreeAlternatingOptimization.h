@@ -16,7 +16,8 @@
  * 3. For each candidate feature, train a classification discretizer over child-
  *    partition pseudolabels and score the induced routing rule.
  * 4. Accept the best non-worsening rule (current, dummy, or single-feature split).
- *    ``lambda`` penalizes non-dummy splits in the score denominator.
+ *    ``lambda`` penalizes non-dummy splits by ``lambda * totalSampleWeight`` in
+ *    weighted reward units (cost-complexity style; see ``TaoObjective``).
  *
  * **Outer loop** (``optimize``):
  *
@@ -46,7 +47,8 @@ namespace tao {
  * @param adapter      Task adapter (care set, discretizer params, leaf refresh).
  * @param nodeSamples  Current sample partition per node index.
  * @param nodeIdx      Internal node to optimize.
- * @param lambda       Penalty subtracted from non-dummy candidate scores.
+ * @param lambda       Per-sample complexity rate; non-dummy scores pay
+ *                     ``lambda * totalSampleWeight`` in weighted reward units.
  * @returns ``true`` if the node's routing rule was updated.
  */
 bool optimizeNodeInPlace(
@@ -59,7 +61,7 @@ bool optimizeNodeInPlace(
  *
  * @param adapter Concrete adapter bound to the tree and training data.
  * @param nRuns   Maximum number of bottom-up sweeps (early-stops on no change).
- * @param lambda  Per-split penalty passed to ``optimizeNodeInPlace``.
+ * @param lambda  Cost-complexity rate passed to ``optimizeNodeInPlace``.
  */
 void optimize(TaoAdapter &adapter, size_t nRuns = 10, double lambda = 0.0);
 

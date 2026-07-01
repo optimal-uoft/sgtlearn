@@ -13,8 +13,9 @@
 namespace tao {
 
 TaoObjective::TaoObjective(const NodeCareSet &care, const arma::fmat &X,
-                           double lambda)
-    : care_(care), X_(X), lambda_(lambda), nCare_(care.size()),
+                           double lambda, double totalSampleWeight)
+    : care_(care), X_(X), lambda_(lambda),
+      totalSampleWeight_(totalSampleWeight), nCare_(care.size()),
       totalCareWeight_(0.0) {
   if (care_.careWeights.empty()) {
     totalCareWeight_ = static_cast<double>(nCare_);
@@ -57,7 +58,10 @@ double TaoObjective::meanReward(double rewardSum) const {
 }
 
 double TaoObjective::penalizedScore(double rewardSum) const {
-  return meanReward(rewardSum) - lambda_;
+  if (lambda_ == 0.0 || totalCareWeight_ <= 0.0)
+    return meanReward(rewardSum);
+  return meanReward(rewardSum) -
+         lambda_ * totalSampleWeight_ / totalCareWeight_;
 }
 
 double TaoObjective::rewardSumForPartition(

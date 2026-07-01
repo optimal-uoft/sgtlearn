@@ -41,11 +41,22 @@ void ClassificationTaoAdapter::childRewards(
     const std::vector<size_t> &childLeaves, arma::uword col,
     std::vector<double> &reward) const {
   const size_t label = y_(col);
-  for (size_t c = 0; c < childLeaves.size(); ++c)
-    reward[c] =
-        (argMax(classificationTree_.classCounts[childLeaves[c]]) == label)
-            ? 1.0
-            : 0.0;
+  reward.resize(childLeaves.size());
+  size_t numCorrect = 0;
+  for (size_t c = 0; c < childLeaves.size(); ++c) {
+    const bool correct =
+        argMax(classificationTree_.classCounts[childLeaves[c]]) == label;
+    if (correct)
+      ++numCorrect;
+    reward[c] = correct ? 1.0 : 0.0;
+  }
+  if (numCorrect == 0)
+    return;
+  const double correctReward = 1.0 / static_cast<double>(numCorrect);
+  for (size_t c = 0; c < reward.size(); ++c) {
+    if (reward[c] > 0.0)
+      reward[c] = correctReward;
+  }
 }
 
 NodeCareSet ClassificationTaoAdapter::buildCareSet(

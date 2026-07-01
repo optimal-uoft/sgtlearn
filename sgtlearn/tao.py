@@ -139,25 +139,6 @@ def _prepare_tao_arrays(
     return X32, y_reg, sw
 
 
-def _run_tao_native(
-    tree: SGTClassifier | SGTRegressor,
-    X32: np.ndarray,
-    y_native: np.ndarray,
-    sample_weights: np.ndarray,
-    *,
-    n_runs: int,
-    lambda_: float,
-) -> None:
-    TreeAlternatingOptimization(
-        tree._est,
-        X32,
-        y_native,
-        sample_weight=sample_weights,
-        n_runs=int(n_runs),
-        lambda_=float(lambda_),
-    )
-
-
 def TAO_refine(
     model: TaoModel,
     X: np.ndarray,
@@ -179,6 +160,11 @@ def TAO_refine(
 
     Training data must be supplied again because per-sample partitions are not
     retained after ``fit``.
+
+    ``lambda_`` is a per-sample complexity rate (cost-complexity style). At each
+    internal node, a non-constant routing rule must beat the dummy rule by more
+    than ``lambda_ * n_samples`` in weighted reward units (equivalently
+    ``lambda_ * n_samples / n_care`` on the mean care reward).
     """
     targets = _tao_targets(model)
     X, y = _validate_X_y(model, X, y, check_input=check_input)
@@ -190,11 +176,11 @@ def TAO_refine(
     n_jobs_eff = effective_n_jobs(1 if n_jobs is None else n_jobs)
     if len(targets) == 1 or n_jobs_eff == 1:
         for tree in targets:
-            _run_tao_native(tree, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_)
+            TreeAlternatingOptimization(tree._est, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_)
     else:
         Parallel(n_jobs=n_jobs_eff, prefer="threads")(
-            delayed(_run_tao_native)(
-                tree, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_
+            delayed(TreeAlternatingOptimization)(
+                tree._est, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_
             )
             for tree in targets
         )
