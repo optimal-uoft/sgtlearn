@@ -18,7 +18,6 @@ from ShapeGeneralizedTrees import (
     RegressionShapeGeneralizedTree,
 )
 from sklearn.preprocessing import LabelEncoder
-from sgtlearn.tao import TAO_refine
 
 __all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
 
@@ -305,6 +304,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self._est.fit(X32, y_u, sample_weight=sw)
 
         if self.tao_n_runs > 0:
+            from sgtlearn.tao import TAO_refine
+
             TAO_refine(
                 self,
                 X32,
@@ -577,6 +578,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         )
 
         if self.tao_n_runs > 0:
+            from sgtlearn.tao import TAO_refine
+
             TAO_refine(
                 self,
                 X32,
