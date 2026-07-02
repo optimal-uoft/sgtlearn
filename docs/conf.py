@@ -34,10 +34,15 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
     "sphinx_copybutton",
+    "nbsphinx",
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
+
+# Notebooks are pre-executed and committed with outputs; never execute them at
+# docs-build time (the native C++ extension is mocked and RTD has no compiler).
+nbsphinx_execute = "never"
 
 # -- autodoc / autosummary ---------------------------------------------------
 
