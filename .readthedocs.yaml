@@ -7,6 +7,9 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.12"
+  # nbsphinx renders the tutorial notebooks and requires pandoc at build time.
+  apt_packages:
+    - pandoc
 
 sphinx:
   configuration: docs/conf.py
