@@ -89,7 +89,7 @@ IDS = [
 
 @pytest.mark.parametrize(
     "criterion",
-    ["squared_error", "mse", "absolute_error", "mae"],
+    ["squared_error", "absolute_error"],  # aliases mse/mae covered by equivalence test below
 )
 @pytest.mark.parametrize(
     "n_samples,min_leaf_size,min_gain_split,max_depth,max_leaf",
@@ -152,6 +152,22 @@ def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     use_mae_metric = criterion in ("absolute_error", "mae")
     disc = _pred_discrepancy(sklearn_preds, ud_preds, use_mae=use_mae_metric)
     assert disc < 0.9 * sigma
+
+
+@pytest.mark.parametrize("alias,canonical", [("mse", "squared_error"), ("mae", "absolute_error")])
+def test_regression_criterion_aliases_equivalent(alias: str, canonical: str) -> None:
+    """``mse``/``mae`` are aliases: identical bin predictions to their canonical name."""
+    rng = np.random.default_rng(12345)
+    x32 = rng.random((2000, 1), dtype=np.float64).astype(np.float32)
+    y = rng.standard_normal(2000).astype(np.float32)
+    features = np.array([0], dtype=np.uintp)
+
+    preds = {}
+    for crit in (alias, canonical):
+        ud = UnivariateRegressionDiscretizer(criterion=crit)
+        ud.Train(x32, features, y, 1, 0.0, 0, 0)
+        preds[crit] = regression_predict(ud, x32)
+    np.testing.assert_array_equal(preds[alias], preds[canonical])
 
 
 def test_regression_friedman_mse_constructible() -> None:
