@@ -43,6 +43,7 @@ Highlights
    :maxdepth: 2
    :caption: Tutorials
 
+   tutorials/shape-functions
    tutorials/tao
 
 .. toctree::
