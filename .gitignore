@@ -235,3 +235,5 @@ cpp/build.ninja
 
 sgt-learnold/
 CLAUDE.md
+# AI brainstorming/spec artifacts (local only)
+docs/superpowers/
