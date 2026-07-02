@@ -48,6 +48,7 @@ Highlights
    tutorials/structure-and-accuracy
    tutorials/inspecting-trees
    tutorials/forests
+   tutorials/regression
    tutorials/tao
 
 .. toctree::
