@@ -46,6 +46,7 @@ Highlights
    tutorials/shape-functions
    tutorials/sgt-k
    tutorials/structure-and-accuracy
+   tutorials/inspecting-trees
    tutorials/tao
 
 .. toctree::
