@@ -105,7 +105,7 @@ inline FeatureBaggingPickFn parseMaxFeaturesPy(py::handle mf_h) {
     throw std::invalid_argument("max_features cannot be bool");
 
   py::object numbers = py::module_::import("numbers");
-  if (py::cast<bool>(py::isinstance(mf, numbers.attr("Integral")))) {
+  if (py::isinstance(mf, numbers.attr("Integral"))) {
     const long long vll = py::cast<long long>(mf);
     if (vll < 0)
       throw std::invalid_argument("max_features int must be non-negative");
@@ -113,7 +113,7 @@ inline FeatureBaggingPickFn parseMaxFeaturesPy(py::handle mf_h) {
       return makeFeatureBaggingAll();
     return makeFeatureBaggingCap(static_cast<size_t>(vll));
   }
-  if (py::cast<bool>(py::isinstance(mf, numbers.attr("Real")))) {
+  if (py::isinstance(mf, numbers.attr("Real"))) {
     const double c = py::cast<double>(mf);
     if (!(c > 0.0) || c > 1.0)
       throw std::invalid_argument(
