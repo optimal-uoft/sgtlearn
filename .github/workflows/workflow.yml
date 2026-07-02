@@ -85,6 +85,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"   # matches .readthedocs.yml
+      # nbsphinx renders the tutorial notebooks and shells out to pandoc.
+      - run: sudo apt-get update && sudo apt-get install -y pandoc
       - run: pip install -r docs/requirements.txt
       # -W turns Sphinx warnings (broken refs, malformed docstrings) into
       # failures. The native C++ extension is mocked (autodoc_mock_imports),
