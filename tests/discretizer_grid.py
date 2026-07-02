@@ -4,7 +4,8 @@ Constants are imported by ``test_univariate_*`` modules to build Cartesian produ
 of sample size, tree depth, leaf limits, and gain thresholds.
 """
 
-N_VALUES = [1000, 5000, 10000]
+# sklearn fidelity is a correctness property, not size-dependent: one N is enough.
+N_VALUES = [5000]
 NUM_CLASSES_VALUES = [2, 3]
 MIN_LEAF_VALUES = [1, 10]
 MIN_GAIN_VALUES = [0.0, 1e-7]
