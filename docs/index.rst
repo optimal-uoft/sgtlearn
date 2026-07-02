@@ -44,6 +44,7 @@ Highlights
    :caption: Tutorials
 
    tutorials/shape-functions
+   tutorials/sgt-k
    tutorials/tao
 
 .. toctree::
