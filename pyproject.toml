@@ -25,7 +25,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "pybind11-stubgen", "ruff", "black", "mypy"]
+dev = [
+    "pytest>=7",
+    "pybind11-stubgen",
+    "ruff",
+    "black",
+    "mypy",
+    "nbconvert>=7.17.1",
+    "ipykernel>=7.3.0",
+    "nbsphinx>=0.9.8",
+]
 
 # Build deps injected when installing with --no-build-isolation (uv only).
 # Mirrors [build-system].requires so repeated editable rebuilds skip isolation.

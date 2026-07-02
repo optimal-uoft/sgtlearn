@@ -6,6 +6,8 @@
 sphinx>=7.2
 furo>=2024.1.29
 sphinx-copybutton>=0.5
+nbsphinx>=0.9
+ipython>=8
 
 # sgtlearn runtime dependencies (imported by autodoc when documenting the API)
 numpy>=1.20

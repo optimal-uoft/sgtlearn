@@ -41,6 +41,18 @@ Highlights
 
 .. toctree::
    :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/shape-functions
+   tutorials/sgt-k
+   tutorials/structure-and-accuracy
+   tutorials/inspecting-trees
+   tutorials/forests
+   tutorials/regression
+   tutorials/tao
+
+.. toctree::
+   :maxdepth: 2
    :caption: API Reference
 
    api/index
