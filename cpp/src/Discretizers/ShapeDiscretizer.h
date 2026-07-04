@@ -2,7 +2,7 @@
 
 /**
  * @file Discretizers/ShapeDiscretizer.h
- * @brief Task-agnostic contract for inner univariate discretizers.
+ * @brief Task-agnostic contract for inner discretizers.
  */
 
 #include <cstddef>
@@ -35,4 +35,8 @@ public:
   virtual size_t nanNumSamples() const = 0;
   virtual double nanNodeWeight() const = 0;
   virtual const std::vector<size_t> &nanInSampleIndices() const = 0;
+
+  /** Map finite routing feature value(s) to an inner bin index. */
+  virtual size_t
+  routeToBin(const std::vector<float> &featureValues) const = 0;
 };

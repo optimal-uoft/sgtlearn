@@ -34,6 +34,30 @@ namespace sgt::bindings {
 
 namespace py = pybind11;
 
+inline py::list routingFeaturesPy(const ShapeFunctionNode &n) {
+  py::list feats;
+  for (size_t f : n.routingFeatures)
+    feats.append(f);
+  return feats;
+}
+
+inline py::object primaryRoutingFeaturePy(const ShapeFunctionNode &n) {
+  if (n.routingFeatures.empty())
+    return py::none();
+  if (n.routingFeatures.size() == 1)
+    return py::int_(n.routingFeatures.front());
+  return py::none();
+}
+
+inline py::list innerThresholdsPy(const ShapeFunctionNode &n) {
+  if (!n.innerDiscretizer)
+    throw std::runtime_error("tree export: internal node missing innerDiscretizer");
+  py::list th;
+  for (double t : n.innerDiscretizer->thresholds())
+    th.append(t);
+  return th;
+}
+
 inline std::string normalizeCriterion(std::string s) {
   const auto not_space = [](unsigned char c) { return !std::isspace(c); };
   s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
@@ -245,16 +269,16 @@ public:
 
       if (n.isLeaf) {
         d["feature"] = py::none();
+        d["features"] = py::list();
         d["thresholds"] = py::list();
         d["bin_to_partition"] = py::list();
         d["bin_counts"] = py::list();
         d["bin_sample_counts"] = py::list();
         d["children"] = py::list();
       } else {
-        d["feature"] = n.routingFeature;
-        py::list th;
-        for (float t : n.innerThresholds) th.append(t);
-        d["thresholds"] = th;
+        d["feature"] = primaryRoutingFeaturePy(n);
+        d["features"] = routingFeaturesPy(n);
+        d["thresholds"] = innerThresholdsPy(n);
         py::list b2p;
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
@@ -378,6 +402,7 @@ public:
         d["value"] = i < leafPred.size() ? leafPred[i] : 0.0;
         d["n_samples"] = i < leafN.size() ? leafN[i] : static_cast<size_t>(0);
         d["feature"] = py::none();
+        d["features"] = py::list();
         d["thresholds"] = py::list();
         d["bin_to_partition"] = py::list();
         d["bin_counts"] = py::list();
@@ -388,10 +413,9 @@ public:
         size_t total = 0;
         for (size_t v : n.binSampleCounts) total += v;
         d["n_samples"] = total;
-        d["feature"] = n.routingFeature;
-        py::list th;
-        for (float t : n.innerThresholds) th.append(t);
-        d["thresholds"] = th;
+        d["feature"] = primaryRoutingFeaturePy(n);
+        d["features"] = routingFeaturesPy(n);
+        d["thresholds"] = innerThresholdsPy(n);
         py::list b2p;
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;

@@ -80,8 +80,8 @@ double TaoObjective::rewardSumForPartition(
 double TaoObjective::scoreCurrent(const ShapeFunctionNode &node) const {
   double rewardSum = 0.0;
   for (size_t i = 0; i < nCare_; ++i) {
-    const float v = X_(node.routingFeature, care_.careCols[i]);
-    const size_t child = node.routeFeatureValueToPartition(v);
+    const size_t child = node.routeSampleToPartition(
+        X_, static_cast<arma::uword>(care_.careCols[i]));
     rewardSum += careWeight(i) * care_.careRewards[i][child];
   }
   return penalizedScore(rewardSum);

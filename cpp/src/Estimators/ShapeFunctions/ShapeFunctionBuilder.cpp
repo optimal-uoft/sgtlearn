@@ -7,14 +7,13 @@
 
 #include "Discretizers/ShapeDiscretizer.h"
 
-#include "algorithms/missing_values.h"
-
 #include <armadillo>
 #include <stdexcept>
 
 void ShapeFunctionBuilder::markLeafNoSplit(ShapeFunctionNode &node) {
   node.isLeaf = true;
   node.informationGain = 0.0;
+  node.innerDiscretizer.reset();
   node.sampleBins.clear();
   node.splitLeafStats.clear();
   node.splitBinWeights.clear();
@@ -48,13 +47,9 @@ arma::Row<float> ShapeFunctionBuilder::subSampleWeights(
 void ShapeFunctionBuilder::applySharedBranchingFields(
     BestBranchingState &best, const BranchAssignmentSearchResult &search,
     size_t featureIndex, size_t xSubCols,
-    const std::vector<double> &thresholds,
     const std::vector<std::vector<size_t>> &perBinCols) {
   best.penalizedChildScore = search.bestFeatureScore;
   best.branching.featureIndex = featureIndex;
-  best.branching.innerThresholds.resize(thresholds.size());
-  for (size_t t = 0; t < thresholds.size(); ++t)
-    best.branching.innerThresholds[t] = static_cast<float>(thresholds[t]);
   best.branching.binToPartition = search.assignments;
   best.branching.impurityDecrease = search.impurityDecrease;
   best.branching.numPartitionsUsed = search.chosenK;
@@ -64,22 +59,24 @@ void ShapeFunctionBuilder::applySharedBranchingFields(
 
 bool ShapeFunctionBuilder::featureHasBetterBranching(
     const BranchAssignmentSearchResult &search, BestBranchingState &best,
-    size_t featureIndex, size_t xSubCols, ShapeDiscretizer &disc,
-    double scoreEpsilon) {
+    size_t featureIndex, size_t xSubCols,
+    std::unique_ptr<ShapeDiscretizer> disc, double scoreEpsilon) {
   if (search.bestFeatureScore >= best.penalizedChildScore - scoreEpsilon)
     return false;
 
   applySharedBranchingFields(best, search, featureIndex, xSubCols,
-                             disc.thresholds(), disc.inSampleDiscretizations());
-  best.branching.leafNumSamples = disc.leafNumSamples();
-  best.binWeights.assign(disc.leafNodeWeights().begin(),
-                         disc.leafNodeWeights().end());
-  best.nanSeen = disc.nanSeen();
-  best.nanStats = disc.nanStats();
-  best.nanNumSamples = disc.nanNumSamples();
-  best.nanNodeWeight = disc.nanNodeWeight();
-  best.nanInSampleIndices = disc.nanInSampleIndices();
-  applyTaskBranchingFields(best, search, disc.leafStats());
+                             disc->inSampleDiscretizations());
+  best.branching.leafNumSamples = disc->leafNumSamples();
+  best.binWeights.assign(disc->leafNodeWeights().begin(),
+                         disc->leafNodeWeights().end());
+  best.nanSeen = disc->nanSeen();
+  best.nanStats = disc->nanStats();
+  best.nanNumSamples = disc->nanNumSamples();
+  best.nanNodeWeight = disc->nanNodeWeight();
+  best.nanInSampleIndices = disc->nanInSampleIndices();
+  applyTaskBranchingFields(best, search, disc->leafStats());
+  best.winningDiscretizer =
+      std::shared_ptr<const ShapeDiscretizer>(std::move(disc));
   return true;
 }
 
@@ -95,8 +92,8 @@ std::vector<std::vector<size_t>> ShapeFunctionBuilder::routeSamplesToPartitions(
   for (arma::uword i = 0; i < parent.sampleIndices.n_elem; ++i) {
     const size_t si = static_cast<size_t>(parent.sampleIndices(i));
     size_t p = parent.nanPredictionPartition;
-    if (missing_values::is_finite(
-            X(parent.routingFeature, static_cast<arma::uword>(si)))) {
+    if (parent.routingFeatureValuesAreFinite(
+            X, static_cast<arma::uword>(si))) {
       const size_t bin = parent.sampleBins[static_cast<size_t>(i)];
       if (bin >= parent.binToPartition.size())
         throw std::runtime_error(

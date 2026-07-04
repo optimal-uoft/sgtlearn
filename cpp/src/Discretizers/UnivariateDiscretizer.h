@@ -62,6 +62,12 @@ public:
   size_t numLeaves;
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc);
 
+  /**
+   * Route one sample's feature value(s) to an inner bin (univariate: uses
+   * ``featureValues[0]`` against ``thresholds``).
+   */
+  size_t routeToBin(const std::vector<float> &featureValues) const;
+
   std::vector<std::vector<size_t>> &getInSampleDiscretizations();
 
   std::vector<PredictT> &getBinPredictions();

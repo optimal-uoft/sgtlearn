@@ -12,6 +12,7 @@
 #include <armadillo>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <vector>
 
 /**
@@ -93,6 +94,8 @@ protected:
     size_t nanNumSamples = 0;
     double nanNodeWeight = 0.0;
     std::vector<size_t> nanInSampleIndices;
+    /** Clone of the winning feature's trained inner discretizer. */
+    std::shared_ptr<const ShapeDiscretizer> winningDiscretizer;
   };
 
   /**
@@ -135,7 +138,6 @@ protected:
   static void applySharedBranchingFields(
       BestBranchingState &best, const BranchAssignmentSearchResult &search,
       size_t featureIndex, size_t xSubCols,
-      const std::vector<double> &thresholds,
       const std::vector<std::vector<size_t>> &perBinCols);
 
   /**
@@ -144,7 +146,8 @@ protected:
    */
   bool featureHasBetterBranching(const BranchAssignmentSearchResult &search,
                                  BestBranchingState &best, size_t featureIndex,
-                                 size_t xSubCols, ShapeDiscretizer &disc,
+                                 size_t xSubCols,
+                                 std::unique_ptr<ShapeDiscretizer> disc,
                                  double scoreEpsilon);
 
   /** Fill objective-specific fields after shared branching metadata is copied. */

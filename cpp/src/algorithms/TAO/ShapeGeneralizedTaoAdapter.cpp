@@ -57,8 +57,7 @@ size_t ShapeGeneralizedTaoAdapter::walkToLeaf(size_t startNode,
   size_t idx = startNode;
   while (!nodes[idx].isLeaf) {
     const ShapeFunctionNode &node = nodes[idx];
-    const float v = X_(node.routingFeature, col);
-    const size_t part = node.routeFeatureValueToPartition(v);
+    const size_t part = node.routeSampleToPartition(X_, col);
     const auto &children = childIndices[idx];
     if (part >= children.size())
       throw std::runtime_error("tao::walkToLeaf: routed partition out of range");

@@ -19,7 +19,6 @@
  */
 template <typename LeafStat> struct ShapeBranchingResult {
   size_t featureIndex = 0;
-  std::vector<float> innerThresholds;
   std::vector<size_t> binToPartition;
   /** parentImpurity - weightedChildImpurity */
   double impurityDecrease = 0.0;

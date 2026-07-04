@@ -37,8 +37,7 @@ computeNodeSamples(const std::vector<ShapeFunctionNode> &nodes,
       continue;
     const auto &children = childIndices[ni];
     for (arma::uword col : nodeSamples[ni]) {
-      const float v = X(node.routingFeature, col);
-      const size_t part = node.routeFeatureValueToPartition(v);
+      const size_t part = node.routeSampleToPartition(X, col);
       if (part >= children.size())
         throw std::runtime_error(
             "tao::computeNodeSamples: routed partition out of range");
@@ -100,8 +99,8 @@ bool optimizeNodeInPlace(
   double bestSingleScore = -std::numeric_limits<double>::infinity();
   bool haveSingle = false;
   size_t bestFeature = 0;
-  std::vector<float> bestThresholds;
   std::vector<size_t> bestBinToPartition;
+  std::shared_ptr<const ShapeDiscretizer> bestDiscretizer;
   arma::uvec featOne(1);
 
   for (size_t f = 0; f < numFeatures; ++f) {
@@ -118,16 +117,21 @@ bool optimizeNodeInPlace(
     if (score > bestSingleScore) {
       bestSingleScore = score;
       bestFeature = f;
-      bestThresholds = std::move(thresholds);
       bestBinToPartition = std::move(binToPartition);
+      bestDiscretizer = std::shared_ptr<const ShapeDiscretizer>(std::move(disc));
       haveSingle = true;
     }
   }
 
   if (dummyScore >= currScore && dummyScore >= bestSingleScore) {
     node.isLeaf = false;
-    node.routingFeature = 0;
-    node.innerThresholds = {std::numeric_limits<float>::infinity()};
+    node.routingFeatures = {0};
+    featOne(0) = 0;
+    auto disc = makeClassificationDiscretizer(routerCriterion);
+    disc->Train(care.Xexp, featOne, care.yexp, k, innerParams.minLeafSize,
+                innerParams.minGainSplit, innerParams.maxDepth, 1, care.wexp);
+    node.innerDiscretizer =
+        std::shared_ptr<const ShapeDiscretizer>(std::move(disc));
     node.binToPartition = {objective.dummyChild()};
     node.nanPredictionPartition = objective.dummyChild();
     node.numPartitions = k;
@@ -136,8 +140,8 @@ bool optimizeNodeInPlace(
   if (haveSingle && bestSingleScore > currScore &&
       bestSingleScore > dummyScore) {
     node.isLeaf = false;
-    node.routingFeature = bestFeature;
-    node.innerThresholds = std::move(bestThresholds);
+    node.routingFeatures = {bestFeature};
+    node.innerDiscretizer = std::move(bestDiscretizer);
     node.binToPartition = std::move(bestBinToPartition);
     node.nanPredictionPartition = objective.dummyChild();
     node.numPartitions = k;

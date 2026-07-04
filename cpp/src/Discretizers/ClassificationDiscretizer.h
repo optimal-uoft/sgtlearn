@@ -84,6 +84,9 @@ public:
   const std::vector<size_t> &nanInSampleIndices() const override {
     return impl_.getNanInSampleIndices();
   }
+  size_t routeToBin(const std::vector<float> &featureValues) const override {
+    return impl_.routeToBin(featureValues);
+  }
 
 private:
   UnivariateClassificationDiscretizer<TSplitter> impl_;

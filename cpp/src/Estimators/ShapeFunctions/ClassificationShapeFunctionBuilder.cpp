@@ -252,7 +252,7 @@ bool ClassificationShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
     if (!featureBest.found)
       continue;
 
-    featureHasBetterBranching(featureBest, best, f, xSubCols, *disc,
+    featureHasBetterBranching(featureBest, best, f, xSubCols, std::move(disc),
                               tree_.outerTreeBuilder_.eps);
   }
 
@@ -264,8 +264,8 @@ bool ClassificationShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
   }
 
   node.isLeaf = false;
-  node.routingFeature = best.branching.featureIndex;
-  node.innerThresholds = std::move(best.branching.innerThresholds);
+  node.routingFeatures = {best.branching.featureIndex};
+  node.innerDiscretizer = best.winningDiscretizer;
   node.binToPartition = std::move(best.branching.binToPartition);
   node.sampleBins = std::move(best.branching.sampleBins);
   node.splitLeafStats = std::move(best.branching.leafStats);

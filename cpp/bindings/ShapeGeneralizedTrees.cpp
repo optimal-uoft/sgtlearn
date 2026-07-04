@@ -43,9 +43,25 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
 
   py::class_<ClassificationShapeGeneralizedTreePy>(
       m, "ClassificationShapeGeneralizedTree")
-      .def(py::init<std::string, size_t, size_t, size_t, double, size_t,
-                    size_t, size_t, double, size_t, size_t, size_t, size_t,
-                    bool, uint64_t, py::object>(),
+      .def(py::init([](std::string criterion, size_t num_classes,
+                       size_t num_partitions, size_t outer_min_leaf_size,
+                       double outer_min_gain_split, size_t outer_max_depth,
+                       size_t outer_max_leaf_nodes, size_t inner_min_leaf_size,
+                       double inner_min_gain_split, size_t inner_max_depth,
+                       size_t inner_max_leaf_nodes,
+                       size_t coordinate_descent_max_iters,
+                       size_t coordinate_descent_patience,
+                       bool coordinate_descent_smart_init, uint64_t random_state,
+                       py::object max_features) {
+             return ClassificationShapeGeneralizedTreePy(
+                 std::move(criterion), num_classes, num_partitions,
+                 outer_min_leaf_size, outer_min_gain_split, outer_max_depth,
+                 outer_max_leaf_nodes, inner_min_leaf_size, inner_min_gain_split,
+                 inner_max_depth, inner_max_leaf_nodes,
+                 coordinate_descent_max_iters, coordinate_descent_patience,
+                 coordinate_descent_smart_init, random_state,
+                 std::move(max_features));
+           }),
            py::arg("criterion") = "gini", py::arg("num_classes"),
            py::arg("num_partitions") = 2,
            py::arg("outer_min_leaf_size") = 1,
@@ -83,9 +99,23 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
 
   py::class_<RegressionShapeGeneralizedTreePy>(
       m, "RegressionShapeGeneralizedTree")
-      .def(py::init<std::string, size_t, size_t, double, size_t, size_t, size_t,
-                    double, size_t, size_t, size_t, size_t, bool, uint64_t,
-                    py::object>(),
+      .def(py::init([](std::string criterion, size_t num_partitions,
+                       size_t outer_min_leaf_size, double outer_min_gain_split,
+                       size_t outer_max_depth, size_t outer_max_leaf_nodes,
+                       size_t inner_min_leaf_size, double inner_min_gain_split,
+                       size_t inner_max_depth, size_t inner_max_leaf_nodes,
+                       size_t coordinate_descent_max_iters,
+                       size_t coordinate_descent_patience,
+                       bool coordinate_descent_smart_init, uint64_t random_state,
+                       py::object max_features) {
+             return RegressionShapeGeneralizedTreePy(
+                 std::move(criterion), num_partitions, outer_min_leaf_size,
+                 outer_min_gain_split, outer_max_depth, outer_max_leaf_nodes,
+                 inner_min_leaf_size, inner_min_gain_split, inner_max_depth,
+                 inner_max_leaf_nodes, coordinate_descent_max_iters,
+                 coordinate_descent_patience, coordinate_descent_smart_init,
+                 random_state, std::move(max_features));
+           }),
            py::arg("criterion") = "squared_error",
            py::arg("num_partitions") = 2, py::arg("outer_min_leaf_size") = 1,
            py::arg("outer_min_gain_split") = 1e-7, py::arg("outer_max_depth") = 0,

@@ -268,12 +268,7 @@ RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
         yhat(s) = leafPredictions_[node.nodeIndex];
         break;
       }
-      if (node.routingFeature >= X.n_rows)
-        throw std::invalid_argument(
-            "RegressionShapeGeneralizedTree::predict: routing feature index "
-            "out of range for X");
-      const float v = X(node.routingFeature, s);
-      const size_t part = node.routeFeatureValueToPartition(v);
+      const size_t part = node.routeSampleToPartition(X, static_cast<arma::uword>(s));
       if (part >= childIndices_[idx].size())
         throw std::runtime_error(
             "RegressionShapeGeneralizedTree::predict: child partition out of "

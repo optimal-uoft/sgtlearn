@@ -177,7 +177,7 @@ void RegressionShapeFunctionBuilder::assignNanPredictionPartition(
 
   // Absolute error: the NaN bucket needs the raw targets to recompute medians.
   const arma::Row<float> wsub = subSampleWeights(tree_.fitSampleWeights_, subIdx);
-  const arma::frowvec featRow = Xsub.row(node.routingFeature);
+  const arma::frowvec featRow = Xsub.row(node.routingFeatures.front());
   node.nanPredictionPartition =
       nan_partition_routing::choose_nan_partition_absolute_error(
           node.numPartitions, featRow, node.sampleBins, node.binToPartition,
@@ -268,7 +268,7 @@ bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
     if (!featureBest.found)
       continue;
 
-    featureHasBetterBranching(featureBest, best, f, xSubCols, *disc,
+    featureHasBetterBranching(featureBest, best, f, xSubCols, std::move(disc),
                               tree_.outerTreeBuilder_.eps);
   }
 
@@ -280,8 +280,8 @@ bool RegressionShapeFunctionBuilder::findBestSplit(ShapeFunctionNode &node,
   }
 
   node.isLeaf = false;
-  node.routingFeature = best.branching.featureIndex;
-  node.innerThresholds = std::move(best.branching.innerThresholds);
+  node.routingFeatures = {best.branching.featureIndex};
+  node.innerDiscretizer = best.winningDiscretizer;
   node.binToPartition = std::move(best.branching.binToPartition);
   node.sampleBins = std::move(best.branching.sampleBins);
   node.numPartitions = best.branching.numPartitionsUsed;

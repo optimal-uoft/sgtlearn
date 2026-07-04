@@ -60,6 +60,25 @@ void UnivariateDiscretizer<StatsT, PredictT>::buildTree(
 }
 
 template <typename StatsT, typename PredictT>
+size_t UnivariateDiscretizer<StatsT, PredictT>::routeToBin(
+    const std::vector<float> &featureValues) const {
+  if (step != Step::LeavesProcessed)
+    throw std::runtime_error(
+        "Cannot route values without first training the discretizer");
+  if (featureValues.empty())
+    throw std::runtime_error("featureValues is empty");
+  for (float v : featureValues) {
+    if (!missing_values::is_finite(v))
+      throw std::runtime_error(
+          "non-finite feature value passed to discretizer routeToBin");
+  }
+  const auto it =
+      std::lower_bound(thresholds.begin(), thresholds.end(),
+                       static_cast<double>(featureValues[0]));
+  return static_cast<size_t>(std::distance(thresholds.begin(), it));
+}
+
+template <typename StatsT, typename PredictT>
 void UnivariateDiscretizer<StatsT, PredictT>::transform(const arma::fmat &X,
                                                       arma::Row<size_t> &binLoc) {
   if (step != Step::LeavesProcessed)
