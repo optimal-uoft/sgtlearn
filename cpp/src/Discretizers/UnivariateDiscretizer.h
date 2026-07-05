@@ -5,6 +5,7 @@
  * @brief Train a one-dimensional axis-aligned partition of the feature space and expose bins, thresholds, and leaf aggregates.
  */
 
+#include "Discretizers/InnerDiscretizerBase.h"
 #include "Domain/SplitCandidate.h"
 #include "Splitters/Splitter.h"
 
@@ -13,12 +14,20 @@
 #include <tuple>
 #include <vector>
 
+/** Numeric univariate cut points; not part of the generic inner discretizer contract. */
+class UnivariateThresholds {
+public:
+  virtual ~UnivariateThresholds() = default;
+  virtual const std::vector<double> &thresholds() const = 0;
+};
+
 /**
  * @tparam StatsT leaf sufficient-statistic element type (weighted class counts, float sums, …).
  * @tparam PredictT leaf prediction type routed to downstream code.
  */
 template <typename StatsT, typename PredictT = StatsT>
-class UnivariateDiscretizer {
+class UnivariateDiscretizer : public virtual InnerDiscretizerBase<StatsT>,
+                              public UnivariateThresholds {
   enum class Step { Untrained, FitTree, LeavesProcessed };
   Step step = Step::Untrained;
 
@@ -28,12 +37,8 @@ public:
 protected:
   bool leavesProcessed = false;
 
-  std::vector<std::vector<size_t>> inSampleDiscretizations;
   std::vector<PredictT> binPredictions;
-  std::vector<double> thresholds;
-  std::vector<std::vector<StatsT>> leafStats;
-  std::vector<size_t> leafNumSamples;
-  std::vector<double> leafNodeWeights;
+  std::vector<double> thresholds_;
   std::map<std::tuple<size_t, size_t>, SplitCandidate> leaves;
 
   /**
@@ -56,33 +61,45 @@ protected:
   void buildTree(Splitter<StatsT, PredictT> &splitter, size_t minLeafSize,
                  double minGainSplit, size_t maxDepth, size_t maxLeafNodes);
 
+  void appendNanRoutingBin();
+
 public:
   UnivariateDiscretizer() = default;
 
-  size_t numLeaves;
-  void transform(const arma::fmat &X, arma::Row<size_t> &binLoc);
+  /** Finite inner-tree leaf count (excludes the trailing NaN routing bin). */
+  size_t numLeaves() const override { return this->numLeaves_; }
+
+  /** Index of the NaN routing bin (always the trailing leaf-stats entry). */
+  size_t nanBinIndex() const {
+    this->ensureTrained();
+    return this->leafStats_.size() - 1;
+  }
+
+  /** Total routing bins including the trailing NaN bin. */
+  size_t numRoutingBins() const { return this->numLeaves_ + 1; }
+
+  void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override;
 
   /**
    * Route one sample's feature value(s) to an inner bin (univariate: uses
-   * ``featureValues[0]`` against ``thresholds``).
+   * ``featureValues[0]`` against ``thresholds``; non-finite values map to the
+   * trailing NaN bin).
    */
-  size_t routeToBin(const std::vector<float> &featureValues) const;
+  size_t routeToBin(const std::vector<float> &featureValues) const override;
 
-  std::vector<std::vector<size_t>> &getInSampleDiscretizations();
+  const std::vector<double> &thresholds() const override { return thresholds_; }
+
+  std::vector<std::vector<size_t>> &getInSampleDiscretizations() {
+    return this->inSampleDiscretizations();
+  }
 
   std::vector<PredictT> &getBinPredictions();
 
-  std::vector<std::vector<StatsT>> &getLeafStats();
+  std::vector<std::vector<StatsT>> &getLeafStats() { return this->leafStats(); }
 
-  std::vector<size_t> &getLeafNumSamples();
+  std::vector<size_t> &getLeafNumSamples() { return this->leafNumSamples(); }
 
-  std::vector<double> &getLeafNodeWeights();
-
-  /** Sorted-axis cut points; same ordering as `transform` / inner bins. */
-  const std::vector<double> &getThresholds() const { return thresholds; }
-
-  /** True if any non-finite feature value was observed during ``Train``. */
-  bool nanSeen() const { return nanSeen_; }
+  std::vector<double> &getLeafNodeWeights() { return this->leafNodeWeights(); }
 
   /** Aggregated NaN-bucket stats (class counts, or ``[sum w*y, sum w*y^2]``). */
   const std::vector<StatsT> &getNanStats() const { return nanStats_; }
@@ -98,7 +115,15 @@ public:
     return nanInSampleIndices_;
   }
 
-  ~UnivariateDiscretizer() = default;
+  ~UnivariateDiscretizer() override = default;
 };
+
+/** Empty when ``disc`` is not a numeric univariate discretizer. */
+inline const std::vector<double> &
+numericInnerThresholds(const InnerDiscretizerBase<double> &disc) {
+  static const std::vector<double> kEmpty;
+  const auto *uni = dynamic_cast<const UnivariateThresholds *>(&disc);
+  return uni ? uni->thresholds() : kEmpty;
+}
 
 #include "Discretizers/UnivariateDiscretizer.tpp"

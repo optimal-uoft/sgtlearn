@@ -73,11 +73,8 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
       sortedSampleWeights(finiteOrder, sampleWeights);
 
   Tsplitter splitter(sortedX, sortedWeights, sortedY, numClasses);
-  UnivariateDiscretizer<double, size_t>::buildTree(splitter, minLeafSize,
-                                                   minGainSplit, maxDepth,
-                                                   maxLeafNodes);
-
-  UnivariateDiscretizer<double, size_t>::processLeaves(finiteOrder, splitter);
+  this->buildTree(splitter, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
+  this->processLeaves(finiteOrder, splitter);
 }
 
 template class UnivariateClassificationDiscretizer<GiniSplitter>;

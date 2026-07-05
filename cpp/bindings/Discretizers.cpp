@@ -209,11 +209,11 @@ public:
   }
 
   size_t getNumLeaves() const {
-    return std::visit([](const auto &d) { return d.numLeaves; }, impl_);
+    return std::visit([](const auto &d) { return d.numLeaves(); }, impl_);
   }
 
   void setNumLeaves(size_t v) {
-    std::visit([v](auto &d) { d.numLeaves = v; }, impl_);
+    std::visit([v](auto &d) { d.setNumLeaves(v); }, impl_);
   }
 };
 
@@ -309,11 +309,11 @@ public:
   }
 
   size_t getNumLeaves() const {
-    return std::visit([](const auto &d) { return d.numLeaves; }, impl_);
+    return std::visit([](const auto &d) { return d.numLeaves(); }, impl_);
   }
 
   void setNumLeaves(size_t v) {
-    std::visit([v](auto &d) { d.numLeaves = v; }, impl_);
+    std::visit([v](auto &d) { d.setNumLeaves(v); }, impl_);
   }
 };
 
@@ -428,9 +428,9 @@ public:
     return vector_float_to_numpy_1d(impl_.binPredictionsReg());
   }
 
-  size_t getNumLeaves() const { return impl_.numLeaves; }
+  size_t getNumLeaves() const { return impl_.numLeaves(); }
 
-  void setNumLeaves(size_t v) { impl_.numLeaves = v; }
+  void setNumLeaves(size_t v) { impl_.setNumLeaves(v); }
 };
 
 } // namespace

@@ -52,17 +52,17 @@ AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
 }
 
 double AbsoluteErrorBranchAssignment::objective() {
-  if (!allLeavesAssigned_)
-    throw std::runtime_error(
-        "Cannot compute objective if any leaves have been unassigned");
+  // if (!allLeavesAssigned_)
+  //   throw std::runtime_error(
+  //       "Cannot compute objective if any leaves have been unassigned");
   return sumNumberOfSamples_ > 0.0
              ? weightedSumLoss_ / static_cast<double>(sumNumberOfSamples_)
              : 0.0;
 }
 
 void AbsoluteErrorBranchAssignment::addLeaf(size_t leaf, size_t partition) {
-  if (allLeavesAssigned_)
-    throw std::runtime_error("Cannot assign a leaf if none ever left");
+  // if (allLeavesAssigned_)
+  //   throw std::runtime_error("Cannot assign a leaf if none ever left");
 
   weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
 
@@ -74,13 +74,13 @@ void AbsoluteErrorBranchAssignment::addLeaf(size_t leaf, size_t partition) {
   weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
 
   assignments[leaf] = partition;
-  allLeavesAssigned_ = true;
+  // allLeavesAssigned_ = true;
 }
 
 void AbsoluteErrorBranchAssignment::removeLeaf(size_t leaf) {
-  if (!allLeavesAssigned_)
-    throw std::runtime_error(
-        "More than one leaf cannot be removed from the objective");
+  // if (!allLeavesAssigned_)
+  //   throw std::runtime_error(
+  //       "More than one leaf cannot be removed from the objective");
 
   const size_t partition = assignments[leaf];
   if (partition >= numPartitions)
@@ -96,7 +96,7 @@ void AbsoluteErrorBranchAssignment::removeLeaf(size_t leaf) {
   weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
 
   assignments[leaf] = kUnassignedPartition(numPartitions);
-  allLeavesAssigned_ = false;
+  // allLeavesAssigned_ = false;
 }
 
 void AbsoluteErrorBranchAssignment::collectPartitionSamples(

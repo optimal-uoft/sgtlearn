@@ -4,6 +4,7 @@
 
 #include "algorithms/TAO/TaoObjective.h"
 
+#include "Discretizers/UnivariateDiscretizer.h"
 #include "algorithms/missing_values.h"
 
 #include <algorithm>
@@ -109,7 +110,8 @@ double TaoObjective::scoreDiscretizer(
   if (disc.numLeaves() < 1)
     return -std::numeric_limits<double>::infinity();
 
-  const std::vector<double> &thr = disc.thresholds();
+  const std::vector<double> &thr =
+      numericInnerThresholds(static_cast<const InnerDiscretizerBase<double> &>(disc));
   const std::vector<std::vector<double>> &leafStats = disc.leafStats();
   thresholdsOut.resize(thr.size());
   for (size_t b = 0; b < thr.size(); ++b)

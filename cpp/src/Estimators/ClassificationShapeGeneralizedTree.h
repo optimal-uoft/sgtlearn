@@ -28,7 +28,7 @@
  * - **Per-node split search** (``ClassificationShapeFunctionBuilder``): for each
  *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
  *   partition map; if the post-CD objective is **clearly worse** than the seed
- *   (absolute margin ``ShapeFunctionBuilder::kCdObjectiveImprovementEps``),
+ *   (absolute margin ``kShapeFunctionCdImprovementEps``),
  *   restore the
  *   assignment snapshot and rebuild the ``BranchAssignment``; keep the best branch
  *   by penalized child impurity.

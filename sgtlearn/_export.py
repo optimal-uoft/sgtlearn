@@ -70,6 +70,16 @@ def _build_palette(cmap: Any, num_partitions: int):
     return [cm(p) for p in points]
 
 
+def _finite_routing_bins(
+    thresholds: list[float], bin_to_partition: list[int]
+) -> list[int]:
+    """Drop the trailing NaN routing bin when present."""
+    n_finite = len(thresholds) + 1
+    if len(bin_to_partition) > n_finite:
+        return bin_to_partition[:n_finite]
+    return bin_to_partition
+
+
 def _merge_routing_regions(
     thresholds: list[float],
     bin_to_partition: list[int],
@@ -90,6 +100,7 @@ def _merge_routing_regions(
     if not bin_to_partition:
         return []
 
+    bin_to_partition = _finite_routing_bins(thresholds, bin_to_partition)
     n_bins = len(bin_to_partition)
     edges = [float("-inf")] + list(thresholds) + [float("inf")]
     assert len(edges) == n_bins + 1
@@ -142,7 +153,10 @@ def _route_samples(tree: dict, X) -> "dict[int, Any]":
             continue
         feature = node["feature"]
         thresholds = np.asarray(node["thresholds"], dtype=np.float64)
-        b2p = np.asarray(node["bin_to_partition"], dtype=np.int64)
+        b2p_list = _finite_routing_bins(
+            list(node["thresholds"]), list(node["bin_to_partition"])
+        )
+        b2p = np.asarray(b2p_list, dtype=np.int64)
         children = list(node["children"])
 
         values = X_arr[rows, feature]
@@ -372,7 +386,7 @@ def _draw_internal_panel(
     )
 
     thresholds = list(node["thresholds"])
-    b2p = list(node["bin_to_partition"])
+    b2p = _finite_routing_bins(thresholds, list(node["bin_to_partition"]))
 
     # Compute panel x extent.
     if feature_values is not None and len(feature_values):

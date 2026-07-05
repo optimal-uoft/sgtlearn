@@ -55,6 +55,10 @@ add_library(sgtlearn_core STATIC
         src/Splitters/GiniSplitter.h
         src/algorithms/TreeBuilder.h
         src/algorithms/TreeBuilder.tpp
+        src/Discretizers/InnerDiscretizerBase.h
+        src/Discretizers/DiscretizerInputKind.h
+        src/Discretizers/DiscretizerFactories.h
+        src/Discretizers/DiscretizerFactories.cpp
         src/Discretizers/UnivariateDiscretizer.h
         src/Discretizers/UnivariateDiscretizer.tpp
         src/Discretizers/ClassificationDiscretizer.h
@@ -95,8 +99,8 @@ add_library(sgtlearn_core STATIC
         src/Estimators/ShapeFunctions/ShapeFunctionNode.cpp
         src/algorithms/ShapeBranchingTypes.h
         src/algorithms/BinPartitionAssignments.h
-        src/Estimators/ShapeFunctions/ShapeFunctionBuilder.h
-        src/Estimators/ShapeFunctions/ShapeFunctionBuilder.cpp
+        src/Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h
+        src/Estimators/ShapeFunctions/ShapeFunctionSplitSearch.cpp
         src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h
         src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.cpp
         src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h

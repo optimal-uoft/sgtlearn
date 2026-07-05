@@ -7,8 +7,7 @@
  *        or regression).
  */
 
-#include "Discretizers/ShapeDiscretizer.h"
-#include "algorithms/missing_values.h"
+#include "Discretizers/InnerDiscretizerBase.h"
 
 #include <armadillo>
 #include <compare>
@@ -23,7 +22,9 @@ class ShapeGeneralizedTree;
  * Outer-tree node: routing rule when internal, plus training sample indices
  * during fit.
  *
- * After `fit`, `sampleIndices` is cleared on stored nodes; routing.
+ * After `fit`, `sampleIndices` is cleared on stored nodes; routing uses
+ * ``innerDiscretizer`` + ``binToPartition`` (including a trailing NaN bin for
+ * univariate numeric discretizers).
  *
  * `TreeBuilder` orders nodes by `informationGain` for the best-first heap.
  */
@@ -43,16 +44,10 @@ public:
 
   /** Row indices into X used for routing; undefined if isLeaf. */
   std::vector<size_t> routingFeatures;
-  /** Length equals inner discretizer bin count; maps bin -> child partition. */
+  /** Maps each inner discretizer bin (including NaN) to a child partition. */
   std::vector<size_t> binToPartition;
   /** Winning inner discretizer for this split; required on internal nodes. */
-  std::shared_ptr<const ShapeDiscretizer> innerDiscretizer;
-  /**
-   * Outer child partition when any routing feature is non-finite.
-   * Set during training: best-scoring partition when NaN was seen, else the
-   * finite-sample majority partition (smallest index on ties).
-   */
-  size_t nanPredictionPartition = 0;
+  std::shared_ptr<const InnerDiscretizerBase<double>> innerDiscretizer;
 
   /**
    * During fit: original column indices into X at this node (Python
@@ -83,15 +78,6 @@ public:
    * can recover per-bin histograms without re-routing data. Empty at leaves.
    */
   std::vector<size_t> binSampleCounts;
-  /**
-   * Weighted sufficient statistics for samples with a non-finite routing
-   * feature. Classification: weighted class counts. Regression
-   * (squared error): ``[sum w·y, sum w·y²]``. Empty when no missing values,
-   * at leaves, or for MAE splits.
-   */
-  std::vector<double> splitMissingStats;
-  /** Sum of sample weights in ``splitMissingStats`` (regression squared error). */
-  double splitMissingWeight = 0.0;
 
   std::weak_ordering operator<=>(const ShapeFunctionNode &o) const {
     return std::compare_weak_order_fallback(informationGain, o.informationGain);
@@ -101,37 +87,17 @@ public:
     return informationGain == o.informationGain;
   }
 
-  /** Map finite routing feature value(s) to an inner discretizer bin index. */
-  size_t routeFeatureValuesToBin(const std::vector<float> &featureValues) const;
+  /** Map routing feature value(s) to an outer child partition index. */
+  size_t routeFeatureValuesToPartition(
+      const std::vector<float> &featureValues) const;
 
   /** Values at ``sampleCol`` for each index in ``routingFeatures``. */
   std::vector<float> gatherRoutingFeatureValues(const arma::fmat &X,
                                                 arma::uword sampleCol) const;
 
-  /** True when every routing feature value at ``sampleCol`` is finite. */
-  bool routingFeatureValuesAreFinite(const arma::fmat &X,
-                                     arma::uword sampleCol) const;
-
   /** Route one sample column of ``X`` to an outer child partition index. */
   size_t routeSampleToPartition(const arma::fmat &X, arma::uword sampleCol) const {
-    if (!routingFeatureValuesAreFinite(X, sampleCol))
-      return nanPredictionPartition;
-    return routeFeatureValueToPartition(gatherRoutingFeatureValues(X, sampleCol));
-  }
-
-  /** Route ``featureValues`` to an outer child partition index. */
-  size_t routeFeatureValueToPartition(
-      const std::vector<float> &featureValues) const {
-    if (binToPartition.empty())
-      throw std::runtime_error("binToPartition is empty");
-    for (float v : featureValues) {
-      if (!missing_values::is_finite(v))
-        return nanPredictionPartition;
-    }
-    const size_t bin = routeFeatureValuesToBin(featureValues);
-    if (bin >= binToPartition.size())
-      throw std::runtime_error("bin out of range");
-    return binToPartition[bin];
+    return routeFeatureValuesToPartition(gatherRoutingFeatureValues(X, sampleCol));
   }
 
   /**

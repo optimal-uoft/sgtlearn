@@ -58,9 +58,7 @@ void GainHessianUnivariateDiscretizer::Train(
       sortedSampleWeights(finiteOrder, sampleWeights);
 
   GainHessianSplitter splitter(sortedX, sortedWeights, sortedY,
-                                 static_cast<double>(lambda));
-  UnivariateDiscretizer<float, float>::buildTree(splitter, minLeafSize,
-                                                 minGainSplit, maxDepth,
-                                                 maxLeafNodes);
-  UnivariateDiscretizer<float, float>::processLeaves(finiteOrder, splitter);
+                               static_cast<double>(lambda));
+  this->buildTree(splitter, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
+  this->processLeaves(finiteOrder, splitter);
 }

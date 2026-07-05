@@ -16,6 +16,7 @@
 #include "_arma_bridge.h"
 
 #include "Domain/LearningCriterion.h"
+#include "Discretizers/UnivariateDiscretizer.h"
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 #include "algorithms/FeatureBagging.h"
@@ -53,7 +54,7 @@ inline py::list innerThresholdsPy(const ShapeFunctionNode &n) {
   if (!n.innerDiscretizer)
     throw std::runtime_error("tree export: internal node missing innerDiscretizer");
   py::list th;
-  for (double t : n.innerDiscretizer->thresholds())
+  for (double t : numericInnerThresholds(*n.innerDiscretizer))
     th.append(t);
   return th;
 }
@@ -295,7 +296,8 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
-        d["nan_prediction_partition"] = n.nanPredictionPartition;
+        d["nan_prediction_partition"] =
+            n.binToPartition.empty() ? 0 : n.binToPartition.back();
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);
@@ -432,7 +434,8 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
-        d["nan_prediction_partition"] = n.nanPredictionPartition;
+        d["nan_prediction_partition"] =
+            n.binToPartition.empty() ? 0 : n.binToPartition.back();
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);

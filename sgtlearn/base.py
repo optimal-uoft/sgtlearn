@@ -56,6 +56,34 @@ class BaseShapeCART(BaseEstimator):
     """
 
 
+def _normalize_tree_export(tree: dict) -> dict:
+    """Normalize native ``tree_export`` payloads for Python consumers.
+
+    Internal nodes may include a trailing ``+inf`` threshold sentinel and/or a
+    trailing NaN routing bin in ``bin_to_partition``. Plotting and introspection
+    expect finite numeric bins only (``len(thresholds) + 1`` entries); NaN
+    routing is exposed separately via ``nan_prediction_partition``.
+    """
+    for node in tree.get("nodes", []):
+        if node.get("is_leaf", True):
+            continue
+        thresholds = node.get("thresholds")
+        if thresholds is not None:
+            while thresholds and np.isinf(thresholds[-1]):
+                thresholds.pop()
+        b2p = node.get("bin_to_partition")
+        th = thresholds or []
+        if not b2p or len(b2p) != len(th) + 2:
+            continue
+        node["nan_prediction_partition"] = b2p[-1]
+        node["bin_to_partition"] = b2p[:-1]
+        for key in ("bin_sample_counts", "bin_counts", "bin_weights"):
+            vals = node.get(key)
+            if vals is not None and len(vals) == len(b2p):
+                node[key] = vals[:-1]
+    return tree
+
+
 class SGTClassifier(ClassifierMixin, BaseShapeCART):
     """Shape Generalized Tree classifier.
 
@@ -363,15 +391,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         check_is_fitted(self, attributes=("_est", "_le"))
         if self._est is None:
             raise NotFittedError("This SGTClassifier instance is not fitted yet.")
-        tr = self._est.tree_export()
-        # Post-process to remove trailing inf thresholds from internal nodes
-        for node in tr.get("nodes", []):
-            if not node.get("is_leaf", True) and node.get("thresholds"):
-                thresholds = node["thresholds"]
-                # Remove trailing inf sentinel if present
-                while thresholds and np.isinf(thresholds[-1]):
-                    thresholds.pop()
-        return tr
+        return _normalize_tree_export(self._est.tree_export())
 
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
@@ -614,12 +634,4 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         check_is_fitted(self, attributes=("_est",))
         if self._est is None:
             raise NotFittedError("This SGTRegressor instance is not fitted yet.")
-        tr = self._est.tree_export()
-        # Post-process to remove trailing inf thresholds from internal nodes
-        for node in tr.get("nodes", []):
-            if not node.get("is_leaf", True) and node.get("thresholds"):
-                thresholds = node["thresholds"]
-                # Remove trailing inf sentinel if present
-                while thresholds and np.isinf(thresholds[-1]):
-                    thresholds.pop()
-        return tr
+        return _normalize_tree_export(self._est.tree_export())

@@ -124,9 +124,9 @@ parseOneHotDiscretizerCriterion(const std::string &raw, bool classification) {
       "'absolute_error'/'mae'");
 }
 
-bool CategoricalOneHotDiscretizer::isActive(float v) { return v >= 0.5f; }
+bool CategoricalOneHotDiscretizerBase::isActive(float v) { return v >= 0.5f; }
 
-void CategoricalOneHotDiscretizer::TrainClassification(
+void CategoricalOneHotDiscretizerBase::trainClassification(
     const arma::fmat &X, const arma::uvec &featureIndices,
     const arma::Row<size_t> &y, size_t numClasses, size_t minLeafSize,
     double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
@@ -155,7 +155,7 @@ void CategoricalOneHotDiscretizer::TrainClassification(
   buildTree(X, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
 }
 
-void CategoricalOneHotDiscretizer::TrainRegression(
+void CategoricalOneHotDiscretizerBase::trainRegression(
     const arma::fmat &X, const arma::uvec &featureIndices,
     const arma::Row<float> &y, size_t minLeafSize, double minGainSplit,
     size_t maxDepth, size_t maxLeafNodes,
@@ -182,11 +182,11 @@ void CategoricalOneHotDiscretizer::TrainRegression(
   buildTree(X, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
 }
 
-void CategoricalOneHotDiscretizer::setCriterion(OneHotDiscretizerCriterion c) {
+void CategoricalOneHotDiscretizerBase::setCriterion(OneHotDiscretizerCriterion c) {
   criterion_ = c;
 }
 
-double CategoricalOneHotDiscretizer::impurity(
+double CategoricalOneHotDiscretizerBase::impurity(
     const std::vector<size_t> &samples) const {
   const double wTot = totalWeight(sampleWeights_, samples);
   if (wTot <= 0.0)
@@ -207,7 +207,7 @@ double CategoricalOneHotDiscretizer::impurity(
   return Criterion::absoluteError(ys, ws).mae;
 }
 
-bool CategoricalOneHotDiscretizer::bestSplit(
+bool CategoricalOneHotDiscretizerBase::bestSplit(
     const arma::fmat &X, const std::vector<size_t> &samples, double minGainSplit,
     size_t minLeafSize, double &gainOut, size_t &featureOut,
     std::vector<size_t> &activeOut, std::vector<size_t> &inactiveOut) const {
@@ -251,7 +251,7 @@ bool CategoricalOneHotDiscretizer::bestSplit(
   return true;
 }
 
-size_t CategoricalOneHotDiscretizer::appendLeaf(const std::vector<size_t> &samples,
+size_t CategoricalOneHotDiscretizerBase::appendLeaf(const std::vector<size_t> &samples,
                                                 size_t categoryFeature) {
   LeafRecord leaf;
   leaf.samples = samples;
@@ -260,7 +260,7 @@ size_t CategoricalOneHotDiscretizer::appendLeaf(const std::vector<size_t> &sampl
   return leaves_.size() - 1;
 }
 
-void CategoricalOneHotDiscretizer::finalizeLeafOutputs() {
+void CategoricalOneHotDiscretizerBase::finalizeLeafOutputs() {
   inSampleDiscretizations_.clear();
   leafNumSamples_.clear();
   leafNodeWeights_.clear();
@@ -297,13 +297,15 @@ void CategoricalOneHotDiscretizer::finalizeLeafOutputs() {
       binPredictionsReg_.push_back(static_cast<float>(maeStats.median));
     }
   }
-  numLeaves = leaves_.size();
+  numLeaves_ = leaves_.size();
+  markTrained();
 }
 
-void CategoricalOneHotDiscretizer::buildTree(const arma::fmat &X,
+void CategoricalOneHotDiscretizerBase::buildTree(const arma::fmat &X,
                                              size_t minLeafSize,
                                              double minGainSplit, size_t maxDepth,
                                              size_t maxLeafNodes) {
+  resetTrainedOutputs();
   routing_.clear();
   leaves_.clear();
   routing_.push_back(RoutingNode{});
@@ -393,10 +395,9 @@ void CategoricalOneHotDiscretizer::buildTree(const arma::fmat &X,
   finalizeLeafOutputs();
 }
 
-size_t CategoricalOneHotDiscretizer::routeOne(const arma::fmat &X,
+size_t CategoricalOneHotDiscretizerBase::routeOne(const arma::fmat &X,
                                               arma::uword col) const {
-  if (routing_.empty())
-    throw std::runtime_error("CategoricalOneHotDiscretizer is untrained");
+  ensureTrained();
   size_t nodeId = 0;
   while (!routing_[nodeId].isLeaf) {
     const RoutingNode &n = routing_[nodeId];
@@ -407,22 +408,20 @@ size_t CategoricalOneHotDiscretizer::routeOne(const arma::fmat &X,
   return routing_[nodeId].leafBin;
 }
 
-void CategoricalOneHotDiscretizer::transform(const arma::fmat &X,
+void CategoricalOneHotDiscretizerBase::transform(const arma::fmat &X,
                                              arma::Row<size_t> &binLoc) const {
-  if (routing_.empty())
-    throw std::runtime_error("CategoricalOneHotDiscretizer is untrained");
+  ensureTrained();
   binLoc.set_size(X.n_cols);
   for (arma::uword c = 0; c < X.n_cols; ++c)
     binLoc(c) = routeOne(X, c);
 }
 
-size_t CategoricalOneHotDiscretizer::routeToBin(
+size_t CategoricalOneHotDiscretizerBase::routeToBin(
     const std::vector<float> &featureValues) const {
   if (featureValues.size() != featureIndices_.size())
     throw std::invalid_argument(
         "featureValues length must match trained featureIndices count");
-  if (routing_.empty())
-    throw std::runtime_error("CategoricalOneHotDiscretizer is untrained");
+  ensureTrained();
   size_t nodeId = 0;
   while (!routing_[nodeId].isLeaf) {
     const RoutingNode &n = routing_[nodeId];
@@ -436,4 +435,20 @@ size_t CategoricalOneHotDiscretizer::routeToBin(
     nodeId = n.inactiveChild;
   }
   return routing_[nodeId].leafBin;
+}
+
+void CategoricalClassificationDiscretizer::Train(
+    const arma::fmat &X, arma::uvec &features, const arma::Row<size_t> &y,
+    size_t numClasses, size_t minLeafSize, double minGainSplit, size_t maxDepth,
+    size_t maxLeafNodes, const arma::Row<float> &sampleWeights) {
+  trainClassification(X, features, y, numClasses, minLeafSize, minGainSplit,
+                      maxDepth, maxLeafNodes, sampleWeights);
+}
+
+void CategoricalRegressionDiscretizer::Train(
+    const arma::fmat &X, arma::uvec &features, const arma::Row<float> &y,
+    size_t minLeafSize, double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+    const arma::Row<float> &sampleWeights) {
+  trainRegression(X, features, y, minLeafSize, minGainSplit, maxDepth,
+                  maxLeafNodes, sampleWeights);
 }

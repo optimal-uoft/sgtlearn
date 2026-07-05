@@ -77,10 +77,8 @@ void UnivariateRegressionDiscretizer<TSplitter>::Train(
       sortedSampleWeights(finiteOrder, sampleWeights);
 
   TSplitter splitter(sortedX, sortedWeights, sortedY);
-  UnivariateDiscretizer<double, float>::buildTree(splitter, minLeafSize,
-                                                  minGainSplit, maxDepth,
-                                                  maxLeafNodes);
-  UnivariateDiscretizer<double, float>::processLeaves(finiteOrder, splitter);
+  this->buildTree(splitter, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
+  this->processLeaves(finiteOrder, splitter);
 }
 
 template class UnivariateRegressionDiscretizer<SquaredErrorSplitter>;

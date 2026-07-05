@@ -7,15 +7,19 @@
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 
 #include "Estimators/ShapeGeneralizedTree.h"
-#include "algorithms/missing_values.h"
 
 #include <stdexcept>
 
-size_t ShapeFunctionNode::routeFeatureValuesToBin(
+size_t ShapeFunctionNode::routeFeatureValuesToPartition(
     const std::vector<float> &featureValues) const {
   if (!innerDiscretizer)
     throw std::runtime_error("innerDiscretizer is not set");
-  return innerDiscretizer->routeToBin(featureValues);
+  if (binToPartition.empty())
+    throw std::runtime_error("binToPartition is empty");
+  const size_t bin = innerDiscretizer->routeToBin(featureValues);
+  if (bin >= binToPartition.size())
+    throw std::runtime_error("bin out of range");
+  return binToPartition[bin];
 }
 
 std::vector<float> ShapeFunctionNode::gatherRoutingFeatureValues(
@@ -34,24 +38,6 @@ std::vector<float> ShapeFunctionNode::gatherRoutingFeatureValues(
     values.push_back(X(f, sampleCol));
   }
   return values;
-}
-
-bool ShapeFunctionNode::routingFeatureValuesAreFinite(const arma::fmat &X,
-                                                      arma::uword sampleCol) const {
-  if (routingFeatures.empty())
-    throw std::runtime_error("routingFeatures is empty");
-  if (sampleCol >= X.n_cols)
-    throw std::invalid_argument(
-        "routingFeatureValuesAreFinite: sample column out of range for X");
-  for (size_t f : routingFeatures) {
-    if (f >= X.n_rows)
-      throw std::invalid_argument(
-          "routingFeatureValuesAreFinite: routing feature index out of range "
-          "for X");
-    if (!missing_values::is_finite(X(f, sampleCol)))
-      return false;
-  }
-  return true;
 }
 
 std::vector<ShapeFunctionNode *> ShapeFunctionNode::getChildren() const {

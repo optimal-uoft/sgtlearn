@@ -6,19 +6,18 @@
  */
 
 #include "BranchAssignmentObjectives/BranchAssignmentVariants.h"
+#include "algorithms/missing_values.h"
 #include <algorithm>
 #include <armadillo>
+#include <limits>
 #include <numeric>
 #include <random>
 #include <vector>
 
 /**
  * Shuffle bins each outer iteration and, for each bin, try all partition moves that improve the objective.
- *
- * Each bin update compares candidate objectives to the value **before** moving
- * that bin (holding all other assignments fixed). Reusing a single global
- * ``best`` across bins was incorrect and could accept worsening moves or reject
- * valid improvements (observed on MAE regression vs sklearn fidelity).
+ * The NaN routing bin (always the last bin) is omitted from the main optimization loop to avoid 
+ * skewing the numeric boundaries, and is greedily assigned to the optimal partition afterward.
  *
  * @param numPartitions number of child partitions (fan-out).
  * @param assignmentObjective live objective; ``assignments`` updated in place.
@@ -32,12 +31,20 @@ inline double coordinateDescent(size_t numPartitions,
                                 std::mt19937_64 &rng, size_t maxIters = 10,
                                 size_t patience = 5) {
   size_t numBins = assignmentObjective.assignments.size();
+  if (numBins <= 1) return assignmentObjective.objective();
+
+  const size_t nanBinIndex = numBins - 1;
+
+  // 1. Omit the NaN bin from the objective state during standard coordinate descent
+  assignmentObjective.removeLeaf(nanBinIndex);
+
   size_t consecutiveTrialsWithoutImprovement = 0;
 
   for (size_t i = 0; i < maxIters; ++i) {
     bool improved = false;
 
-    std::vector<size_t> permutation(numBins);
+    // 2. Shuffle and optimize ONLY the finite numeric bins (0 to numBins - 2)
+    std::vector<size_t> permutation(nanBinIndex);
     std::iota(permutation.begin(), permutation.end(), size_t{0});
     std::shuffle(permutation.begin(), permutation.end(), rng);
 
@@ -74,5 +81,32 @@ inline double coordinateDescent(size_t numPartitions,
     if (consecutiveTrialsWithoutImprovement >= patience)
       break;
   }
+
+
+  // 3. Factor the NaN bin back in by greedily finding its optimal partition
+  size_t bestNanPartition = missing_values::partition_with_max_count_min_index_tie(assignmentObjective.partitionSampleCounts()); // Fallback
+  assignmentObjective.addLeaf(
+    nanBinIndex, 
+    bestNanPartition
+  );
+  double bestFinalObjective =assignmentObjective.objective();
+  
+  assignmentObjective.removeLeaf(nanBinIndex);
+  for (size_t partition = 0; partition < numPartitions; ++partition) {
+  
+    assignmentObjective.addLeaf(nanBinIndex, partition);
+    double currentObjective = assignmentObjective.objective();
+    
+    if (currentObjective < bestFinalObjective) {
+      bestFinalObjective = currentObjective;
+      bestNanPartition = partition;
+    }
+    
+    assignmentObjective.removeLeaf(nanBinIndex);
+  }
+
+  // Commit the best placement for the NaN bin
+  assignmentObjective.addLeaf(nanBinIndex, bestNanPartition);
+
   return assignmentObjective.objective();
 }

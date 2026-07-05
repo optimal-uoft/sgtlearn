@@ -64,6 +64,21 @@ def test_merge_empty_thresholds_one_slab():
     assert regions == [(-1.0, 1.0, 0)]
 
 
+def test_merge_trailing_nan_bin_uses_finite_bins_only():
+    regions = _merge_routing_regions(
+        thresholds=[-0.5, 0.0, 0.5],
+        bin_to_partition=[0, 1, 0, 1, 0],
+        x_min=-1.0,
+        x_max=1.0,
+    )
+    assert regions == [
+        (-1.0, -0.5, 0),
+        (-0.5, 0.0, 1),
+        (0.0, 0.5, 0),
+        (0.5, 1.0, 1),
+    ]
+
+
 def test_merge_x_min_greater_than_first_threshold_clamps_left_edge():
     regions = _merge_routing_regions(
         thresholds=[-2.0, 0.0],
