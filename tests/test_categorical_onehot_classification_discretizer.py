@@ -134,7 +134,10 @@ def test_categorical_onehot_respects_min_leaf_size() -> None:
     min_leaf = 40
     disc = CategoricalOneHotDiscretizer(criterion="entropy")
     disc.Train(x, features, y, n_cat, min_leaf, 0.0, 0, 0)
-    for part in disc.getInSampleDiscretizations():
+    # ``numLeaves`` counts inner-tree bins only; the trailing NaN / catch-all
+    # routing bin is not subject to ``min_samples_leaf``.
+    inner_partitions = disc.getInSampleDiscretizations()[: disc.numLeaves]
+    for part in inner_partitions:
         assert len(part) >= min_leaf
 
 
@@ -147,7 +150,7 @@ def test_categorical_onehot_in_sample_partition_covers_rows() -> None:
     disc = CategoricalOneHotDiscretizer(criterion="gini")
     disc.Train(x, features, y, n_cat, 1, 0.0, 0, 0)
     seen = np.zeros(n_samples, dtype=bool)
-    for part in disc.getInSampleDiscretizations():
+    for part in disc.getInSampleDiscretizations()[: disc.numLeaves]:
         seen[part] = True
     assert seen.all()
 

@@ -63,8 +63,16 @@ add_library(sgtlearn_core STATIC
         src/Discretizers/UnivariateDiscretizer.tpp
         src/Discretizers/ClassificationDiscretizer.h
         src/Discretizers/RegressionDiscretizer.h
+        src/Domain/CategoricalSplitCandidate.h
+        src/Discretizers/CategoricalDiscretizer.h
+        src/Discretizers/CategoricalDiscretizer.tpp
         src/Discretizers/CategoricalOneHotDiscretizer.h
         src/Discretizers/CategoricalOneHotDiscretizer.cpp
+        src/Splitters/CategoricalSplitter.h
+        src/Splitters/CategoricalClassificationSplitter.h
+        src/Splitters/CategoricalClassificationSplitter.cpp
+        src/Splitters/CategoricalRegressionSplitter.h
+        src/Splitters/CategoricalRegressionSplitter.cpp
         src/Discretizers/UnivariateClassificationDiscretizer.cpp
         src/Splitters/SquaredErrorSplitter.h
         src/Splitters/SquaredErrorSplitter.cpp
