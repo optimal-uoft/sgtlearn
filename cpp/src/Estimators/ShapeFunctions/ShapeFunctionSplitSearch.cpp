@@ -23,7 +23,8 @@ void refineShapeBranchAssignment(
     const std::vector<size_t> &leafSampleCounts, size_t numClasses,
     std::vector<std::vector<float>> *maeLeafYs,
     std::vector<std::vector<float>> *maeLeafWs) {
-  if (k >= numRoutingBins)
+  if (k >= numRoutingBins ||
+      criterion == LearningCriterion::AbsoluteError)
     return;
 
   const std::vector<size_t> snapshot = branchObj->assignments;

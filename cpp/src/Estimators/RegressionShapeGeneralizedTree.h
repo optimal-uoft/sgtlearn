@@ -28,8 +28,7 @@
  *   step remains a local lambda in ``fit``.
  * - **Per-node split search** (``fit`` lambdas): for each
  *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
- *   the bin-to-partition map; if the post-CD objective clearly worsens vs the
- *   seed, restore the assignment snapshot and rebuild.
+ *   ``SquaredError`` only; ``AbsoluteError`` keeps the round-robin map (no CD).
  * - **Leaf state**: per-leaf mean (squared error) or median (absolute error)
  *   plus optional ``[sum y, sum y^2]`` stats for squared error.
  * - **Inference**: `predict` walks `childIndices_` using
@@ -40,9 +39,10 @@
  *      samples (per-bin stats and training column indices).
  *   2. **Initial assignment**: round-robin by discretizer bin index
  *      (``b % numPartitions``); regression does not use k-means seeding.
- *   3. **Refinement**: coordinate descent on the bin-to-partition map; if the
- *      post-CD objective clearly worsens vs the seed, restore the assignment
- *      snapshot and rebuild.
+ *   3. **Refinement**: ``SquaredError`` runs coordinate descent on the
+ *      bin-to-partition map; if the post-CD objective clearly worsens vs the
+ *      seed, restore the assignment snapshot and rebuild. ``AbsoluteError``
+ *      keeps the round-robin seed (no CD).
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`
