@@ -8,10 +8,18 @@
 
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 
-#include "Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h"
+#include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
 #include "Criterion.h"
+#include "Discretizers/DiscretizerFactories.h"
+#include "Discretizers/RegressionDiscretizer.h"
+#include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
+#include "algorithms/BinPartitionAssignments.h"
+#include "algorithms/CoordinateDescent.h"
 #include <algorithm>
 #include <armadillo>
+#include <cmath>
+#include <limits>
+#include <span>
 #include <stdexcept>
 #include <vector>
 
@@ -24,6 +32,30 @@ double meanAbsoluteDeviationFromMedian(const std::vector<float> &ys,
 
 double weightedMeanFromAggregates(double sumWY, double sumW) {
   return sumW > 0.0 ? sumWY / sumW : 0.0;
+}
+
+struct PartitionMoments {
+  double sumWY = 0.0;
+  double sumWY2 = 0.0;
+  double sumW = 0.0;
+};
+
+PartitionMoments aggregatePartitionFromBins(
+    const std::vector<std::vector<double>> &binStats,
+    const std::vector<double> &binWeights,
+    const std::vector<size_t> &binToPartition, size_t partition) {
+  PartitionMoments out;
+  for (size_t b = 0; b < binStats.size(); ++b) {
+    if (binToPartition[b] != partition)
+      continue;
+    if (binStats[b].size() >= 2) {
+      out.sumWY += binStats[b][0];
+      out.sumWY2 += binStats[b][1];
+    }
+    if (b < binWeights.size())
+      out.sumW += binWeights[b];
+  }
+  return out;
 }
 
 } // namespace
@@ -192,16 +224,264 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
   const arma::uvec featureCandidates =
       arma::regspace<arma::uvec>(0, X.n_rows - 1);
 
-  RegressionShapeFunctionBuilder splitBuilder(*this, X, y, featureCandidates);
+  const auto findBestSplit =
+      [this, &X, &y, &featureCandidates](ShapeFunctionNode &node,
+                                         size_t minLeaf) -> bool {
+        const size_t ns = node.sampleIndices.n_elem;
+        node.score = impurityAtNode(y, node);
+
+        if (ns < 2 * minLeaf) {
+          markShapeFunctionLeafNoSplit(node);
+          return false;
+        }
+
+        const double parentImp = node.score;
+        if (parentImp <= outerTreeBuilder_.eps) {
+          markShapeFunctionLeafNoSplit(node);
+          return false;
+        }
+
+        const arma::uvec &subIdx = node.sampleIndices;
+        const arma::fmat Xsub = X.cols(subIdx);
+        const arma::Row<float> ysub = y.cols(subIdx);
+
+        std::vector<size_t> featurePool(
+            static_cast<size_t>(featureCandidates.n_elem));
+        for (arma::uword i = 0; i < featureCandidates.n_elem; ++i)
+          featurePool[static_cast<size_t>(i)] =
+              static_cast<size_t>(featureCandidates(i));
+        const std::vector<size_t> featureSubset = featureBagging_(
+            std::span<const size_t>(featurePool.data(), featurePool.size()),
+            rng_);
+
+        const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
+        ShapeBestBranchingState best{};
+        arma::uvec featOne(1);
+
+        const auto searchBestBranchAssignment =
+            [this, parentImp](
+                size_t numRoutingBins, std::vector<std::vector<double>> &stats,
+                const std::vector<size_t> &sizes,
+                std::vector<double> &binWeights,
+                std::vector<std::vector<float>> *maeLeafYs,
+                std::vector<std::vector<float>> *maeLeafWs)
+            -> ShapeBranchAssignmentSearchResult {
+              ShapeBranchAssignmentSearchResult result;
+              const size_t kMax = std::min(numRoutingBins, numPartitions_);
+
+              for (size_t k = 2; k <= kMax; ++k) {
+                std::vector<size_t> trialAssignments;
+                if (k == numRoutingBins)
+                  algorithms::identityBinAssignments(numRoutingBins,
+                                                     trialAssignments);
+                else
+                  algorithms::roundRobinBinAssignments(numRoutingBins, k,
+                                                         trialAssignments);
+
+                std::unique_ptr<BranchAssignment> branchObj;
+                if (criterion_ == LearningCriterion::SquaredError) {
+                  branchObj = makeRegressionBranchAssignment(
+                      LearningCriterion::SquaredError, trialAssignments, k,
+                      stats, binWeights, sizes);
+                  if (k < numRoutingBins && cdParams_.smartInit) {
+                    const std::vector<size_t> snapshot = branchObj->assignments;
+                    const double objBeforeCd = branchObj->objective();
+                    coordinateDescent(k, *branchObj, rng_, cdParams_.maxIters,
+                                      cdParams_.patience);
+                    const double objAfterCd = branchObj->objective();
+                    const bool keepCd =
+                        std::isfinite(objAfterCd) &&
+                        objAfterCd < objBeforeCd - kShapeFunctionCdImprovementEps;
+                    if (!keepCd) {
+                      std::vector<size_t> rollback = snapshot;
+                      branchObj = makeRegressionBranchAssignment(
+                          LearningCriterion::SquaredError, rollback, k, stats,
+                          binWeights, sizes);
+                    }
+                  }
+                } else {
+                  if (!maeLeafYs || !maeLeafWs)
+                    continue;
+                  branchObj = makeRegressionBranchAssignment(
+                      LearningCriterion::AbsoluteError, trialAssignments, k,
+                      stats, binWeights, sizes, 1.0, maeLeafYs, maeLeafWs);
+                }
+
+                if (!branchObj->partitionCountsMeetMinLeaf(
+                        outerParams_.minLeafSize))
+                  continue;
+
+                const double childImp = branchObj->objective();
+                const double gain = parentImp - childImp;
+                if (gain < outerParams_.minGainSplit - outerTreeBuilder_.eps)
+                  continue;
+
+                const double score = algorithms::penalizedBranchingScore(
+                    childImp, k, outerParams_.branchingPenalty);
+                if (score < result.bestFeatureScore - outerTreeBuilder_.eps) {
+                  result.bestFeatureScore = score;
+                  result.chosenK = k;
+                  result.assignments = trialAssignments;
+                  result.partitionSampleCounts =
+                      branchObj->partitionSampleCounts();
+                  result.impurityDecrease = gain;
+                  result.found = true;
+                }
+              }
+
+              return result;
+            };
+
+        const auto applyTaskFields =
+            [this](ShapeBestBranchingState &state,
+                   const ShapeBranchAssignmentSearchResult &search,
+                   const std::vector<std::vector<double>> &leafStats) {
+              (void)search;
+              if (criterion_ == LearningCriterion::SquaredError)
+                state.branching.leafStats = leafStats;
+              else {
+                state.branching.leafStats.clear();
+                state.branching.leafStats.resize(leafStats.size());
+              }
+            };
+
+        for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
+          const size_t f = featureSubset[fi];
+          if (f >= Xsub.n_rows)
+            throw std::invalid_argument(
+                "RegressionShapeGeneralizedTree::fit: feature index "
+                ">= X.n_rows");
+          featOne(0) = static_cast<arma::uword>(f);
+
+          const arma::Row<float> wsub =
+              subSampleWeights(fitSampleWeights_, subIdx);
+
+          auto disc = makeRegressionDiscretizer(criterion_,
+                                                DiscretizerInputKind::Numeric);
+          disc->Train(Xsub, featOne, ysub, innerParams_.minLeafSize,
+                      innerParams_.minGainSplit, innerParams_.maxDepth,
+                      innerParams_.maxLeafNodes, wsub);
+          if (disc->numLeaves() < 2)
+            continue;
+
+          auto &stats = disc->leafStats();
+          auto &sizes = disc->leafNumSamples();
+          auto &binWeights = disc->leafNodeWeights();
+          const auto &perBinCols = disc->inSampleDiscretizations();
+          const size_t numRoutingBins = stats.size();
+
+          std::vector<std::vector<float>> maeLeafYsStorage;
+          std::vector<std::vector<float>> maeLeafWsStorage;
+          std::vector<std::vector<float>> *maeLeafYsPtr = nullptr;
+          std::vector<std::vector<float>> *maeLeafWsPtr = nullptr;
+          if (criterion_ == LearningCriterion::AbsoluteError) {
+            maeLeafYsStorage.resize(numRoutingBins);
+            maeLeafWsStorage.resize(numRoutingBins);
+            for (size_t b = 0; b < numRoutingBins; ++b) {
+              for (size_t colIdx : perBinCols[b]) {
+                if (colIdx >= xSubCols)
+                  throw std::runtime_error(
+                      "RegressionShapeGeneralizedTree::fit: discretizer "
+                      "sample index >= Xsub columns");
+                maeLeafYsStorage[b].push_back(ysub(colIdx));
+                maeLeafWsStorage[b].push_back(wsub(colIdx));
+              }
+            }
+            maeLeafYsPtr = &maeLeafYsStorage;
+            maeLeafWsPtr = &maeLeafWsStorage;
+          }
+
+          const ShapeBranchAssignmentSearchResult featureBest =
+              searchBestBranchAssignment(numRoutingBins, stats, sizes,
+                                         binWeights, maeLeafYsPtr,
+                                         maeLeafWsPtr);
+          if (!featureBest.found)
+            continue;
+
+          featureHasBetterShapeBranching(
+              featureBest, best, f, xSubCols,
+              std::unique_ptr<InnerDiscretizerBase<double>>(std::move(disc)),
+              outerTreeBuilder_.eps, applyTaskFields);
+        }
+
+        if (!std::isfinite(best.penalizedChildScore) ||
+            best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
+            best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
+          markShapeFunctionLeafNoSplit(node);
+          return false;
+        }
+
+        node.isLeaf = false;
+        node.routingFeatures = {best.branching.featureIndex};
+        node.innerDiscretizer = best.winningDiscretizer;
+        node.binToPartition = std::move(best.branching.binToPartition);
+        node.sampleBins = std::move(best.branching.sampleBins);
+        node.numPartitions = best.branching.numPartitionsUsed;
+        node.informationGain = best.branching.impurityDecrease;
+
+        if (criterion_ == LearningCriterion::SquaredError)
+          node.splitLeafStats = std::move(best.branching.leafStats);
+        else
+          node.splitLeafStats.clear();
+        node.splitBinWeights = std::move(best.binWeights);
+        node.binSampleCounts = std::move(best.branching.leafNumSamples);
+
+        return true;
+      };
+
+  const auto makeChildren =
+      [this, &X, &y](const ShapeFunctionNode &parent)
+          -> std::vector<ShapeFunctionNode> {
+        const auto buckets = routeSamplesToPartitions(parent, X);
+        auto children =
+            makeRoutedChildNodes(parent, buckets, numPartitions_);
+
+        if (criterion_ == LearningCriterion::SquaredError) {
+          if (parent.splitLeafStats.size() != parent.splitBinWeights.size())
+            throw std::runtime_error(
+                "RegressionShapeGeneralizedTree::fit: splitBinWeights / "
+                "splitLeafStats size mismatch");
+
+          for (size_t p = 0; p < children.size(); ++p) {
+            const PartitionMoments moments = aggregatePartitionFromBins(
+                parent.splitLeafStats, parent.splitBinWeights,
+                parent.binToPartition, p);
+            const std::vector<double> agg{moments.sumWY, moments.sumWY2};
+            children[p].score = Criterion::squaredError(agg, moments.sumW);
+            const std::vector<float> aggF{static_cast<float>(moments.sumWY),
+                                          static_cast<float>(moments.sumWY2)};
+            children[p].isLeaf = true;
+            leafRegressionStats.push_back(aggF);
+            leafNumSamples.push_back(children[p].sampleIndices.n_elem);
+            leafPredictions_.push_back(
+                weightedMeanFromAggregates(moments.sumWY, moments.sumW));
+          }
+        } else {
+          for (size_t p = 0; p < children.size(); ++p) {
+            std::vector<float> ys;
+            std::vector<float> ws;
+            ys.reserve(children[p].sampleIndices.n_elem);
+            ws.reserve(children[p].sampleIndices.n_elem);
+            for (arma::uword j = 0; j < children[p].sampleIndices.n_elem; ++j) {
+              const size_t si =
+                  static_cast<size_t>(children[p].sampleIndices(j));
+              ys.push_back(y(static_cast<arma::uword>(si)));
+              ws.push_back(static_cast<float>(fitSampleWeights_(si)));
+            }
+            children[p].score = meanAbsoluteDeviationFromMedian(ys, ws);
+            children[p].isLeaf = true;
+            leafRegressionStats.push_back({});
+            leafNumSamples.push_back(children[p].sampleIndices.n_elem);
+            leafPredictions_.push_back(
+                static_cast<float>(Criterion::absoluteError(ys, ws).median));
+          }
+        }
+
+        return children;
+      };
 
   outerTreeBuilder_.buildTree(
-      nodes_[0],
-      [&splitBuilder](ShapeFunctionNode &node, size_t minLeaf) {
-        return splitBuilder.findBestSplit(node, minLeaf);
-      },
-      [&splitBuilder](ShapeFunctionNode &parent) {
-        return splitBuilder.makeChildren(parent);
-      },
+      nodes_[0], findBestSplit, makeChildren,
       [this](ShapeFunctionNode &parent,
              std::vector<ShapeFunctionNode> &children) {
 

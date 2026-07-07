@@ -101,10 +101,6 @@ add_library(sgtlearn_core STATIC
         src/algorithms/BinPartitionAssignments.h
         src/Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h
         src/Estimators/ShapeFunctions/ShapeFunctionSplitSearch.cpp
-        src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h
-        src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.cpp
-        src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h
-        src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.cpp
         src/Estimators/ShapeGeneralizedTree.h
         src/Estimators/ShapeGeneralizedTree.cpp
         src/Estimators/ClassificationShapeGeneralizedTree.h

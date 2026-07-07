@@ -23,9 +23,9 @@
  *
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
- *   split search via ``ClassificationShapeFunctionBuilder``; child / commit
- *   steps remain local lambdas in ``fit``.
- * - **Per-node split search** (``ClassificationShapeFunctionBuilder``): for each
+ *   per-node split search and child creation via lambdas in ``fit``; commit
+ *   step remains a local lambda in ``fit``.
+ * - **Per-node split search** (``fit`` lambdas): for each
  *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
  *   partition map; if the post-CD objective is **clearly worse** than the seed
  *   (absolute margin ``kShapeFunctionCdImprovementEps``),
@@ -60,11 +60,7 @@
  * @note Only `LearningCriterion::Entropy` and `LearningCriterion::Gini` are
  *       accepted; other criteria throw from the constructor.
  */
-class ClassificationShapeFunctionBuilder;
-
 class ClassificationShapeGeneralizedTree : public ShapeGeneralizedTree {
-  friend class ClassificationShapeFunctionBuilder;
-
 public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and
