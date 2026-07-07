@@ -152,22 +152,6 @@ TEST_CASE("makeRegressionBranchAssignment squared error matches manual",
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
 }
 
-TEST_CASE("makeRegressionBranchAssignment gain hessian matches manual",
-          "[branch_assignment][factory]") {
-  std::vector<size_t> assignments = {0, 1};
-  std::vector<std::vector<double>> stats = {{1.0, 1.0}, {2.0, 2.0}};
-  std::vector<double> leafWeights = {1, 1};
-  std::vector<size_t> leafSampleCounts = {1, 1};
-  const double lambda = 0.5;
-  auto ptr = makeRegressionBranchAssignment(LearningCriterion::GainHessian,
-                                            assignments, 2, stats, leafWeights,
-                                            leafSampleCounts, lambda);
-  std::vector<std::vector<float>> ghStats = {{1.F, 1.F}, {2.F, 2.F}};
-  GainHessianBranchAssignment direct(assignments, 2, ghStats, leafWeights,
-                                     leafSampleCounts, lambda);
-  REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
-}
-
 TEST_CASE("makeRegressionBranchAssignment absolute error matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
@@ -178,7 +162,7 @@ TEST_CASE("makeRegressionBranchAssignment absolute error matches manual",
   std::vector<std::vector<double>> unusedStats;
   auto ptr = makeRegressionBranchAssignment(
       LearningCriterion::AbsoluteError, assignments, 2, unusedStats,
-      leafWeights, leafSampleCounts, 1.0, &leafYs, &leafWs);
+      leafWeights, leafSampleCounts, &leafYs, &leafWs);
   AbsoluteErrorBranchAssignment direct(assignments, 2, leafYs, leafWs,
                                        leafWeights, leafSampleCounts);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));

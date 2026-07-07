@@ -278,33 +278,28 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
                   algorithms::roundRobinBinAssignments(numRoutingBins, k,
                                                          trialAssignments);
 
-                std::unique_ptr<BranchAssignment> branchObj;
-                if (criterion_ == LearningCriterion::SquaredError) {
-                  branchObj = makeRegressionBranchAssignment(
-                      LearningCriterion::SquaredError, trialAssignments, k,
-                      stats, binWeights, sizes);
-                  if (k < numRoutingBins && cdParams_.smartInit) {
-                    const std::vector<size_t> snapshot = branchObj->assignments;
-                    const double objBeforeCd = branchObj->objective();
-                    coordinateDescent(k, *branchObj, rng_, cdParams_.maxIters,
-                                      cdParams_.patience);
-                    const double objAfterCd = branchObj->objective();
-                    const bool keepCd =
-                        std::isfinite(objAfterCd) &&
-                        objAfterCd < objBeforeCd - kShapeFunctionCdImprovementEps;
-                    if (!keepCd) {
-                      std::vector<size_t> rollback = snapshot;
-                      branchObj = makeRegressionBranchAssignment(
-                          LearningCriterion::SquaredError, rollback, k, stats,
-                          binWeights, sizes);
-                    }
+                std::unique_ptr<BranchAssignment> branchObj =
+                    makeRegressionBranchAssignment(
+                        criterion_, trialAssignments, k, stats, binWeights,
+                        sizes, maeLeafYs, maeLeafWs);
+
+                if (k < numRoutingBins &&
+                    criterion_ == LearningCriterion::SquaredError &&
+                    cdParams_.smartInit) {
+                  const std::vector<size_t> snapshot = branchObj->assignments;
+                  const double objBeforeCd = branchObj->objective();
+                  coordinateDescent(k, *branchObj, rng_, cdParams_.maxIters,
+                                    cdParams_.patience);
+                  const double objAfterCd = branchObj->objective();
+                  const bool keepCd =
+                      std::isfinite(objAfterCd) &&
+                      objAfterCd < objBeforeCd - kShapeFunctionCdImprovementEps;
+                  if (!keepCd) {
+                    std::vector<size_t> rollback = snapshot;
+                    branchObj = makeRegressionBranchAssignment(
+                        criterion_, rollback, k, stats, binWeights, sizes,
+                        maeLeafYs, maeLeafWs);
                   }
-                } else {
-                  if (!maeLeafYs || !maeLeafWs)
-                    continue;
-                  branchObj = makeRegressionBranchAssignment(
-                      LearningCriterion::AbsoluteError, trialAssignments, k,
-                      stats, binWeights, sizes, 1.0, maeLeafYs, maeLeafWs);
                 }
 
                 if (!branchObj->partitionCountsMeetMinLeaf(
