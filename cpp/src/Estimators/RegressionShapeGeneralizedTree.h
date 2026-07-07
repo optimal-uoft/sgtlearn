@@ -28,9 +28,8 @@
  *   step remains a local lambda in ``fit``.
  * - **Per-node split search** (``fit`` lambdas): for each
  *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
- *   ``SquaredError`` only: keep CD only if branch MSE drops by a fixed margin vs
- *   the seed, else restore the snapshot and rebuild. ``AbsoluteError`` keeps the
- *   round-robin map (no CD) so sklearn MAE CART parity holds on fidelity tests.
+ *   the bin-to-partition map; if the post-CD objective clearly worsens vs the
+ *   seed, restore the assignment snapshot and rebuild.
  * - **Leaf state**: per-leaf mean (squared error) or median (absolute error)
  *   plus optional ``[sum y, sum y^2]`` stats for squared error.
  * - **Inference**: `predict` walks `childIndices_` using
@@ -41,9 +40,9 @@
  *      samples (per-bin stats and training column indices).
  *   2. **Initial assignment**: round-robin by discretizer bin index
  *      (``b % numPartitions``); regression does not use k-means seeding.
- *   3. **Refinement**: ``SquaredError`` runs coordinate descent and keeps the
- *      result only if branch MSE improves by a small margin vs the seed; else
- *      restore the snapshot and rebuild. ``AbsoluteError`` skips CD (round-robin).
+ *   3. **Refinement**: coordinate descent on the bin-to-partition map; if the
+ *      post-CD objective clearly worsens vs the seed, restore the assignment
+ *      snapshot and rebuild.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`

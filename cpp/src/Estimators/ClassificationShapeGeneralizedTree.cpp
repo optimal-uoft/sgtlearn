@@ -8,18 +8,13 @@
 
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 
-#include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
-#include "BranchAssignmentObjectives/LeafAggregationBranchAssignment.h"
 #include "Criterion.h"
 #include "Discretizers/ClassificationDiscretizer.h"
 #include "Discretizers/DiscretizerFactories.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
-#include "algorithms/BinPartitionAssignments.h"
-#include "algorithms/CoordinateDescent.h"
 
 #include <algorithm>
 #include <armadillo>
-#include <cmath>
 #include <iterator>
 #include <limits>
 #include <span>
@@ -176,84 +171,6 @@ void ClassificationShapeGeneralizedTree::fit(
         ShapeBestBranchingState best{};
         arma::uvec featOne(1);
 
-        const auto searchBestBranchAssignment =
-            [this, parentImp](
-                size_t numRoutingBins, std::vector<std::vector<double>> &stats,
-                const std::vector<size_t> &sizes, std::vector<double> &weights)
-            -> ShapeBranchAssignmentSearchResult {
-              ShapeBranchAssignmentSearchResult result;
-              const size_t kMax = std::min(numRoutingBins, numPartitions_);
-
-              for (size_t k = 2; k <= kMax; ++k) {
-                std::vector<size_t> trialAssignments;
-                if (k == numRoutingBins) {
-                  algorithms::identityBinAssignments(numRoutingBins,
-                                                     trialAssignments);
-                } else if (!cdParams_.smartInit || k < 2 ||
-                           numRoutingBins < k) {
-                  algorithms::roundRobinBinAssignments(numRoutingBins, k,
-                                                         trialAssignments);
-                } else {
-                  algorithms::seedBinAssignmentsKMeans(
-                      k, numRoutingBins, numClasses_, stats, sizes, weights,
-                      rng_, trialAssignments);
-                }
-
-                auto branchObj = makeClassificationBranchAssignment(
-                    criterion_, trialAssignments, k, stats, weights, sizes,
-                    numClasses_);
-
-                if (k < numRoutingBins) {
-                  const std::vector<size_t> snapshot = branchObj->assignments;
-                  const double objBeforeCd = branchObj->objective();
-                  coordinateDescent(k, *branchObj, rng_, cdParams_.maxIters,
-                                    cdParams_.patience);
-                  const double objAfterCd = branchObj->objective();
-                  if (!std::isfinite(objAfterCd) ||
-                      objAfterCd > objBeforeCd + kShapeFunctionCdImprovementEps) {
-                    std::vector<size_t> rollback = snapshot;
-                    branchObj = makeClassificationBranchAssignment(
-                        criterion_, rollback, k, stats, weights, sizes,
-                        numClasses_);
-                  }
-                }
-
-                if (!branchObj->partitionCountsMeetMinLeaf(
-                        outerParams_.minLeafSize))
-                  continue;
-
-                const double childImp = branchObj->objective();
-                const double gain = parentImp - childImp;
-                if (gain < outerParams_.minGainSplit - outerTreeBuilder_.eps)
-                  continue;
-
-                const double score = algorithms::penalizedBranchingScore(
-                    childImp, k, outerParams_.branchingPenalty);
-                if (score < result.bestFeatureScore - outerTreeBuilder_.eps) {
-                  result.bestFeatureScore = score;
-                  result.chosenK = k;
-                  result.assignments = trialAssignments;
-                  result.partitionSampleCounts =
-                      branchObj->partitionSampleCounts();
-                  const auto *leafAgg = dynamic_cast<
-                      leaf_aggregate::LeafAggregationBranchAssignment<double> *>(
-                      branchObj.get());
-                  if (!leafAgg)
-                    throw std::runtime_error(
-                        "ClassificationShapeGeneralizedTree::fit: branch "
-                        "assignment must expose partition aggregates");
-                  result.partitionClassCounts =
-                      leafAgg->aggregatedPartitionStats();
-                  result.partitionWeights =
-                      leafAgg->aggregatedPartitionWeights();
-                  result.impurityDecrease = gain;
-                  result.found = true;
-                }
-              }
-
-              return result;
-            };
-
         const auto applyTaskFields =
             [](ShapeBestBranchingState &state,
                const ShapeBranchAssignmentSearchResult &search,
@@ -282,13 +199,11 @@ void ClassificationShapeGeneralizedTree::fit(
           if (disc->numLeaves() < 2)
             continue;
 
-          auto &stats = disc->leafStats();
-          auto &sizes = disc->leafNumSamples();
-          auto &weights = disc->leafNodeWeights();
-          const size_t numRoutingBins = stats.size();
-
           const ShapeBranchAssignmentSearchResult featureBest =
-              searchBestBranchAssignment(numRoutingBins, stats, sizes, weights);
+              searchShapeBranchAssignmentFromDiscretizer(
+                  *disc, criterion_, parentImp, numPartitions_, outerParams_,
+                  cdParams_, outerTreeBuilder_.eps, rng_,
+                  /*useKMeansSeed=*/true, numClasses_);
           if (!featureBest.found)
             continue;
 

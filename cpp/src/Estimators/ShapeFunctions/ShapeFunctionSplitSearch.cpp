@@ -4,7 +4,146 @@
 
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 
+#include "BranchAssignmentObjectives/BranchAssignment.h"
+#include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
+#include "BranchAssignmentObjectives/LeafAggregationBranchAssignment.h"
+#include "algorithms/BinPartitionAssignments.h"
+#include "algorithms/CoordinateDescent.h"
+
+#include <cmath>
 #include <stdexcept>
+
+namespace {
+
+void refineShapeBranchAssignment(
+    std::unique_ptr<BranchAssignment> &branchObj, size_t k,
+    size_t numRoutingBins, LearningCriterion criterion,
+    const CoordinateDescentParams &cdParams, std::mt19937_64 &rng,
+    std::vector<std::vector<double>> &stats, std::vector<double> &leafWeights,
+    const std::vector<size_t> &leafSampleCounts, size_t numClasses,
+    std::vector<std::vector<float>> *maeLeafYs,
+    std::vector<std::vector<float>> *maeLeafWs) {
+  if (k >= numRoutingBins)
+    return;
+
+  const std::vector<size_t> snapshot = branchObj->assignments;
+  const double objBeforeCd = branchObj->objective();
+  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience);
+  const double objAfterCd = branchObj->objective();
+  if (std::isfinite(objAfterCd) &&
+      objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
+    return;
+
+  std::vector<size_t> rollback = snapshot;
+  branchObj = makeBranchAssignment(criterion, rollback, k, stats, leafWeights,
+                                   leafSampleCounts, numClasses, maeLeafYs,
+                                   maeLeafWs);
+}
+
+void seedTrialBinAssignments(size_t k, size_t numRoutingBins,
+                             const std::vector<std::vector<double>> &stats,
+                             const std::vector<size_t> &sizes,
+                             std::vector<double> &leafWeights, bool useKMeansSeed,
+                             bool smartInit, size_t numClasses,
+                             std::mt19937_64 &rng,
+                             std::vector<size_t> &trialAssignments) {
+  if (k == numRoutingBins) {
+    algorithms::identityBinAssignments(numRoutingBins, trialAssignments);
+  } else if (useKMeansSeed && smartInit && k >= 2 && numRoutingBins >= k) {
+    algorithms::seedBinAssignmentsKMeans(k, numRoutingBins, numClasses, stats,
+                                       sizes, leafWeights, rng,
+                                       trialAssignments);
+  } else {
+    algorithms::roundRobinBinAssignments(numRoutingBins, k, trialAssignments);
+  }
+}
+
+} // namespace
+
+ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
+    InnerDiscretizerBase<double> &disc, LearningCriterion criterion,
+    double parentImp, size_t treeNumPartitions,
+    const TreeBuildingParams &outerParams,
+    const CoordinateDescentParams &cdParams, double scoreEpsilon,
+    std::mt19937_64 &rng, bool useKMeansSeed, size_t numClasses,
+    const arma::Row<float> *ysub, const arma::Row<float> *wsub,
+    size_t xSubCols) {
+  auto &stats = disc.leafStats();
+  auto &sizes = disc.leafNumSamples();
+  auto &leafWeights = disc.leafNodeWeights();
+  const size_t numRoutingBins = stats.size();
+
+  std::vector<std::vector<float>> maeLeafYsStorage;
+  std::vector<std::vector<float>> maeLeafWsStorage;
+  std::vector<std::vector<float>> *maeLeafYs = nullptr;
+  std::vector<std::vector<float>> *maeLeafWs = nullptr;
+  if (criterion == LearningCriterion::AbsoluteError) {
+    if (!ysub || !wsub)
+      throw std::invalid_argument(
+          "searchShapeBranchAssignmentFromDiscretizer(AbsoluteError): ysub "
+          "and wsub required");
+    const auto &perBinCols = disc.inSampleDiscretizations();
+    maeLeafYsStorage.resize(numRoutingBins);
+    maeLeafWsStorage.resize(numRoutingBins);
+    for (size_t b = 0; b < numRoutingBins; ++b) {
+      for (size_t colIdx : perBinCols[b]) {
+        if (colIdx >= xSubCols)
+          throw std::runtime_error(
+              "searchShapeBranchAssignmentFromDiscretizer: discretizer sample "
+              "index >= Xsub columns");
+        maeLeafYsStorage[b].push_back((*ysub)(colIdx));
+        maeLeafWsStorage[b].push_back((*wsub)(colIdx));
+      }
+    }
+    maeLeafYs = &maeLeafYsStorage;
+    maeLeafWs = &maeLeafWsStorage;
+  }
+
+  ShapeBranchAssignmentSearchResult result;
+  const size_t kMax = std::min(numRoutingBins, treeNumPartitions);
+
+  for (size_t k = 2; k <= kMax; ++k) {
+    std::vector<size_t> trialAssignments;
+    seedTrialBinAssignments(k, numRoutingBins, stats, sizes, leafWeights,
+                            useKMeansSeed, cdParams.smartInit, numClasses, rng,
+                            trialAssignments);
+
+    std::unique_ptr<BranchAssignment> branchObj = makeBranchAssignment(
+        criterion, trialAssignments, k, stats, leafWeights, sizes, numClasses,
+        maeLeafYs, maeLeafWs);
+
+    refineShapeBranchAssignment(branchObj, k, numRoutingBins, criterion,
+                                cdParams, rng, stats, leafWeights, sizes,
+                                numClasses, maeLeafYs, maeLeafWs);
+
+    if (!branchObj->partitionCountsMeetMinLeaf(outerParams.minLeafSize))
+      continue;
+
+    const double childImp = branchObj->objective();
+    const double gain = parentImp - childImp;
+    if (gain < outerParams.minGainSplit - scoreEpsilon)
+      continue;
+
+    const double score = algorithms::penalizedBranchingScore(
+        childImp, k, outerParams.branchingPenalty);
+    if (score < result.bestFeatureScore - scoreEpsilon) {
+      result.bestFeatureScore = score;
+      result.chosenK = k;
+      result.assignments = trialAssignments;
+      result.partitionSampleCounts = branchObj->partitionSampleCounts();
+      if (const auto *leafAgg = dynamic_cast<
+              leaf_aggregate::LeafAggregationBranchAssignment<double> *>(
+              branchObj.get())) {
+        result.partitionClassCounts = leafAgg->aggregatedPartitionStats();
+        result.partitionWeights = leafAgg->aggregatedPartitionWeights();
+      }
+      result.impurityDecrease = gain;
+      result.found = true;
+    }
+  }
+
+  return result;
+}
 
 void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node) {
   node.isLeaf = true;

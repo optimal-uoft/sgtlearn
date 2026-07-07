@@ -8,16 +8,12 @@
 
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 
-#include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
 #include "Criterion.h"
 #include "Discretizers/DiscretizerFactories.h"
 #include "Discretizers/RegressionDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
-#include "algorithms/BinPartitionAssignments.h"
-#include "algorithms/CoordinateDescent.h"
 #include <algorithm>
 #include <armadillo>
-#include <cmath>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -258,75 +254,6 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         ShapeBestBranchingState best{};
         arma::uvec featOne(1);
 
-        const auto searchBestBranchAssignment =
-            [this, parentImp](
-                size_t numRoutingBins, std::vector<std::vector<double>> &stats,
-                const std::vector<size_t> &sizes,
-                std::vector<double> &binWeights,
-                std::vector<std::vector<float>> *maeLeafYs,
-                std::vector<std::vector<float>> *maeLeafWs)
-            -> ShapeBranchAssignmentSearchResult {
-              ShapeBranchAssignmentSearchResult result;
-              const size_t kMax = std::min(numRoutingBins, numPartitions_);
-
-              for (size_t k = 2; k <= kMax; ++k) {
-                std::vector<size_t> trialAssignments;
-                if (k == numRoutingBins)
-                  algorithms::identityBinAssignments(numRoutingBins,
-                                                     trialAssignments);
-                else
-                  algorithms::roundRobinBinAssignments(numRoutingBins, k,
-                                                         trialAssignments);
-
-                std::unique_ptr<BranchAssignment> branchObj =
-                    makeRegressionBranchAssignment(
-                        criterion_, trialAssignments, k, stats, binWeights,
-                        sizes, maeLeafYs, maeLeafWs);
-
-                if (k < numRoutingBins &&
-                    criterion_ == LearningCriterion::SquaredError &&
-                    cdParams_.smartInit) {
-                  const std::vector<size_t> snapshot = branchObj->assignments;
-                  const double objBeforeCd = branchObj->objective();
-                  coordinateDescent(k, *branchObj, rng_, cdParams_.maxIters,
-                                    cdParams_.patience);
-                  const double objAfterCd = branchObj->objective();
-                  const bool keepCd =
-                      std::isfinite(objAfterCd) &&
-                      objAfterCd < objBeforeCd - kShapeFunctionCdImprovementEps;
-                  if (!keepCd) {
-                    std::vector<size_t> rollback = snapshot;
-                    branchObj = makeRegressionBranchAssignment(
-                        criterion_, rollback, k, stats, binWeights, sizes,
-                        maeLeafYs, maeLeafWs);
-                  }
-                }
-
-                if (!branchObj->partitionCountsMeetMinLeaf(
-                        outerParams_.minLeafSize))
-                  continue;
-
-                const double childImp = branchObj->objective();
-                const double gain = parentImp - childImp;
-                if (gain < outerParams_.minGainSplit - outerTreeBuilder_.eps)
-                  continue;
-
-                const double score = algorithms::penalizedBranchingScore(
-                    childImp, k, outerParams_.branchingPenalty);
-                if (score < result.bestFeatureScore - outerTreeBuilder_.eps) {
-                  result.bestFeatureScore = score;
-                  result.chosenK = k;
-                  result.assignments = trialAssignments;
-                  result.partitionSampleCounts =
-                      branchObj->partitionSampleCounts();
-                  result.impurityDecrease = gain;
-                  result.found = true;
-                }
-              }
-
-              return result;
-            };
-
         const auto applyTaskFields =
             [this](ShapeBestBranchingState &state,
                    const ShapeBranchAssignmentSearchResult &search,
@@ -359,37 +286,16 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
           if (disc->numLeaves() < 2)
             continue;
 
-          auto &stats = disc->leafStats();
-          auto &sizes = disc->leafNumSamples();
-          auto &binWeights = disc->leafNodeWeights();
-          const auto &perBinCols = disc->inSampleDiscretizations();
-          const size_t numRoutingBins = stats.size();
-
-          std::vector<std::vector<float>> maeLeafYsStorage;
-          std::vector<std::vector<float>> maeLeafWsStorage;
-          std::vector<std::vector<float>> *maeLeafYsPtr = nullptr;
-          std::vector<std::vector<float>> *maeLeafWsPtr = nullptr;
-          if (criterion_ == LearningCriterion::AbsoluteError) {
-            maeLeafYsStorage.resize(numRoutingBins);
-            maeLeafWsStorage.resize(numRoutingBins);
-            for (size_t b = 0; b < numRoutingBins; ++b) {
-              for (size_t colIdx : perBinCols[b]) {
-                if (colIdx >= xSubCols)
-                  throw std::runtime_error(
-                      "RegressionShapeGeneralizedTree::fit: discretizer "
-                      "sample index >= Xsub columns");
-                maeLeafYsStorage[b].push_back(ysub(colIdx));
-                maeLeafWsStorage[b].push_back(wsub(colIdx));
-              }
-            }
-            maeLeafYsPtr = &maeLeafYsStorage;
-            maeLeafWsPtr = &maeLeafWsStorage;
-          }
-
           const ShapeBranchAssignmentSearchResult featureBest =
-              searchBestBranchAssignment(numRoutingBins, stats, sizes,
-                                         binWeights, maeLeafYsPtr,
-                                         maeLeafWsPtr);
+              searchShapeBranchAssignmentFromDiscretizer(
+                  *disc, criterion_, parentImp, numPartitions_, outerParams_,
+                  cdParams_, outerTreeBuilder_.eps, rng_,
+                  /*useKMeansSeed=*/false, /*numClasses=*/0,
+                  criterion_ == LearningCriterion::AbsoluteError ? &ysub
+                                                                 : nullptr,
+                  criterion_ == LearningCriterion::AbsoluteError ? &wsub
+                                                                   : nullptr,
+                  xSubCols);
           if (!featureBest.found)
             continue;
 

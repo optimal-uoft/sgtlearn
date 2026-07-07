@@ -2,7 +2,7 @@
 
 /**
  * @file BranchAssignmentFactory.h
- * @brief Factory functions that construct the correct ``BranchAssignment`` for a ``LearningCriterion``.
+ * @brief Factory that constructs the correct ``BranchAssignment`` for a ``LearningCriterion``.
  */
 
 #include "BranchAssignment.h"
@@ -11,24 +11,21 @@
 #include <memory>
 #include <vector>
 
-/** Entropy or Gini only. Throws if criterion is not classification. */
-std::unique_ptr<BranchAssignment> makeClassificationBranchAssignment(
-    LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<double>> &classLeafStats,
-    std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts, size_t numClasses);
-
 /**
- * SquaredError or AbsoluteError only.
+ * Build a branch-assignment objective for @p criterion.
  *
- * For SquaredError, @p leafRegressionStats is per-leaf aggregated statistics.
- * For AbsoluteError, @p maeLeafYs and @p maeLeafWs are raw y samples and
- * matching per-sample weights per leaf (required for AbsoluteError).
+ * Classification (Entropy, Gini): pass @p numClasses and per-leaf class-count
+ * stats in @p leafStats.
+ *
+ * SquaredError: pass per-leaf ``{sum y, sum y^2}`` stats in @p leafStats.
+ *
+ * AbsoluteError: pass raw per-leaf y samples and weights via @p maeLeafYs and
+ * @p maeLeafWs (required).
  */
-std::unique_ptr<BranchAssignment> makeRegressionBranchAssignment(
+std::unique_ptr<BranchAssignment> makeBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<double>> &leafRegressionStats,
+    size_t numPartitions, std::vector<std::vector<double>> &leafStats,
     std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts,
+    const std::vector<size_t> &leafSampleCounts, size_t numClasses = 0,
     std::vector<std::vector<float>> *maeLeafYs = nullptr,
     std::vector<std::vector<float>> *maeLeafWs = nullptr);
