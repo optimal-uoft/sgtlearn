@@ -231,13 +231,13 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         node.score = impurityAtNode(y, node);
 
         if (ns < 2 * minLeaf) {
-          markShapeFunctionLeafNoSplit(node);
+          markShapeFunctionNodeAsLeaf(node);
           return false;
         }
 
         const double parentImp = node.score;
         if (parentImp <= outerTreeBuilder_.eps) {
-          markShapeFunctionLeafNoSplit(node);
+          markShapeFunctionNodeAsLeaf(node);
           return false;
         }
 
@@ -407,7 +407,7 @@ void RegressionShapeGeneralizedTree::fit(const arma::fmat &X,
         if (!std::isfinite(best.penalizedChildScore) ||
             best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
             best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
-          markShapeFunctionLeafNoSplit(node);
+          markShapeFunctionNodeAsLeaf(node);
           return false;
         }
 

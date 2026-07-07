@@ -149,13 +149,13 @@ void ClassificationShapeGeneralizedTree::fit(
         node.score = impurityForClassCounts(classCounts[node.nodeIndex]);
 
         if (ns < 2 * minLeaf) {
-          markShapeFunctionLeafNoSplit(node);
+          markShapeFunctionNodeAsLeaf(node);
           return false;
         }
 
         const double parentImp = node.score;
         if (parentImp <= outerTreeBuilder_.eps) {
-          markShapeFunctionLeafNoSplit(node);
+          markShapeFunctionNodeAsLeaf(node);
           return false;
         }
 
@@ -301,7 +301,7 @@ void ClassificationShapeGeneralizedTree::fit(
         if (!std::isfinite(best.penalizedChildScore) ||
             best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
             best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
-          markShapeFunctionLeafNoSplit(node);
+          markShapeFunctionNodeAsLeaf(node);
           return false;
         }
 

@@ -6,7 +6,7 @@
 
 #include <stdexcept>
 
-void markShapeFunctionLeafNoSplit(ShapeFunctionNode &node) {
+void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node) {
   node.isLeaf = true;
   node.informationGain = 0.0;
   node.innerDiscretizer.reset();

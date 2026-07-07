@@ -39,7 +39,7 @@ struct ShapeBestBranchingState {
   std::shared_ptr<const InnerDiscretizerBase<double>> winningDiscretizer;
 };
 
-void markShapeFunctionLeafNoSplit(ShapeFunctionNode &node);
+void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node);
 
 void fillSampleBinsFromDiscretizer(
     size_t xSubCols, const std::vector<std::vector<size_t>> &perBinCols,
