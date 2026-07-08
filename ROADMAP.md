@@ -9,7 +9,7 @@
 - [x] Weighted samples for all SGTs
 
 ## v0.2.0
-- [ ] Superset branching on categorical features
+- [x] Superset branching on categorical features
 - [x] multioutput support
 - [ ] Feature importances matching scikit-learn's API for SGTs and SGT$_K$
 - [x] Adding TAO Refinement
