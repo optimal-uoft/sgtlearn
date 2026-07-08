@@ -126,7 +126,7 @@ threshold:
 
    # 4 one-hot columns for one categorical variable + 2 numeric columns
    X = np.hstack([onehot, numeric])          # shape (n, 6)
-   clf = SGTClassifier(max_depth=4, max_features=None, random_state=0)
+   clf = SGTClassifier(max_depth=4, random_state=0)
    clf.fit(X, y, feature_dict={"color": [0, 1, 2, 3]})
 
 Keys are logical names (``int`` or ``str``) and values are column indices. With
