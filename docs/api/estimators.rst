@@ -31,3 +31,16 @@ BaseShapeCART
 .. autoclass:: BaseShapeCART
    :members:
    :show-inheritance:
+
+Feature configuration
+---------------------
+
+Group columns into logical features (e.g. one-hot categorical blocks) for
+training. Pass the mapping directly as ``fit(..., feature_dict=...)``, or
+pre-resolve it once with :func:`configure_feature_dict` and pass the result as
+``fit(..., processed_features=...)``.
+
+.. autofunction:: configure_feature_dict
+
+.. autoclass:: sgtlearn._features.ProcessedFeatures
+   :members:
