@@ -12,6 +12,7 @@ from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array, check_is_fitted
 
+from sgtlearn._features import ProcessedFeatures, configure_feature_dict
 from sgtlearn._weights import normalize_sample_weight
 
 
@@ -43,6 +44,7 @@ def _parallel_fit_tree(
     sample_weight: Optional[np.ndarray],
     tree_kw: dict[str, Any],
     tree_factory: Any,
+    processed_features: Optional[ProcessedFeatures],
 ) -> Any:
     """Fit one bootstrapped (or full) base tree; module-level for ``joblib`` workers."""
     if bootstrap:
@@ -56,7 +58,13 @@ def _parallel_fit_tree(
         sw_b = sample_weight
 
     est = tree_factory(tree_seed, tree_kw)
-    est.fit(X_b, y_b, sample_weight=sw_b, check_input=False)
+    est.fit(
+        X_b,
+        y_b,
+        sample_weight=sw_b,
+        processed_features=processed_features,
+        check_input=False,
+    )
     return est
 
 
@@ -161,6 +169,9 @@ class RandomSGForest(BaseEstimator, ABC):
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
+        *,
+        feature_dict: Optional[dict[int, list[int]]] = None,
+        processed_features: Optional[ProcessedFeatures] = None,
     ) -> RandomSGForest:
         if self.n_estimators < 1:
             raise ValueError("n_estimators must be at least 1.")
@@ -169,6 +180,12 @@ class RandomSGForest(BaseEstimator, ABC):
 
         X, y = self._check_X_y(X, y)
         self.n_features_in_ = X.shape[1]
+
+        if processed_features is None:
+            processed_features = configure_feature_dict(
+                self.n_features_in_, feature_dict=feature_dict
+            )
+        self.processed_features_ = processed_features
 
         n_samples = X.shape[0]
         sample_weight = self._prepare_sample_weight(y, sample_weight, n_samples)
@@ -192,6 +209,7 @@ class RandomSGForest(BaseEstimator, ABC):
             sample_weight,
             tree_kw,
             tree_factory,
+            processed_features,
         )
 
         n_jobs_req = 1 if self.n_jobs is None else self.n_jobs

@@ -6,6 +6,7 @@
  */
 
 #include "Domain/LearningCriterion.h"
+#include "Domain/FeatureInfo.h"
 #include "Estimators/ShapeGeneralizedTree.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
@@ -100,10 +101,13 @@ public:
    *           Routing candidates are row indices ``0 .. numFeatures-1``.
    * @param y  (numSamples,) integer class labels in [0, numClasses).
    *
+   * @param features  logical feature groups resolved in Python.
+   *
    * @throws std::invalid_argument on shape / label-range mismatch.
    */
   void fit(const arma::fmat &X, const arma::Row<size_t> &y,
-           const arma::Row<float> &sampleWeights);
+           const arma::Row<float> &sampleWeights,
+           const std::vector<FeatureInfo> &features);
 
   /** Hard class predictions, shape (numSamples,). */
   arma::Row<size_t> predict(const arma::fmat &X) const;
@@ -123,6 +127,7 @@ private:
   uint64_t random_state_;
   std::mt19937_64 rng_;
   FeatureBaggingPickFn featureBagging_;
+  std::vector<FeatureInfo> features_;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;

@@ -134,7 +134,9 @@ void CategoricalDiscretizer<StatsT, PredictT>::buildTree(
 template <typename StatsT, typename PredictT>
 void CategoricalDiscretizer<StatsT, PredictT>::appendNanRoutingBin() {
   this->inSampleDiscretizations_.push_back({});
-  this->leafStats_.push_back({});
+  const size_t statsDim =
+      this->leafStats_.empty() ? 0 : this->leafStats_.front().size();
+  this->leafStats_.push_back(std::vector<StatsT>(statsDim, StatsT{0}));
   this->leafNumSamples_.push_back(0);
   this->leafNodeWeights_.push_back(0.0);
   binPredictions_.push_back(PredictT{});

@@ -46,6 +46,7 @@ add_library(sgtlearn_core STATIC
         src/algorithms/missing_values.h
         src/Discretizers/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
+        src/Domain/FeatureInfo.h
         src/Domain/LearningCriterion.h
         src/Domain/LearningFactories.h
         src/Splitters/Splitter.h

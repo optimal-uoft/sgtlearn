@@ -17,6 +17,7 @@
 #include <armadillo>
 #include <iterator>
 #include <limits>
+#include <numeric>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -89,7 +90,8 @@ std::vector<double> ClassificationShapeGeneralizedTree::fillLeafHistogram(
 
 void ClassificationShapeGeneralizedTree::fit(
     const arma::fmat &X, const arma::Row<size_t> &y,
-    const arma::Row<float> &sampleWeights) {
+    const arma::Row<float> &sampleWeights,
+    const std::vector<FeatureInfo> &features) {
 
   if (X.n_cols != y.n_elem)
     throw std::invalid_argument(
@@ -111,6 +113,7 @@ void ClassificationShapeGeneralizedTree::fit(
         "ClassificationShapeGeneralizedTree::fit: sample_weights length must "
         "match number of samples");
   fitSampleWeights_ = sampleWeights;
+  features_ = features;
 
   rng_.seed(static_cast<std::mt19937_64::result_type>(random_state_));
 
@@ -134,11 +137,10 @@ void ClassificationShapeGeneralizedTree::fit(
   childIndices_.emplace_back();
   rootIndex_ = 0;
 
-  const arma::uvec featureCandidates =
-      arma::regspace<arma::uvec>(0, X.n_rows - 1);
+  const size_t numLogicalFeatures = features_.size();
 
   const auto findBestSplit =
-      [this, &X, &y, &featureCandidates](ShapeFunctionNode &node,
+      [this, &X, &y, numLogicalFeatures](ShapeFunctionNode &node,
                                          size_t minLeaf) -> bool {
         const size_t ns = node.sampleIndices.n_elem;
         node.score = impurityForClassCounts(classCounts[node.nodeIndex]);
@@ -158,18 +160,14 @@ void ClassificationShapeGeneralizedTree::fit(
         const arma::fmat Xsub = X.cols(subIdx);
         const arma::Row<size_t> ysub = y.cols(subIdx);
 
-        std::vector<size_t> featurePool(
-            static_cast<size_t>(featureCandidates.n_elem));
-        for (arma::uword i = 0; i < featureCandidates.n_elem; ++i)
-          featurePool[static_cast<size_t>(i)] =
-              static_cast<size_t>(featureCandidates(i));
+        std::vector<size_t> featurePool(numLogicalFeatures);
+        std::iota(featurePool.begin(), featurePool.end(), 0);
         const std::vector<size_t> featureSubset = featureBagging_(
             std::span<const size_t>(featurePool.data(), featurePool.size()),
             rng_);
 
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         ShapeBestBranchingState best{};
-        arma::uvec featOne(1);
 
         const auto applyTaskFields =
             [](ShapeBestBranchingState &state,
@@ -181,21 +179,17 @@ void ClassificationShapeGeneralizedTree::fit(
             };
 
         for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
-          const size_t f = featureSubset[fi];
-          if (f >= Xsub.n_rows)
-            throw std::invalid_argument(
-                "ClassificationShapeGeneralizedTree::fit: feature index "
-                ">= X.n_rows");
-          featOne(0) = static_cast<arma::uword>(f);
+          const size_t logicalIdx = featureSubset[fi];
+          const FeatureInfo &feature = features_[logicalIdx];
 
           const arma::Row<float> wsub =
               subSampleWeights(fitSampleWeights_, subIdx);
 
-          auto disc = makeClassificationDiscretizer(criterion_,
-                                                    DiscretizerInputKind::Numeric);
-          disc->Train(Xsub, featOne, ysub, numClasses_,
-                      innerParams_.minLeafSize, innerParams_.minGainSplit,
-                      innerParams_.maxDepth, innerParams_.maxLeafNodes, wsub);
+          auto disc = makeClassificationDiscretizer(criterion_, feature);
+          trainClassificationDiscretizer(
+              *disc, feature, Xsub, ysub, numClasses_, innerParams_.minLeafSize,
+              innerParams_.minGainSplit, innerParams_.maxDepth,
+              innerParams_.maxLeafNodes, wsub);
           if (disc->numLeaves() < 2)
             continue;
 
@@ -208,7 +202,7 @@ void ClassificationShapeGeneralizedTree::fit(
             continue;
 
           featureHasBetterShapeBranching(
-              featureBest, best, f, xSubCols,
+              featureBest, best, logicalIdx, xSubCols, feature.indices,
               std::unique_ptr<InnerDiscretizerBase<double>>(std::move(disc)),
               outerTreeBuilder_.eps, applyTaskFields);
         }
@@ -221,7 +215,8 @@ void ClassificationShapeGeneralizedTree::fit(
         }
 
         node.isLeaf = false;
-        node.routingFeatures = {best.branching.featureIndex};
+        node.routingFeatures.assign(best.routingColumnIndices.begin(),
+                                    best.routingColumnIndices.end());
         node.innerDiscretizer = best.winningDiscretizer;
         node.binToPartition = std::move(best.branching.binToPartition);
         node.sampleBins = std::move(best.branching.sampleBins);

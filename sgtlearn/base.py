@@ -9,6 +9,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
+from sgtlearn._features import ProcessedFeatures, configure_feature_dict
 from sgtlearn._weights import (
     normalize_sample_weight,
     effective_sample_weight_classification,
@@ -19,7 +20,7 @@ from ShapeGeneralizedTrees import (
 )
 from sklearn.preprocessing import LabelEncoder
 
-__all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
+__all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor", "ProcessedFeatures", "configure_feature_dict"]
 
 
 class _IdentityLabelEncoder(LabelEncoder):
@@ -244,6 +245,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
+        *,
+        feature_dict: Optional[Mapping[int, list[int]]] = None,
+        processed_features: Optional[ProcessedFeatures] = None,
         check_input: bool = True,
     ) -> "SGTClassifier":
         """Fit the tree on ``X`` and class labels ``y``.
@@ -256,6 +260,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             Target class labels.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
+        feature_dict : dict, optional
+            ``{logical_key: [column indices]}`` layout (sgt-learnold). A key
+            whose value has more than one index is categorical; singletons are
+            continuous. Unmentioned columns default to continuous singletons.
+        processed_features : ProcessedFeatures, optional
+            Pre-resolved features from :func:`configure_feature_dict` (for
+            ensembles that should resolve features once).
         check_input : bool, default=True
             If ``False``, ``X`` and ``y`` are not validated (for callers that
             already ran :func:`~sklearn.utils.validation.check_X_y`).
@@ -298,6 +309,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
         self.n_features_in_ = X.shape[1]
 
+        if processed_features is None:
+            processed_features = configure_feature_dict(
+                self.n_features_in_, feature_dict=feature_dict
+            )
+        self.processed_features_ = processed_features
+
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
         inner_depth = 0 if self.inner_max_depth is None else int(self.inner_max_depth)
@@ -329,7 +346,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         y_u = np.ascontiguousarray(
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
-        self._est.fit(X32, y_u, sample_weight=sw)
+        self._est.fit(
+            X32, y_u, sample_weight=sw, features=processed_features.to_native()
+        )
 
         if self.tao_n_runs > 0:
             from sgtlearn.tao import TAO_refine
@@ -533,6 +552,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
+        *,
+        feature_dict: Optional[Mapping[int, list[int]]] = None,
+        processed_features: Optional[ProcessedFeatures] = None,
         check_input: bool = True,
     ) -> "SGTRegressor":
         """Fit the tree on ``X`` and continuous targets ``y``.
@@ -545,6 +567,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             Target values.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
+        feature_dict : dict, optional
+            ``{logical_key: [column indices]}`` layout (sgt-learnold).
+        processed_features : ProcessedFeatures, optional
+            Pre-resolved features from :func:`configure_feature_dict`.
         check_input : bool, default=True
             If ``False``, ``X`` and ``y`` are not validated (for callers that
             already ran :func:`~sklearn.utils.validation.check_X_y`).
@@ -562,6 +588,12 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             if np.isnan(np.asarray(y, dtype=np.float64)).any():
                 raise ValueError("Input y contains NaN.")
         self.n_features_in_ = X.shape[1]
+
+        if processed_features is None:
+            processed_features = configure_feature_dict(
+                self.n_features_in_, feature_dict=feature_dict
+            )
+        self.processed_features_ = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -595,6 +627,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             X32,
             y32,
             sample_weight=sw,
+            features=processed_features.to_native(),
         )
 
         if self.tao_n_runs > 0:

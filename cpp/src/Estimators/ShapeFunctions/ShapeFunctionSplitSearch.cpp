@@ -194,6 +194,7 @@ void applySharedShapeBranchingFields(
 bool featureHasBetterShapeBranching(
     const ShapeBranchAssignmentSearchResult &search,
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
+    const arma::uvec &routingColumnIndices,
     std::unique_ptr<InnerDiscretizerBase<double>> disc, double scoreEpsilon,
     const std::function<void(ShapeBestBranchingState &,
                              const ShapeBranchAssignmentSearchResult &,
@@ -210,6 +211,7 @@ bool featureHasBetterShapeBranching(
   best.binWeights.assign(disc->leafNodeWeights().begin(),
                          disc->leafNodeWeights().end());
   applyTaskFields(best, search, disc->leafStats());
+  best.routingColumnIndices = routingColumnIndices;
   best.winningDiscretizer =
       std::shared_ptr<const InnerDiscretizerBase<double>>(std::move(disc));
   return true;

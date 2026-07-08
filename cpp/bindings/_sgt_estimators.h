@@ -16,6 +16,7 @@
 #include "_arma_bridge.h"
 
 #include "Domain/LearningCriterion.h"
+#include "Domain/FeatureInfo.h"
 #include "Discretizers/UnivariateDiscretizer.h"
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "Estimators/RegressionShapeGeneralizedTree.h"
@@ -150,6 +151,42 @@ inline FeatureBaggingPickFn parseMaxFeaturesPy(py::handle mf_h) {
       "or the string 'sqrt' / 'log2'");
 }
 
+inline FeatureType parseFeatureTypePy(const std::string &raw) {
+  std::string s = normalizeCriterion(raw);
+  if (s == "continuous" || s == "numeric")
+    return FeatureType::Continuous;
+  if (s == "categorical" || s == "one_hot" || s == "onehot")
+    return FeatureType::Categorical;
+  throw std::invalid_argument(
+      "feature type must be 'continuous' or 'categorical'; got '" + raw + "'");
+}
+
+inline std::vector<FeatureInfo> parseFeaturesPy(const py::object &features) {
+  if (features.is_none())
+    throw std::invalid_argument("features is required");
+  if (!py::isinstance<py::list>(features))
+    throw std::invalid_argument("features must be a list of feature dicts");
+  std::vector<FeatureInfo> out;
+  for (const py::handle item : features) {
+    if (!py::isinstance<py::dict>(item))
+      throw std::invalid_argument(
+          "each feature must be a dict with 'type' and 'indices'");
+    const py::dict d = py::reinterpret_borrow<py::dict>(item);
+    if (!d.contains("type") || !d.contains("indices"))
+      throw std::invalid_argument(
+          "each feature dict must contain 'type' and 'indices'");
+    FeatureInfo feature;
+    feature.type = parseFeatureTypePy(py::str(d["type"]).cast<std::string>());
+    const py::list idxs = py::cast<py::list>(d["indices"]);
+    feature.indices.set_size(idxs.size());
+    for (arma::uword i = 0; i < feature.indices.n_elem; ++i)
+      feature.indices(i) =
+          static_cast<arma::uword>(py::cast<size_t>(idxs[static_cast<py::ssize_t>(i)]));
+    out.push_back(std::move(feature));
+  }
+  return out;
+}
+
 /**
  * Thin Python adapter around `ClassificationShapeGeneralizedTree`. Owns the
  * C++ implementation and handles NumPy <-> Armadillo plumbing.
@@ -180,7 +217,7 @@ public:
   }
 
   void fit(const py::array &X, const py::array &y,
-           py::object sample_weight = py::none()) {
+           py::object sample_weight, const py::object &features) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
     /** Owning copy: zero-copy Row views from NumPy often fail Armadillo strict
      *  checks on some dtypes / strides; C++ expects `arma::Row<size_t>`. */
@@ -197,8 +234,10 @@ public:
     const arma::Row<float> w_row =
         sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
 
+    const std::vector<FeatureInfo> featuresVec = parseFeaturesPy(features);
+
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), y_row, w_row);
+    impl_->fit(Xb.view(), y_row, w_row, featuresVec);
   }
 
   py::array_t<size_t> predict(const py::array &X) {
@@ -340,7 +379,7 @@ public:
   }
 
   void fit(const py::array &X, const py::array &y,
-           py::object sample_weight = py::none()) {
+           py::object sample_weight, const py::object &features) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
     auto yb = as1DRow<float>(y, "y");
     if (yb.view().n_elem != Xb.view().n_cols)
@@ -348,8 +387,11 @@ public:
           "y.shape[0] must equal X.shape[0] (number of samples)");
     const arma::Row<float> w_row =
         sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
+
+    const std::vector<FeatureInfo> featuresVec = parseFeaturesPy(features);
+
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), yb.view(), w_row);
+    impl_->fit(Xb.view(), yb.view(), w_row, featuresVec);
   }
 
   py::array_t<double> predict(const py::array &X) {

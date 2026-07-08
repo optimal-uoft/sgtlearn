@@ -40,6 +40,8 @@ struct ShapeBestBranchingState {
   std::vector<std::vector<double>> partitionClassCounts;
   std::vector<double> partitionWeights;
   std::shared_ptr<const InnerDiscretizerBase<double>> winningDiscretizer;
+  /** Column indices into ``X`` used for routing at inference. */
+  arma::uvec routingColumnIndices;
 };
 
 void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node);
@@ -59,6 +61,7 @@ void applySharedShapeBranchingFields(
 bool featureHasBetterShapeBranching(
     const ShapeBranchAssignmentSearchResult &search,
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
+    const arma::uvec &routingColumnIndices,
     std::unique_ptr<InnerDiscretizerBase<double>> disc, double scoreEpsilon,
     const std::function<void(ShapeBestBranchingState &,
                              const ShapeBranchAssignmentSearchResult &,

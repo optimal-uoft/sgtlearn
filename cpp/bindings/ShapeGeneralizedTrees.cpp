@@ -79,6 +79,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("max_features") = py::none())
       .def("fit", &ClassificationShapeGeneralizedTreePy::fit, py::arg("X"),
            py::arg("y"), py::arg("sample_weight") = py::none(),
+           py::arg("features"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
            "1-D uint class labels. Optional sample_weight is 1-D float32.")
       .def("predict", &ClassificationShapeGeneralizedTreePy::predict,
@@ -134,6 +135,7 @@ otherwise the snapshot is restored and the branch objective is rebuilt.
 is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)")
       .def("fit", &RegressionShapeGeneralizedTreePy::fit, py::arg("X"),
            py::arg("y"), py::arg("sample_weight") = py::none(),
+           py::arg("features"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
            "1-D float32 targets. Optional sample_weight is 1-D float32.")
       .def("predict", &RegressionShapeGeneralizedTreePy::predict, py::arg("X"),
