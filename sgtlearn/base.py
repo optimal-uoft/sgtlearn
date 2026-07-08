@@ -304,10 +304,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             Target class labels.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
-        feature_dict : dict, optional
-            ``{logical_key: [column indices]}`` layout (sgt-learnold). A key
-            whose value has more than one index is categorical; singletons are
-            continuous. Unmentioned columns default to continuous singletons.
+        feature_dict : mapping, optional
+            ``{logical_name: [columns]}`` grouping of columns into logical
+            features. Keys are ``int`` or ``str`` logical names. Values are
+            column indices (``int``) or column names (``str``); names require a
+            pandas ``DataFrame`` ``X`` or an explicit ``column_names``. A group
+            of more than one column is treated as a single **categorical**
+            feature (routed through the one-hot inner discretizer); singletons
+            are **continuous**. Columns not mentioned default to continuous
+            singletons. See :func:`~sgtlearn.configure_feature_dict` for the
+            full resolution rules.
         processed_features : ProcessedFeatures, optional
             Pre-resolved features from :func:`configure_feature_dict` (for
             ensembles that should resolve features once).
@@ -620,8 +626,16 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             Target values.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
-        feature_dict : dict, optional
-            ``{logical_key: [column indices]}`` layout (sgt-learnold).
+        feature_dict : mapping, optional
+            ``{logical_name: [columns]}`` grouping of columns into logical
+            features. Keys are ``int`` or ``str`` logical names. Values are
+            column indices (``int``) or column names (``str``); names require a
+            pandas ``DataFrame`` ``X`` or an explicit ``column_names``. A group
+            of more than one column is treated as a single **categorical**
+            feature (routed through the one-hot inner discretizer); singletons
+            are **continuous**. Columns not mentioned default to continuous
+            singletons. See :func:`~sgtlearn.configure_feature_dict` for the
+            full resolution rules.
         processed_features : ProcessedFeatures, optional
             Pre-resolved features from :func:`configure_feature_dict`.
         check_input : bool, default=True

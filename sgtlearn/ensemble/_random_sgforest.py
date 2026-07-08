@@ -174,6 +174,26 @@ class RandomSGForest(BaseEstimator, ABC):
         feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
         processed_features: Optional[ProcessedFeatures] = None,
     ) -> RandomSGForest:
+        """Fit the forest on ``X`` and targets ``y``.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training features. A pandas ``DataFrame`` lets ``feature_dict``
+            reference columns by name.
+        y : array-like of shape (n_samples,)
+            Targets.
+        sample_weight : array-like of shape (n_samples,), optional
+            Per-sample weights.
+        feature_dict : mapping, optional
+            ``{logical_name: [columns]}`` grouping of columns into logical
+            features; multi-column groups are categorical, singletons
+            continuous. Resolved once and shared across all trees. See
+            :func:`~sgtlearn.configure_feature_dict`.
+        processed_features : ProcessedFeatures, optional
+            Pre-resolved features from :func:`~sgtlearn.configure_feature_dict`,
+            used instead of resolving ``feature_dict``.
+        """
         if self.n_estimators < 1:
             raise ValueError("n_estimators must be at least 1.")
         if not self.bootstrap and self.max_samples is not None:
