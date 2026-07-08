@@ -33,6 +33,9 @@ public:
     return binPredictions_;
   }
 
+  /** For each routing bin, column indices whose one-hot level routes there. */
+  std::vector<std::vector<size_t>> categoriesPerBin() const;
+
   /** Index of the trailing NaN / catch-all routing bin. */
   size_t nanBinIndex() const {
     this->ensureTrained();

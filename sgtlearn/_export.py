@@ -9,7 +9,7 @@ every leaf is drawn as a text box with the predicted class / value.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Optional, Sequence, Union
 import numpy as np
 from matplotlib.patches import FancyArrowPatch
 
@@ -68,6 +68,84 @@ def _build_palette(cmap: Any, num_partitions: int):
         return [cm(0.0)]
     points = np.linspace(0.0, 1.0, num_partitions)
     return [cm(p) for p in points]
+
+
+def _is_categorical_node(node: dict) -> bool:
+    if node.get("is_categorical") is not None:
+        return bool(node["is_categorical"])
+    return len(node.get("features") or []) > 1
+
+
+def _bin_categories_for_node(node: dict) -> list[list[int]]:
+    bc = node.get("bin_categories")
+    if bc:
+        return [list(cats) for cats in bc]
+    if _is_categorical_node(node):
+        return [[int(c)] for c in node.get("features") or []]
+    return []
+
+
+def _column_label(col: int, feat_names: list[str]) -> str:
+    if 0 <= col < len(feat_names):
+        return feat_names[col]
+    return f"X[{col}]"
+
+
+def _category_label_for_columns(cols: Sequence[int], feat_names: list[str]) -> str:
+    names = [_column_label(int(c), feat_names) for c in cols]
+    if len(names) == 1:
+        return names[0]
+    return "[" + ", ".join(names) + "]"
+
+
+def _bin_labels_for_categorical_node(node: dict, feat_names: list[str]) -> list[str]:
+    labels: list[str] = []
+    for cats in _bin_categories_for_node(node):
+        if not cats:
+            labels.append("NaN")
+        else:
+            labels.append(_category_label_for_columns(cats, feat_names))
+    return labels
+
+
+def _logical_feature_label(
+    estimator: Any,
+    node: dict,
+    feat_names: list[str],
+    *,
+    prefer_logical_name: bool = True,
+) -> str:
+    routing_cols = [int(c) for c in node.get("features") or []]
+    processed = getattr(estimator, "processed_features_", None)
+    if prefer_logical_name and processed is not None:
+        for i, feat in enumerate(processed.features):
+            if set(feat["indices"]) == set(routing_cols):
+                if processed.logical_names and i < len(processed.logical_names):
+                    return processed.logical_names[i]
+                break
+    if len(routing_cols) == 1:
+        return _column_label(routing_cols[0], feat_names)
+    return _category_label_for_columns(routing_cols, feat_names)
+
+
+def _active_onehot_column(row: np.ndarray, feature_cols: Sequence[int]) -> int | None:
+    active_cols = [
+        int(c) for c in feature_cols if np.isfinite(row[c]) and row[c] >= 0.5
+    ]
+    if not active_cols:
+        return None
+    if len(active_cols) == 1:
+        return active_cols[0]
+    return max(active_cols, key=lambda c: row[c])
+
+
+def _categorical_bin_index(
+    active_col: int, bin_categories: Sequence[Sequence[int]]
+) -> int:
+    for b, cats in enumerate(bin_categories):
+        if active_col in cats:
+            return b
+    return max(len(bin_categories) - 1, 0)
 
 
 def _finite_routing_bins(
@@ -152,23 +230,38 @@ def _route_samples(tree: dict, X) -> "dict[int, Any]":
                 queue.append(cid)
             continue
         feature = node["feature"]
-        thresholds = np.asarray(node["thresholds"], dtype=np.float64)
-        b2p_list = _finite_routing_bins(
-            list(node["thresholds"]), list(node["bin_to_partition"])
-        )
-        b2p = np.asarray(b2p_list, dtype=np.int64)
-        children = list(node["children"])
+        if _is_categorical_node(node):
+            feature_cols = [int(c) for c in node["features"]]
+            bin_categories = _bin_categories_for_node(node)
+            b2p = np.asarray(list(node["bin_to_partition"]), dtype=np.int64)
+            children = list(node["children"])
+            nan_part = int(node.get("nan_prediction_partition", 0))
+            part_idx = np.empty(rows.size, dtype=np.int64)
+            for j, row_i in enumerate(rows):
+                active = _active_onehot_column(X_arr[int(row_i)], feature_cols)
+                if active is None:
+                    part_idx[j] = nan_part
+                else:
+                    bin_idx = _categorical_bin_index(active, bin_categories)
+                    part_idx[j] = b2p[bin_idx]
+        else:
+            thresholds = np.asarray(node["thresholds"], dtype=np.float64)
+            b2p_list = _finite_routing_bins(
+                list(node["thresholds"]), list(node["bin_to_partition"])
+            )
+            b2p = np.asarray(b2p_list, dtype=np.int64)
+            children = list(node["children"])
 
-        values = X_arr[rows, feature]
-        nan_part = int(node.get("nan_prediction_partition", 0))
-        finite_mask = np.isfinite(values)
-        part_idx = np.empty(rows.size, dtype=np.int64)
-        if np.any(~finite_mask):
-            part_idx[~finite_mask] = nan_part
-        if np.any(finite_mask):
-            bin_idx = np.searchsorted(thresholds, values[finite_mask], side="right")
-            bin_idx = np.clip(bin_idx, 0, len(b2p) - 1)
-            part_idx[finite_mask] = b2p[bin_idx]
+            values = X_arr[rows, feature]
+            nan_part = int(node.get("nan_prediction_partition", 0))
+            finite_mask = np.isfinite(values)
+            part_idx = np.empty(rows.size, dtype=np.int64)
+            if np.any(~finite_mask):
+                part_idx[~finite_mask] = nan_part
+            if np.any(finite_mask):
+                bin_idx = np.searchsorted(thresholds, values[finite_mask], side="right")
+                bin_idx = np.clip(bin_idx, 0, len(b2p) - 1)
+                part_idx[finite_mask] = b2p[bin_idx]
 
         for k, cid in enumerate(children):
             mask = part_idx == k
@@ -356,6 +449,97 @@ def _draw_leaf_text(
     return artists
 
 
+def _draw_internal_panel_categorical(
+    host_ax,
+    center: tuple[float, float],
+    size: tuple[float, float],
+    node: dict,
+    palette,
+    feat_names: list[str],
+    X_rows: np.ndarray | None,
+    fontsize: Optional[int],
+    label: str,
+) -> list:
+    cx, cy = center
+    w, h = size
+    inset = host_ax.inset_axes(
+        [cx - w / 2, cy - h / 2, w, h], transform=host_ax.transAxes
+    )
+
+    b2p = list(node["bin_to_partition"])
+    bin_labels = _bin_labels_for_categorical_node(node, feat_names)
+    feature_cols = [int(c) for c in node.get("features") or []]
+    bin_categories = _bin_categories_for_node(node)
+    n_bins = len(b2p)
+    if n_bins == 0:
+        n_bins = len(bin_labels)
+    if n_bins == 0:
+        return [inset]
+
+    counts = [0] * n_bins
+    if X_rows is not None and X_rows.size and feature_cols and bin_categories:
+        for row in X_rows:
+            active = _active_onehot_column(row, feature_cols)
+            if active is None:
+                continue
+            counts[_categorical_bin_index(active, bin_categories)] += 1
+    max_count = max(counts) if counts and max(counts) > 0 else 1
+
+    for b in range(n_bins):
+        inset.axvspan(
+            b,
+            b + 1,
+            ymin=0.0,
+            ymax=counts[b] / max_count if counts else 1.0,
+            color=palette[b2p[b]] if b < len(b2p) else palette[0],
+            alpha=0.5,
+            zorder=0,
+        )
+        if counts and counts[b] > 0:
+            inset.bar(
+                b + 0.5,
+                counts[b] / max_count,
+                width=0.85,
+                color=palette[b2p[b]] if b < len(b2p) else palette[0],
+                edgecolor="white",
+                linewidth=0.3,
+                zorder=1,
+                align="center",
+            )
+
+    tick_labels = bin_labels[:n_bins]
+    inset.set_xlim(0, n_bins)
+    inset.set_ylim(0, 1.05)
+    inset.set_xticks([b + 0.5 for b in range(n_bins)])
+    tick_fs = (fontsize - 2) if isinstance(fontsize, int) else None
+    inset.set_xticklabels(
+        tick_labels,
+        fontsize=tick_fs,
+        rotation=30,
+        ha="right",
+    )
+    inset.set_yticks([])
+    for spine in ("top", "right", "left"):
+        inset.spines[spine].set_visible(False)
+    inset.spines["bottom"].set_linewidth(0.5)
+
+    extra: list = []
+    if label != "none":
+        annot_fs = (fontsize - 2) if isinstance(fontsize, int) else None
+        annot = inset.text(
+            1.0,
+            1.0,
+            f"n={node['n_samples']}",
+            transform=inset.transAxes,
+            ha="right",
+            va="top",
+            fontsize=annot_fs,
+            color="#444444",
+        )
+        extra.append(annot)
+    return [inset, *extra]
+
+
 def _draw_internal_panel(
     host_ax,
     center: tuple[float, float],
@@ -363,22 +547,13 @@ def _draw_internal_panel(
     node: dict,
     palette,
     feature_values,
+    feat_names: list[str],
     n_hist_bins: int,
     precision: int,
     fontsize: Optional[int],
     label: str,
 ) -> list:
-    """Render a single internal node panel: slabs + optional fine histogram.
-
-    The panel is created as an ``inset_axes`` on ``host_ax`` at the given
-    figure-relative ``center`` and ``size``. Background slabs use
-    ``axvspan``; the optional fine histogram (when ``feature_values`` is
-    given) is overlaid as bar Rectangles. Threshold ticks sit under the
-    panel at the slab boundaries; the sample-count annotation sits in the
-    panel's top-right when ``label != 'none'``. Returns
-    ``[inset_axes, *extra_text_artists]``.
-    """
-
+    """Render a single internal node panel: slabs + optional fine histogram."""
     cx, cy = center
     w, h = size
     inset = host_ax.inset_axes(
@@ -558,7 +733,12 @@ def plot_tree(
         resolved_class_names = list(class_names)  # type: ignore[arg-type]
 
     n_features = estimator.n_features_in_ or 0
-    feat_names = feature_names or [f"X[{i}]" for i in range(n_features)]
+    if feature_names is not None:
+        feat_names = list(feature_names)
+    elif getattr(estimator, "feature_names_in_", None) is not None:
+        feat_names = [str(n) for n in estimator.feature_names_in_]
+    else:
+        feat_names = [f"X[{i}]" for i in range(n_features)]
 
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     drawn_ids = set(layout)
@@ -648,26 +828,47 @@ def plot_tree(
 
         # Internal panel.
         feat_idx = node["feature"]
-        feat_vals = None
+        node_rows = None
         if X_arr is not None and reach.get(nid) is not None and len(reach[nid]):
-            feat_vals = X_arr[reach[nid], feat_idx]
+            node_rows = X_arr[reach[nid]]
+        feat_vals = None
+        if node_rows is not None and feat_idx is not None:
+            feat_vals = node_rows[:, feat_idx]
 
-        panel_artists = _draw_internal_panel(
-            host_ax=ax,
-            center=pos,
-            size=(internal_w, internal_h),
-            node=node,
-            palette=palette,
-            feature_values=feat_vals,
-            n_hist_bins=n_hist_bins,
-            precision=precision,
-            fontsize=fontsize,
-            label=label,
-        )
+        if _is_categorical_node(node):
+            panel_artists = _draw_internal_panel_categorical(
+                host_ax=ax,
+                center=pos,
+                size=(internal_w, internal_h),
+                node=node,
+                palette=palette,
+                feat_names=feat_names,
+                X_rows=node_rows,
+                fontsize=fontsize,
+                label=label,
+            )
+        else:
+            panel_artists = _draw_internal_panel(
+                host_ax=ax,
+                center=pos,
+                size=(internal_w, internal_h),
+                node=node,
+                palette=palette,
+                feature_values=feat_vals,
+                feat_names=feat_names,
+                n_hist_bins=n_hist_bins,
+                precision=precision,
+                fontsize=fontsize,
+                label=label,
+            )
         artists.extend(panel_artists)
 
-        # Feature name floats to the right of the panel (axes coords).
-        feat_name = feat_names[feat_idx] if feat_idx is not None else ""
+        feat_name = _logical_feature_label(
+            estimator,
+            node,
+            feat_names,
+            prefer_logical_name=feature_names is None,
+        )
         feat_text = ax.text(
             pos[0] + internal_w * 0.55,
             pos[1],

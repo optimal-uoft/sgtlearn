@@ -235,3 +235,23 @@ size_t CategoricalDiscretizer<StatsT, PredictT>::routeToBin(
   }
   return routing_[nodeId].leafBin;
 }
+
+template <typename StatsT, typename PredictT>
+std::vector<std::vector<size_t>>
+CategoricalDiscretizer<StatsT, PredictT>::categoriesPerBin() const {
+  this->ensureTrained();
+  std::vector<std::vector<size_t>> out(this->leafStats_.size());
+  for (size_t feat : featureIndices_) {
+    std::vector<float> values(featureIndices_.size(), 0.f);
+    const auto it =
+        std::find(featureIndices_.begin(), featureIndices_.end(), feat);
+    if (it == featureIndices_.end())
+      continue;
+    const size_t pos = static_cast<size_t>(it - featureIndices_.begin());
+    values[pos] = 1.f;
+    const size_t bin = routeToBin(values);
+    if (bin < out.size())
+      out[bin].push_back(feat);
+  }
+  return out;
+}

@@ -5,6 +5,7 @@ datasets:
 
 - ``load_breast_cancer`` for ``SGTClassifier`` (binary classification).
 - ``load_diabetes`` for ``SGTRegressor`` (continuous regression target).
+- A synthetic one-hot categorical block for categorical shape-function routing.
 
 Each section saves a PNG to ``OUT_DIR`` (default: alongside this script).
 Run from the repo root:
@@ -25,6 +26,8 @@ import matplotlib
 
 matplotlib.use("Agg")  # render without a display server
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from sklearn.datasets import load_breast_cancer, load_diabetes
 
 from sgtlearn import SGTClassifier, SGTRegressor, plot_tree
@@ -195,6 +198,46 @@ plot_tree(
     fontsize=10,
 )
 save(plt.gcf(), "07_classifier_3way.png")
+
+
+# ---------------------------------------------------------------------------
+# 8. Categorical shape function — one-hot block via ``feature_dict``.
+# ---------------------------------------------------------------------------
+# Group several one-hot columns into a single logical categorical feature with
+# ``feature_dict``. Internal nodes then show discrete category buckets instead
+# of numeric thresholds. When ``inner_max_leaf_nodes`` is smaller than the
+# number of categories, multiple levels can share a bucket; those merged bins
+# are labeled as a list of category names (e.g. ``[cat_0, cat_1, cat_2]``).
+#
+# String keys and column names work naturally with a pandas ``DataFrame``.
+
+rng = np.random.default_rng(7)
+n_samples = 500
+species_levels = ["setosa", "versicolor", "virginica", "extra_a", "extra_b", "extra_c"]
+cats = rng.integers(0, len(species_levels), size=n_samples)
+X_cat = pd.DataFrame(0.0, index=np.arange(n_samples), columns=species_levels)
+for row, cat in enumerate(cats):
+    X_cat.iloc[row, cat] = 1.0
+y_cat = (cats % 2).astype(np.int64)
+
+clf_cat = SGTClassifier(
+    max_depth=3,
+    inner_max_depth=2,
+    inner_max_leaf_nodes=3,  # force some categories to share a bucket
+    min_samples_leaf=5,
+    random_state=0,
+    tao_n_runs=0,
+    max_features=None,
+).fit(X_cat, y_cat, feature_dict={"species": list(species_levels)})
+
+plot_tree(
+    clf_cat,
+    X=X_cat,
+    class_names=["even", "odd"],
+    label="all",
+    fontsize=10,
+)
+save(plt.gcf(), "08_categorical_feature_dict.png")
 
 
 print("\nAll example plots written to:", OUT_DIR)

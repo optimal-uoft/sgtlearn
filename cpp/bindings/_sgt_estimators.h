@@ -15,6 +15,7 @@
 
 #include "_arma_bridge.h"
 
+#include "Discretizers/CategoricalOneHotDiscretizer.h"
 #include "Domain/LearningCriterion.h"
 #include "Domain/FeatureInfo.h"
 #include "Discretizers/UnivariateDiscretizer.h"
@@ -58,6 +59,39 @@ inline py::list innerThresholdsPy(const ShapeFunctionNode &n) {
   for (double t : numericInnerThresholds(*n.innerDiscretizer))
     th.append(t);
   return th;
+}
+
+inline bool isCategoricalInnerDiscretizer(
+    const InnerDiscretizerBase<double> &disc) {
+  return dynamic_cast<const CategoricalClassificationDiscretizer *>(&disc) !=
+             nullptr ||
+         dynamic_cast<const CategoricalRegressionDiscretizer *>(&disc) !=
+             nullptr;
+}
+
+inline std::vector<std::vector<size_t>>
+categoricalCategoriesPerBin(const InnerDiscretizerBase<double> &disc) {
+  if (const auto *cc =
+          dynamic_cast<const CategoricalClassificationDiscretizer *>(&disc))
+    return cc->categoriesPerBin();
+  if (const auto *cr =
+          dynamic_cast<const CategoricalRegressionDiscretizer *>(&disc))
+    return cr->categoriesPerBin();
+  return {};
+}
+
+inline py::list categoricalBinCategoriesPy(const ShapeFunctionNode &n) {
+  if (!n.innerDiscretizer)
+    throw std::runtime_error(
+        "tree export: internal node missing innerDiscretizer");
+  py::list bins;
+  for (const auto &cats : categoricalCategoriesPerBin(*n.innerDiscretizer)) {
+    py::list c;
+    for (size_t col : cats)
+      c.append(col);
+    bins.append(c);
+  }
+  return bins;
 }
 
 inline std::string normalizeCriterion(std::string s) {
@@ -318,7 +352,12 @@ public:
       } else {
         d["feature"] = primaryRoutingFeaturePy(n);
         d["features"] = routingFeaturesPy(n);
+        const bool isCategorical =
+            isCategoricalInnerDiscretizer(*n.innerDiscretizer);
+        d["is_categorical"] = isCategorical;
         d["thresholds"] = innerThresholdsPy(n);
+        if (isCategorical)
+          d["bin_categories"] = categoricalBinCategoriesPy(n);
         py::list b2p;
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
@@ -459,7 +498,12 @@ public:
         d["n_samples"] = total;
         d["feature"] = primaryRoutingFeaturePy(n);
         d["features"] = routingFeaturesPy(n);
+        const bool isCategorical =
+            isCategoricalInnerDiscretizer(*n.innerDiscretizer);
+        d["is_categorical"] = isCategorical;
         d["thresholds"] = innerThresholdsPy(n);
+        if (isCategorical)
+          d["bin_categories"] = categoricalBinCategoriesPy(n);
         py::list b2p;
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;

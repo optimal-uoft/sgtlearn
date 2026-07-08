@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
@@ -20,7 +20,36 @@ from ShapeGeneralizedTrees import (
 )
 from sklearn.preprocessing import LabelEncoder
 
-__all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor", "ProcessedFeatures", "configure_feature_dict"]
+__all__ = [
+    "BaseShapeCART",
+    "SGTClassifier",
+    "SGTRegressor",
+    "ProcessedFeatures",
+    "configure_feature_dict",
+]
+
+
+def _column_names_from_X(X: Any) -> list[str] | None:
+    columns = getattr(X, "columns", None)
+    if columns is None:
+        return None
+    return [str(c) for c in columns]
+
+
+def _configure_processed_features(
+    n_features: int,
+    *,
+    feature_dict: Mapping[int | str, Sequence[int | str]] | None,
+    processed_features: ProcessedFeatures | None,
+    column_names: list[str] | None,
+) -> ProcessedFeatures:
+    if processed_features is not None:
+        return processed_features
+    return configure_feature_dict(
+        n_features,
+        feature_dict=feature_dict,
+        column_names=column_names,
+    )
 
 
 class _IdentityLabelEncoder(LabelEncoder):
@@ -67,6 +96,20 @@ def _normalize_tree_export(tree: dict) -> dict:
     """
     for node in tree.get("nodes", []):
         if node.get("is_leaf", True):
+            continue
+        if node.get("is_categorical"):
+            b2p = node.get("bin_to_partition")
+            if not b2p:
+                continue
+            node["nan_prediction_partition"] = b2p[-1]
+            node["bin_to_partition"] = b2p[:-1]
+            bc = node.get("bin_categories")
+            if bc is not None and len(bc) == len(b2p):
+                node["bin_categories"] = bc[:-1]
+            for key in ("bin_sample_counts", "bin_counts", "bin_weights"):
+                vals = node.get(key)
+                if vals is not None and len(vals) == len(b2p):
+                    node[key] = vals[:-1]
             continue
         thresholds = node.get("thresholds")
         if thresholds is not None:
@@ -239,6 +282,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.classes_: Optional[np.ndarray] = None
         self.n_classes_: Optional[int] = None
         self.n_features_in_: Optional[int] = None
+        self.feature_names_in_: Optional[np.ndarray] = None
 
     def fit(
         self,
@@ -246,7 +290,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
         *,
-        feature_dict: Optional[Mapping[int, list[int]]] = None,
+        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
         processed_features: Optional[ProcessedFeatures] = None,
         check_input: bool = True,
     ) -> "SGTClassifier":
@@ -271,6 +315,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             If ``False``, ``X`` and ``y`` are not validated (for callers that
             already ran :func:`~sklearn.utils.validation.check_X_y`).
         """
+        column_names = _column_names_from_X(X)
 
         if check_input:
             X, y = check_X_y(
@@ -308,11 +353,18 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             sw = normalize_sample_weight(sample_weight, X.shape[0])
 
         self.n_features_in_ = X.shape[1]
+        if column_names is None:
+            column_names = _column_names_from_X(X)
+        self.feature_names_in_: Optional[np.ndarray] = (
+            np.asarray(column_names, dtype=object) if column_names is not None else None
+        )
 
-        if processed_features is None:
-            processed_features = configure_feature_dict(
-                self.n_features_in_, feature_dict=feature_dict
-            )
+        processed_features = _configure_processed_features(
+            self.n_features_in_,
+            feature_dict=feature_dict,
+            processed_features=processed_features,
+            column_names=column_names,
+        )
         self.processed_features_ = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
@@ -546,6 +598,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.tao_lambda = tao_lambda
         self._est: Any = None
         self.n_features_in_: Optional[int] = None
+        self.feature_names_in_: Optional[np.ndarray] = None
 
     def fit(
         self,
@@ -553,7 +606,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
         *,
-        feature_dict: Optional[Mapping[int, list[int]]] = None,
+        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
         processed_features: Optional[ProcessedFeatures] = None,
         check_input: bool = True,
     ) -> "SGTRegressor":
@@ -575,6 +628,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             If ``False``, ``X`` and ``y`` are not validated (for callers that
             already ran :func:`~sklearn.utils.validation.check_X_y`).
         """
+        column_names = _column_names_from_X(X)
 
         if check_input:
             X, y = check_X_y(
@@ -588,11 +642,18 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             if np.isnan(np.asarray(y, dtype=np.float64)).any():
                 raise ValueError("Input y contains NaN.")
         self.n_features_in_ = X.shape[1]
+        if column_names is None:
+            column_names = _column_names_from_X(X)
+        self.feature_names_in_: Optional[np.ndarray] = (
+            np.asarray(column_names, dtype=object) if column_names is not None else None
+        )
 
-        if processed_features is None:
-            processed_features = configure_feature_dict(
-                self.n_features_in_, feature_dict=feature_dict
-            )
+        processed_features = _configure_processed_features(
+            self.n_features_in_,
+            feature_dict=feature_dict,
+            processed_features=processed_features,
+            column_names=column_names,
+        )
         self.processed_features_ = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)

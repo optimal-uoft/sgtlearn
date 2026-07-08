@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from numbers import Integral
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
@@ -12,7 +12,8 @@ from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array, check_is_fitted
 
-from sgtlearn._features import ProcessedFeatures, configure_feature_dict
+from sgtlearn.base import _column_names_from_X, _configure_processed_features
+from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
 
 
@@ -170,7 +171,7 @@ class RandomSGForest(BaseEstimator, ABC):
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
         *,
-        feature_dict: Optional[dict[int, list[int]]] = None,
+        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
         processed_features: Optional[ProcessedFeatures] = None,
     ) -> RandomSGForest:
         if self.n_estimators < 1:
@@ -180,12 +181,17 @@ class RandomSGForest(BaseEstimator, ABC):
 
         X, y = self._check_X_y(X, y)
         self.n_features_in_ = X.shape[1]
+        column_names = _column_names_from_X(X)
+        self.feature_names_in_ = (
+            np.asarray(column_names, dtype=object) if column_names is not None else None
+        )
 
-        if processed_features is None:
-            processed_features = configure_feature_dict(
-                self.n_features_in_, feature_dict=feature_dict
-            )
-        self.processed_features_ = processed_features
+        self.processed_features_ = _configure_processed_features(
+            self.n_features_in_,
+            feature_dict=feature_dict,
+            processed_features=processed_features,
+            column_names=column_names,
+        )
 
         n_samples = X.shape[0]
         sample_weight = self._prepare_sample_weight(y, sample_weight, n_samples)
@@ -209,7 +215,7 @@ class RandomSGForest(BaseEstimator, ABC):
             sample_weight,
             tree_kw,
             tree_factory,
-            processed_features,
+            self.processed_features_,
         )
 
         n_jobs_req = 1 if self.n_jobs is None else self.n_jobs
