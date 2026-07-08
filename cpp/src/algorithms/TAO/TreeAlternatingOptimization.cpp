@@ -6,6 +6,8 @@
 #include "algorithms/TAO/TreeAlternatingOptimization.h"
 
 #include "Discretizers/ClassificationDiscretizer.h"
+#include "Discretizers/DiscretizerFactories.h"
+#include "Discretizers/InnerDiscretizerBase.h"
 #include "algorithms/TAO/TaoObjective.h"
 
 #include <limits>
@@ -37,8 +39,7 @@ computeNodeSamples(const std::vector<ShapeFunctionNode> &nodes,
       continue;
     const auto &children = childIndices[ni];
     for (arma::uword col : nodeSamples[ni]) {
-      const float v = X(node.routingFeature, col);
-      const size_t part = node.routeFeatureValueToPartition(v);
+      const size_t part = node.routeSampleToPartition(X, col);
       if (part >= children.size())
         throw std::runtime_error(
             "tao::computeNodeSamples: routed partition out of range");
@@ -100,13 +101,14 @@ bool optimizeNodeInPlace(
   double bestSingleScore = -std::numeric_limits<double>::infinity();
   bool haveSingle = false;
   size_t bestFeature = 0;
-  std::vector<float> bestThresholds;
   std::vector<size_t> bestBinToPartition;
+  std::shared_ptr<const InnerDiscretizerBase<double>> bestDiscretizer;
   arma::uvec featOne(1);
 
   for (size_t f = 0; f < numFeatures; ++f) {
     featOne(0) = static_cast<arma::uword>(f);
-    auto disc = makeClassificationDiscretizer(routerCriterion);
+    auto disc = makeClassificationDiscretizer(routerCriterion,
+                                              DiscretizerInputKind::Numeric);
     disc->Train(care.Xexp, featOne, care.yexp, k, innerParams.minLeafSize,
                 innerParams.minGainSplit, innerParams.maxDepth,
                 innerParams.maxLeafNodes, care.wexp);
@@ -118,28 +120,33 @@ bool optimizeNodeInPlace(
     if (score > bestSingleScore) {
       bestSingleScore = score;
       bestFeature = f;
-      bestThresholds = std::move(thresholds);
       bestBinToPartition = std::move(binToPartition);
+      bestDiscretizer =
+          std::shared_ptr<const InnerDiscretizerBase<double>>(std::move(disc));
       haveSingle = true;
     }
   }
 
   if (dummyScore >= currScore && dummyScore >= bestSingleScore) {
     node.isLeaf = false;
-    node.routingFeature = 0;
-    node.innerThresholds = {std::numeric_limits<float>::infinity()};
-    node.binToPartition = {objective.dummyChild()};
-    node.nanPredictionPartition = objective.dummyChild();
+    node.routingFeatures = {0};
+    featOne(0) = 0;
+    auto disc = makeClassificationDiscretizer(routerCriterion,
+                                              DiscretizerInputKind::Numeric);
+    disc->Train(care.Xexp, featOne, care.yexp, k, innerParams.minLeafSize,
+                innerParams.minGainSplit, innerParams.maxDepth, 1, care.wexp);
+    node.innerDiscretizer =
+        std::shared_ptr<const InnerDiscretizerBase<double>>(std::move(disc));
+    node.binToPartition = {objective.dummyChild(), objective.dummyChild()};
     node.numPartitions = k;
     return true;
   }
   if (haveSingle && bestSingleScore > currScore &&
       bestSingleScore > dummyScore) {
     node.isLeaf = false;
-    node.routingFeature = bestFeature;
-    node.innerThresholds = std::move(bestThresholds);
+    node.routingFeatures = {bestFeature};
+    node.innerDiscretizer = std::move(bestDiscretizer);
     node.binToPartition = std::move(bestBinToPartition);
-    node.nanPredictionPartition = objective.dummyChild();
     node.numPartitions = k;
     return true;
   }

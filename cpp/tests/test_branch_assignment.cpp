@@ -124,51 +124,33 @@ TEST_CASE("BranchAssignment tracks partition sample counts",
   REQUIRE(obj.partitionSampleCounts() == std::vector<size_t>{6, 2});
 }
 
-TEST_CASE("makeClassificationBranchAssignment entropy matches manual",
+TEST_CASE("makeBranchAssignment entropy matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
   std::vector<std::vector<double>> stats = {{5, 0}, {0, 5}};
   std::vector<double> leafWeights = {5, 5};
   std::vector<size_t> leafSampleCounts = {5, 5};
-  auto ptr = makeClassificationBranchAssignment(
-      LearningCriterion::Entropy, assignments, 2, stats, leafWeights,
-      leafSampleCounts, 2);
+  auto ptr = makeBranchAssignment(LearningCriterion::Entropy, assignments, 2,
+                                  stats, leafWeights, leafSampleCounts, 2);
   EntropyBranchAssignment direct(assignments, 2, stats, leafWeights,
                                  leafSampleCounts, 2);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
 }
 
-TEST_CASE("makeRegressionBranchAssignment squared error matches manual",
+TEST_CASE("makeBranchAssignment squared error matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
   std::vector<std::vector<double>> stats = {{0.0, 0.0}, {20.0, 200.0}};
   std::vector<double> leafWeights = {2, 2};
   std::vector<size_t> leafSampleCounts = {2, 2};
-  auto ptr = makeRegressionBranchAssignment(LearningCriterion::SquaredError,
-                                            assignments, 2, stats, leafWeights,
-                                            leafSampleCounts);
+  auto ptr = makeBranchAssignment(LearningCriterion::SquaredError, assignments,
+                                  2, stats, leafWeights, leafSampleCounts);
   SquaredErrorBranchAssignment direct(assignments, 2, stats, leafWeights,
                                       leafSampleCounts);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
 }
 
-TEST_CASE("makeRegressionBranchAssignment gain hessian matches manual",
-          "[branch_assignment][factory]") {
-  std::vector<size_t> assignments = {0, 1};
-  std::vector<std::vector<double>> stats = {{1.0, 1.0}, {2.0, 2.0}};
-  std::vector<double> leafWeights = {1, 1};
-  std::vector<size_t> leafSampleCounts = {1, 1};
-  const double lambda = 0.5;
-  auto ptr = makeRegressionBranchAssignment(LearningCriterion::GainHessian,
-                                            assignments, 2, stats, leafWeights,
-                                            leafSampleCounts, lambda);
-  std::vector<std::vector<float>> ghStats = {{1.F, 1.F}, {2.F, 2.F}};
-  GainHessianBranchAssignment direct(assignments, 2, ghStats, leafWeights,
-                                     leafSampleCounts, lambda);
-  REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
-}
-
-TEST_CASE("makeRegressionBranchAssignment absolute error matches manual",
+TEST_CASE("makeBranchAssignment absolute error matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
   std::vector<std::vector<float>> leafYs = {{1.F, 2.F}, {10.F}};
@@ -176,24 +158,22 @@ TEST_CASE("makeRegressionBranchAssignment absolute error matches manual",
   std::vector<double> leafWeights = {2, 1};
   std::vector<size_t> leafSampleCounts = {2, 1};
   std::vector<std::vector<double>> unusedStats;
-  auto ptr = makeRegressionBranchAssignment(
-      LearningCriterion::AbsoluteError, assignments, 2, unusedStats,
-      leafWeights, leafSampleCounts, 1.0, &leafYs, &leafWs);
+  auto ptr = makeBranchAssignment(LearningCriterion::AbsoluteError, assignments,
+                                  2, unusedStats, leafWeights, leafSampleCounts,
+                                  0, &leafYs, &leafWs);
   AbsoluteErrorBranchAssignment direct(assignments, 2, leafYs, leafWs,
                                        leafWeights, leafSampleCounts);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
 }
 
-TEST_CASE("makeClassificationBranchAssignment gini matches manual",
+TEST_CASE("makeBranchAssignment gini matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
   std::vector<std::vector<double>> stats = {{3, 0}, {0, 2}};
   std::vector<double> leafWeights = {3, 2};
   std::vector<size_t> leafSampleCounts = {3, 2};
-  auto ptr = makeClassificationBranchAssignment(LearningCriterion::Gini,
-                                                assignments, 2, stats,
-                                                leafWeights, leafSampleCounts,
-                                                2);
+  auto ptr = makeBranchAssignment(LearningCriterion::Gini, assignments, 2, stats,
+                                  leafWeights, leafSampleCounts, 2);
   GiniBranchAssignment direct(assignments, 2, stats, leafWeights,
                               leafSampleCounts, 2);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));

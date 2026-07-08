@@ -195,18 +195,13 @@ def test_sgt_classifier_inner_depth_one_handcrafted_multivariate_with_nan() -> N
     )
     y = np.array([0, 0, 1, 1, 0, 1])
 
-    sgt = SGTClassifier(
-        criterion="gini",
-        inner_max_depth=1,
-        min_samples_leaf=1,
-        min_impurity_decrease=0.0,
-        tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    sgt, dt = _make_inner_depth_one_pair("classification", "gini")
     sgt.fit(X, y)
+    dt.fit(X, y)
     tree = sgt.tree_export()
     root = tree["nodes"][tree["root_index"]]
     assert root["nan_prediction_partition"] == 1
-    assert sgt.predict(X)[2] == 0
+    np.testing.assert_array_equal(sgt.predict(X), dt.predict(X))
 
 
 @pytest.mark.parametrize("criterion", _REGRESSION_SKLEARN_PARITY_CRITERIA)

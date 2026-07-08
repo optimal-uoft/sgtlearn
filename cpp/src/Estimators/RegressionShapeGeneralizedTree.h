@@ -7,6 +7,7 @@
  */
 
 #include "Domain/LearningCriterion.h"
+#include "Domain/FeatureInfo.h"
 #include "Estimators/ShapeGeneralizedTree.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
@@ -24,13 +25,11 @@
  *
  * Responsibilities (by phase):
  * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
- *   split search via ``RegressionShapeFunctionBuilder``; child / commit steps
- *   remain local lambdas in ``fit``.
- * - **Per-node split search** (``RegressionShapeFunctionBuilder``): for each
+ *   per-node split search and child creation via lambdas in ``fit``; commit
+ *   step remains a local lambda in ``fit``.
+ * - **Per-node split search** (``fit`` lambdas): for each
  *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
- *   ``SquaredError`` only: keep CD only if branch MSE drops by a fixed margin vs
- *   the seed, else restore the snapshot and rebuild. ``AbsoluteError`` keeps the
- *   round-robin map (no CD) so sklearn MAE CART parity holds on fidelity tests.
+ *   ``SquaredError`` only; ``AbsoluteError`` keeps the round-robin map (no CD).
  * - **Leaf state**: per-leaf mean (squared error) or median (absolute error)
  *   plus optional ``[sum y, sum y^2]`` stats for squared error.
  * - **Inference**: `predict` walks `childIndices_` using
@@ -41,9 +40,10 @@
  *      samples (per-bin stats and training column indices).
  *   2. **Initial assignment**: round-robin by discretizer bin index
  *      (``b % numPartitions``); regression does not use k-means seeding.
- *   3. **Refinement**: ``SquaredError`` runs coordinate descent and keeps the
- *      result only if branch MSE improves by a small margin vs the seed; else
- *      restore the snapshot and rebuild. ``AbsoluteError`` skips CD (round-robin).
+ *   3. **Refinement**: ``SquaredError`` runs coordinate descent on the
+ *      bin-to-partition map; if the post-CD objective clearly worsens vs the
+ *      seed, restore the assignment snapshot and rebuild. ``AbsoluteError``
+ *      keeps the round-robin seed (no CD).
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`
@@ -59,11 +59,7 @@
  *       `LearningCriterion::AbsoluteError` are accepted; other criteria throw
  *       from the constructor.
  */
-class RegressionShapeFunctionBuilder;
-
 class RegressionShapeGeneralizedTree : public ShapeGeneralizedTree {
-  friend class RegressionShapeFunctionBuilder;
-
 public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and
@@ -101,10 +97,13 @@ public:
    *           Routing candidates are row indices ``0 .. numFeatures-1``.
    * @param y  (numSamples,) real-valued targets.
    *
+   * @param features  logical feature groups resolved in Python.
+   *
    * @throws std::invalid_argument on shape mismatch.
    */
   void fit(const arma::fmat &X, const arma::Row<float> &y,
-           const arma::Row<float> &sampleWeights);
+           const arma::Row<float> &sampleWeights,
+           const std::vector<FeatureInfo> &features);
 
   /** Predicted responses, shape (numSamples,). */
   arma::Row<double> predict(const arma::fmat &X) const;
@@ -129,6 +128,7 @@ private:
   uint64_t random_state_;
   std::mt19937_64 rng_;
   FeatureBaggingPickFn featureBagging_;
+  std::vector<FeatureInfo> features_;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;

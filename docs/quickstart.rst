@@ -109,3 +109,37 @@ forest on the full training set:
 
 See :doc:`api/tao` for ``tao_lambda``, post-hoc ``n_jobs``, and the full
 parameter reference.
+
+Categorical features
+--------------------
+
+Tree splits are numeric by default. To model a categorical variable, one-hot
+encode it and group the resulting columns into a single **logical feature** with
+``feature_dict``. A group of more than one column is routed through the one-hot
+inner discretizer, so a node can branch on category buckets instead of a numeric
+threshold:
+
+.. code-block:: python
+
+   import numpy as np
+   from sgtlearn import SGTClassifier
+
+   # 4 one-hot columns for one categorical variable + 2 numeric columns
+   X = np.hstack([onehot, numeric])          # shape (n, 6)
+   clf = SGTClassifier(max_depth=4, random_state=0)
+   clf.fit(X, y, feature_dict={"color": [0, 1, 2, 3]})
+
+Keys are logical names (``int`` or ``str``) and values are column indices. With
+a pandas ``DataFrame`` you can reference columns by name instead:
+
+.. code-block:: python
+
+   import pandas as pd
+
+   Xdf = pd.DataFrame(X, columns=["red", "green", "blue", "grey", "x0", "x1"])
+   clf.fit(Xdf, y, feature_dict={"color": ["red", "green", "blue", "grey"]})
+
+Columns you do not mention stay as individual continuous features. See
+:func:`~sgtlearn.configure_feature_dict` for the full rules and the
+:doc:`tutorials/categorical-features` tutorial for a worked example with
+plots.

@@ -16,6 +16,7 @@
 #include <variant>
 
 #include "Splitters/AbsoluteErrorSplitter.h"
+#include "Discretizers/CategoricalOneHotDiscretizer.h"
 #include "Discretizers/UnivariateClassificationDiscretizer.h"
 #include "Discretizers/UnivariateRegressionDiscretizer.h"
 
@@ -208,11 +209,11 @@ public:
   }
 
   size_t getNumLeaves() const {
-    return std::visit([](const auto &d) { return d.numLeaves; }, impl_);
+    return std::visit([](const auto &d) { return d.numLeaves(); }, impl_);
   }
 
   void setNumLeaves(size_t v) {
-    std::visit([v](auto &d) { d.numLeaves = v; }, impl_);
+    std::visit([v](auto &d) { d.setNumLeaves(v); }, impl_);
   }
 };
 
@@ -308,12 +309,128 @@ public:
   }
 
   size_t getNumLeaves() const {
-    return std::visit([](const auto &d) { return d.numLeaves; }, impl_);
+    return std::visit([](const auto &d) { return d.numLeaves(); }, impl_);
   }
 
   void setNumLeaves(size_t v) {
-    std::visit([v](auto &d) { d.numLeaves = v; }, impl_);
+    std::visit([v](auto &d) { d.setNumLeaves(v); }, impl_);
   }
+};
+
+class CategoricalOneHotDiscretizerPy {
+  CategoricalOneHotDiscretizer impl_;
+  bool classificationMode_ = true;
+
+public:
+  explicit CategoricalOneHotDiscretizerPy(std::string criterion) {
+    criterion = normalize_criterion(std::move(criterion));
+    if (criterion == "gini") {
+      classificationMode_ = true;
+      impl_.setCriterion(OneHotDiscretizerCriterion::Gini);
+    } else if (criterion == "entropy" || criterion == "log_loss") {
+      classificationMode_ = true;
+      impl_.setCriterion(OneHotDiscretizerCriterion::Entropy);
+    } else if (criterion == "squared_error" || criterion == "mse") {
+      classificationMode_ = false;
+      impl_.setCriterion(OneHotDiscretizerCriterion::SquaredError);
+    } else if (criterion == "absolute_error" || criterion == "mae") {
+      classificationMode_ = false;
+      impl_.setCriterion(OneHotDiscretizerCriterion::AbsoluteError);
+    } else {
+      throw std::invalid_argument(
+          "criterion must be 'gini', 'entropy', 'squared_error'/'mse', or "
+          "'absolute_error'/'mae' (got '" +
+          criterion + "')");
+    }
+  }
+
+  void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
+             py::object y, py::object numClasses = py::none(),
+             size_t minLeafSize = 1, double minGainSplit = 1e-7,
+             size_t maxDepth = 0, size_t maxLeafNodes = 0,
+             py::object sample_weights = py::none()) {
+    py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
+    if (Xcopy.ndim() != 2)
+      throw std::invalid_argument(
+          "X must be a 2D numpy array with shape (N_samples, N_features)");
+    const arma::fmat xArma =
+        arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
+
+    py::array_t<size_t> fcopy = py::array_t<size_t>::ensure(features);
+    if (fcopy.ndim() != 1)
+      throw std::invalid_argument("features must be a 1D numpy array");
+    const arma::uvec featuresArma =
+        arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
+
+    const arma::Row<float> wRow =
+        sampleWeightRowFromPy(sample_weights, xArma.n_cols);
+
+    const bool useClassification =
+        !numClasses.is_none() || classificationMode_;
+
+    if (useClassification) {
+      if (numClasses.is_none())
+        throw std::invalid_argument(
+            "numClasses is required for classification training");
+      py::array_t<size_t> ycopy = py::array_t<size_t>::ensure(y);
+      if (ycopy.ndim() != 1)
+        throw std::invalid_argument("y must be a 1D numpy array");
+      arma::Mat<size_t> yArma = carma::arr_to_row<size_t>(ycopy, true);
+      if (yArma.n_elem != xArma.n_cols)
+        throw std::invalid_argument("y length must match X.shape[0]");
+      impl_.TrainClassification(
+          xArma, featuresArma, yArma, numClasses.cast<size_t>(), minLeafSize,
+          minGainSplit, maxDepth, maxLeafNodes, wRow);
+      return;
+    }
+
+    py::array_t<float> ycopy = py::array_t<float>::ensure(y);
+    if (ycopy.ndim() != 1)
+      throw std::invalid_argument("y must be a 1D numpy array");
+    arma::Mat<float> yArma = carma::arr_to_row<float>(ycopy, true);
+    if (yArma.n_elem != xArma.n_cols)
+      throw std::invalid_argument("y length must match X.shape[0]");
+    impl_.TrainRegression(xArma, featuresArma, yArma, minLeafSize, minGainSplit,
+                          maxDepth, maxLeafNodes, wRow);
+  }
+
+  py::array_t<size_t> transform(const py::array_t<float> &X) {
+    py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
+    if (Xcopy.ndim() != 2)
+      throw std::invalid_argument(
+          "X must be a 2D numpy array with shape (N_samples, N_features)");
+    const arma::fmat xArma =
+        arma::fmat(carma::arr_to_mat<float>(Xcopy, true).t());
+    arma::Row<size_t> bins;
+    impl_.transform(xArma, bins);
+    return row_to_numpy_1d(bins);
+  }
+
+  py::list getLeafNodeWeights() {
+    py::list out;
+    for (double v : impl_.leafNodeWeights())
+      out.append(v);
+    return out;
+  }
+
+  py::list getInSampleDiscretizations() {
+    return VectorOfVectorsToNumpyList(impl_.inSampleDiscretizations());
+  }
+
+  py::object getBinPredictions() {
+    if (impl_.isClassification()) {
+      const auto &preds = impl_.binPredictionsClass();
+      arma::Col<size_t> col(preds.size());
+      for (size_t i = 0; i < preds.size(); ++i)
+        col(i) = preds[i];
+      return col_to_numpy_1d(col);
+    }
+    return vector_float_to_numpy_1d(impl_.binPredictionsReg());
+  }
+
+  size_t getNumLeaves() const { return impl_.numLeaves(); }
+
+  void setNumLeaves(size_t v) { impl_.setNumLeaves(v); }
 };
 
 } // namespace
@@ -357,4 +474,20 @@ PYBIND11_MODULE(Discretizers, m) {
       .def_property("numLeaves",
                     &UnivariateRegressionDiscretizerPy::getNumLeaves,
                     &UnivariateRegressionDiscretizerPy::setNumLeaves);
+
+  py::class_<CategoricalOneHotDiscretizerPy>(m, "CategoricalOneHotDiscretizer")
+      .def(py::init<std::string>(), py::arg("criterion") = "gini")
+      .def("Train", &CategoricalOneHotDiscretizerPy::Train, py::arg("X"),
+           py::arg("features"), py::arg("y"), py::arg("numClasses") = py::none(),
+           py::arg("minLeafSize") = 1, py::arg("minGainSplit") = 1e-7,
+           py::arg("maxDepth") = 0, py::arg("maxLeafNodes") = 0,
+           py::arg("sample_weight") = py::none())
+      .def("getLeafNodeWeights",
+           &CategoricalOneHotDiscretizerPy::getLeafNodeWeights)
+      .def("transform", &CategoricalOneHotDiscretizerPy::transform, py::arg("X"))
+      .def("getInSampleDiscretizations",
+           &CategoricalOneHotDiscretizerPy::getInSampleDiscretizations)
+      .def("getBinPredictions", &CategoricalOneHotDiscretizerPy::getBinPredictions)
+      .def_property("numLeaves", &CategoricalOneHotDiscretizerPy::getNumLeaves,
+                    &CategoricalOneHotDiscretizerPy::setNumLeaves);
 }

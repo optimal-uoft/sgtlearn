@@ -46,6 +46,7 @@ add_library(sgtlearn_core STATIC
         src/algorithms/missing_values.h
         src/Discretizers/UnivariateClassificationDiscretizer.h
         src/Domain/SplitCandidate.h
+        src/Domain/FeatureInfo.h
         src/Domain/LearningCriterion.h
         src/Domain/LearningFactories.h
         src/Splitters/Splitter.h
@@ -55,10 +56,24 @@ add_library(sgtlearn_core STATIC
         src/Splitters/GiniSplitter.h
         src/algorithms/TreeBuilder.h
         src/algorithms/TreeBuilder.tpp
+        src/Discretizers/InnerDiscretizerBase.h
+        src/Discretizers/DiscretizerInputKind.h
+        src/Discretizers/DiscretizerFactories.h
+        src/Discretizers/DiscretizerFactories.cpp
         src/Discretizers/UnivariateDiscretizer.h
         src/Discretizers/UnivariateDiscretizer.tpp
         src/Discretizers/ClassificationDiscretizer.h
         src/Discretizers/RegressionDiscretizer.h
+        src/Domain/CategoricalSplitCandidate.h
+        src/Discretizers/CategoricalDiscretizer.h
+        src/Discretizers/CategoricalDiscretizer.tpp
+        src/Discretizers/CategoricalOneHotDiscretizer.h
+        src/Discretizers/CategoricalOneHotDiscretizer.cpp
+        src/Splitters/CategoricalSplitter.h
+        src/Splitters/CategoricalClassificationSplitter.h
+        src/Splitters/CategoricalClassificationSplitter.cpp
+        src/Splitters/CategoricalRegressionSplitter.h
+        src/Splitters/CategoricalRegressionSplitter.cpp
         src/Discretizers/UnivariateClassificationDiscretizer.cpp
         src/Splitters/SquaredErrorSplitter.h
         src/Splitters/SquaredErrorSplitter.cpp
@@ -93,12 +108,8 @@ add_library(sgtlearn_core STATIC
         src/Estimators/ShapeFunctions/ShapeFunctionNode.cpp
         src/algorithms/ShapeBranchingTypes.h
         src/algorithms/BinPartitionAssignments.h
-        src/Estimators/ShapeFunctions/ShapeFunctionBuilder.h
-        src/Estimators/ShapeFunctions/ShapeFunctionBuilder.cpp
-        src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h
-        src/Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.cpp
-        src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.h
-        src/Estimators/ShapeFunctions/RegressionShapeFunctionBuilder.cpp
+        src/Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h
+        src/Estimators/ShapeFunctions/ShapeFunctionSplitSearch.cpp
         src/Estimators/ShapeGeneralizedTree.h
         src/Estimators/ShapeGeneralizedTree.cpp
         src/Estimators/ClassificationShapeGeneralizedTree.h

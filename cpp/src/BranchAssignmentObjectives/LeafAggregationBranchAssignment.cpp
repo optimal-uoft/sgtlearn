@@ -63,8 +63,8 @@ double LeafAggregationBranchAssignment<T>::objective() {
 
 template <typename T>
 void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) {
-  if (allLeavesAssigned)
-    throw std::runtime_error("Cannot assign a leaf if none ever left");
+  // if (allLeavesAssigned)
+  //   throw std::runtime_error("Cannot assign a leaf if none ever left");
 
   weightedSumLoss -= partitionWeight[partition] * partitionLoss[partition];
 
@@ -78,14 +78,14 @@ void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) 
   weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
 
   assignments[leaf] = partition;
-  allLeavesAssigned = true;
+  // allLeavesAssigned = true;
 }
 
 template <typename T>
 void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
-  if (!allLeavesAssigned)
-    throw std::runtime_error(
-        "More than one leaf cannot be removed from the objective");
+  // if (!allLeavesAssigned)
+  //   throw std::runtime_error(
+  //       "More than one leaf cannot be removed from the objective");
 
   const size_t partition = assignments[leaf];
   if (partition >= numPartitions)
@@ -103,7 +103,7 @@ void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
   weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
 
   assignments[leaf] = numPartitions;
-  allLeavesAssigned = false;
+  // allLeavesAssigned = false;
 }
 
 template <typename T>

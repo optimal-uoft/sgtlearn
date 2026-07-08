@@ -4,6 +4,7 @@
 
 #include "algorithms/TAO/TaoObjective.h"
 
+#include "Discretizers/UnivariateDiscretizer.h"
 #include "algorithms/missing_values.h"
 
 #include <algorithm>
@@ -80,8 +81,8 @@ double TaoObjective::rewardSumForPartition(
 double TaoObjective::scoreCurrent(const ShapeFunctionNode &node) const {
   double rewardSum = 0.0;
   for (size_t i = 0; i < nCare_; ++i) {
-    const float v = X_(node.routingFeature, care_.careCols[i]);
-    const size_t child = node.routeFeatureValueToPartition(v);
+    const size_t child = node.routeSampleToPartition(
+        X_, static_cast<arma::uword>(care_.careCols[i]));
     rewardSum += careWeight(i) * care_.careRewards[i][child];
   }
   return penalizedScore(rewardSum);
@@ -109,7 +110,8 @@ double TaoObjective::scoreDiscretizer(
   if (disc.numLeaves() < 1)
     return -std::numeric_limits<double>::infinity();
 
-  const std::vector<double> &thr = disc.thresholds();
+  const std::vector<double> &thr =
+      numericInnerThresholds(static_cast<const InnerDiscretizerBase<double> &>(disc));
   const std::vector<std::vector<double>> &leafStats = disc.leafStats();
   thresholdsOut.resize(thr.size());
   for (size_t b = 0; b < thr.size(); ++b)

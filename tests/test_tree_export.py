@@ -51,6 +51,7 @@ def test_classifier_internal_node_invariants():
     for n in internals:
         assert n["feature"] is not None
         assert len(n["thresholds"]) + 1 == len(n["bin_to_partition"])
+        assert "nan_prediction_partition" in n
         assert len(n["bin_sample_counts"]) == len(n["bin_to_partition"])
         assert len(n["bin_counts"]) == len(n["bin_to_partition"])
         for p in n["bin_to_partition"]:

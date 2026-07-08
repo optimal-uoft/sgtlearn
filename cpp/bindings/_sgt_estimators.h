@@ -15,7 +15,10 @@
 
 #include "_arma_bridge.h"
 
+#include "Discretizers/CategoricalOneHotDiscretizer.h"
 #include "Domain/LearningCriterion.h"
+#include "Domain/FeatureInfo.h"
+#include "Discretizers/UnivariateDiscretizer.h"
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 #include "algorithms/FeatureBagging.h"
@@ -33,6 +36,63 @@
 namespace sgt::bindings {
 
 namespace py = pybind11;
+
+inline py::list routingFeaturesPy(const ShapeFunctionNode &n) {
+  py::list feats;
+  for (size_t f : n.routingFeatures)
+    feats.append(f);
+  return feats;
+}
+
+inline py::object primaryRoutingFeaturePy(const ShapeFunctionNode &n) {
+  if (n.routingFeatures.empty())
+    return py::none();
+  if (n.routingFeatures.size() == 1)
+    return py::int_(n.routingFeatures.front());
+  return py::none();
+}
+
+inline py::list innerThresholdsPy(const ShapeFunctionNode &n) {
+  if (!n.innerDiscretizer)
+    throw std::runtime_error("tree export: internal node missing innerDiscretizer");
+  py::list th;
+  for (double t : numericInnerThresholds(*n.innerDiscretizer))
+    th.append(t);
+  return th;
+}
+
+inline bool isCategoricalInnerDiscretizer(
+    const InnerDiscretizerBase<double> &disc) {
+  return dynamic_cast<const CategoricalClassificationDiscretizer *>(&disc) !=
+             nullptr ||
+         dynamic_cast<const CategoricalRegressionDiscretizer *>(&disc) !=
+             nullptr;
+}
+
+inline std::vector<std::vector<size_t>>
+categoricalCategoriesPerBin(const InnerDiscretizerBase<double> &disc) {
+  if (const auto *cc =
+          dynamic_cast<const CategoricalClassificationDiscretizer *>(&disc))
+    return cc->categoriesPerBin();
+  if (const auto *cr =
+          dynamic_cast<const CategoricalRegressionDiscretizer *>(&disc))
+    return cr->categoriesPerBin();
+  return {};
+}
+
+inline py::list categoricalBinCategoriesPy(const ShapeFunctionNode &n) {
+  if (!n.innerDiscretizer)
+    throw std::runtime_error(
+        "tree export: internal node missing innerDiscretizer");
+  py::list bins;
+  for (const auto &cats : categoricalCategoriesPerBin(*n.innerDiscretizer)) {
+    py::list c;
+    for (size_t col : cats)
+      c.append(col);
+    bins.append(c);
+  }
+  return bins;
+}
 
 inline std::string normalizeCriterion(std::string s) {
   const auto not_space = [](unsigned char c) { return !std::isspace(c); };
@@ -125,6 +185,42 @@ inline FeatureBaggingPickFn parseMaxFeaturesPy(py::handle mf_h) {
       "or the string 'sqrt' / 'log2'");
 }
 
+inline FeatureType parseFeatureTypePy(const std::string &raw) {
+  std::string s = normalizeCriterion(raw);
+  if (s == "continuous" || s == "numeric")
+    return FeatureType::Continuous;
+  if (s == "categorical" || s == "one_hot" || s == "onehot")
+    return FeatureType::Categorical;
+  throw std::invalid_argument(
+      "feature type must be 'continuous' or 'categorical'; got '" + raw + "'");
+}
+
+inline std::vector<FeatureInfo> parseFeaturesPy(const py::object &features) {
+  if (features.is_none())
+    throw std::invalid_argument("features is required");
+  if (!py::isinstance<py::list>(features))
+    throw std::invalid_argument("features must be a list of feature dicts");
+  std::vector<FeatureInfo> out;
+  for (const py::handle item : features) {
+    if (!py::isinstance<py::dict>(item))
+      throw std::invalid_argument(
+          "each feature must be a dict with 'type' and 'indices'");
+    const py::dict d = py::reinterpret_borrow<py::dict>(item);
+    if (!d.contains("type") || !d.contains("indices"))
+      throw std::invalid_argument(
+          "each feature dict must contain 'type' and 'indices'");
+    FeatureInfo feature;
+    feature.type = parseFeatureTypePy(py::str(d["type"]).cast<std::string>());
+    const py::list idxs = py::cast<py::list>(d["indices"]);
+    feature.indices.set_size(idxs.size());
+    for (arma::uword i = 0; i < feature.indices.n_elem; ++i)
+      feature.indices(i) =
+          static_cast<arma::uword>(py::cast<size_t>(idxs[static_cast<py::ssize_t>(i)]));
+    out.push_back(std::move(feature));
+  }
+  return out;
+}
+
 /**
  * Thin Python adapter around `ClassificationShapeGeneralizedTree`. Owns the
  * C++ implementation and handles NumPy <-> Armadillo plumbing.
@@ -155,7 +251,7 @@ public:
   }
 
   void fit(const py::array &X, const py::array &y,
-           py::object sample_weight = py::none()) {
+           py::object sample_weight, const py::object &features) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
     /** Owning copy: zero-copy Row views from NumPy often fail Armadillo strict
      *  checks on some dtypes / strides; C++ expects `arma::Row<size_t>`. */
@@ -172,8 +268,10 @@ public:
     const arma::Row<float> w_row =
         sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
 
+    const std::vector<FeatureInfo> featuresVec = parseFeaturesPy(features);
+
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), y_row, w_row);
+    impl_->fit(Xb.view(), y_row, w_row, featuresVec);
   }
 
   py::array_t<size_t> predict(const py::array &X) {
@@ -245,16 +343,21 @@ public:
 
       if (n.isLeaf) {
         d["feature"] = py::none();
+        d["features"] = py::list();
         d["thresholds"] = py::list();
         d["bin_to_partition"] = py::list();
         d["bin_counts"] = py::list();
         d["bin_sample_counts"] = py::list();
         d["children"] = py::list();
       } else {
-        d["feature"] = n.routingFeature;
-        py::list th;
-        for (float t : n.innerThresholds) th.append(t);
-        d["thresholds"] = th;
+        d["feature"] = primaryRoutingFeaturePy(n);
+        d["features"] = routingFeaturesPy(n);
+        const bool isCategorical =
+            isCategoricalInnerDiscretizer(*n.innerDiscretizer);
+        d["is_categorical"] = isCategorical;
+        d["thresholds"] = innerThresholdsPy(n);
+        if (isCategorical)
+          d["bin_categories"] = categoricalBinCategoriesPy(n);
         py::list b2p;
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
@@ -271,7 +374,8 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
-        d["nan_prediction_partition"] = n.nanPredictionPartition;
+        d["nan_prediction_partition"] =
+            n.binToPartition.empty() ? 0 : n.binToPartition.back();
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);
@@ -314,7 +418,7 @@ public:
   }
 
   void fit(const py::array &X, const py::array &y,
-           py::object sample_weight = py::none()) {
+           py::object sample_weight, const py::object &features) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
     auto yb = as1DRow<float>(y, "y");
     if (yb.view().n_elem != Xb.view().n_cols)
@@ -322,8 +426,11 @@ public:
           "y.shape[0] must equal X.shape[0] (number of samples)");
     const arma::Row<float> w_row =
         sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
+
+    const std::vector<FeatureInfo> featuresVec = parseFeaturesPy(features);
+
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), yb.view(), w_row);
+    impl_->fit(Xb.view(), yb.view(), w_row, featuresVec);
   }
 
   py::array_t<double> predict(const py::array &X) {
@@ -378,6 +485,7 @@ public:
         d["value"] = i < leafPred.size() ? leafPred[i] : 0.0;
         d["n_samples"] = i < leafN.size() ? leafN[i] : static_cast<size_t>(0);
         d["feature"] = py::none();
+        d["features"] = py::list();
         d["thresholds"] = py::list();
         d["bin_to_partition"] = py::list();
         d["bin_counts"] = py::list();
@@ -388,10 +496,14 @@ public:
         size_t total = 0;
         for (size_t v : n.binSampleCounts) total += v;
         d["n_samples"] = total;
-        d["feature"] = n.routingFeature;
-        py::list th;
-        for (float t : n.innerThresholds) th.append(t);
-        d["thresholds"] = th;
+        d["feature"] = primaryRoutingFeaturePy(n);
+        d["features"] = routingFeaturesPy(n);
+        const bool isCategorical =
+            isCategoricalInnerDiscretizer(*n.innerDiscretizer);
+        d["is_categorical"] = isCategorical;
+        d["thresholds"] = innerThresholdsPy(n);
+        if (isCategorical)
+          d["bin_categories"] = categoricalBinCategoriesPy(n);
         py::list b2p;
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
@@ -408,7 +520,8 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
-        d["nan_prediction_partition"] = n.nanPredictionPartition;
+        d["nan_prediction_partition"] =
+            n.binToPartition.empty() ? 0 : n.binToPartition.back();
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);

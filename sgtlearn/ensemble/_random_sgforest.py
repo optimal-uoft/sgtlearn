@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from numbers import Integral
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
@@ -12,6 +12,8 @@ from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array, check_is_fitted
 
+from sgtlearn.base import _column_names_from_X, _configure_processed_features
+from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
 
 
@@ -43,6 +45,7 @@ def _parallel_fit_tree(
     sample_weight: Optional[np.ndarray],
     tree_kw: dict[str, Any],
     tree_factory: Any,
+    processed_features: Optional[ProcessedFeatures],
 ) -> Any:
     """Fit one bootstrapped (or full) base tree; module-level for ``joblib`` workers."""
     if bootstrap:
@@ -56,7 +59,13 @@ def _parallel_fit_tree(
         sw_b = sample_weight
 
     est = tree_factory(tree_seed, tree_kw)
-    est.fit(X_b, y_b, sample_weight=sw_b, check_input=False)
+    est.fit(
+        X_b,
+        y_b,
+        sample_weight=sw_b,
+        processed_features=processed_features,
+        check_input=False,
+    )
     return est
 
 
@@ -161,14 +170,48 @@ class RandomSGForest(BaseEstimator, ABC):
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
+        *,
+        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
+        processed_features: Optional[ProcessedFeatures] = None,
     ) -> RandomSGForest:
+        """Fit the forest on ``X`` and targets ``y``.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training features. A pandas ``DataFrame`` lets ``feature_dict``
+            reference columns by name.
+        y : array-like of shape (n_samples,)
+            Targets.
+        sample_weight : array-like of shape (n_samples,), optional
+            Per-sample weights.
+        feature_dict : mapping, optional
+            ``{logical_name: [columns]}`` grouping of columns into logical
+            features; multi-column groups are categorical, singletons
+            continuous. Resolved once and shared across all trees. See
+            :func:`~sgtlearn.configure_feature_dict`.
+        processed_features : ProcessedFeatures, optional
+            Pre-resolved features from :func:`~sgtlearn.configure_feature_dict`,
+            used instead of resolving ``feature_dict``.
+        """
         if self.n_estimators < 1:
             raise ValueError("n_estimators must be at least 1.")
         if not self.bootstrap and self.max_samples is not None:
             raise ValueError("max_samples can only be set when bootstrap=True.")
 
+        column_names = _column_names_from_X(X)
         X, y = self._check_X_y(X, y)
         self.n_features_in_ = X.shape[1]
+        self.feature_names_in_ = (
+            np.asarray(column_names, dtype=object) if column_names is not None else None
+        )
+
+        self.processed_features_ = _configure_processed_features(
+            self.n_features_in_,
+            feature_dict=feature_dict,
+            processed_features=processed_features,
+            column_names=column_names,
+        )
 
         n_samples = X.shape[0]
         sample_weight = self._prepare_sample_weight(y, sample_weight, n_samples)
@@ -192,6 +235,7 @@ class RandomSGForest(BaseEstimator, ABC):
             sample_weight,
             tree_kw,
             tree_factory,
+            self.processed_features_,
         )
 
         n_jobs_req = 1 if self.n_jobs is None else self.n_jobs

@@ -9,11 +9,16 @@
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 
 #include "Criterion.h"
-#include "Estimators/ShapeFunctions/ClassificationShapeFunctionBuilder.h"
+#include "Discretizers/ClassificationDiscretizer.h"
+#include "Discretizers/DiscretizerFactories.h"
+#include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 
 #include <algorithm>
 #include <armadillo>
 #include <iterator>
+#include <limits>
+#include <numeric>
+#include <span>
 #include <stdexcept>
 #include <vector>
 
@@ -85,7 +90,8 @@ std::vector<double> ClassificationShapeGeneralizedTree::fillLeafHistogram(
 
 void ClassificationShapeGeneralizedTree::fit(
     const arma::fmat &X, const arma::Row<size_t> &y,
-    const arma::Row<float> &sampleWeights) {
+    const arma::Row<float> &sampleWeights,
+    const std::vector<FeatureInfo> &features) {
 
   if (X.n_cols != y.n_elem)
     throw std::invalid_argument(
@@ -107,6 +113,7 @@ void ClassificationShapeGeneralizedTree::fit(
         "ClassificationShapeGeneralizedTree::fit: sample_weights length must "
         "match number of samples");
   fitSampleWeights_ = sampleWeights;
+  features_ = features;
 
   rng_.seed(static_cast<std::mt19937_64::result_type>(random_state_));
 
@@ -130,20 +137,129 @@ void ClassificationShapeGeneralizedTree::fit(
   childIndices_.emplace_back();
   rootIndex_ = 0;
 
-  const arma::uvec featureCandidates =
-      arma::regspace<arma::uvec>(0, X.n_rows - 1);
+  const size_t numLogicalFeatures = features_.size();
 
-  ClassificationShapeFunctionBuilder splitBuilder(*this, X, y,
-                                                  featureCandidates);
+  const auto findBestSplit =
+      [this, &X, &y, numLogicalFeatures](ShapeFunctionNode &node,
+                                         size_t minLeaf) -> bool {
+        const size_t ns = node.sampleIndices.n_elem;
+        node.score = impurityForClassCounts(classCounts[node.nodeIndex]);
+
+        if (ns < 2 * minLeaf) {
+          markShapeFunctionNodeAsLeaf(node);
+          return false;
+        }
+
+        const double parentImp = node.score;
+        if (parentImp <= outerTreeBuilder_.eps) {
+          markShapeFunctionNodeAsLeaf(node);
+          return false;
+        }
+
+        const arma::uvec &subIdx = node.sampleIndices;
+        const arma::fmat Xsub = X.cols(subIdx);
+        const arma::Row<size_t> ysub = y.cols(subIdx);
+
+        std::vector<size_t> featurePool(numLogicalFeatures);
+        std::iota(featurePool.begin(), featurePool.end(), 0);
+        const std::vector<size_t> featureSubset = featureBagging_(
+            std::span<const size_t>(featurePool.data(), featurePool.size()),
+            rng_);
+
+        const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
+        ShapeBestBranchingState best{};
+
+        const auto applyTaskFields =
+            [](ShapeBestBranchingState &state,
+               const ShapeBranchAssignmentSearchResult &search,
+               const std::vector<std::vector<double>> &leafStats) {
+              state.branching.leafStats = leafStats;
+              state.partitionClassCounts = search.partitionClassCounts;
+              state.partitionWeights = search.partitionWeights;
+            };
+
+        for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
+          const size_t logicalIdx = featureSubset[fi];
+          const FeatureInfo &feature = features_[logicalIdx];
+
+          const arma::Row<float> wsub =
+              subSampleWeights(fitSampleWeights_, subIdx);
+
+          auto disc = makeClassificationDiscretizer(criterion_, feature);
+          trainClassificationDiscretizer(
+              *disc, feature, Xsub, ysub, numClasses_, innerParams_.minLeafSize,
+              innerParams_.minGainSplit, innerParams_.maxDepth,
+              innerParams_.maxLeafNodes, wsub);
+          if (disc->numLeaves() < 2)
+            continue;
+
+          const ShapeBranchAssignmentSearchResult featureBest =
+              searchShapeBranchAssignmentFromDiscretizer(
+                  *disc, criterion_, parentImp, numPartitions_, outerParams_,
+                  cdParams_, outerTreeBuilder_.eps, rng_,
+                  /*useKMeansSeed=*/true, numClasses_);
+          if (!featureBest.found)
+            continue;
+
+          featureHasBetterShapeBranching(
+              featureBest, best, logicalIdx, xSubCols, feature.indices,
+              std::unique_ptr<InnerDiscretizerBase<double>>(std::move(disc)),
+              outerTreeBuilder_.eps, applyTaskFields);
+        }
+
+        if (!std::isfinite(best.penalizedChildScore) ||
+            best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
+            best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
+          markShapeFunctionNodeAsLeaf(node);
+          return false;
+        }
+
+        node.isLeaf = false;
+        node.routingFeatures.assign(best.routingColumnIndices.begin(),
+                                    best.routingColumnIndices.end());
+        node.innerDiscretizer = best.winningDiscretizer;
+        node.binToPartition = std::move(best.branching.binToPartition);
+        node.sampleBins = std::move(best.branching.sampleBins);
+        node.splitLeafStats = std::move(best.branching.leafStats);
+        node.splitBinWeights = std::move(best.binWeights);
+        node.binSampleCounts = std::move(best.branching.leafNumSamples);
+        node.numPartitions = best.branching.numPartitionsUsed;
+        node.informationGain = best.branching.impurityDecrease;
+
+        return true;
+      };
+
+  const auto makeChildren =
+      [this, &X](const ShapeFunctionNode &parent)
+          -> std::vector<ShapeFunctionNode> {
+        const auto buckets = routeSamplesToPartitions(parent, X);
+        const auto &binStats = parent.splitLeafStats;
+        if (binStats.size() != parent.binToPartition.size())
+          throw std::runtime_error(
+              "ClassificationShapeGeneralizedTree::fit: splitLeafStats / "
+              "binToPartition size mismatch");
+
+        auto children =
+            makeRoutedChildNodes(parent, buckets, numPartitions_);
+        for (size_t p = 0; p < children.size(); ++p) {
+          std::vector<double> childClassCounts(numClasses_, 0.0);
+          for (size_t b = 0; b < binStats.size(); ++b) {
+            if (parent.binToPartition[b] != p)
+              continue;
+            const auto &sb = binStats[b];
+            for (size_t c = 0; c < numClasses_; ++c)
+              childClassCounts[c] +=
+                  (c < sb.size()) ? static_cast<double>(sb[c]) : 0.0;
+          }
+          children[p].score = impurityForClassCounts(childClassCounts);
+          children[p].isLeaf = true;
+          classCounts.push_back(childClassCounts);
+        }
+        return children;
+      };
 
   outerTreeBuilder_.buildTree(
-      nodes_[0],
-      [&splitBuilder](ShapeFunctionNode &node, size_t minLeaf) {
-        return splitBuilder.findBestSplit(node, minLeaf);
-      },
-      [&splitBuilder](ShapeFunctionNode &parent) {
-        return splitBuilder.makeChildren(parent);
-      },
+      nodes_[0], findBestSplit, makeChildren,
       [this](ShapeFunctionNode &parent,
              std::vector<ShapeFunctionNode> &children) {
         const size_t pid = parent.nodeIndex;
@@ -195,12 +311,7 @@ ClassificationShapeGeneralizedTree::predict(const arma::fmat &X) const {
         yhat(s) = classificationInference::argMaxClass(classCounts[node.nodeIndex]);
         break;
       }
-      if (node.routingFeature >= X.n_rows)
-        throw std::invalid_argument(
-            "ClassificationShapeGeneralizedTree::predict: routing feature "
-            "index out of range for X");
-      const float v = X(node.routingFeature, s);
-      const size_t part = node.routeFeatureValueToPartition(v);
+      const size_t part = node.routeSampleToPartition(X, static_cast<arma::uword>(s));
       if (part >= childIndices_[idx].size())
         throw std::runtime_error(
             "ClassificationShapeGeneralizedTree::predict: child partition "
@@ -255,12 +366,7 @@ ClassificationShapeGeneralizedTree::predictProba(const arma::fmat &X) const {
         }
         break;
       }
-      if (node.routingFeature >= X.n_rows)
-        throw std::invalid_argument(
-            "ClassificationShapeGeneralizedTree::predictProba: routing "
-            "feature index out of range for X");
-      const float v = X(node.routingFeature, s);
-      const size_t part = node.routeFeatureValueToPartition(v);
+      const size_t part = node.routeSampleToPartition(X, static_cast<arma::uword>(s));
       if (part >= childIndices_[idx].size())
         throw std::runtime_error(
             "ClassificationShapeGeneralizedTree::predictProba: child "

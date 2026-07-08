@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
+from sgtlearn._features import ProcessedFeatures, configure_feature_dict
 from sgtlearn._weights import (
     normalize_sample_weight,
     effective_sample_weight_classification,
@@ -19,7 +20,36 @@ from ShapeGeneralizedTrees import (
 )
 from sklearn.preprocessing import LabelEncoder
 
-__all__ = ["BaseShapeCART", "SGTClassifier", "SGTRegressor"]
+__all__ = [
+    "BaseShapeCART",
+    "SGTClassifier",
+    "SGTRegressor",
+    "ProcessedFeatures",
+    "configure_feature_dict",
+]
+
+
+def _column_names_from_X(X: Any) -> list[str] | None:
+    columns = getattr(X, "columns", None)
+    if columns is None:
+        return None
+    return [str(c) for c in columns]
+
+
+def _configure_processed_features(
+    n_features: int,
+    *,
+    feature_dict: Mapping[int | str, Sequence[int | str]] | None,
+    processed_features: ProcessedFeatures | None,
+    column_names: list[str] | None,
+) -> ProcessedFeatures:
+    if processed_features is not None:
+        return processed_features
+    return configure_feature_dict(
+        n_features,
+        feature_dict=feature_dict,
+        column_names=column_names,
+    )
 
 
 class _IdentityLabelEncoder(LabelEncoder):
@@ -54,6 +84,48 @@ class BaseShapeCART(BaseEstimator):
 
     Subclasses own the native backend handle (``_est``) and validation rules.
     """
+
+
+def _normalize_tree_export(tree: dict) -> dict:
+    """Normalize native ``tree_export`` payloads for Python consumers.
+
+    Internal nodes may include a trailing ``+inf`` threshold sentinel and/or a
+    trailing NaN routing bin in ``bin_to_partition``. Plotting and introspection
+    expect finite numeric bins only (``len(thresholds) + 1`` entries); NaN
+    routing is exposed separately via ``nan_prediction_partition``.
+    """
+    for node in tree.get("nodes", []):
+        if node.get("is_leaf", True):
+            continue
+        if node.get("is_categorical"):
+            b2p = node.get("bin_to_partition")
+            if not b2p:
+                continue
+            node["nan_prediction_partition"] = b2p[-1]
+            node["bin_to_partition"] = b2p[:-1]
+            bc = node.get("bin_categories")
+            if bc is not None and len(bc) == len(b2p):
+                node["bin_categories"] = bc[:-1]
+            for key in ("bin_sample_counts", "bin_counts", "bin_weights"):
+                vals = node.get(key)
+                if vals is not None and len(vals) == len(b2p):
+                    node[key] = vals[:-1]
+            continue
+        thresholds = node.get("thresholds")
+        if thresholds is not None:
+            while thresholds and np.isinf(thresholds[-1]):
+                thresholds.pop()
+        b2p = node.get("bin_to_partition")
+        th = thresholds or []
+        if not b2p or len(b2p) != len(th) + 2:
+            continue
+        node["nan_prediction_partition"] = b2p[-1]
+        node["bin_to_partition"] = b2p[:-1]
+        for key in ("bin_sample_counts", "bin_counts", "bin_weights"):
+            vals = node.get(key)
+            if vals is not None and len(vals) == len(b2p):
+                node[key] = vals[:-1]
+    return tree
 
 
 class SGTClassifier(ClassifierMixin, BaseShapeCART):
@@ -210,12 +282,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.classes_: Optional[np.ndarray] = None
         self.n_classes_: Optional[int] = None
         self.n_features_in_: Optional[int] = None
+        self.feature_names_in_: Optional[np.ndarray] = None
 
     def fit(
         self,
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
+        *,
+        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
+        processed_features: Optional[ProcessedFeatures] = None,
         check_input: bool = True,
     ) -> "SGTClassifier":
         """Fit the tree on ``X`` and class labels ``y``.
@@ -228,10 +304,24 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             Target class labels.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
+        feature_dict : mapping, optional
+            ``{logical_name: [columns]}`` grouping of columns into logical
+            features. Keys are ``int`` or ``str`` logical names. Values are
+            column indices (``int``) or column names (``str``); names require a
+            pandas ``DataFrame`` ``X`` or an explicit ``column_names``. A group
+            of more than one column is treated as a single **categorical**
+            feature (routed through the one-hot inner discretizer); singletons
+            are **continuous**. Columns not mentioned default to continuous
+            singletons. See :func:`~sgtlearn.configure_feature_dict` for the
+            full resolution rules.
+        processed_features : ProcessedFeatures, optional
+            Pre-resolved features from :func:`configure_feature_dict` (for
+            ensembles that should resolve features once).
         check_input : bool, default=True
             If ``False``, ``X`` and ``y`` are not validated (for callers that
             already ran :func:`~sklearn.utils.validation.check_X_y`).
         """
+        column_names = _column_names_from_X(X)
 
         if check_input:
             X, y = check_X_y(
@@ -269,6 +359,19 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             sw = normalize_sample_weight(sample_weight, X.shape[0])
 
         self.n_features_in_ = X.shape[1]
+        if column_names is None:
+            column_names = _column_names_from_X(X)
+        self.feature_names_in_: Optional[np.ndarray] = (
+            np.asarray(column_names, dtype=object) if column_names is not None else None
+        )
+
+        processed_features = _configure_processed_features(
+            self.n_features_in_,
+            feature_dict=feature_dict,
+            processed_features=processed_features,
+            column_names=column_names,
+        )
+        self.processed_features_ = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -301,7 +404,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         y_u = np.ascontiguousarray(
             np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
         )
-        self._est.fit(X32, y_u, sample_weight=sw)
+        self._est.fit(
+            X32, y_u, sample_weight=sw, features=processed_features.to_native()
+        )
 
         if self.tao_n_runs > 0:
             from sgtlearn.tao import TAO_refine
@@ -363,15 +468,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         check_is_fitted(self, attributes=("_est", "_le"))
         if self._est is None:
             raise NotFittedError("This SGTClassifier instance is not fitted yet.")
-        tr = self._est.tree_export()
-        # Post-process to remove trailing inf thresholds from internal nodes
-        for node in tr.get("nodes", []):
-            if not node.get("is_leaf", True) and node.get("thresholds"):
-                thresholds = node["thresholds"]
-                # Remove trailing inf sentinel if present
-                while thresholds and np.isinf(thresholds[-1]):
-                    thresholds.pop()
-        return tr
+        return _normalize_tree_export(self._est.tree_export())
 
 
 class SGTRegressor(RegressorMixin, BaseShapeCART):
@@ -507,12 +604,16 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.tao_lambda = tao_lambda
         self._est: Any = None
         self.n_features_in_: Optional[int] = None
+        self.feature_names_in_: Optional[np.ndarray] = None
 
     def fit(
         self,
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
+        *,
+        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
+        processed_features: Optional[ProcessedFeatures] = None,
         check_input: bool = True,
     ) -> "SGTRegressor":
         """Fit the tree on ``X`` and continuous targets ``y``.
@@ -525,10 +626,23 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             Target values.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
+        feature_dict : mapping, optional
+            ``{logical_name: [columns]}`` grouping of columns into logical
+            features. Keys are ``int`` or ``str`` logical names. Values are
+            column indices (``int``) or column names (``str``); names require a
+            pandas ``DataFrame`` ``X`` or an explicit ``column_names``. A group
+            of more than one column is treated as a single **categorical**
+            feature (routed through the one-hot inner discretizer); singletons
+            are **continuous**. Columns not mentioned default to continuous
+            singletons. See :func:`~sgtlearn.configure_feature_dict` for the
+            full resolution rules.
+        processed_features : ProcessedFeatures, optional
+            Pre-resolved features from :func:`configure_feature_dict`.
         check_input : bool, default=True
             If ``False``, ``X`` and ``y`` are not validated (for callers that
             already ran :func:`~sklearn.utils.validation.check_X_y`).
         """
+        column_names = _column_names_from_X(X)
 
         if check_input:
             X, y = check_X_y(
@@ -542,6 +656,19 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             if np.isnan(np.asarray(y, dtype=np.float64)).any():
                 raise ValueError("Input y contains NaN.")
         self.n_features_in_ = X.shape[1]
+        if column_names is None:
+            column_names = _column_names_from_X(X)
+        self.feature_names_in_: Optional[np.ndarray] = (
+            np.asarray(column_names, dtype=object) if column_names is not None else None
+        )
+
+        processed_features = _configure_processed_features(
+            self.n_features_in_,
+            feature_dict=feature_dict,
+            processed_features=processed_features,
+            column_names=column_names,
+        )
+        self.processed_features_ = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -575,6 +702,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             X32,
             y32,
             sample_weight=sw,
+            features=processed_features.to_native(),
         )
 
         if self.tao_n_runs > 0:
@@ -614,12 +742,4 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         check_is_fitted(self, attributes=("_est",))
         if self._est is None:
             raise NotFittedError("This SGTRegressor instance is not fitted yet.")
-        tr = self._est.tree_export()
-        # Post-process to remove trailing inf thresholds from internal nodes
-        for node in tr.get("nodes", []):
-            if not node.get("is_leaf", True) and node.get("thresholds"):
-                thresholds = node["thresholds"]
-                # Remove trailing inf sentinel if present
-                while thresholds and np.isinf(thresholds[-1]):
-                    thresholds.pop()
-        return tr
+        return _normalize_tree_export(self._est.tree_export())

@@ -2,9 +2,10 @@
 
 /**
  * @file UnivariateRegressionDiscretizer.h
- * @brief One-feature regression discretizer (MSE / MAE / related splitters) producing piecewise-constant bin predictions.
+ * @brief Numeric univariate regression discretizer parameterized by splitter.
  */
 
+#include "Discretizers/RegressionDiscretizer.h"
 #include "Discretizers/UnivariateDiscretizer.h"
 #include "Splitters/AbsoluteErrorSplitter.h"
 #include "Splitters/SquaredErrorSplitter.h"
@@ -18,12 +19,21 @@ concept TRegressionSplitter =
 
 template <TRegressionSplitter TSplitter>
 class UnivariateRegressionDiscretizer
-    : public UnivariateDiscretizer<double, float> {
+    : public UnivariateDiscretizer<double, float>,
+      public RegressionDiscretizer {
 public:
-  ~UnivariateRegressionDiscretizer() = default;
+  ~UnivariateRegressionDiscretizer() override = default;
 
-  /** Fit inner regression tree on selected feature rows of ``X`` with targets ``y``. */
+  void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override {
+    UnivariateDiscretizer<double, float>::transform(X, binLoc);
+  }
+
+  size_t routeToBin(const std::vector<float> &featureValues) const override {
+    return UnivariateDiscretizer<double, float>::routeToBin(featureValues);
+  }
+
   void Train(const arma::fmat &X, arma::uvec &features, const arma::Row<float> &y,
              size_t minLeafSize, double minGainSplit, size_t maxDepth,
-             size_t maxLeafNodes, const arma::Row<float> &sampleWeights);
+             size_t maxLeafNodes,
+             const arma::Row<float> &sampleWeights) override;
 };
