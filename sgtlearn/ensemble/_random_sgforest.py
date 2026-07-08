@@ -179,9 +179,9 @@ class RandomSGForest(BaseEstimator, ABC):
         if not self.bootstrap and self.max_samples is not None:
             raise ValueError("max_samples can only be set when bootstrap=True.")
 
+        column_names = _column_names_from_X(X)
         X, y = self._check_X_y(X, y)
         self.n_features_in_ = X.shape[1]
-        column_names = _column_names_from_X(X)
         self.feature_names_in_ = (
             np.asarray(column_names, dtype=object) if column_names is not None else None
         )

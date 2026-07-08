@@ -160,3 +160,46 @@ def test_ensemble_resolves_features_once(monkeypatch: pytest.MonkeyPatch) -> Non
     forest.fit(X, y, feature_dict={i: [i] for i in range(5)})
     assert calls == [5]
     assert forest.processed_features_ is not None
+
+
+def test_ensemble_dataframe_string_valued_feature_dict_routes_onehot() -> None:
+    """Forest + DataFrame + string column-name feature_dict must resolve names.
+
+    Regression: the forest read column names *after* check_X_y stripped them to
+    an ndarray, so a categorical block referenced by name raised
+    "column name ... requires a pandas DataFrame or column_names".
+    """
+    from sgtlearn.ensemble import RandomSGForestClassifier
+
+    rng = np.random.default_rng(2026)
+    n_samples = 400
+    n_cat = 4
+    cats = rng.integers(0, n_cat, size=n_samples)
+    columns = [f"cat_{i}" for i in range(n_cat)]
+    X = pd.DataFrame(0.0, index=np.arange(n_samples), columns=columns)
+    for i, c in enumerate(cats):
+        X.iloc[i, c] = 1.0
+    y = (cats % 2).astype(np.int64)
+
+    forest = RandomSGForestClassifier(
+        n_estimators=4,
+        max_depth=4,
+        inner_max_depth=2,
+        inner_max_leaf_nodes=8,
+        random_state=0,
+        tao_n_runs=0,
+        n_jobs=1,
+        max_features=None,
+    )
+    forest.fit(X, y, feature_dict={"species": list(columns)})
+
+    assert forest.predict(X).shape[0] == n_samples
+    pf = forest.processed_features_
+    assert pf is not None
+    assert "species" in pf.logical_names
+    by_indices = {tuple(f["indices"]): f["type"] for f in pf.features}
+    assert by_indices[tuple(range(n_cat))] == "categorical"
+    assert any(
+        any(_is_categorical_node(n) for n in t.tree_export()["nodes"] if not n["is_leaf"])
+        for t in forest.estimators_
+    ), "expected a categorical split in at least one tree"
