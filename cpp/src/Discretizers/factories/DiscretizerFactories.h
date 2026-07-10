@@ -5,6 +5,7 @@
  * @brief Runtime factories for task-scoped inner discretizers.
  */
 
+#include <cstddef>
 #include "Discretizers/DiscretizerInputKind.h"
 #include "Domain/FeatureInfo.h"
 #include "Domain/LearningCriterion.h"

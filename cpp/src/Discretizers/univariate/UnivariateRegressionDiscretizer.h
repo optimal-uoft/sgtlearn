@@ -5,6 +5,7 @@
  * @brief Numeric univariate regression discretizer parameterized by splitter.
  */
 
+#include <cstddef>
 #include "Discretizers/RegressionDiscretizer.h"
 #include "Discretizers/univariate/UnivariateDiscretizer.h"
 #include "Splitters/univariate/AbsoluteErrorSplitter.h"

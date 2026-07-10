@@ -18,6 +18,7 @@
  * (Gini or entropy).
  */
 
+#include <cstddef>
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "algorithms/TAO/ShapeGeneralizedTaoAdapter.h"
 

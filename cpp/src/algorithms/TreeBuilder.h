@@ -5,6 +5,7 @@
  * @brief Generic best-first or depth-first tree expansion over a node type ``T`` with pluggable split callbacks.
  */
 
+#include <cstddef>
 #include "frontiers.h"
 #include <functional>
 #include <limits>

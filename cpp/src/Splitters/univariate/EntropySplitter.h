@@ -5,6 +5,7 @@
  * @brief ``ClassificationSplitter`` using Shannon entropy impurity.
  */
 
+#include <cstddef>
 #include "ClassificationSplitter.h"
 #include "Criterion.h"
 

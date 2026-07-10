@@ -2,6 +2,10 @@
  * @file Estimators/ShapeFunctions/ShapeFunctionSplitSearch.cpp
  */
 
+#include <memory>
+#include <utility>
+#include <functional>
+#include <cstddef>
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 
 #include "BranchAssignmentObjectives/BranchAssignment.h"

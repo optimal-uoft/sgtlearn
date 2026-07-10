@@ -3,6 +3,8 @@
  * @brief Training implementation delegating to ``GainHessianSplitter``.
  */
 
+#include <stdexcept>
+#include <cstddef>
 #include "algorithms/missing_values.h"
 
 #include "Discretizers/univariate/GainHessianUnivariateDiscretizer.h"

@@ -5,6 +5,7 @@
  * @brief Regression splitter minimizing MSE via per-interval weighted sums of ``y`` and ``y^2``.
  */
 
+#include <cstddef>
 #include "Splitter.h"
 
 class SquaredErrorSplitter : public Splitter<double, float> {

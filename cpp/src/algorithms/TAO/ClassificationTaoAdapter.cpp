@@ -2,6 +2,7 @@
  * @file algorithms/TAO/ClassificationTaoAdapter.cpp
  */
 
+#include <cstddef>
 #include "algorithms/TAO/ClassificationTaoAdapter.h"
 
 #include <algorithm>

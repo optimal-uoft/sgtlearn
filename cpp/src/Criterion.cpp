@@ -3,6 +3,7 @@
  * @brief Definitions of entropy, Gini, MSE, and gain/hessian criterion helpers.
  */
 
+#include <cstddef>
 #include "Criterion.h"
 
 #include <algorithm>

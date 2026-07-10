@@ -5,6 +5,7 @@
  * @brief One-hot categorical classification discretizer (Gini / entropy).
  */
 
+#include <cstddef>
 #include "Discretizers/categorical/CategoricalDiscretizer.h"
 #include "Discretizers/ClassificationDiscretizer.h"
 #include "Domain/LearningCriterion.h"

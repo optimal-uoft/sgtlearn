@@ -2,6 +2,7 @@
  * @file CategoricalClassificationSplitter.cpp
  */
 
+#include <cstddef>
 #include "Splitters/categorical/CategoricalClassificationSplitter.h"
 
 #include <algorithm>

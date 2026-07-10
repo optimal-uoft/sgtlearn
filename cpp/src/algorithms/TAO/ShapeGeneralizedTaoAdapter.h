@@ -13,6 +13,7 @@
  * ``recomputeLeafStats``.
  */
 
+#include <cstddef>
 #include "Estimators/ShapeGeneralizedTree.h"
 #include "algorithms/TAO/TaoAdapter.h"
 

@@ -19,6 +19,7 @@
  * independent of the tree's regression criterion.
  */
 
+#include <cstddef>
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 #include "algorithms/TAO/ShapeGeneralizedTaoAdapter.h"
 

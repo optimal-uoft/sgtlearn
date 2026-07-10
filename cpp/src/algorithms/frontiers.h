@@ -5,6 +5,7 @@
  * @brief Frontier containers for tree expansion: LIFO stack (depth-first) or best-first max-heap over ``T``.
  */
 
+#include <cstddef>
 #include <concepts>
 #include <queue>
 #include <stack>

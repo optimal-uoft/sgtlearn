@@ -5,6 +5,7 @@
  * @brief MAE splitter using wavelet-tree median queries on contiguous sample ranges.
  */
 
+#include <cstddef>
 #include "Splitter.h"
 #include "algorithms/WaveletTreeMAE.h"
 

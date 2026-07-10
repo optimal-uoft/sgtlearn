@@ -2,6 +2,7 @@
  * @file Discretizers/categorical/CategoricalClassificationDiscretizer.cpp
  */
 
+#include <cstddef>
 #include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"
 
 #include <stdexcept>

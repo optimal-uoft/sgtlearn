@@ -5,6 +5,7 @@
  * @brief Concrete ``BranchAssignment`` types for entropy, Gini, squared error, and gain/hessian objectives.
  */
 
+#include <cstddef>
 #include "AbsoluteErrorBranchAssignment.h"
 #include "BranchAssignmentFactory.h"
 #include "LeafAggregationBranchAssignment.h"
