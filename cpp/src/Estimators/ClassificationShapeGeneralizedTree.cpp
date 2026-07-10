@@ -10,7 +10,7 @@
 
 #include "Criterion.h"
 #include "Discretizers/ClassificationDiscretizer.h"
-#include "Discretizers/DiscretizerFactories.h"
+#include "Discretizers/factories/DiscretizerFactories.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 
 #include <algorithm>

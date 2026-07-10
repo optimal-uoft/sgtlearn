@@ -44,51 +44,53 @@ endif ()
 add_library(sgtlearn_core STATIC
         src/algorithms/frontiers.h
         src/algorithms/missing_values.h
-        src/Discretizers/UnivariateClassificationDiscretizer.h
-        src/Domain/SplitCandidate.h
+        src/Discretizers/univariate/UnivariateClassificationDiscretizer.h
+        src/Domain/UnivariateSplitCandidate.h
         src/Domain/FeatureInfo.h
         src/Domain/LearningCriterion.h
         src/Domain/LearningFactories.h
-        src/Splitters/Splitter.h
-        src/Splitters/Splitter.tpp
-        src/Splitters/ClassificationSplitter.h
-        src/Splitters/EntropySplitter.h
-        src/Splitters/GiniSplitter.h
+        src/Splitters/univariate/Splitter.h
+        src/Splitters/univariate/Splitter.tpp
+        src/Splitters/univariate/ClassificationSplitter.h
+        src/Splitters/univariate/EntropySplitter.h
+        src/Splitters/univariate/GiniSplitter.h
         src/algorithms/TreeBuilder.h
         src/algorithms/TreeBuilder.tpp
         src/Discretizers/InnerDiscretizerBase.h
         src/Discretizers/DiscretizerInputKind.h
-        src/Discretizers/DiscretizerFactories.h
-        src/Discretizers/DiscretizerFactories.cpp
-        src/Discretizers/UnivariateDiscretizer.h
-        src/Discretizers/UnivariateDiscretizer.tpp
+        src/Discretizers/factories/DiscretizerFactories.h
+        src/Discretizers/factories/DiscretizerFactories.cpp
+        src/Discretizers/univariate/UnivariateDiscretizer.h
+        src/Discretizers/univariate/UnivariateDiscretizer.tpp
         src/Discretizers/ClassificationDiscretizer.h
         src/Discretizers/RegressionDiscretizer.h
         src/Domain/CategoricalSplitCandidate.h
-        src/Discretizers/CategoricalDiscretizer.h
-        src/Discretizers/CategoricalDiscretizer.tpp
-        src/Discretizers/CategoricalOneHotDiscretizer.h
-        src/Discretizers/CategoricalOneHotDiscretizer.cpp
-        src/Splitters/CategoricalSplitter.h
-        src/Splitters/CategoricalClassificationSplitter.h
-        src/Splitters/CategoricalClassificationSplitter.cpp
-        src/Splitters/CategoricalRegressionSplitter.h
-        src/Splitters/CategoricalRegressionSplitter.cpp
-        src/Discretizers/UnivariateClassificationDiscretizer.cpp
-        src/Splitters/SquaredErrorSplitter.h
-        src/Splitters/SquaredErrorSplitter.cpp
-        src/Discretizers/UnivariateRegressionDiscretizer.cpp
-        src/Discretizers/UnivariateRegressionDiscretizer.h
-        src/Discretizers/GainHessianUnivariateDiscretizer.h
+        src/Discretizers/categorical/CategoricalDiscretizer.h
+        src/Discretizers/categorical/CategoricalDiscretizer.tpp
+        src/Discretizers/categorical/CategoricalClassificationDiscretizer.h
+        src/Discretizers/categorical/CategoricalClassificationDiscretizer.cpp
+        src/Discretizers/categorical/CategoricalRegressionDiscretizer.h
+        src/Discretizers/categorical/CategoricalRegressionDiscretizer.cpp
+        src/Splitters/categorical/CategoricalSplitter.h
+        src/Splitters/categorical/CategoricalClassificationSplitter.h
+        src/Splitters/categorical/CategoricalClassificationSplitter.cpp
+        src/Splitters/categorical/CategoricalRegressionSplitter.h
+        src/Splitters/categorical/CategoricalRegressionSplitter.cpp
+        src/Discretizers/univariate/UnivariateClassificationDiscretizer.cpp
+        src/Splitters/univariate/SquaredErrorSplitter.h
+        src/Splitters/univariate/SquaredErrorSplitter.cpp
+        src/Discretizers/univariate/UnivariateRegressionDiscretizer.cpp
+        src/Discretizers/univariate/UnivariateRegressionDiscretizer.h
+        src/Discretizers/univariate/GainHessianUnivariateDiscretizer.h
         src/algorithms/WaveletTreeMAE.h
         src/algorithms/WaveletTreeMAE.cpp
-        src/Discretizers/GainHessianUnivariateDiscretizer.cpp
-        src/Splitters/AbsoluteErrorSplitter.h
-        src/Splitters/AbsoluteErrorSplitter.cpp
-        src/Splitters/GainHessianSplitter.h
-        src/Splitters/GainHessianSplitter.cpp
-        src/Splitters/SplitterFactory.h
-        src/Splitters/SplitterFactory.cpp
+        src/Discretizers/univariate/GainHessianUnivariateDiscretizer.cpp
+        src/Splitters/univariate/AbsoluteErrorSplitter.h
+        src/Splitters/univariate/AbsoluteErrorSplitter.cpp
+        src/Splitters/univariate/GainHessianSplitter.h
+        src/Splitters/univariate/GainHessianSplitter.cpp
+        src/Splitters/factories/SplitterFactory.h
+        src/Splitters/factories/SplitterFactory.cpp
         src/algorithms/CoordinateDescent.h
         src/algorithms/TAO/TaoAdapter.h
         src/algorithms/TAO/TaoObjective.h

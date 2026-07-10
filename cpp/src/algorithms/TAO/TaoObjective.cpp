@@ -4,7 +4,7 @@
 
 #include "algorithms/TAO/TaoObjective.h"
 
-#include "Discretizers/UnivariateDiscretizer.h"
+#include "Discretizers/univariate/UnivariateDiscretizer.h"
 #include "algorithms/missing_values.h"
 
 #include <algorithm>

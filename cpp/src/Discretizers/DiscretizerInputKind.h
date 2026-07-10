@@ -7,6 +7,6 @@
 enum class DiscretizerInputKind {
   /** Single continuous column; threshold splits via ``UnivariateDiscretizer``. */
   Numeric,
-  /** Block of binary one-hot columns; ``CategoricalOneHotDiscretizer``. */
+  /** Block of binary one-hot columns; categorical classification/regression discretizers. */
   CategoricalOneHot,
 };

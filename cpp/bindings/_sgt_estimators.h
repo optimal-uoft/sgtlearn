@@ -15,10 +15,11 @@
 
 #include "_arma_bridge.h"
 
-#include "Discretizers/CategoricalOneHotDiscretizer.h"
+#include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"
+#include "Discretizers/categorical/CategoricalRegressionDiscretizer.h"
 #include "Domain/LearningCriterion.h"
 #include "Domain/FeatureInfo.h"
-#include "Discretizers/UnivariateDiscretizer.h"
+#include "Discretizers/univariate/UnivariateDiscretizer.h"
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 #include "algorithms/FeatureBagging.h"

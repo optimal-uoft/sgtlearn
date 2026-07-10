@@ -9,7 +9,7 @@
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 
 #include "Criterion.h"
-#include "Discretizers/DiscretizerFactories.h"
+#include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/RegressionDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 #include <algorithm>
