@@ -5,6 +5,8 @@
  * @brief Classification impurity splitter: per-interval weighted class count vectors and majority-vote prediction.
  */
 
+#include <algorithm>
+#include <cstddef>
 #include "Splitter.h"
 #include <armadillo>
 #include <limits>

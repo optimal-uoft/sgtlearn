@@ -5,6 +5,8 @@
  * @brief Gradient-boosting style splitter using first/second moment stats and ``Criterion::gainAndHessian``.
  */
 
+#include <stdexcept>
+#include <cstddef>
 #include "Splitter.h"
 
 class GainHessianSplitter : public Splitter<float, float> {

@@ -2,6 +2,7 @@
  * @file Discretizers/categorical/CategoricalRegressionDiscretizer.cpp
  */
 
+#include <cstddef>
 #include "Discretizers/categorical/CategoricalRegressionDiscretizer.h"
 
 #include <stdexcept>

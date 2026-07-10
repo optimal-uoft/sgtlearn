@@ -5,6 +5,7 @@
  * @brief Train a one-dimensional axis-aligned partition of the feature space and expose bins, thresholds, and leaf aggregates.
  */
 
+#include <cstddef>
 #include "Discretizers/InnerDiscretizerBase.h"
 #include "Domain/UnivariateSplitCandidate.h"
 #include "Splitters/univariate/Splitter.h"

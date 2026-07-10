@@ -3,6 +3,8 @@
  * @brief Gradient/hessian splitter scoring via ``Criterion::gainAndHessian``.
  */
 
+#include <limits>
+#include <cstddef>
 #include "GainHessianSplitter.h"
 
 #include "Criterion.h"

@@ -5,6 +5,7 @@
  * @brief Factory that constructs the correct ``BranchAssignment`` for a ``LearningCriterion``.
  */
 
+#include <cstddef>
 #include "BranchAssignment.h"
 #include "Domain/LearningCriterion.h"
 

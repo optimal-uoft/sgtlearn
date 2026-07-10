@@ -5,6 +5,7 @@
  * @brief ``ClassificationSplitter`` using Gini impurity.
  */
 
+#include <cstddef>
 #include "ClassificationSplitter.h"
 #include "Criterion.h"
 

@@ -4,6 +4,7 @@
  *        ``ShapeGeneralizedTree`` definition.
  */
 
+#include <cstddef>
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 
 #include "Estimators/ShapeGeneralizedTree.h"

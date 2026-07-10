@@ -3,6 +3,7 @@
  * @brief Shared tree introspection for shape-generalized estimators.
  */
 
+#include <cstddef>
 #include "Estimators/ShapeGeneralizedTree.h"
 
 #include <utility>

@@ -3,6 +3,9 @@
  * @brief MSE splitter: root/children construction and interval scoring.
  */
 
+#include <stdexcept>
+#include <limits>
+#include <cstddef>
 #include "SquaredErrorSplitter.h"
 #include "Criterion.h"
 

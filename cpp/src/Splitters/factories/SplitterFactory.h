@@ -5,6 +5,7 @@
  * @brief Construct a ``Splitter`` implementation from ``LearningCriterion`` and data views.
  */
 
+#include <cstddef>
 #include "Splitters/univariate/ClassificationSplitter.h"
 #include "Splitters/univariate/Splitter.h"
 #include "Domain/LearningCriterion.h"

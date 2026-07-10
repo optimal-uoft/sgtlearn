@@ -3,6 +3,8 @@
  * @brief Runtime factories for ``ClassificationDiscretizer`` and ``RegressionDiscretizer``.
  */
 
+#include <memory>
+#include <cstddef>
 #include "Discretizers/factories/DiscretizerFactories.h"
 
 #include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"

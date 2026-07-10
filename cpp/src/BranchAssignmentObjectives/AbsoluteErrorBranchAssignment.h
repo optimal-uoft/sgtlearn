@@ -5,6 +5,7 @@
  * @brief MAE branch assignment using per-leaf raw ``y`` samples and partition medians.
  */
 
+#include <cstddef>
 #include "BranchAssignment.h"
 #include <vector>
 

@@ -3,6 +3,8 @@
  * @brief Explicit template instantiations for Gini and entropy classification discretizers.
  */
 
+#include <stdexcept>
+#include <cstddef>
 #include "algorithms/missing_values.h"
 #include "Discretizers/univariate/UnivariateClassificationDiscretizer.h"
 #include "Splitters/univariate/EntropySplitter.h"

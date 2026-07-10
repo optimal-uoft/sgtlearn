@@ -6,6 +6,10 @@
  *        or round-robin (MAE) -> record best branch.
  */
 
+#include <memory>
+#include <utility>
+#include <cstdint>
+#include <cstddef>
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 
 #include "Criterion.h"

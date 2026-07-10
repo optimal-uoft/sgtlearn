@@ -5,6 +5,7 @@
  * @brief Template ``BranchAssignment`` that aggregates per-leaf stats into partitions via an ``ILeafAggregateProcessor``.
  */
 
+#include <cstddef>
 #include "BranchAssignment.h"
 #include "LeafAggregateProcessor.h"
 #include <memory>

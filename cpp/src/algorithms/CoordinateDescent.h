@@ -5,6 +5,7 @@
  * @brief Greedy coordinate updates that reassign inner-tree bins to partitions to improve ``BranchAssignment::objective``.
  */
 
+#include <cstddef>
 #include "BranchAssignmentObjectives/BranchAssignmentVariants.h"
 #include "algorithms/missing_values.h"
 #include <algorithm>
