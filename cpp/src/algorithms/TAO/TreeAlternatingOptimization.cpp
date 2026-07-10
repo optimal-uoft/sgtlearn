@@ -6,7 +6,7 @@
 #include "algorithms/TAO/TreeAlternatingOptimization.h"
 
 #include "Discretizers/ClassificationDiscretizer.h"
-#include "Discretizers/DiscretizerFactories.h"
+#include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/InnerDiscretizerBase.h"
 #include "algorithms/TAO/TaoObjective.h"
 

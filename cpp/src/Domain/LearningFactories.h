@@ -6,4 +6,4 @@
  */
 #include "LearningCriterion.h"
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
-#include "Splitters/SplitterFactory.h"
+#include "Splitters/factories/SplitterFactory.h"
