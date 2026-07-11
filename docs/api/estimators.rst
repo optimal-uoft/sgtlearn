@@ -14,7 +14,9 @@ normalized importances over logical features, aligned with
 :attr:`~sgtlearn.base.BaseShapeCART.processed_features_`. Forests expose
 :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`
 and :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.std_feature_importance_`
-instead (see :doc:`ensemble`).
+instead (see :doc:`ensemble`). Prefer built-in importances when TAO is off
+(``tao_n_runs=0``); see :doc:`../tutorials/feature-importance` for permutation
+importance with categoricals.
 
 SGTClassifier
 -------------

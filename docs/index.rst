@@ -45,6 +45,7 @@ Highlights
 
    tutorials/shape-functions
    tutorials/categorical-features
+   tutorials/feature-importance
    tutorials/sgt-k
    tutorials/structure-and-accuracy
    tutorials/inspecting-trees

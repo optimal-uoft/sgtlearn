@@ -75,29 +75,6 @@ Bootstrap-aggregate SGTs into a random forest:
    forest.fit(X_train, y_train)
    forest.predict_proba(X_test[:5])
 
-Feature importances
--------------------
-
-After :meth:`~sklearn.base.BaseEstimator.fit`, trees and forests expose
-normalized impurity-based importances over **logical** features (the same
-sequence as :attr:`~sgtlearn.base.BaseShapeCART.processed_features_`):
-
-.. code-block:: python
-
-   model.fit(X_train, y_train)
-   pf = model.processed_features_
-   for name, feat, imp in zip(
-       pf.logical_names, pf.features, model.feature_importances_
-   ):
-       print(name, feat["type"], feat["indices"], float(imp))
-
-   # Forests: mean / std of the base trees' importances
-   forest.mean_feature_importances_
-   forest.std_feature_importance_
-
-Index ``i`` of ``feature_importances_`` (trees) or
-``mean_feature_importances_`` / ``std_feature_importance_`` (forests) always
-matches ``pf.features[i]`` / ``pf.logical_names[i]``.
 
 TAO refinement
 --------------
@@ -166,4 +143,5 @@ a pandas ``DataFrame`` you can reference columns by name instead:
 Columns you do not mention stay as individual continuous features. See
 :func:`~sgtlearn.configure_feature_dict` for the full rules and the
 :doc:`tutorials/categorical-features` tutorial for a worked example with
-plots.
+plots. For permutation importance on raw categoricals, see
+:doc:`tutorials/feature-importance`.
