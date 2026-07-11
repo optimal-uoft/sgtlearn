@@ -19,6 +19,7 @@ from tests.discretizer_grid import (
     MIN_GAIN_VALUES,
     MIN_LEAF_VALUES,
     N_VALUES,
+    n_outputs_params,
 )
 
 
@@ -87,6 +88,7 @@ IDS = [
 ]
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize(
     "criterion",
     ["squared_error", "absolute_error"],  # aliases mse/mae covered by equivalence test below
@@ -103,6 +105,7 @@ def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     min_gain_split: float,
     max_depth: int,
     max_leaf: int,
+    n_outputs: int,
 ) -> None:
     """Bin predictions should track ``DecisionTreeRegressor`` within tolerance (MSE or MAE criterion)."""
     if criterion in ("absolute_error", "mae") and not _sklearn_supports_absolute_error():
@@ -113,7 +116,8 @@ def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     rng = np.random.default_rng(12345)
     x = rng.random((n_samples, 1), dtype=np.float64)
     x32 = x.astype(np.float32, copy=False)
-    y = rng.standard_normal(n_samples).astype(np.float32, copy=False)
+    y_shape = (n_samples,) if n_outputs == 1 else (n_samples, n_outputs)
+    y = rng.standard_normal(y_shape).astype(np.float32, copy=False)
 
     sk_crit = sklearn_regression_criterion(criterion)
     reg = DecisionTreeRegressor(

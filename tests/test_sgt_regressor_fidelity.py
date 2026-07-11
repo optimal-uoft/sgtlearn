@@ -23,13 +23,21 @@ from sklearn.datasets import load_diabetes
 from sklearn.tree import DecisionTreeRegressor
 
 from sgtlearn import SGTRegressor
+from tests.discretizer_grid import n_outputs_params
 
 
-def _load_xy():
+def _load_xy(n_outputs: int = 1):
     bunch = load_diabetes()
     X = np.asarray(bunch.data, dtype=np.float32)
-    y = np.asarray(bunch.target, dtype=np.float64)
-    return X, y
+    y0 = np.asarray(bunch.target, dtype=np.float64)
+    if n_outputs == 1:
+        return X, y0
+    rng = np.random.default_rng(0)
+    extras = [
+        y0 * (0.5 + 0.25 * i) + rng.normal(0.0, 5.0, size=y0.shape)
+        for i in range(1, n_outputs)
+    ]
+    return X, np.column_stack([y0, *extras])
 
 
 def _mean_squared_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -90,13 +98,14 @@ def test_sgt_train_error_at_most_sklearn_decision_tree(
         )
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
 @pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
 def test_sgt_matches_sklearn_decision_tree_inner_depth_one(
-    criterion: str, tao_n_runs: int
+    criterion: str, tao_n_runs: int, n_outputs: int
 ) -> None:
     """``inner_max_depth=1``: in-sample predictions match sklearn for MSE and MAE."""
-    X, y = _load_xy()
+    X, y = _load_xy(n_outputs)
     sgt = SGTRegressor(
         criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
     )
@@ -104,7 +113,8 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one(
     dt = DecisionTreeRegressor(criterion=criterion, random_state=0)
     dt.fit(X, y)
     pred = sgt.predict(X)
-    assert pred.shape == (X.shape[0],)
+    expected_shape = (X.shape[0],) if n_outputs == 1 else (X.shape[0], n_outputs)
+    assert pred.shape == expected_shape
     assert np.all(np.isfinite(pred))
 
     np.testing.assert_allclose(pred, dt.predict(X))

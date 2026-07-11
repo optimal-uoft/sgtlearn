@@ -17,6 +17,7 @@ from tests.discretizer_grid import (
     MIN_LEAF_VALUES,
     N_VALUES,
     NUM_CLASSES_VALUES,
+    n_outputs_params,
 )
 
 
@@ -43,6 +44,7 @@ IDS = [
 ]
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 @pytest.mark.parametrize(
     "n_samples,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf",
@@ -57,13 +59,15 @@ def test_univariate_classification_discretizer_vs_sklearn_fidelity(
     min_gain_split: float,
     max_depth: int,
     max_leaf: int,
+    n_outputs: int,
 ) -> None:
     """Predictions and leaf counts must match sklearn on synthetic univariate data."""
     rng = np.random.default_rng(12345)
     x = rng.random((n_samples, 1), dtype=np.float64)
     # Match sklearn tree builder input path, which internally works with float32.
     x32 = x.astype(np.float32, copy=False)
-    y = rng.integers(0, num_classes, size=n_samples, dtype=np.uintp)
+    y_size = n_samples if n_outputs == 1 else (n_samples, n_outputs)
+    y = rng.integers(0, num_classes, size=y_size, dtype=np.uintp)
 
     clf = DecisionTreeClassifier(
         criterion=criterion,

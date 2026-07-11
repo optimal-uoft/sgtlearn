@@ -21,6 +21,7 @@ from tests.discretizer_grid import (
     MIN_LEAF_VALUES,
     N_VALUES,
     NUM_CATEGORIES_VALUES,
+    n_outputs_params,
 )
 
 
@@ -28,11 +29,13 @@ def _make_onehot(
     n_samples: int,
     n_categories: int,
     rng: np.random.Generator,
+    n_outputs: int = 1,
 ) -> tuple[np.ndarray, np.ndarray]:
     cats = rng.integers(0, n_categories, size=n_samples)
     x = np.zeros((n_samples, n_categories), dtype=np.float32)
     x[np.arange(n_samples), cats] = 1.0
-    y = rng.standard_normal(n_samples).astype(np.float32)
+    y_shape = (n_samples,) if n_outputs == 1 else (n_samples, n_outputs)
+    y = rng.standard_normal(y_shape).astype(np.float32)
     return x, y
 
 
@@ -94,6 +97,7 @@ IDS = [
 ]
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
 @pytest.mark.parametrize(
     "n_samples,n_categories,min_leaf_size,min_gain_split,max_depth,max_leaf",
@@ -108,6 +112,7 @@ def test_categorical_onehot_regression_discretizer_vs_sklearn_fidelity(
     min_gain_split: float,
     max_depth: int,
     max_leaf: int,
+    n_outputs: int,
 ) -> None:
     """Bin predictions should track ``DecisionTreeRegressor`` within tolerance."""
     if criterion in ("absolute_error", "mae") and not _sklearn_supports_absolute_error():
@@ -116,7 +121,7 @@ def test_categorical_onehot_regression_discretizer_vs_sklearn_fidelity(
     _skip_if_sklearn_mae_best_first_segfault(max_leaf, criterion)
 
     rng = np.random.default_rng(12345)
-    x, y = _make_onehot(n_samples, n_categories, rng)
+    x, y = _make_onehot(n_samples, n_categories, rng, n_outputs=n_outputs)
 
     sk_crit = sklearn_regression_criterion(criterion)
     reg = DecisionTreeRegressor(
