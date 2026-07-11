@@ -149,6 +149,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
 void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node) {
   node.isLeaf = true;
   node.informationGain = 0.0;
+  node.splitFeatureIndex = 0;
   node.innerDiscretizer.reset();
   node.sampleBins.clear();
   node.splitLeafStats.clear();

@@ -122,6 +122,9 @@ void ClassificationShapeGeneralizedTree::fit(
   classCounts.clear();
 
   fitted_ = false;
+  sumOfNodeImportancesByFeature_.zeros(features.size());
+  totalNodeImportanceSum_ = 0.0;
+  featureImportance_.reset();
 
   ShapeFunctionNode root;
   root.height = 0;
@@ -215,6 +218,7 @@ void ClassificationShapeGeneralizedTree::fit(
         }
 
         node.isLeaf = false;
+        node.splitFeatureIndex = best.branching.featureIndex;
         node.routingFeatures.assign(best.routingColumnIndices.begin(),
                                     best.routingColumnIndices.end());
         node.innerDiscretizer = best.winningDiscretizer;
@@ -262,6 +266,9 @@ void ClassificationShapeGeneralizedTree::fit(
       nodes_[0], findBestSplit, makeChildren,
       [this](ShapeFunctionNode &parent,
              std::vector<ShapeFunctionNode> &children) {
+        sumOfNodeImportancesByFeature_(parent.splitFeatureIndex) +=
+            parent.informationGain;
+        totalNodeImportanceSum_ += parent.informationGain;
         const size_t pid = parent.nodeIndex;
         nodes_[pid] = std::move(parent);
         nodes_[pid].isLeaf = false;
@@ -281,6 +288,10 @@ void ClassificationShapeGeneralizedTree::fit(
     node.sampleBins.clear();
   }
 
+  featureImportance_.zeros(sumOfNodeImportancesByFeature_.n_elem);
+  if (totalNodeImportanceSum_ > 0.0)
+    featureImportance_ =
+        sumOfNodeImportancesByFeature_ / totalNodeImportanceSum_;
   fitted_ = true;
 }
 

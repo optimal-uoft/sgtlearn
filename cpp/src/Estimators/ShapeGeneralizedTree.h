@@ -9,6 +9,7 @@
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 
+#include <armadillo>
 #include <cstddef>
 #include <vector>
 
@@ -52,6 +53,13 @@ public:
   /** True if `fit` has completed successfully. */
   bool isFitted() const { return fitted_; }
 
+  /**
+   * Normalized per-feature importances (length = number of logical features
+   * passed to ``fit``). One-to-one with that feature sequence. Valid only
+   * after training completes; throws if the model is not fitted.
+   */
+  const arma::vec &featureImportance() const;
+
   /** Impurity criterion this tree was constructed with. */
   virtual LearningCriterion criterion() const { return criterion_; }
 
@@ -83,4 +91,11 @@ protected:
    */
   std::vector<std::vector<size_t>> childIndices_;
   size_t rootIndex_ = 0;
+
+  /** Normalized importances; written at end of ``fit``. */
+  arma::vec featureImportance_;
+  /** Running sum of node importances per logical feature during ``fit``. */
+  arma::vec sumOfNodeImportancesByFeature_;
+  /** Sum of all committed node importances during ``fit``. */
+  double totalNodeImportanceSum_ = 0.0;
 };

@@ -85,6 +85,16 @@ class BaseShapeCART(BaseEstimator):
     Subclasses own the native backend handle (``_est``) and validation rules.
     """
 
+    @property
+    def feature_importances_(self) -> np.ndarray:
+        """Normalized per-feature importances from the fitted tree.
+
+        Length matches the number of logical features passed to ``fit``
+        (one-to-one with that feature sequence). Available only after training.
+        """
+        check_is_fitted(self, attributes=("_est",))
+        return np.asarray(self._est.feature_importance, dtype=np.float64).ravel()
+
 
 def _normalize_tree_export(tree: dict) -> dict:
     """Normalize native ``tree_export`` payloads for Python consumers.

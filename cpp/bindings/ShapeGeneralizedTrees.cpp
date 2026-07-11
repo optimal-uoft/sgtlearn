@@ -95,6 +95,11 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
           "num_nodes", &ClassificationShapeGeneralizedTreePy::numNodes)
       .def_property_readonly(
           "is_fitted", &ClassificationShapeGeneralizedTreePy::isFitted)
+      .def_property_readonly(
+          "feature_importance",
+          &ClassificationShapeGeneralizedTreePy::featureImportance,
+          "Normalized feature importances aligned with the features sequence "
+          "passed to fit. Available only after training.")
       .def("tree_export", &ClassificationShapeGeneralizedTreePy::tree_export,
            "Return a flat snapshot of the fitted tree as a Python dict.");
 
@@ -146,6 +151,11 @@ is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)
                              &RegressionShapeGeneralizedTreePy::numNodes)
       .def_property_readonly("is_fitted",
                              &RegressionShapeGeneralizedTreePy::isFitted)
+      .def_property_readonly(
+          "feature_importance",
+          &RegressionShapeGeneralizedTreePy::featureImportance,
+          "Normalized feature importances aligned with the features sequence "
+          "passed to fit. Available only after training.")
       .def_property_readonly(
           "leaf_regression_stats",
           &RegressionShapeGeneralizedTreePy::leafRegressionStats)
