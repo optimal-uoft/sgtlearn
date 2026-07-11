@@ -18,13 +18,13 @@ v0.1.0
 v0.2.0
 ------
 
-- ⬜ Superset branching on categorical features
+- ✅ Superset branching on categorical features
 - ⬜ Multioutput support
-- ⬜ More plotting options (e.g. exporting to Graphviz)
-- ⬜ Feature importances matching scikit-learn's API for SGTs and :math:`\mathrm{SGT}_K`
-- ⬜ TAO refinement
-- ⬜ Sklearn-style NaN support (replaces current tail-bin placeholder): split search uses finite values only; each candidate is scored with missing sent left vs right—including an explicit missing-vs-non-missing split—with the winning direction stored per node (ties → right).
-- ⬜ NaN routing at predict: if training saw missing at that split, follow the stored direction; otherwise route to the majority child.
+- ✅ More plotting options (e.g. exporting to Graphviz)
+- ✅ Feature importances matching scikit-learn's API for SGTs and :math:`\mathrm{SGT}_K`
+- ✅ TAO refinement
+- ✅ Sklearn-style NaN support (replaces current tail-bin placeholder): split search uses finite values only; each candidate is scored with missing sent left vs right—including an explicit missing-vs-non-missing split—with the winning direction stored per node (ties → right).
+- ✅ NaN routing at predict: if training saw missing at that split, follow the stored direction; otherwise route to the majority child.
 
 v0.3.0
 ------
