@@ -3,6 +3,9 @@
  * @brief Template method definitions for aggregated branch-assignment objectives.
  */
 
+#include <memory>
+#include <utility>
+#include <cstddef>
 #include "LeafAggregationBranchAssignment.h"
 
 #include <stdexcept>

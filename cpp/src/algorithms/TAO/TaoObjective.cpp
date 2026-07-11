@@ -2,6 +2,7 @@
  * @file algorithms/TAO/TaoObjective.cpp
  */
 
+#include <cstddef>
 #include "algorithms/TAO/TaoObjective.h"
 
 #include "Discretizers/univariate/UnivariateDiscretizer.h"

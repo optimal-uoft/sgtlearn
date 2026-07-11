@@ -19,7 +19,7 @@ if (NOT Armadillo_FOUND)
     set(BUILD_SMOKE_TEST OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(armadillo
             GIT_REPOSITORY https://gitlab.com/conradsnicta/armadillo-code.git
-            GIT_TAG 14.2.x
+            GIT_TAG ab1eaba0d35cb6fe4b0871b8ec73c721cf90b612 # 14.2.x branch head (14.2.3); no release tag exists
     )
     FetchContent_MakeAvailable(armadillo)
 endif ()

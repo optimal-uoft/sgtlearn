@@ -3,6 +3,8 @@
  * @brief Shared TAO driver: per-node routing search and bottom-up DFS loop.
  */
 
+#include <memory>
+#include <cstddef>
 #include "algorithms/TAO/TreeAlternatingOptimization.h"
 
 #include "Discretizers/ClassificationDiscretizer.h"

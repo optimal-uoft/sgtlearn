@@ -3,6 +3,8 @@
  * @brief Explicit template instantiations for squared-error and MAE regression discretizers.
  */
 
+#include <stdexcept>
+#include <cstddef>
 #include "algorithms/missing_values.h"
 #include "Discretizers/univariate/UnivariateRegressionDiscretizer.h"
 #include "Splitters/univariate/AbsoluteErrorSplitter.h"

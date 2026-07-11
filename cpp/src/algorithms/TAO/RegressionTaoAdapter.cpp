@@ -2,6 +2,7 @@
  * @file algorithms/TAO/RegressionTaoAdapter.cpp
  */
 
+#include <cstddef>
 #include "algorithms/TAO/RegressionTaoAdapter.h"
 
 #include "Criterion.h"

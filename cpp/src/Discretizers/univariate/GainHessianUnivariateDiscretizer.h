@@ -5,6 +5,7 @@
  * @brief Univariate discretizer for gradient boosting targets (per-sample gradient and hessian rows in ``y``).
  */
 
+#include <cstddef>
 #include "Discretizers/univariate/UnivariateDiscretizer.h"
 
 #include <armadillo>

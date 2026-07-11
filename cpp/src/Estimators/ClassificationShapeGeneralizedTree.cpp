@@ -6,6 +6,10 @@
  *        coordinate descent -> record best branch.
  */
 
+#include <memory>
+#include <utility>
+#include <cstdint>
+#include <cstddef>
 #include "Estimators/ClassificationShapeGeneralizedTree.h"
 
 #include "Criterion.h"

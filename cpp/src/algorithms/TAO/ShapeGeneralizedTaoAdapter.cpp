@@ -2,6 +2,7 @@
  * @file algorithms/TAO/ShapeGeneralizedTaoAdapter.cpp
  */
 
+#include <cstddef>
 #include "algorithms/TAO/ShapeGeneralizedTaoAdapter.h"
 
 #include <algorithm>

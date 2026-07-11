@@ -3,6 +3,9 @@
  * @brief Wavelet tree construction and range median / MAE utilities.
  */
 
+#include <memory>
+#include <utility>
+#include <cstddef>
 #include <algorithms/WaveletTreeMAE.h>
 
 #include <algorithm>

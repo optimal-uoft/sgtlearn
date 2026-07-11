@@ -3,6 +3,7 @@
  * @brief MAE objective with partition medians over raw per-leaf target samples.
  */
 
+#include <cstddef>
 #include "AbsoluteErrorBranchAssignment.h"
 
 #include "Criterion.h"

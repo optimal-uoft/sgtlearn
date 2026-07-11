@@ -3,6 +3,8 @@
  * @brief ``makeClassificationSplitter`` / ``makeFloatSplitter`` implementations.
  */
 
+#include <memory>
+#include <cstddef>
 #include "Splitters/factories/SplitterFactory.h"
 
 #include "Splitters/univariate/AbsoluteErrorSplitter.h"

@@ -5,6 +5,7 @@
  * @brief One-hot categorical regression discretizer (MSE / MAE).
  */
 
+#include <cstddef>
 #include "Discretizers/categorical/CategoricalDiscretizer.h"
 #include "Discretizers/RegressionDiscretizer.h"
 #include "Domain/LearningCriterion.h"

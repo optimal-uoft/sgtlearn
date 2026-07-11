@@ -6,6 +6,7 @@
  *        state from ``InnerDiscretizerBase<double>``.
  */
 
+#include <cstddef>
 #include "Discretizers/InnerDiscretizerBase.h"
 
 #include <armadillo>

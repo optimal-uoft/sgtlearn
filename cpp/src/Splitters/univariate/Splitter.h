@@ -5,6 +5,7 @@
  * @brief Abstract univariate tree splitter: maintain sufficient statistics on a sorted sample interval and search for threshold cuts.
  */
 
+#include <cstddef>
 #include "Domain/UnivariateSplitCandidate.h"
 
 #include <armadillo>

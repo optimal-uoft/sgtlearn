@@ -5,6 +5,8 @@
  * @brief Multivariate shape-generalized classification tree (outer ``TreeBuilder`` + inner branching fits).
  */
 
+#include <stdexcept>
+#include <functional>
 #include "Domain/LearningCriterion.h"
 #include "Domain/FeatureInfo.h"
 #include "Estimators/ShapeGeneralizedTree.h"

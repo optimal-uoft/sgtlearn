@@ -5,6 +5,7 @@
  * @brief Numeric univariate classification discretizer parameterized by splitter.
  */
 
+#include <cstddef>
 #include "Discretizers/ClassificationDiscretizer.h"
 #include "Discretizers/univariate/UnivariateDiscretizer.h"
 #include "Splitters/univariate/ClassificationSplitter.h"

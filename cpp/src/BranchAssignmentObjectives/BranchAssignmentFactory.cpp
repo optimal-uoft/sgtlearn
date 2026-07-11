@@ -3,6 +3,8 @@
  * @brief Factory implementation for ``BranchAssignment`` objects.
  */
 
+#include <memory>
+#include <cstddef>
 #include "BranchAssignmentFactory.h"
 
 #include "AbsoluteErrorBranchAssignment.h"

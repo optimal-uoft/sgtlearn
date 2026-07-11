@@ -2,6 +2,7 @@
  * @file CategoricalRegressionSplitter.cpp
  */
 
+#include <cstddef>
 #include "Splitters/categorical/CategoricalRegressionSplitter.h"
 
 #include <stdexcept>
