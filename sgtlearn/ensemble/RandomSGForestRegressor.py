@@ -67,6 +67,14 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         The collection of fitted base estimators.
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
+    mean_feature_importances_ : ndarray of shape (n_logical_features,)
+        Mean of per-tree :attr:`~sgtlearn.SGTRegressor.feature_importances_`,
+        aligned with :attr:`processed_features_`.
+    std_feature_importance_ : ndarray of shape (n_logical_features,)
+        Population standard deviation of per-tree importances across the
+        forest (same alignment as :attr:`mean_feature_importances_`).
+    processed_features_ : ProcessedFeatures
+        Logical features resolved once and shared by every base tree.
 
     See Also
     --------

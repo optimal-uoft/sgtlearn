@@ -90,10 +90,22 @@ class BaseShapeCART(BaseEstimator):
         """Normalized per-feature importances from the fitted tree.
 
         Length matches the number of logical features passed to ``fit``
-        (one-to-one with that feature sequence). Available only after training.
+        (one-to-one with :attr:`processed_features_`). Available only after
+        training.
         """
         check_is_fitted(self, attributes=("_est",))
         return np.asarray(self._est.feature_importance, dtype=np.float64).ravel()
+
+    @property
+    def processed_features_(self) -> ProcessedFeatures:
+        """Resolved logical features used at fit, aligned with importances.
+
+        ``features[i]`` and ``logical_names[i]`` correspond to
+        ``feature_importances_[i]``. ``logical_names`` are the ``feature_dict``
+        keys (stringified); omitted columns are filled as ``\"0\"``, ``\"1\"``, …
+        """
+        check_is_fitted(self, attributes=("_processed_features",))
+        return self._processed_features
 
 
 def _normalize_tree_export(tree: dict) -> dict:
@@ -215,6 +227,15 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Number of classes.
     n_features_in_ : int
         Number of features in ``X`` passed to :meth:`fit`.
+    feature_importances_ : ndarray of shape (n_logical_features,)
+        Normalized impurity-based importances from the fitted tree. Index
+        ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
+        order as the logical features passed to the native trainer).
+    processed_features_ : ProcessedFeatures
+        Resolved logical features used at :meth:`fit`. ``features[i]`` and
+        ``logical_names[i]`` align with ``feature_importances_[i]``.
+        ``logical_names`` are stringified ``feature_dict`` keys (auto-filled
+        columns use ``\"0\"``, ``\"1\"``, …).
 
     Notes
     -----
@@ -381,7 +402,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             processed_features=processed_features,
             column_names=column_names,
         )
-        self.processed_features_ = processed_features
+        self._processed_features = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -539,6 +560,15 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     ----------
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
+    feature_importances_ : ndarray of shape (n_logical_features,)
+        Normalized impurity-based importances from the fitted tree. Index
+        ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
+        order as the logical features passed to the native trainer).
+    processed_features_ : ProcessedFeatures
+        Resolved logical features used at :meth:`fit`. ``features[i]`` and
+        ``logical_names[i]`` align with ``feature_importances_[i]``.
+        ``logical_names`` are stringified ``feature_dict`` keys (auto-filled
+        columns use ``\"0\"``, ``\"1\"``, …).
 
     Notes
     -----
@@ -678,7 +708,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             processed_features=processed_features,
             column_names=column_names,
         )
-        self.processed_features_ = processed_features
+        self._processed_features = processed_features
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
