@@ -42,6 +42,12 @@ public:
   bool isLeaf = true;
   size_t numPartitions = 0;
 
+  /**
+   * Index into the fit-time logical features sequence for the winning split.
+   * Meaningful on internal nodes after ``findBestSplit`` succeeds.
+   */
+  size_t splitFeatureIndex = 0;
+
   /** Row indices into X used for routing; undefined if isLeaf. */
   std::vector<size_t> routingFeatures;
   /** Maps each inner discretizer bin (including NaN) to a child partition. */

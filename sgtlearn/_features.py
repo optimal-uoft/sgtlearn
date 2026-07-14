@@ -11,7 +11,21 @@ FeatureDict = Mapping[int | str, Sequence[int | str]]
 
 @dataclass(frozen=True)
 class ProcessedFeatures:
-    """Resolved logical features ready for the native trainer."""
+    """Resolved logical features ready for the native trainer.
+
+    Attributes
+    ----------
+    features
+        List of ``{"type": "continuous"|"categorical", "indices": [...]}``
+        dicts in trainer order. Index ``i`` aligns with
+        ``estimator.feature_importances_[i]`` after :meth:`~sklearn.base.BaseEstimator.fit`.
+    logical_names
+        Parallel names for ``features``. When ``feature_dict`` is supplied,
+        these are the stringified keys; omitted columns are filled as
+        ``\"0\"``, ``\"1\"``, …. Default (no ``feature_dict``) uses
+        ``\"0\"`` … ``\"n_features-1\"`` even if ``X`` is a pandas DataFrame
+        (DataFrame column names are stored on ``feature_names_in_`` instead).
+    """
 
     features: list[FeatureInfoDict]
     logical_names: tuple[str, ...] = ()

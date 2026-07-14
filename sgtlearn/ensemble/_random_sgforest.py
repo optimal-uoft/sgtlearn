@@ -251,6 +251,33 @@ class RandomSGForest(BaseEstimator, ABC):
 
         return self
 
+    def _tree_feature_importances_matrix(self) -> np.ndarray:
+        check_is_fitted(self, attributes=("estimators_",))
+        return np.stack(
+            [
+                np.asarray(est.feature_importances_, dtype=np.float64)
+                for est in self.estimators_
+            ]
+        )
+
+    @property
+    def mean_feature_importances_(self) -> np.ndarray:
+        """Mean per-logical-feature importances across fitted base trees.
+
+        Aligned with :attr:`processed_features_` (same order as each tree's
+        ``feature_importances_``). Available only after :meth:`fit`.
+        """
+        return self._tree_feature_importances_matrix().mean(axis=0)
+
+    @property
+    def std_feature_importance_(self) -> np.ndarray:
+        """Per-logical-feature standard deviation of importances across trees.
+
+        Population std (``ddof=0``) over base estimators; aligned with
+        :attr:`mean_feature_importances_`. Available only after :meth:`fit`.
+        """
+        return self._tree_feature_importances_matrix().std(axis=0)
+
     def _check_predict_X(self, X: np.ndarray) -> np.ndarray:
         check_is_fitted(self, attributes=("estimators_",))
         X = check_array(

@@ -307,6 +307,10 @@ public:
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
 
+  py::array_t<double> featureImportance() const {
+    return colToNumpy(impl_->featureImportance());
+  }
+
   py::dict tree_export() const {
     if (!impl_->isFitted())
       throw std::logic_error("tree_export: model is not fitted");
@@ -452,6 +456,10 @@ public:
   size_t numLeaves() const { return impl_->numLeaves(); }
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
+
+  py::array_t<double> featureImportance() const {
+    return colToNumpy(impl_->featureImportance());
+  }
 
   std::vector<std::vector<float>> leafRegressionStats() const {
     return impl_->leafRegressionStats;

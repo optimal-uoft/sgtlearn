@@ -9,6 +9,15 @@ Both estimators accept ``tao_n_runs`` and ``tao_lambda``; TAO runs automatically
 at the end of :meth:`~sklearn.base.BaseEstimator.fit` when ``tao_n_runs > 0``.
 See :doc:`tao` for behaviour and post-hoc :func:`~sgtlearn.tao.TAO_refine`.
 
+After fitting, :attr:`~sgtlearn.base.BaseShapeCART.feature_importances_` gives
+normalized importances over logical features, aligned with
+:attr:`~sgtlearn.base.BaseShapeCART.processed_features_`. Forests expose
+:attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`
+and :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.std_feature_importance_`
+instead (see :doc:`ensemble`). Prefer built-in importances when TAO is off
+(``tao_n_runs=0``); see :doc:`../tutorials/feature-importance` for permutation
+importance with categoricals.
+
 SGTClassifier
 -------------
 

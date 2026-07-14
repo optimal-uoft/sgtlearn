@@ -75,6 +75,7 @@ Bootstrap-aggregate SGTs into a random forest:
    forest.fit(X_train, y_train)
    forest.predict_proba(X_test[:5])
 
+
 TAO refinement
 --------------
 
@@ -142,4 +143,5 @@ a pandas ``DataFrame`` you can reference columns by name instead:
 Columns you do not mention stay as individual continuous features. See
 :func:`~sgtlearn.configure_feature_dict` for the full rules and the
 :doc:`tutorials/categorical-features` tutorial for a worked example with
-plots.
+plots. For permutation importance on raw categoricals, see
+:doc:`tutorials/feature-importance`.

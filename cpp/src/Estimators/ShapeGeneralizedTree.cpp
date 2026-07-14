@@ -6,6 +6,7 @@
 #include <cstddef>
 #include "Estimators/ShapeGeneralizedTree.h"
 
+#include <stdexcept>
 #include <utility>
 
 ShapeGeneralizedTree::ShapeGeneralizedTree(LearningCriterion criterion,
@@ -26,3 +27,10 @@ size_t ShapeGeneralizedTree::numLeaves() const {
 }
 
 size_t ShapeGeneralizedTree::numNodes() const { return nodes_.size(); }
+
+const arma::vec &ShapeGeneralizedTree::featureImportance() const {
+  if (!fitted_)
+    throw std::logic_error(
+        "ShapeGeneralizedTree::featureImportance: model is not fitted");
+  return featureImportance_;
+}
