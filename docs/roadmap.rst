@@ -4,7 +4,7 @@ Release Roadmap
 Which features are implemented today and which are planned. Features from the
 paper not yet in this codebase include bivariate shape functions
 (:math:`\mathrm{Shape}^2\mathrm{CART}`), higher branching factors for bivariate
-splits, TAO refinement, and contour-plot visualization for bivariate splits.
+splits, and contour-plot visualization for bivariate splits.
 
 v0.1.0
 ------
@@ -19,7 +19,6 @@ v0.2.0
 ------
 
 - ✅ Superset branching on categorical features
-- ⬜ Multioutput support
 - ✅ More plotting options (e.g. exporting to Graphviz)
 - ✅ Feature importances matching scikit-learn's API for SGTs and :math:`\mathrm{SGT}_K`
 - ✅ TAO refinement
@@ -29,5 +28,6 @@ v0.2.0
 v0.3.0
 ------
 
+- ⬜ Multioutput support
 - ⬜ :math:`\mathrm{Shape}^2\mathrm{CART}`
 - ⬜ :math:`\mathrm{Shape}^2\mathrm{CART}` random forest ensembling
