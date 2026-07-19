@@ -21,8 +21,21 @@ from sklearn.utils import check_random_state
 from sgtlearn.base import _IdentityLabelEncoder
 
 from tests.constants import TEST_TAO_N_RUNS
+from tests.discretizer_grid import n_outputs_params
 
 pytest.importorskip("sklearn")
+
+
+def _load_xy(n_outputs: int = 1):
+    X, y0 = load_breast_cancer(return_X_y=True)
+    X = np.asarray(X, dtype=np.float32)
+    if n_outputs == 1:
+        return X, y0
+    extras = [
+        (X[:, i] > np.median(X[:, i])).astype(np.int64)
+        for i in range(n_outputs - 1)
+    ]
+    return X, np.column_stack([y0, *extras])
 
 
 def _first_tree_random_state(forest_random_state: int) -> int:
@@ -116,13 +129,14 @@ def test_random_sg_forest_train_accuracy_at_least_sklearn_random_forest(
     )
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     criterion: str,
+    n_outputs: int,
 ) -> None:
     """One tree, no bootstrap, ``inner_max_depth=1``: same in-sample behavior as ``DecisionTreeClassifier()`` (cf. ``test_sgt_classifier_fidelity``)."""
-    X, y = load_breast_cancer(return_X_y=True)
-    X = np.asarray(X, dtype=np.float32)
+    X, y = _load_xy(n_outputs)
 
     sk_crit = "entropy" if criterion == "log_loss" else criterion
     forest_rs = 7
@@ -144,19 +158,31 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     sgt = _standalone_sgt_classifier(forest_rs, **tree_kw)
     sgt.fit(X, y)
     np.testing.assert_array_equal(forest.predict(X), sgt.predict(X))
-    np.testing.assert_allclose(
-        forest.predict_proba(X),
-        sgt.predict_proba(X),
-    )
+    if n_outputs == 1:
+        np.testing.assert_allclose(
+            forest.predict_proba(X),
+            sgt.predict_proba(X),
+        )
+    else:
+        for a, b in zip(forest.predict_proba(X), sgt.predict_proba(X)):
+            np.testing.assert_allclose(a, b)
 
     dt = DecisionTreeClassifier(criterion=sk_crit)
     dt.fit(X, y)
-    np.testing.assert_array_equal(forest.classes_, dt.classes_)
-    np.testing.assert_array_equal(forest.predict(X), dt.predict(X))
-    np.testing.assert_allclose(
-        forest.predict_proba(X),
-        dt.predict_proba(X),
-    )
+    if n_outputs == 1:
+        np.testing.assert_array_equal(forest.classes_, dt.classes_)
+        np.testing.assert_array_equal(forest.predict(X), dt.predict(X))
+        np.testing.assert_allclose(
+            forest.predict_proba(X),
+            dt.predict_proba(X),
+        )
+    else:
+        assert len(forest.classes_) == len(dt.classes_) == n_outputs
+        for a, b in zip(forest.classes_, dt.classes_):
+            np.testing.assert_array_equal(a, b)
+        np.testing.assert_array_equal(forest.predict(X), dt.predict(X))
+        for a, b in zip(forest.predict_proba(X), dt.predict_proba(X)):
+            np.testing.assert_allclose(a, b)
 
 
 def test_random_sg_forest_single_tree_equals_standalone_sgt() -> None:

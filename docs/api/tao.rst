@@ -121,6 +121,11 @@ not decrease. When ``lambda_ > 0``, non-constant routing rules must improve
 weighted training reward by more than ``lambda_ * n_samples`` to beat the constant
 dummy rule at each node.
 
+Multi-output ``y`` is supported with the same shapes as the estimators
+(``(n_samples,)`` or ``(n_samples, n_outputs)``). Classification TAO uses an
+all-but-worst care set when ``n_outputs > 1`` (matching regression); single-output
+classification keeps the all-but-correct (best children) care set.
+
 Random forest
 ~~~~~~~~~~~~~
 

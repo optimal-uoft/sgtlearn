@@ -16,27 +16,29 @@ std::unique_ptr<BranchAssignment> makeBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
     size_t numPartitions, std::vector<std::vector<double>> &leafStats,
     std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts, size_t numClasses,
-    std::vector<std::vector<float>> *maeLeafYs,
+    const std::vector<size_t> &leafSampleCounts,
+    const std::vector<size_t> &classesPerOutput, size_t nOutputs,
+    std::vector<std::vector<std::vector<float>>> *maeLeafYs,
     std::vector<std::vector<float>> *maeLeafWs) {
   switch (criterion) {
   case LearningCriterion::Entropy:
-    if (numClasses == 0)
+    if (classesPerOutput.empty())
       throw std::invalid_argument(
-          "makeBranchAssignment(Entropy): numClasses must be positive");
+          "makeBranchAssignment(Entropy): classesPerOutput must be non-empty");
     return std::make_unique<EntropyBranchAssignment>(
         assignments, numPartitions, leafStats, leafWeights, leafSampleCounts,
-        numClasses);
+        classesPerOutput);
   case LearningCriterion::Gini:
-    if (numClasses == 0)
+    if (classesPerOutput.empty())
       throw std::invalid_argument(
-          "makeBranchAssignment(Gini): numClasses must be positive");
+          "makeBranchAssignment(Gini): classesPerOutput must be non-empty");
     return std::make_unique<GiniBranchAssignment>(
         assignments, numPartitions, leafStats, leafWeights, leafSampleCounts,
-        numClasses);
+        classesPerOutput);
   case LearningCriterion::SquaredError:
     return std::make_unique<SquaredErrorBranchAssignment>(
-        assignments, numPartitions, leafStats, leafWeights, leafSampleCounts);
+        assignments, numPartitions, leafStats, leafWeights, leafSampleCounts,
+        nOutputs);
   case LearningCriterion::AbsoluteError:
     if (!maeLeafYs || !maeLeafWs)
       throw std::invalid_argument(

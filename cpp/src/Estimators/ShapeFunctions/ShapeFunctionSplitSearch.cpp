@@ -24,8 +24,9 @@ void refineShapeBranchAssignment(
     size_t numRoutingBins, LearningCriterion criterion,
     const CoordinateDescentParams &cdParams, std::mt19937_64 &rng,
     std::vector<std::vector<double>> &stats, std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts, size_t numClasses,
-    std::vector<std::vector<float>> *maeLeafYs,
+    const std::vector<size_t> &leafSampleCounts,
+    const std::vector<size_t> &classesPerOutput, size_t nOutputs,
+    std::vector<std::vector<std::vector<float>>> *maeLeafYs,
     std::vector<std::vector<float>> *maeLeafWs) {
   if (k >= numRoutingBins ||
       criterion == LearningCriterion::AbsoluteError)
@@ -41,21 +42,21 @@ void refineShapeBranchAssignment(
 
   std::vector<size_t> rollback = snapshot;
   branchObj = makeBranchAssignment(criterion, rollback, k, stats, leafWeights,
-                                   leafSampleCounts, numClasses, maeLeafYs,
-                                   maeLeafWs);
+                                   leafSampleCounts, classesPerOutput, nOutputs,
+                                   maeLeafYs, maeLeafWs);
 }
 
 void seedTrialBinAssignments(size_t k, size_t numRoutingBins,
                              const std::vector<std::vector<double>> &stats,
                              const std::vector<size_t> &sizes,
                              std::vector<double> &leafWeights, bool useKMeansSeed,
-                             bool smartInit, size_t numClasses,
+                             bool smartInit, size_t kmeansDim,
                              std::mt19937_64 &rng,
                              std::vector<size_t> &trialAssignments) {
   if (k == numRoutingBins) {
     algorithms::identityBinAssignments(numRoutingBins, trialAssignments);
   } else if (useKMeansSeed && smartInit && k >= 2 && numRoutingBins >= k) {
-    algorithms::seedBinAssignmentsKMeans(k, numRoutingBins, numClasses, stats,
+    algorithms::seedBinAssignmentsKMeans(k, numRoutingBins, kmeansDim, stats,
                                        sizes, leafWeights, rng,
                                        trialAssignments);
   } else {
@@ -70,25 +71,32 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
     const CoordinateDescentParams &cdParams, double scoreEpsilon,
-    std::mt19937_64 &rng, bool useKMeansSeed, size_t numClasses,
-    const arma::Row<float> *ysub, const arma::Row<float> *wsub,
+    std::mt19937_64 &rng, bool useKMeansSeed,
+    const std::vector<size_t> &classesPerOutput, size_t nOutputs,
+    const arma::Mat<float> *ysub, const arma::Row<float> *wsub,
     size_t xSubCols) {
   auto &stats = disc.leafStats();
   auto &sizes = disc.leafNumSamples();
   auto &leafWeights = disc.leafNodeWeights();
   const size_t numRoutingBins = stats.size();
 
-  std::vector<std::vector<float>> maeLeafYsStorage;
+  // Kmeans seeds on the full (possibly concatenated) stats feature vector.
+  const size_t kmeansDim = stats.empty() ? 0 : stats.front().size();
+
+  std::vector<std::vector<std::vector<float>>> maeLeafYsStorage;
   std::vector<std::vector<float>> maeLeafWsStorage;
-  std::vector<std::vector<float>> *maeLeafYs = nullptr;
+  std::vector<std::vector<std::vector<float>>> *maeLeafYs = nullptr;
   std::vector<std::vector<float>> *maeLeafWs = nullptr;
   if (criterion == LearningCriterion::AbsoluteError) {
     if (!ysub || !wsub)
       throw std::invalid_argument(
           "searchShapeBranchAssignmentFromDiscretizer(AbsoluteError): ysub "
           "and wsub required");
+    const size_t maeOutputs = std::max<size_t>(ysub->n_rows, 1);
     const auto &perBinCols = disc.inSampleDiscretizations();
-    maeLeafYsStorage.resize(numRoutingBins);
+    maeLeafYsStorage.assign(
+        numRoutingBins,
+        std::vector<std::vector<float>>(maeOutputs, std::vector<float>{}));
     maeLeafWsStorage.resize(numRoutingBins);
     for (size_t b = 0; b < numRoutingBins; ++b) {
       for (size_t colIdx : perBinCols[b]) {
@@ -96,7 +104,9 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
           throw std::runtime_error(
               "searchShapeBranchAssignmentFromDiscretizer: discretizer sample "
               "index >= Xsub columns");
-        maeLeafYsStorage[b].push_back((*ysub)(colIdx));
+        for (size_t o = 0; o < maeOutputs; ++o)
+          maeLeafYsStorage[b][o].push_back(
+              (*ysub)(o, static_cast<arma::uword>(colIdx)));
         maeLeafWsStorage[b].push_back((*wsub)(colIdx));
       }
     }
@@ -110,16 +120,17 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
   for (size_t k = 2; k <= kMax; ++k) {
     std::vector<size_t> trialAssignments;
     seedTrialBinAssignments(k, numRoutingBins, stats, sizes, leafWeights,
-                            useKMeansSeed, cdParams.smartInit, numClasses, rng,
+                            useKMeansSeed, cdParams.smartInit, kmeansDim, rng,
                             trialAssignments);
 
     std::unique_ptr<BranchAssignment> branchObj = makeBranchAssignment(
-        criterion, trialAssignments, k, stats, leafWeights, sizes, numClasses,
-        maeLeafYs, maeLeafWs);
+        criterion, trialAssignments, k, stats, leafWeights, sizes,
+        classesPerOutput, nOutputs, maeLeafYs, maeLeafWs);
 
     refineShapeBranchAssignment(branchObj, k, numRoutingBins, criterion,
                                 cdParams, rng, stats, leafWeights, sizes,
-                                numClasses, maeLeafYs, maeLeafWs);
+                                classesPerOutput, nOutputs, maeLeafYs,
+                                maeLeafWs);
 
     if (!branchObj->partitionCountsMeetMinLeaf(outerParams.minLeafSize))
       continue;

@@ -15,8 +15,12 @@ class RegressionDiscretizer : public virtual InnerDiscretizerBase<double> {
 public:
   ~RegressionDiscretizer() override = default;
 
+  /**
+   * @param y target matrix, shape ``(nOutputs, nSamples)``; single-output is
+   *          ``nOutputs == 1``. A ``Row<float>`` argument converts implicitly.
+   */
   virtual void Train(const arma::fmat &X, arma::uvec &features,
-                     const arma::Row<float> &y, size_t minLeafSize,
+                     const arma::Mat<float> &y, size_t minLeafSize,
                      double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
                      const arma::Row<float> &sampleWeights) = 0;
 };

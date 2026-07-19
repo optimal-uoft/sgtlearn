@@ -18,7 +18,7 @@ from sklearn.datasets import (
     make_regression,
 )
 from sklearn.exceptions import NotFittedError
-from sklearn.metrics import accuracy_score, mean_absolute_error, mean_squared_error
+from sklearn.metrics import accuracy_score
 
 from sgtlearn import SGTClassifier, SGTRegressor, tao
 from sgtlearn.ensemble import RandomSGForestClassifier, RandomSGForestRegressor
@@ -27,6 +27,7 @@ from sgtlearn._weights import (
     normalize_sample_weight,
 )
 from tests.constants import TEST_TAO_N_RUNS
+from tests.discretizer_grid import n_outputs_params
 
 pytest.importorskip("sklearn")
 
@@ -39,6 +40,26 @@ def _no_regression_tol(before: float, *, weighted: bool) -> float:
     if weighted:
         tol = max(tol, 2e-4)
     return tol
+
+
+def _expand_targets(y: np.ndarray, n_outputs: int, *, kind: str) -> np.ndarray:
+    """Build a 1-D or multi-output target matrix from a single-output vector."""
+    y0 = np.asarray(y)
+    if n_outputs == 1:
+        return y0
+    if kind == "classification":
+        rng = np.random.default_rng(0)
+        extras = [
+            rng.integers(0, len(np.unique(y0)), size=y0.shape[0])
+            for _ in range(n_outputs - 1)
+        ]
+        return np.column_stack([y0, *extras])
+    rng = np.random.default_rng(0)
+    extras = [
+        y0 * (0.5 + 0.25 * i) + rng.normal(0.0, 1.0, size=y0.shape)
+        for i in range(1, n_outputs)
+    ]
+    return np.column_stack([y0.astype(np.float64), *extras])
 
 
 def _fit_classifier(
@@ -146,24 +167,46 @@ def _classification_training_score(
     sample_weight: Optional[np.ndarray],
 ) -> float:
     pred = tree.predict(X)
+    y_arr = np.asarray(y)
     if tree.class_weight is None and sample_weight is None:
-        return float(accuracy_score(y, pred))
+        if y_arr.ndim == 1:
+            return float(accuracy_score(y_arr, pred))
+        return float(np.mean(pred == y_arr))
 
-    y_enc = tree._le.transform(np.asarray(y).ravel())  # type: ignore[union-attr]
+    from sgtlearn._multioutput import (
+        encode_classification_targets,
+        label_encoders_as_list,
+    )
+
+    encoders = label_encoders_as_list(tree._le, tree.n_outputs_)
+    y_enc, _, _, _ = encode_classification_targets(y_arr, encoders=encoders)
     if tree.class_weight is not None:
         sw = effective_sample_weight_classification(
             sample_weight, y_enc, tree.class_weight, tree.classes_
         )
     else:
-        sw = normalize_sample_weight(sample_weight, len(y))
-    correct = (pred == y).astype(np.float64)
+        sw = normalize_sample_weight(sample_weight, y_arr.shape[0])
+    correct = (pred == y_arr).astype(np.float64)
+    if correct.ndim == 2:
+        correct = correct.mean(axis=1)
     return float(np.average(correct, weights=sw))
 
 
-def _skewed_class_weight(y: np.ndarray) -> Mapping[Any, float]:
-    """Up-weight the first observed class; valid for any label dtype."""
-    classes = np.unique(y)
-    return {c: (2.0 if i == 0 else 1.0) for i, c in enumerate(classes)}
+def _skewed_class_weight(
+    y: np.ndarray,
+) -> Mapping[Any, float] | list[Mapping[Any, float]]:
+    """Up-weight the first observed class; list-of-dicts when ``y`` is multi-output."""
+    y_arr = np.asarray(y)
+    if y_arr.ndim == 1:
+        classes = np.unique(y_arr)
+        return {c: (2.0 if i == 0 else 1.0) for i, c in enumerate(classes)}
+    return [
+        {
+            c: (2.0 if i == 0 else 1.0)
+            for i, c in enumerate(np.unique(y_arr[:, o]))
+        }
+        for o in range(y_arr.shape[1])
+    ]
 
 
 def _regression_training_loss(
@@ -174,17 +217,19 @@ def _regression_training_loss(
     sample_weight: Optional[np.ndarray],
 ) -> float:
     pred = reg.predict(X)
+    y_arr = np.asarray(y, dtype=np.float64)
     if criterion in ("squared_error", "mse"):
-        err = (pred - y) ** 2
-        if sample_weight is None:
-            return float(mean_squared_error(y, pred))
-        return float(np.average(err, weights=sample_weight))
-    err = np.abs(pred - y)
+        err = (pred - y_arr) ** 2
+    else:
+        err = np.abs(pred - y_arr)
+    if err.ndim == 2:
+        err = err.mean(axis=1)
     if sample_weight is None:
-        return float(mean_absolute_error(y, pred))
+        return float(np.mean(err))
     return float(np.average(err, weights=sample_weight))
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("dataset", ["iris", "breast_cancer", "multiclass"])
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 @pytest.mark.parametrize(
@@ -200,11 +245,13 @@ def test_tao_classification_no_regression_matrix(
     use_sample_weight: bool,
     use_class_weight: bool,
     n_runs: int,
+    n_outputs: int,
 ) -> None:
     """TAO must not decrease training accuracy across the classification grid."""
-    X, y = _classification_data(dataset)
+    X, y0 = _classification_data(dataset)
+    y = _expand_targets(y0, n_outputs, kind="classification")
     sw = (
-        _sample_weights(len(y), seed=_stable_seed(dataset, criterion, "weighted"))
+        _sample_weights(len(y0), seed=_stable_seed(dataset, criterion, "weighted"))
         if use_sample_weight
         else None
     )
@@ -235,15 +282,19 @@ def test_tao_classification_no_regression_matrix(
     after = _classification_training_score(tree, X, y, sw)
 
     assert returned is tree
+    expected_shape = (X.shape[0],) if n_outputs == 1 else (X.shape[0], n_outputs)
+    assert tree.predict(X).shape == expected_shape
     weighted_metric = use_sample_weight or use_class_weight
     assert after >= before - _no_regression_tol(before, weighted=weighted_metric), (
         f"TAO decreased training score for dataset={dataset!r}, "
         f"criterion={criterion!r}, weighted={use_sample_weight}, "
-        f"class_weight={use_class_weight}, n_runs={n_runs}: "
+        f"class_weight={use_class_weight}, n_runs={n_runs}, "
+        f"n_outputs={n_outputs}: "
         f"{before:.6f} -> {after:.6f}"
     )
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("dataset", ["low_noise", "high_noise"])
 @pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
 @pytest.mark.parametrize(
@@ -255,11 +306,13 @@ def test_tao_regression_no_regression_matrix(
     criterion: str,
     use_sample_weight: bool,
     n_runs: int,
+    n_outputs: int,
 ) -> None:
     """TAO must not increase training loss across the regression grid."""
-    X, y = _regression_data(dataset)
+    X, y0 = _regression_data(dataset)
+    y = _expand_targets(y0, n_outputs, kind="regression")
     sw = (
-        _sample_weights(len(y), seed=_stable_seed(dataset, criterion, "weighted"))
+        _sample_weights(len(y0), seed=_stable_seed(dataset, criterion, "weighted"))
         if use_sample_weight
         else None
     )
@@ -278,11 +331,13 @@ def test_tao_regression_no_regression_matrix(
     after = _regression_training_loss(reg, X, y, criterion, sw)
 
     assert returned is reg
+    expected_shape = (X.shape[0],) if n_outputs == 1 else (X.shape[0], n_outputs)
+    assert reg.predict(X).shape == expected_shape
     tol = _no_regression_tol(before, weighted=use_sample_weight)
     assert after <= before + tol, (
         f"TAO increased training loss for dataset={dataset!r}, "
         f"criterion={criterion!r}, weighted={use_sample_weight}, "
-        f"n_runs={n_runs}: "
+        f"n_runs={n_runs}, n_outputs={n_outputs}: "
         f"{before:.6f} -> {after:.6f}"
     )
 
@@ -427,40 +482,47 @@ def _fit_forest_regressor(
     return RandomSGForestRegressor(**params).fit(X, y)
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize(
-    ("forest_cls", "fit_fn", "data_fn", "predict_fn"),
+    ("forest_cls", "fit_fn", "data_fn"),
     [
         pytest.param(
             RandomSGForestClassifier,
             lambda X, y: _fit_forest_classifier(X, y, n_estimators=8, n_jobs=1),
             lambda: _classification_data("iris"),
-            lambda forest, X: forest.predict(X),
             id="classifier",
         ),
         pytest.param(
             RandomSGForestRegressor,
             lambda X, y: _fit_forest_regressor(X, y, n_estimators=8, n_jobs=1),
             lambda: _regression_data("low_noise"),
-            lambda forest, X: forest.predict(X),
             id="regressor",
         ),
     ],
 )
 def test_tao_forest_runs_and_predicts_all_samples(
-    forest_cls, fit_fn, data_fn, predict_fn
+    forest_cls, fit_fn, data_fn, n_outputs: int
 ) -> None:
     """TAO on a random forest completes and leaves predict() valid for every row."""
-    X, y = data_fn()
+    X, y0 = data_fn()
+    kind = "classification" if forest_cls is RandomSGForestClassifier else "regression"
+    y = _expand_targets(y0, n_outputs, kind=kind)
     forest = fit_fn(X, y)
 
     returned = tao.TAO_refine(forest, X, y, n_runs=3, n_jobs=2)
 
     assert returned is forest
-    pred = predict_fn(forest, X)
-    assert pred.shape == (X.shape[0],)
+    pred = forest.predict(X)
+    expected = (X.shape[0],) if n_outputs == 1 else (X.shape[0], n_outputs)
+    assert pred.shape == expected
     if forest_cls is RandomSGForestClassifier:
         proba = forest.predict_proba(X)
-        assert proba.shape == (X.shape[0], forest.n_classes_)
+        if n_outputs == 1:
+            assert proba.shape == (X.shape[0], forest.n_classes_)
+        else:
+            assert len(proba) == n_outputs
+            for o, p in enumerate(proba):
+                assert p.shape == (X.shape[0], forest.n_classes_[o])
 
 
 def test_tao_forest_refine_mutates_in_place() -> None:

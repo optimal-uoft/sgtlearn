@@ -13,7 +13,7 @@
 
 AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
     std::vector<size_t> &assignments, size_t numPartitions,
-    std::vector<std::vector<float>> &leafYs,
+    std::vector<std::vector<std::vector<float>>> &leafYs,
     std::vector<std::vector<float>> &leafWs, std::vector<double> &leafWeights,
     const std::vector<size_t> &leafSampleCounts)
     : BranchAssignment(assignments, numPartitions, leafSampleCounts),
@@ -27,11 +27,21 @@ AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
     throw std::runtime_error(
         "leafSampleCounts must have the same length as bin statistics");
 
+  for (const auto &binOutputs : leafYs) {
+    if (!binOutputs.empty()) {
+      nOutputs_ = binOutputs.size();
+      break;
+    }
+  }
+
   for (size_t i = 0; i < leafYs.size(); ++i) {
     if (assignments[i] >= numPartitions)
       throw std::runtime_error("assignments[i] must be a valid partition index");
-    if (leafYs[i].size() != leafWs[i].size())
-      throw std::runtime_error("leafYs[i] and leafWs[i] must have the same length");
+    for (const auto &outputYs : leafYs[i]) {
+      if (outputYs.size() != leafWs[i].size())
+        throw std::runtime_error(
+            "leafYs[i][o] and leafWs[i] must have the same length");
+    }
   }
 
   partitionWeight_.assign(numPartitions, 0.0);
@@ -101,36 +111,44 @@ void AbsoluteErrorBranchAssignment::removeLeaf(size_t leaf) {
 }
 
 void AbsoluteErrorBranchAssignment::collectPartitionSamples(
-    size_t partition, std::vector<float> &ys, std::vector<float> &ws) const {
+    size_t partition, size_t output, std::vector<float> &ys,
+    std::vector<float> &ws) const {
   ys.clear();
   ws.clear();
   for (size_t b = 0; b < assignments.size(); ++b) {
     if (assignments[b] != partition)
       continue;
-    ys.insert(ys.end(), leafYs_[b].begin(), leafYs_[b].end());
+    if (output < leafYs_[b].size())
+      ys.insert(ys.end(), leafYs_[b][output].begin(), leafYs_[b][output].end());
     ws.insert(ws.end(), leafWs_[b].begin(), leafWs_[b].end());
   }
 }
 
 double
 AbsoluteErrorBranchAssignment::computePartitionMae(size_t partition) const {
+  double total = 0.0;
   std::vector<float> ys;
   std::vector<float> ws;
-  collectPartitionSamples(partition, ys, ws);
-  if (ys.size() <= 1)
-    return Criterion::absoluteError(ys, ws).mae;
-  std::vector<size_t> order(ys.size());
-  for (size_t i = 0; i < order.size(); ++i)
-    order[i] = i;
-  std::sort(order.begin(), order.end(),
-            [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
-  std::vector<float> ysSorted;
-  std::vector<float> wsSorted;
-  ysSorted.reserve(ys.size());
-  wsSorted.reserve(ws.size());
-  for (size_t idx : order) {
-    ysSorted.push_back(ys[idx]);
-    wsSorted.push_back(ws[idx]);
+  for (size_t o = 0; o < nOutputs_; ++o) {
+    collectPartitionSamples(partition, o, ys, ws);
+    if (ys.size() <= 1) {
+      total += Criterion::absoluteError(ys, ws).mae;
+      continue;
+    }
+    std::vector<size_t> order(ys.size());
+    for (size_t i = 0; i < order.size(); ++i)
+      order[i] = i;
+    std::sort(order.begin(), order.end(),
+              [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
+    std::vector<float> ysSorted;
+    std::vector<float> wsSorted;
+    ysSorted.reserve(ys.size());
+    wsSorted.reserve(ws.size());
+    for (size_t idx : order) {
+      ysSorted.push_back(ys[idx]);
+      wsSorted.push_back(ws[idx]);
+    }
+    total += Criterion::absoluteError(ysSorted, wsSorted).mae;
   }
-  return Criterion::absoluteError(ysSorted, wsSorted).mae;
+  return total;
 }

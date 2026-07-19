@@ -40,7 +40,7 @@ public:
    * @param sampleWeights  (numSamples,) per-sample weights.
    */
   RegressionTaoAdapter(RegressionShapeGeneralizedTree &tree, const arma::fmat &X,
-                     const arma::Row<float> &y,
+                     const arma::Mat<float> &y,
                      const arma::Row<float> &sampleWeights);
 
   /** Always ``LearningCriterion::Gini`` for the routing discretizer. */
@@ -61,7 +61,7 @@ private:
                     std::vector<double> &reward) const;
 
   RegressionShapeGeneralizedTree &regressionTree_;
-  const arma::Row<float> &y_;
+  const arma::Mat<float> &y_;
   /** ``true`` when the tree criterion is squared error (mean leaf refresh). */
   bool squared_;
 };

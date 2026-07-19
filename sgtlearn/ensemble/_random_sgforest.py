@@ -201,6 +201,8 @@ class RandomSGForest(BaseEstimator, ABC):
 
         column_names = _column_names_from_X(X)
         X, y = self._check_X_y(X, y)
+        y_arr = np.asarray(y)
+        self.n_outputs_ = 1 if y_arr.ndim == 1 else y_arr.shape[1]
         self.n_features_in_ = X.shape[1]
         self.feature_names_in_ = (
             np.asarray(column_names, dtype=object) if column_names is not None else None

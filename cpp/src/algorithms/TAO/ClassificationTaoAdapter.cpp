@@ -7,21 +7,43 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace tao {
 namespace {
 
+// Argmax within the block [offset, offset + nClasses) of a concatenated
+// histogram, returned relative to the block.
+size_t argMaxInBlock(const std::vector<double> &counts, size_t offset,
+                     size_t nClasses) {
+  size_t best = 0;
+  double bestVal = -1.0;
+  for (size_t c = 0; c < nClasses; ++c) {
+    const double v = (offset + c < counts.size()) ? counts[offset + c] : 0.0;
+    if (v > bestVal) {
+      bestVal = v;
+      best = c;
+    }
+  }
+  return best;
+}
+
 void recomputeClassCounts(
     std::vector<std::vector<double>> &classCounts,
     const std::vector<std::vector<arma::uword>> &nodeSamples,
-    const arma::Row<size_t> &y, const arma::Row<float> &sampleWeights,
-    size_t numClasses) {
+    const arma::Mat<size_t> &y, const arma::Row<float> &sampleWeights,
+    const std::vector<size_t> &classOffsets, size_t nOutputs,
+    size_t totalClasses) {
   for (size_t ni = 0; ni < nodeSamples.size(); ++ni) {
-    std::vector<double> counts(numClasses, 0.0);
-    for (arma::uword col : nodeSamples[ni])
-      counts[y(col)] += static_cast<double>(sampleWeights(col));
+    std::vector<double> counts(totalClasses, 0.0);
+    for (arma::uword col : nodeSamples[ni]) {
+      const double w = static_cast<double>(sampleWeights(col));
+      for (size_t o = 0; o < nOutputs; ++o)
+        counts[classOffsets[o] +
+               y(static_cast<arma::uword>(o), col)] += w;
+    }
     classCounts[ni] = std::move(counts);
   }
 }
@@ -30,9 +52,20 @@ void recomputeClassCounts(
 
 ClassificationTaoAdapter::ClassificationTaoAdapter(
     ClassificationShapeGeneralizedTree &tree, const arma::fmat &X,
-    const arma::Row<size_t> &y, const arma::Row<float> &sampleWeights)
+    const arma::Mat<size_t> &y, const arma::Row<float> &sampleWeights)
     : ShapeGeneralizedTaoAdapter(tree, X, sampleWeights),
-      classificationTree_(tree), y_(y) {}
+      classificationTree_(tree), y_(y),
+      classesPerOutput_(tree.classesPerOutput()),
+      nOutputs_(static_cast<size_t>(y.n_rows)), totalClasses_(0) {
+  if (classesPerOutput_.size() != nOutputs_)
+    throw std::invalid_argument(
+        "ClassificationTaoAdapter: y.n_rows must match tree nOutputs");
+  classOffsets_.assign(nOutputs_, 0);
+  for (size_t o = 0; o < nOutputs_; ++o) {
+    classOffsets_[o] = totalClasses_;
+    totalClasses_ += classesPerOutput_[o];
+  }
+}
 
 LearningCriterion ClassificationTaoAdapter::routerCriterion() const {
   return classificationTree_.criterion();
@@ -41,12 +74,32 @@ LearningCriterion ClassificationTaoAdapter::routerCriterion() const {
 void ClassificationTaoAdapter::childRewards(
     const std::vector<size_t> &childLeaves, arma::uword col,
     std::vector<double> &reward) const {
-  const size_t label = y_(col);
   reward.resize(childLeaves.size());
+
+  if (nOutputs_ > 1) {
+    // Reward = fraction of outputs each child's leaf classifies correctly.
+    const double inv = 1.0 / static_cast<double>(nOutputs_);
+    for (size_t c = 0; c < childLeaves.size(); ++c) {
+      const auto &counts = classificationTree_.classCounts[childLeaves[c]];
+      size_t correct = 0;
+      for (size_t o = 0; o < nOutputs_; ++o) {
+        const size_t pred =
+            argMaxInBlock(counts, classOffsets_[o], classesPerOutput_[o]);
+        if (pred == y_(static_cast<arma::uword>(o), col))
+          ++correct;
+      }
+      reward[c] = static_cast<double>(correct) * inv;
+    }
+    return;
+  }
+
+  // Single-output: 1/x split uniformly across correct children.
+  const size_t label = y_(0, col);
   size_t numCorrect = 0;
   for (size_t c = 0; c < childLeaves.size(); ++c) {
     const bool correct =
-        argMax(classificationTree_.classCounts[childLeaves[c]]) == label;
+        argMaxInBlock(classificationTree_.classCounts[childLeaves[c]], 0,
+                      classesPerOutput_[0]) == label;
     if (correct)
       ++numCorrect;
     reward[c] = correct ? 1.0 : 0.0;
@@ -83,10 +136,15 @@ NodeCareSet ClassificationTaoAdapter::buildCareSet(
     if (best - worst <= tol)
       continue;
 
+    // Single-output: care about the best (correct) children only. Multi-output:
+    // care about all but the worst, matching the regression adapter.
     std::vector<size_t> good;
-    for (size_t c = 0; c < k; ++c)
-      if (best - reward[c] <= tol)
+    for (size_t c = 0; c < k; ++c) {
+      const bool keep = (nOutputs_ > 1) ? (reward[c] - worst > tol)
+                                        : (best - reward[c] <= tol);
+      if (keep)
         good.push_back(c);
+    }
 
     care.careCols.push_back(col);
     care.careRewards.push_back(reward);
@@ -119,7 +177,7 @@ NodeCareSet ClassificationTaoAdapter::buildCareSet(
 void ClassificationTaoAdapter::recomputeLeafStats(
     const std::vector<std::vector<arma::uword>> &nodeSamples) {
   recomputeClassCounts(classificationTree_.classCounts, nodeSamples, y_, w_,
-                       classificationTree_.numClasses());
+                       classOffsets_, nOutputs_, totalClasses_);
 }
 
 } // namespace tao

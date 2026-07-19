@@ -10,19 +10,21 @@
 #include <vector>
 
 /**
- * Branch-assignment objective: per-partition loss is MAE about the median of all
- * y values in that partition (same notion as AbsoluteErrorSplitter scoring).
- * Holds raw per-leaf y samples; add/remove recomputes median and MAE for the
- * affected partition(s).
+ * Multi-output MAE branch-assignment objective: per-partition loss is the SUM
+ * over outputs of the MAE about that output's median over the y values in the
+ * partition. Holds raw per-leaf, per-output y samples (``leafYs[bin][output]``)
+ * with per-sample weights shared across outputs (``leafWs[bin]``); add/remove
+ * recomputes the summed MAE for the affected partition(s). Single-output
+ * matches the old scalar path.
  */
 class AbsoluteErrorBranchAssignment : public BranchAssignment {
 public:
-  AbsoluteErrorBranchAssignment(std::vector<size_t> &assignments,
-                                size_t numPartitions,
-                                std::vector<std::vector<float>> &leafYs,
-                                std::vector<std::vector<float>> &leafWs,
-                                std::vector<double> &leafWeights,
-                                const std::vector<size_t> &leafSampleCounts);
+  AbsoluteErrorBranchAssignment(
+      std::vector<size_t> &assignments, size_t numPartitions,
+      std::vector<std::vector<std::vector<float>>> &leafYs,
+      std::vector<std::vector<float>> &leafWs,
+      std::vector<double> &leafWeights,
+      const std::vector<size_t> &leafSampleCounts);
 
   double objective() override;
 
@@ -31,9 +33,10 @@ public:
   void removeLeaf(size_t leaf) override;
 
 private:
-  std::vector<std::vector<float>> &leafYs_;
+  std::vector<std::vector<std::vector<float>>> &leafYs_;
   std::vector<std::vector<float>> &leafWs_;
   std::vector<double> &leafWeights_;
+  size_t nOutputs_ = 0;
 
   double weightedSumLoss_ = 0;
   double sumNumberOfSamples_ = 0;
@@ -42,7 +45,8 @@ private:
   std::vector<double> partitionWeight_;
   std::vector<double> partitionLoss_;
 
-  void collectPartitionSamples(size_t partition, std::vector<float> &ys,
+  void collectPartitionSamples(size_t partition, size_t output,
+                               std::vector<float> &ys,
                                std::vector<float> &ws) const;
   double computePartitionMae(size_t partition) const;
 

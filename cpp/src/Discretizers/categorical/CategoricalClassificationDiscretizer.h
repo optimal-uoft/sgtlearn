@@ -15,7 +15,7 @@
 #include <stdexcept>
 
 class CategoricalClassificationDiscretizer
-    : public CategoricalDiscretizer<double, size_t>,
+    : public CategoricalDiscretizer<double, std::vector<size_t>>,
       public ClassificationDiscretizer {
 public:
   explicit CategoricalClassificationDiscretizer(
@@ -27,16 +27,20 @@ public:
           "CategoricalClassificationDiscretizer requires Gini or Entropy");
   }
 
+  using ClassificationDiscretizer::Train;
+
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override {
-    CategoricalDiscretizer<double, size_t>::transform(X, binLoc);
+    CategoricalDiscretizer<double, std::vector<size_t>>::transform(X, binLoc);
   }
 
   size_t routeToBin(const std::vector<float> &featureValues) const override {
-    return CategoricalDiscretizer<double, size_t>::routeToBin(featureValues);
+    return CategoricalDiscretizer<double, std::vector<size_t>>::routeToBin(
+        featureValues);
   }
 
   void Train(const arma::fmat &X, arma::uvec &features,
-             const arma::Row<size_t> &y, size_t numClasses, size_t minLeafSize,
+             const arma::Mat<size_t> &y,
+             const std::vector<size_t> &nClassesPerOutput, size_t minLeafSize,
              double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
              const arma::Row<float> &sampleWeights = arma::Row<float>()) override;
 

@@ -30,16 +30,21 @@ missing_column_indices(const arma::frowvec &featureRow) {
 
 /**
  * Squared-error NaN routing from precomputed NaN-bucket moments. Picks the
- * partition whose weighted MSE grows least when the NaN bucket
- * (``missingSumWY`` / ``missingSumWY2`` / ``missingWeight``) is merged into it.
+ * partition whose weighted MSE grows least when the NaN bucket is merged into
+ * it. Multi-output: ``binStats[b]`` holds the concatenated
+ * ``[Σw·y0, Σw·y0², Σw·y1, Σw·y1², ...]`` (length ``2 * nOutputs``), and
+ * ``missingMoments`` holds the same layout for the NaN bucket. Loss is summed
+ * across outputs via ``Criterion::squaredErrorMulti``.
  */
 inline size_t choose_nan_partition_squared_error_from_moments(
     size_t numPartitions, const std::vector<size_t> &binToPartition,
     const std::vector<std::vector<double>> &binStats,
-    const std::vector<double> &binWeights, double missingSumWY,
-    double missingSumWY2, double missingWeight) {
-  std::vector<double> partSumWY(numPartitions, 0.0);
-  std::vector<double> partSumWY2(numPartitions, 0.0);
+    const std::vector<double> &binWeights,
+    const std::vector<double> &missingMoments, double missingWeight,
+    size_t nOutputs = 1) {
+  const size_t dim = 2 * nOutputs;
+  std::vector<std::vector<double>> partMoments(numPartitions,
+                                               std::vector<double>(dim, 0.0));
   std::vector<double> partWeights(numPartitions, 0.0);
   for (size_t b = 0; b < binStats.size(); ++b) {
     if (b >= binToPartition.size())
@@ -50,21 +55,18 @@ inline size_t choose_nan_partition_squared_error_from_moments(
     if (b < binWeights.size())
       partWeights[p] += binWeights[b];
     const auto &sb = binStats[b];
-    if (sb.size() >= 2) {
-      partSumWY[p] += sb[0];
-      partSumWY2[p] += sb[1];
-    }
+    for (size_t d = 0; d < dim && d < sb.size(); ++d)
+      partMoments[p][d] += sb[d];
   }
 
   double baseWeightedLoss = 0.0;
   double totalWeight = missingWeight;
   for (size_t p = 0; p < numPartitions; ++p) {
     totalWeight += partWeights[p];
-    if (partWeights[p] > 0.0) {
-      const std::vector<double> st{partSumWY[p], partSumWY2[p]};
+    if (partWeights[p] > 0.0)
       baseWeightedLoss +=
-          partWeights[p] * Criterion::squaredError(st, partWeights[p]);
-    }
+          partWeights[p] *
+          Criterion::squaredErrorMulti(partMoments[p], partWeights[p], nOutputs);
   }
   if (totalWeight <= 0.0)
     return 0;
@@ -72,18 +74,18 @@ inline size_t choose_nan_partition_squared_error_from_moments(
   std::vector<double> trialScores(numPartitions,
                                   std::numeric_limits<double>::infinity());
   for (size_t p = 0; p < numPartitions; ++p) {
-    const double trialSumWY = partSumWY[p] + missingSumWY;
-    const double trialSumWY2 = partSumWY2[p] + missingSumWY2;
+    std::vector<double> trialSt(dim, 0.0);
+    for (size_t d = 0; d < dim; ++d)
+      trialSt[d] =
+          partMoments[p][d] + (d < missingMoments.size() ? missingMoments[d] : 0.0);
     const double trialWeight = partWeights[p] + missingWeight;
-    const std::vector<double> trialSt{trialSumWY, trialSumWY2};
     double trialLoss = 0.0;
     if (trialWeight > 0.0)
-      trialLoss = Criterion::squaredError(trialSt, trialWeight);
+      trialLoss = Criterion::squaredErrorMulti(trialSt, trialWeight, nOutputs);
     double basePartLoss = 0.0;
-    if (partWeights[p] > 0.0) {
-      const std::vector<double> st{partSumWY[p], partSumWY2[p]};
-      basePartLoss = Criterion::squaredError(st, partWeights[p]);
-    }
+    if (partWeights[p] > 0.0)
+      basePartLoss =
+          Criterion::squaredErrorMulti(partMoments[p], partWeights[p], nOutputs);
     const double weightedLoss =
         baseWeightedLoss - partWeights[p] * basePartLoss + trialWeight * trialLoss;
     trialScores[p] = weightedLoss / totalWeight;
@@ -95,79 +97,35 @@ inline size_t choose_nan_partition_squared_error(
     size_t numPartitions, const std::vector<size_t> &binToPartition,
     const std::vector<std::vector<double>> &binStats,
     const std::vector<double> &binWeights,
-    const std::vector<size_t> &missingCols, const arma::Row<float> &ysub,
-    const arma::Row<float> &wsub, double *missingSumWYOut = nullptr,
-    double *missingSumWY2Out = nullptr, double *missingWeightOut = nullptr) {
-  std::vector<double> partSumWY(numPartitions, 0.0);
-  std::vector<double> partSumWY2(numPartitions, 0.0);
-  std::vector<double> partWeights(numPartitions, 0.0);
-  for (size_t b = 0; b < binStats.size(); ++b) {
-    if (b >= binToPartition.size())
-      continue;
-    const size_t p = binToPartition[b];
-    if (p >= numPartitions)
-      continue;
-    if (b < binWeights.size())
-      partWeights[p] += binWeights[b];
-    const auto &sb = binStats[b];
-    if (sb.size() >= 2) {
-      partSumWY[p] += sb[0];
-      partSumWY2[p] += sb[1];
-    }
-  }
+    const std::vector<size_t> &missingCols, const arma::Mat<float> &ysub,
+    const arma::Row<float> &wsub,
+    std::vector<double> *missingMomentsOut = nullptr,
+    double *missingWeightOut = nullptr) {
+  const size_t nOutputs = std::max<size_t>(ysub.n_rows, 1);
+  const size_t dim = 2 * nOutputs;
 
-  double missingSumWY = 0.0;
-  double missingSumWY2 = 0.0;
+  std::vector<double> missingMoments(dim, 0.0);
   double missingWeight = 0.0;
   for (size_t col : missingCols) {
-    if (col >= static_cast<size_t>(ysub.n_elem))
+    if (col >= static_cast<size_t>(ysub.n_cols))
       continue;
-    const double v = static_cast<double>(ysub(col));
     const double w = static_cast<double>(wsub(col));
-    missingSumWY += w * v;
-    missingSumWY2 += w * v * v;
+    for (size_t o = 0; o < nOutputs; ++o) {
+      const double v = static_cast<double>(
+          ysub(static_cast<arma::uword>(o), static_cast<arma::uword>(col)));
+      missingMoments[2 * o] += w * v;
+      missingMoments[2 * o + 1] += w * v * v;
+    }
     missingWeight += w;
   }
-  if (missingSumWYOut)
-    *missingSumWYOut = missingSumWY;
-  if (missingSumWY2Out)
-    *missingSumWY2Out = missingSumWY2;
+  if (missingMomentsOut)
+    *missingMomentsOut = missingMoments;
   if (missingWeightOut)
     *missingWeightOut = missingWeight;
 
-  double baseWeightedLoss = 0.0;
-  double totalWeight = missingWeight;
-  for (size_t p = 0; p < numPartitions; ++p) {
-    totalWeight += partWeights[p];
-    if (partWeights[p] > 0.0) {
-      const std::vector<double> st{partSumWY[p], partSumWY2[p]};
-      baseWeightedLoss +=
-          partWeights[p] * Criterion::squaredError(st, partWeights[p]);
-    }
-  }
-  if (totalWeight <= 0.0)
-    return 0;
-
-  std::vector<double> trialScores(numPartitions,
-                                  std::numeric_limits<double>::infinity());
-  for (size_t p = 0; p < numPartitions; ++p) {
-    const double trialSumWY = partSumWY[p] + missingSumWY;
-    const double trialSumWY2 = partSumWY2[p] + missingSumWY2;
-    const double trialWeight = partWeights[p] + missingWeight;
-    const std::vector<double> trialSt{trialSumWY, trialSumWY2};
-    double trialLoss = 0.0;
-    if (trialWeight > 0.0)
-      trialLoss = Criterion::squaredError(trialSt, trialWeight);
-    double basePartLoss = 0.0;
-    if (partWeights[p] > 0.0) {
-      const std::vector<double> st{partSumWY[p], partSumWY2[p]};
-      basePartLoss = Criterion::squaredError(st, partWeights[p]);
-    }
-    const double weightedLoss =
-        baseWeightedLoss - partWeights[p] * basePartLoss + trialWeight * trialLoss;
-    trialScores[p] = weightedLoss / totalWeight;
-  }
-  return missing_values::pick_lowest_score_min_index_tie(trialScores);
+  return choose_nan_partition_squared_error_from_moments(
+      numPartitions, binToPartition, binStats, binWeights, missingMoments,
+      missingWeight, nOutputs);
 }
 
 inline double partition_absolute_error(const std::vector<float> &ys,
@@ -196,9 +154,12 @@ inline size_t choose_nan_partition_absolute_error(
     size_t numPartitions, const arma::frowvec &featureRow,
     const std::vector<size_t> &sampleBins,
     const std::vector<size_t> &binToPartition,
-    const std::vector<size_t> &missingCols, const arma::Row<float> &ysub,
+    const std::vector<size_t> &missingCols, const arma::Mat<float> &ysub,
     const arma::Row<float> &wsub) {
-  std::vector<std::vector<float>> partYs(numPartitions);
+  const size_t nOutputs = std::max<size_t>(ysub.n_rows, 1);
+  // Per partition, per output: raw y samples; weights are shared per sample.
+  std::vector<std::vector<std::vector<float>>> partYs(
+      numPartitions, std::vector<std::vector<float>>(nOutputs));
   std::vector<std::vector<float>> partWs(numPartitions);
   std::vector<double> partWeights(numPartitions, 0.0);
   for (size_t col = 0; col < sampleBins.size(); ++col) {
@@ -211,29 +172,42 @@ inline size_t choose_nan_partition_absolute_error(
     const size_t p = binToPartition[bin];
     if (p >= numPartitions)
       continue;
-    partYs[p].push_back(ysub(col));
+    for (size_t o = 0; o < nOutputs; ++o)
+      partYs[p][o].push_back(
+          ysub(static_cast<arma::uword>(o), static_cast<arma::uword>(col)));
     partWs[p].push_back(wsub(col));
     partWeights[p] += static_cast<double>(wsub(col));
   }
 
-  std::vector<float> missingYs;
+  std::vector<std::vector<float>> missingYs(nOutputs);
   std::vector<float> missingWs;
   double missingWeight = 0.0;
   for (size_t col : missingCols) {
-    if (col >= static_cast<size_t>(ysub.n_elem))
+    if (col >= static_cast<size_t>(ysub.n_cols))
       continue;
-    missingYs.push_back(ysub(col));
+    for (size_t o = 0; o < nOutputs; ++o)
+      missingYs[o].push_back(
+          ysub(static_cast<arma::uword>(o), static_cast<arma::uword>(col)));
     missingWs.push_back(wsub(col));
     missingWeight += static_cast<double>(wsub(col));
   }
+
+  // Summed-over-outputs MAE for one partition given its per-output y lists.
+  const auto partitionLoss =
+      [nOutputs](const std::vector<std::vector<float>> &ys,
+                 const std::vector<float> &ws) -> double {
+    double loss = 0.0;
+    for (size_t o = 0; o < nOutputs; ++o)
+      loss += partition_absolute_error(ys[o], ws);
+    return loss;
+  };
 
   double baseWeightedLoss = 0.0;
   double totalWeight = missingWeight;
   for (size_t p = 0; p < numPartitions; ++p) {
     totalWeight += partWeights[p];
-    if (!partYs[p].empty())
-      baseWeightedLoss +=
-          partWeights[p] * partition_absolute_error(partYs[p], partWs[p]);
+    if (!partWs[p].empty())
+      baseWeightedLoss += partWeights[p] * partitionLoss(partYs[p], partWs[p]);
   }
   if (totalWeight <= 0.0)
     return 0;
@@ -241,13 +215,15 @@ inline size_t choose_nan_partition_absolute_error(
   std::vector<double> trialScores(numPartitions,
                                   std::numeric_limits<double>::infinity());
   for (size_t p = 0; p < numPartitions; ++p) {
-    std::vector<float> trialYs = partYs[p];
+    std::vector<std::vector<float>> trialYs = partYs[p];
+    for (size_t o = 0; o < nOutputs; ++o)
+      trialYs[o].insert(trialYs[o].end(), missingYs[o].begin(),
+                        missingYs[o].end());
     std::vector<float> trialWs = partWs[p];
-    trialYs.insert(trialYs.end(), missingYs.begin(), missingYs.end());
     trialWs.insert(trialWs.end(), missingWs.begin(), missingWs.end());
     const double trialWeight = partWeights[p] + missingWeight;
-    const double trialLoss = partition_absolute_error(trialYs, trialWs);
-    const double basePartLoss = partition_absolute_error(partYs[p], partWs[p]);
+    const double trialLoss = partitionLoss(trialYs, trialWs);
+    const double basePartLoss = partitionLoss(partYs[p], partWs[p]);
     const double weightedLoss = baseWeightedLoss - partWeights[p] * basePartLoss +
                                 trialWeight * trialLoss;
     trialScores[p] = weightedLoss / totalWeight;

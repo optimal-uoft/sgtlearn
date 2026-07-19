@@ -10,6 +10,7 @@ from sklearn.utils.validation import check_X_y
 
 from sgtlearn.base import SGTRegressor
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
+from sgtlearn._multioutput import squeeze_outputs
 
 
 class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
@@ -154,6 +155,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             dtype=np.float64,
             ensure_all_finite="allow-nan",
             y_numeric=True,
+            multi_output=True,
         )
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTRegressor:
@@ -161,11 +163,15 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         X32 = self._check_predict_X(X)
-        acc = np.zeros(X.shape[0], dtype=np.float64)
+        n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
+        acc = np.zeros((X.shape[0], n_outputs), dtype=np.float64)
         for est in self.estimators_:
-            acc += est.predict(X32)
+            pred = np.asarray(est.predict(X32), dtype=np.float64)
+            if pred.ndim == 1:
+                pred = pred.reshape(-1, 1)
+            acc += pred
         acc /= float(len(self.estimators_))
-        return acc
+        return squeeze_outputs(acc, n_outputs)
 
 
 __all__ = ["RandomSGForestRegressor"]

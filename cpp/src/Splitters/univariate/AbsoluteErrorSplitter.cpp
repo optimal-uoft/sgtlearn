@@ -8,16 +8,16 @@
 
 #include <limits>
 
-QuantileStats AbsoluteErrorSplitter::getMedianQuantileStats(size_t l, size_t r) {
-  return waveletTree.quantileStatsForMedian(static_cast<int>(l),
-                                            static_cast<int>(r));
-}
-
 AbsoluteErrorSplitter::AbsoluteErrorSplitter(arma::frowvec &X,
                                              arma::frowvec &sampleWeights,
                                              arma::Mat<float> &y)
     : Splitter(X, sampleWeights, 0), targets(y),
-      waveletTree(arma::Row<float>(y.row(0)), arma::Row<float>(sampleWeights)) {}
+      nOutputs_(static_cast<size_t>(y.n_rows)) {
+  waveletTrees_.reserve(nOutputs_);
+  for (size_t o = 0; o < nOutputs_; ++o)
+    waveletTrees_.push_back(std::make_unique<WaveletTreeMAE>(
+        arma::Row<float>(y.row(o)), arma::Row<float>(sampleWeights)));
+}
 
 UnivariateSplitCandidate AbsoluteErrorSplitter::makeRoot() {
   UnivariateSplitCandidate root{.height = 0,
@@ -30,14 +30,27 @@ UnivariateSplitCandidate AbsoluteErrorSplitter::makeRoot() {
   return root;
 }
 
-float AbsoluteErrorSplitter::predict(const UnivariateSplitCandidate &split) {
-  return getMedianQuantileStats(split.start, split.end).median_val;
+std::vector<float>
+AbsoluteErrorSplitter::predict(const UnivariateSplitCandidate &split) {
+  std::vector<float> medians(nOutputs_, 0.f);
+  for (size_t o = 0; o < nOutputs_; ++o)
+    medians[o] = waveletTrees_[o]
+                     ->quantileStatsForMedian(static_cast<int>(split.start),
+                                              static_cast<int>(split.end))
+                     .median_val;
+  return medians;
 }
 
 double AbsoluteErrorSplitter::score(const std::vector<double> &stats, size_t l,
                                     size_t r) {
   (void)stats;
-  return getMedianQuantileStats(l, r).mae();
+  double total = 0.0;
+  for (size_t o = 0; o < nOutputs_; ++o)
+    total += waveletTrees_[o]
+                 ->quantileStatsForMedian(static_cast<int>(l),
+                                          static_cast<int>(r))
+                 .mae();
+  return total;
 }
 
 double AbsoluteErrorSplitter::score(const UnivariateSplitCandidate &split) {

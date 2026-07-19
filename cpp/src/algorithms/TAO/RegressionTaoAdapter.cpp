@@ -16,7 +16,7 @@ namespace tao {
 
 RegressionTaoAdapter::RegressionTaoAdapter(
     RegressionShapeGeneralizedTree &tree, const arma::fmat &X,
-    const arma::Row<float> &y, const arma::Row<float> &sampleWeights)
+    const arma::Mat<float> &y, const arma::Row<float> &sampleWeights)
     : ShapeGeneralizedTaoAdapter(tree, X, sampleWeights), regressionTree_(tree),
       y_(y),
       squared_(tree.criterion() == LearningCriterion::SquaredError) {}
@@ -29,10 +29,17 @@ void RegressionTaoAdapter::childRewards(
     const std::vector<size_t> &childLeaves, arma::uword col,
     std::vector<double> &reward) const {
   const auto &leafPred = regressionTree_.leafPredictions();
-  const double target = static_cast<double>(y_(col));
+  const size_t nOutputs = regressionTree_.nOutputs();
   for (size_t c = 0; c < childLeaves.size(); ++c) {
-    const double d = leafPred[childLeaves[c]] - target;
-    reward[c] = squared_ ? -(d * d) : -std::fabs(d);
+    const std::vector<double> &pred = leafPred[childLeaves[c]];
+    double loss = 0.0;
+    for (size_t o = 0; o < nOutputs; ++o) {
+      const double target =
+          static_cast<double>(y_(static_cast<arma::uword>(o), col));
+      const double d = (o < pred.size() ? pred[o] : 0.0) - target;
+      loss += squared_ ? (d * d) : std::fabs(d);
+    }
+    reward[c] = -loss;
   }
 }
 
@@ -97,36 +104,50 @@ void RegressionTaoAdapter::recomputeLeafStats(
   auto &nodes = regressionTree_.mutableNodes();
   auto &leafPred = regressionTree_.mutableLeafPredictions();
 
+  const size_t nOutputs = regressionTree_.nOutputs();
+
   for (size_t ni = 0; ni < nodes.size(); ++ni) {
     if (!nodes[ni].isLeaf)
       continue;
     const std::vector<arma::uword> &cols = nodeSamples[ni];
 
     if (squared_) {
-      double sumWY = 0.0;
-      double sumWY2 = 0.0;
+      std::vector<double> preds(nOutputs, 0.0);
+      std::vector<float> stats(2 * nOutputs, 0.0f);
       double sumW = 0.0;
-      for (arma::uword col : cols) {
-        const double wi = static_cast<double>(w_(col));
-        const double v = static_cast<double>(y_(col));
-        sumWY += wi * v;
-        sumWY2 += wi * v * v;
-        sumW += wi;
+      for (arma::uword col : cols)
+        sumW += static_cast<double>(w_(col));
+      for (size_t o = 0; o < nOutputs; ++o) {
+        double sumWY = 0.0;
+        double sumWY2 = 0.0;
+        for (arma::uword col : cols) {
+          const double wi = static_cast<double>(w_(col));
+          const double v =
+              static_cast<double>(y_(static_cast<arma::uword>(o), col));
+          sumWY += wi * v;
+          sumWY2 += wi * v * v;
+        }
+        preds[o] = sumW > 0.0 ? sumWY / sumW : 0.0;
+        stats[2 * o] = static_cast<float>(sumWY);
+        stats[2 * o + 1] = static_cast<float>(sumWY2);
       }
-      leafPred[ni] = sumW > 0.0 ? sumWY / sumW : 0.0;
+      leafPred[ni] = std::move(preds);
       if (ni < regressionTree_.leafRegressionStats.size())
-        regressionTree_.leafRegressionStats[ni] = {static_cast<float>(sumWY),
-                                                 static_cast<float>(sumWY2)};
+        regressionTree_.leafRegressionStats[ni] = std::move(stats);
     } else {
-      std::vector<float> ys;
-      std::vector<float> ws;
-      ys.reserve(cols.size());
-      ws.reserve(cols.size());
-      for (arma::uword col : cols) {
-        ys.push_back(y_(col));
-        ws.push_back(w_(col));
+      std::vector<double> preds(nOutputs, 0.0);
+      for (size_t o = 0; o < nOutputs; ++o) {
+        std::vector<float> ys;
+        std::vector<float> ws;
+        ys.reserve(cols.size());
+        ws.reserve(cols.size());
+        for (arma::uword col : cols) {
+          ys.push_back(y_(static_cast<arma::uword>(o), col));
+          ws.push_back(w_(col));
+        }
+        preds[o] = Criterion::absoluteError(ys, ws).median;
       }
-      leafPred[ni] = Criterion::absoluteError(ys, ws).median;
+      leafPred[ni] = std::move(preds);
       if (ni < regressionTree_.leafRegressionStats.size())
         regressionTree_.leafRegressionStats[ni].clear();
     }

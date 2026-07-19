@@ -19,7 +19,7 @@ v0.2.0
 ------
 
 - ✅ Superset branching on categorical features
-- ⬜ Multioutput support
+- ✅ Multioutput support
 - ✅ More plotting options (e.g. exporting to Graphviz)
 - ✅ Feature importances matching scikit-learn's API for SGTs and :math:`\mathrm{SGT}_K`
 - ✅ TAO refinement

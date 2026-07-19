@@ -226,10 +226,37 @@ inline std::vector<FeatureInfo> parseFeaturesPy(const py::object &features) {
  * Thin Python adapter around `ClassificationShapeGeneralizedTree`. Owns the
  * C++ implementation and handles NumPy <-> Armadillo plumbing.
  */
+/**
+ * Parse the Python ``num_classes`` argument into a per-output class-count
+ * vector. Accepts an integer (single output, or a shared count that the C++
+ * layer expands to match ``y.n_rows``) or a sequence of integers (one entry
+ * per output). Returns an empty vector for the ``int`` case so the caller can
+ * pick the scalar constructor.
+ */
+inline std::vector<size_t> parseNumClassesPy(const py::object &num_classes) {
+  py::object numbers = py::module_::import("numbers");
+  if (py::isinstance<py::bool_>(num_classes))
+    throw std::invalid_argument("num_classes cannot be bool");
+  if (py::isinstance(num_classes, numbers.attr("Integral"))) {
+    return {}; // signal: use scalar ctor
+  }
+  if (py::isinstance<py::iterable>(num_classes)) {
+    std::vector<size_t> out;
+    for (const py::handle item : num_classes)
+      out.push_back(py::cast<size_t>(py::reinterpret_borrow<py::object>(item)));
+    if (out.empty())
+      throw std::invalid_argument(
+          "num_classes sequence must contain at least one output count");
+    return out;
+  }
+  throw std::invalid_argument(
+      "num_classes must be an int or a sequence of ints");
+}
+
 class ClassificationShapeGeneralizedTreePy {
 public:
   ClassificationShapeGeneralizedTreePy(
-      std::string criterion, size_t numClasses, size_t numPartitions,
+      std::string criterion, py::object numClasses, size_t numPartitions,
       size_t outerMinLeafSize, double outerMinGainSplit, size_t outerMaxDepth,
       size_t outerMaxLeafNodes, size_t innerMinLeafSize,
       double innerMinGainSplit, size_t innerMaxDepth, size_t innerMaxLeafNodes,
@@ -246,25 +273,29 @@ public:
     cd.maxIters = coordinateDescentMaxIters;
     cd.patience = coordinateDescentPatience;
     cd.smartInit = coordinateDescentSmartInit;
-    impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
-        crit, numClasses, numPartitions, outer, inner, cd, random_state,
-        parseMaxFeaturesPy(max_features));
+    const std::vector<size_t> nClassesPerOutput = parseNumClassesPy(numClasses);
+    if (nClassesPerOutput.empty()) {
+      impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
+          crit, py::cast<size_t>(numClasses), numPartitions, outer, inner, cd,
+          random_state, parseMaxFeaturesPy(max_features));
+    } else {
+      impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
+          crit, nClassesPerOutput, numPartitions, outer, inner, cd,
+          random_state, parseMaxFeaturesPy(max_features));
+    }
   }
 
   void fit(const py::array &X, const py::array &y,
            py::object sample_weight, const py::object &features) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
-    /** Owning copy: zero-copy Row views from NumPy often fail Armadillo strict
-     *  checks on some dtypes / strides; C++ expects `arma::Row<size_t>`. */
-    arma::Col<size_t> y_col = as1DColOwning<size_t>(y, "y");
+    /** Owning copy: zero-copy views from NumPy often fail Armadillo strict
+     *  checks on some dtypes / strides; C++ expects `arma::Mat<size_t>`.
+     *  Accepts 1-D (n_samples,) or 2-D (n_samples, n_outputs). */
+    arma::Mat<size_t> y_mat = asSamplesByOutputsOwning<size_t>(y, "y");
 
-    if (y_col.n_elem != Xb.view().n_cols)
+    if (y_mat.n_cols != Xb.view().n_cols)
       throw std::invalid_argument(
           "y.shape[0] must equal X.shape[0] (number of samples)");
-
-    arma::Row<size_t> y_row(y_col.n_elem);
-    for (arma::uword i = 0; i < y_col.n_elem; ++i)
-      y_row(i) = y_col(i);
 
     const arma::Row<float> w_row =
         sampleWeightRowFromPy(sample_weight, Xb.view().n_cols);
@@ -272,28 +303,35 @@ public:
     const std::vector<FeatureInfo> featuresVec = parseFeaturesPy(features);
 
     py::gil_scoped_release release;
-    impl_->fit(Xb.view(), y_row, w_row, featuresVec);
+    impl_->fit(Xb.view(), y_mat, w_row, featuresVec);
   }
 
   py::array_t<size_t> predict(const py::array &X) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
-    arma::Row<size_t> preds;
+    arma::Mat<size_t> preds;
     {
       py::gil_scoped_release release;
       preds = impl_->predict(Xb.view());
     }
-    return rowToNumpy(preds);
+    // arma (numOutputs, numSamples) -> numpy (numSamples,) or (numSamples, numOutputs)
+    return samplesByOutputsToNumpy(preds);
   }
 
-  py::array_t<float> predictProba(const py::array &X) {
+  py::object predictProba(const py::array &X) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
-    arma::fmat proba;
+    std::vector<arma::fmat> proba;
     {
       py::gil_scoped_release release;
       proba = impl_->predictProba(Xb.view());
     }
-    // arma (numClasses, numSamples) -> numpy (numSamples, numClasses)
-    return samplesByFeaturesToNumpy(proba);
+    // Single output: return one (numSamples, numClasses) array. Multi-output:
+    // return a list with one such array per output (sklearn convention).
+    if (proba.size() == 1)
+      return samplesByFeaturesToNumpy(proba.front());
+    py::list out;
+    for (const arma::fmat &p : proba)
+      out.append(samplesByFeaturesToNumpy(p));
+    return out;
   }
 
   /**
@@ -306,6 +344,14 @@ public:
   size_t numLeaves() const { return impl_->numLeaves(); }
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
+  size_t nOutputs() const { return impl_->nOutputs(); }
+
+  py::list classesPerOutput() const {
+    py::list out;
+    for (size_t k : impl_->classesPerOutput())
+      out.append(k);
+    return out;
+  }
 
   py::array_t<double> featureImportance() const {
     return colToNumpy(impl_->featureImportance());
@@ -319,6 +365,8 @@ public:
     out["num_nodes"] = impl_->numNodes();
     out["root_index"] = impl_->rootIndex();
     out["num_classes"] = impl_->numClasses();
+    out["num_outputs"] = impl_->nOutputs();
+    out["classes_per_output"] = classesPerOutput();
     out["criterion"] = criterionStr_;
 
     const auto &nodes = impl_->nodes();
@@ -425,8 +473,9 @@ public:
   void fit(const py::array &X, const py::array &y,
            py::object sample_weight, const py::object &features) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
-    auto yb = as1DRow<float>(y, "y");
-    if (yb.view().n_elem != Xb.view().n_cols)
+    // Accepts 1-D (n_samples,) or 2-D (n_samples, n_outputs).
+    auto yb = asSamplesByOutputs<float>(y, "y");
+    if (yb.view().n_cols != Xb.view().n_cols)
       throw std::invalid_argument(
           "y.shape[0] must equal X.shape[0] (number of samples)");
     const arma::Row<float> w_row =
@@ -440,12 +489,13 @@ public:
 
   py::array_t<double> predict(const py::array &X) {
     auto Xb = asSamplesByFeatures<float>(X, "X");
-    arma::Row<double> preds;
+    arma::Mat<double> preds;
     {
       py::gil_scoped_release release;
       preds = impl_->predict(Xb.view());
     }
-    return rowToNumpy(preds);
+    // arma (numOutputs, numSamples) -> numpy (numSamples,) or (numSamples, numOutputs)
+    return samplesByOutputsToNumpy(preds);
   }
 
   /**
@@ -456,6 +506,7 @@ public:
   size_t numLeaves() const { return impl_->numLeaves(); }
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
+  size_t nOutputs() const { return impl_->nOutputs(); }
 
   py::array_t<double> featureImportance() const {
     return colToNumpy(impl_->featureImportance());
@@ -474,6 +525,7 @@ public:
     out["num_partitions"] = impl_->numPartitions();
     out["num_nodes"] = impl_->numNodes();
     out["root_index"] = impl_->rootIndex();
+    out["num_outputs"] = impl_->nOutputs();
     out["criterion"] = criterionStr_;
 
     const auto &nodes = impl_->nodes();
@@ -491,7 +543,18 @@ public:
       d["impurity"] = n.score;
 
       if (n.isLeaf) {
-        d["value"] = i < leafPred.size() ? leafPred[i] : 0.0;
+        // Single output: scalar ``value`` (backward compatible). Multi-output:
+        // a list of per-output leaf predictions.
+        const std::vector<double> leafValue =
+            i < leafPred.size() ? leafPred[i] : std::vector<double>{0.0};
+        if (leafValue.size() == 1) {
+          d["value"] = leafValue.front();
+        } else {
+          py::list vals;
+          for (double v : leafValue)
+            vals.append(v);
+          d["value"] = vals;
+        }
         d["n_samples"] = i < leafN.size() ? leafN[i] : static_cast<size_t>(0);
         d["feature"] = py::none();
         d["features"] = py::list();

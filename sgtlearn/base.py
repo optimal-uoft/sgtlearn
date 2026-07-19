@@ -10,6 +10,14 @@ from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from sgtlearn._features import ProcessedFeatures, configure_feature_dict
+from sgtlearn._multioutput import (
+    as_output_matrix,
+    encode_classification_targets,
+    label_encoders_as_list,
+    native_y_array,
+    squeeze_outputs,
+    unwrap_classifier_public_attrs,
+)
 from sgtlearn._weights import (
     normalize_sample_weight,
     effective_sample_weight_classification,
@@ -214,17 +222,22 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         - ``"log2"``: use ``max(1, int(log2(n_features)))`` columns.
 
         String values are case-insensitive in the native binding.
-    class_weight : dict, optional
-        Per-class weights multiplied into ``sample_weight`` before training.
-        Keys are class labels as in ``y``; values are non-negative floats.
+    class_weight : dict, list of dict, or None, default=None
+        Per-class multipliers. A single mapping applies to every output; for
+        multi-output ``y`` of shape ``(n_samples, n_outputs)``, pass a list of
+        mappings (one per output). Combined with ``sample_weight`` into one
+        weight vector (product across outputs), matching sklearn.
 
     Attributes
     ----------
-    classes_ : ndarray of shape (n_classes,)
-        Unique class labels observed during :meth:`fit`, in the order used by
-        :meth:`predict_proba` columns.
-    n_classes_ : int
-        Number of classes.
+    classes_ : ndarray or list of ndarray
+        Class labels. For a single target this is a 1-D array; for multi-output
+        ``y`` it is a list of per-output class arrays (``predict_proba`` returns
+        a matching list of probability matrices).
+    n_classes_ : int or list of int
+        Number of classes (scalar or one entry per output).
+    n_outputs_ : int
+        Number of target columns (``1`` for a 1-D ``y``).
     n_features_in_ : int
         Number of features in ``X`` passed to :meth:`fit`.
     feature_importances_ : ndarray of shape (n_logical_features,)
@@ -239,11 +252,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     Notes
     -----
-    Internally, ``X`` is cast to C-contiguous ``float32`` and ``y`` to
-    ``uint64`` before being passed to the native trainer. Sparse input is not
-    supported. NaN in ``X`` is handled by the native trainer (non-finite
-    values are sorted to the feature tail and routed to the last bin at
-    inference). Infinity in ``X`` is rejected.
+    Internally, single- and multi-output training share one path: ``y`` is
+    always handled as ``(n_samples, n_outputs)`` (with ``n_outputs=1`` for a
+    vector target). Impurity / gain sums across outputs. ``X`` is cast to
+    C-contiguous ``float32`` and ``y`` to ``uint64`` before the native trainer.
+    Sparse input is not supported. NaN in ``X`` is handled by the native
+    trainer (non-finite values are sorted to the feature tail and routed to
+    the last bin at inference). Infinity in ``X`` is rejected.
 
     References
     ----------
@@ -258,12 +273,19 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     Examples
     --------
-    >>> from sklearn.datasets import make_classification
+    >>> from sklearn.datasets import make_classification, make_multilabel_classification
     >>> from sgtlearn import SGTClassifier
     >>> X, y = make_classification(n_samples=500, random_state=0)
     >>> clf = SGTClassifier(max_depth=4, random_state=42).fit(X, y)
     >>> clf.predict(X[:5]).shape
     (5,)
+    >>> Xm, ym = make_multilabel_classification(
+    ...     n_samples=200, n_classes=3, n_labels=1, random_state=0
+    ... )
+    >>> # Multi-output integer labels also work (one tree, joint impurity).
+    >>> clf_m = SGTClassifier(inner_max_depth=1, tao_n_runs=0, random_state=0)
+    >>> clf_m.fit(Xm, ym[:, :2]).predict(Xm[:3]).shape
+    (3, 2)
     """
 
     def __init__(
@@ -284,7 +306,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: Optional[int] = 42,
         max_features: Optional[Union[int, float, str]] = None,
-        class_weight: Optional[Mapping[Any, float]] = None,
+        class_weight: Optional[
+            Union[Mapping[Any, float], Sequence[Mapping[Any, float]]]
+        ] = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
     ) -> None:
@@ -310,8 +334,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.tao_lambda = tao_lambda
         self._est: Any = None
         self._le: Any = None
-        self.classes_: Optional[np.ndarray] = None
-        self.n_classes_: Optional[int] = None
+        self.classes_: Optional[Any] = None
+        self.n_classes_: Optional[Any] = None
+        self.n_outputs_: int = 1
         self.n_features_in_: Optional[int] = None
         self.feature_names_in_: Optional[np.ndarray] = None
 
@@ -331,8 +356,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training features.
-        y : array-like of shape (n_samples,)
-            Target class labels.
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            Target class labels. Multi-output ``y`` trains one joint tree;
+            impurity is summed across outputs.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
         feature_dict : mapping, optional
@@ -361,23 +387,56 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 accept_sparse=False,
                 dtype=np.float64,
                 ensure_all_finite="allow-nan",
+                multi_output=True,
             )
-            le = LabelEncoder()
-            y_enc = le.fit_transform(y)
-            self._le = le
-            self.classes_ = le.classes_
-            self.n_classes_ = int(len(self.classes_))
+            y_enc, encoders, classes_list, n_classes_list = (
+                encode_classification_targets(y)
+            )
+            self.n_outputs_ = y_enc.shape[1]
+            (
+                self._le,
+                self.classes_,
+                self.n_classes_,
+                n_classes_native,
+            ) = unwrap_classifier_public_attrs(
+                encoders, classes_list, n_classes_list, self.n_outputs_
+            )
+            if any(k < 2 for k in n_classes_list):
+                raise ValueError(
+                    "SGTClassifier requires at least two classes per output."
+                )
         else:
             if self.classes_ is None or self.n_classes_ is None:
                 raise ValueError(
                     "SGTClassifier.fit(check_input=False) requires classes_ and "
                     "n_classes_ to be set by the caller before fit."
                 )
-            if self.n_classes_ < 2:
-                raise ValueError("SGTClassifier requires at least two classes.")
             X = np.asarray(X)
-            self._le = _IdentityLabelEncoder(self.classes_)
-            y_enc = self._le.transform(y)
+            y2, self.n_outputs_ = as_output_matrix(y)
+            if self.n_outputs_ == 1 and not isinstance(
+                self.classes_, (list, tuple)
+            ):
+                preset = [_IdentityLabelEncoder(np.asarray(self.classes_))]
+                n_classes_list = [int(self.n_classes_)]
+            else:
+                classes_seq = list(self.classes_)
+                preset = [_IdentityLabelEncoder(np.asarray(c)) for c in classes_seq]
+                n_classes_list = [int(k) for k in self.n_classes_]
+            if any(k < 2 for k in n_classes_list):
+                raise ValueError(
+                    "SGTClassifier requires at least two classes per output."
+                )
+            y_enc, encoders, classes_list, n_classes_list = (
+                encode_classification_targets(y2, encoders=preset)
+            )
+            (
+                self._le,
+                self.classes_,
+                self.n_classes_,
+                n_classes_native,
+            ) = unwrap_classifier_public_attrs(
+                encoders, classes_list, n_classes_list, self.n_outputs_
+            )
             if y_enc.shape[0] != X.shape[0]:
                 raise ValueError("X and y must have the same number of samples.")
 
@@ -413,7 +472,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
         self._est = ClassificationShapeGeneralizedTree(
             str(self.criterion),
-            self.n_classes_,
+            n_classes_native,
             self.num_partitions,
             int(self.min_samples_leaf),
             float(self.min_impurity_decrease),
@@ -431,10 +490,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
-        # Native bridge expects C-contiguous 1-D; uint64 matches size_t on 64-bit.
-        y_u = np.ascontiguousarray(
-            np.asarray(y_enc, dtype=np.uint64).reshape(-1), dtype=np.uint64
-        )
+        y_u = native_y_array(y_enc, dtype=np.uint64)
         self._est.fit(
             X32, y_u, sample_weight=sw, features=processed_features.to_native()
         )
@@ -471,10 +527,23 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 f"X has {X32.shape[1]} features, but SGTClassifier is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
-        return self._le.inverse_transform(self._est.predict(X32))
+        preds = np.asarray(self._est.predict(X32))
+        encoders = label_encoders_as_list(self._le, self.n_outputs_)
+        if preds.ndim == 1:
+            preds = preds.reshape(-1, 1)
+        cols = [
+            encoders[o].inverse_transform(preds[:, o])
+            for o in range(self.n_outputs_)
+        ]
+        return squeeze_outputs(np.column_stack(cols), self.n_outputs_)
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Return shape ``(n_samples, n_classes)`` probabilities aligned with ``classes_`` order."""
+    def predict_proba(self, X: np.ndarray) -> Any:
+        """Class probabilities aligned with :attr:`classes_`.
+
+        Single output: an array of shape ``(n_samples, n_classes)``.
+        Multi-output: a list of such arrays, one per output (sklearn
+        convention).
+        """
 
         check_is_fitted(self, attributes=("_est", "_le"))
         X = check_array(
@@ -486,8 +555,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 f"{self.n_features_in_} features as in fit."
             )
         X32 = np.ascontiguousarray(X, dtype=np.float32)
-        # Native: (n_samples, n_classes) aligned with encoded labels 0..K-1
-        return np.asarray(self._est.predict_proba(X32), dtype=np.float64)
+        # Native: single (n_samples, n_classes) array, or a list of such arrays
+        # per output, aligned with encoded labels 0..K-1 for each output.
+        proba = self._est.predict_proba(X32)
+        if self.n_outputs_ == 1:
+            return np.asarray(proba, dtype=np.float64)
+        return [np.asarray(p, dtype=np.float64) for p in proba]
 
     def tree_export(self) -> dict:
         """Return a flat dict snapshot of the fitted tree.
@@ -558,6 +631,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
     Attributes
     ----------
+    n_outputs_ : int
+        Number of target columns (``1`` for a 1-D ``y``).
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
     feature_importances_ : ndarray of shape (n_logical_features,)
@@ -572,11 +647,12 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
     Notes
     -----
-    Internally, ``X`` and ``y`` are cast to C-contiguous ``float32`` before
-    being passed to the native trainer. Sparse input is not supported. NaN in
-    ``X`` is handled by the native trainer (non-finite values are sorted to the
-    feature tail and routed to the last bin at inference). Infinity in ``X`` is
-    rejected.
+    Internally, single- and multi-output training share one path: ``y`` is
+    always handled as ``(n_samples, n_outputs)``. Loss / gain sums across
+    outputs. ``X`` and ``y`` are cast to C-contiguous ``float32`` before the
+    native trainer. Sparse input is not supported. NaN in ``X`` is handled by
+    the native trainer (non-finite values are sorted to the feature tail and
+    routed to the last bin at inference). Infinity in ``X`` is rejected.
 
     For ``squared_error``/``mse``, the trainer runs coordinate descent after
     the round-robin seed and keeps the refined assignment only if branch MSE
@@ -643,6 +719,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.tao_n_runs = tao_n_runs
         self.tao_lambda = tao_lambda
         self._est: Any = None
+        self.n_outputs_: int = 1
         self.n_features_in_: Optional[int] = None
         self.feature_names_in_: Optional[np.ndarray] = None
 
@@ -662,8 +739,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training features.
-        y : array-like of shape (n_samples,)
-            Target values.
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            Target values. Multi-output ``y`` trains one joint tree; loss is
+            summed across outputs.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
         feature_dict : mapping, optional
@@ -692,9 +770,12 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 dtype=np.float64,
                 ensure_all_finite="allow-nan",
                 y_numeric=True,
+                multi_output=True,
             )
             if np.isnan(np.asarray(y, dtype=np.float64)).any():
                 raise ValueError("Input y contains NaN.")
+        y = np.asarray(y)
+        y2, self.n_outputs_ = as_output_matrix(y)
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
@@ -736,7 +817,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
-        y32 = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
+        y32 = native_y_array(y2, dtype=np.float32)
         sw = normalize_sample_weight(sample_weight, X.shape[0])
         self._est.fit(
             X32,
@@ -770,7 +851,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 f"{self.n_features_in_} features as in fit."
             )
         X32 = np.ascontiguousarray(X, dtype=np.float32)
-        return np.asarray(self._est.predict(X32), dtype=np.float64).ravel()
+        preds = np.asarray(self._est.predict(X32), dtype=np.float64)
+        return squeeze_outputs(preds, self.n_outputs_)
 
     def tree_export(self) -> dict:
         """Return a flat dict snapshot of the fitted tree.

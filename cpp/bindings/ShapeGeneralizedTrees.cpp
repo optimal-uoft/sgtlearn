@@ -43,7 +43,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
 
   py::class_<ClassificationShapeGeneralizedTreePy>(
       m, "ClassificationShapeGeneralizedTree")
-      .def(py::init([](std::string criterion, size_t num_classes,
+      .def(py::init([](std::string criterion, py::object num_classes,
                        size_t num_partitions, size_t outer_min_leaf_size,
                        double outer_min_gain_split, size_t outer_max_depth,
                        size_t outer_max_leaf_nodes, size_t inner_min_leaf_size,
@@ -54,7 +54,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
                        bool coordinate_descent_smart_init, uint64_t random_state,
                        py::object max_features) {
              return ClassificationShapeGeneralizedTreePy(
-                 std::move(criterion), num_classes, num_partitions,
+                 std::move(criterion), std::move(num_classes), num_partitions,
                  outer_min_leaf_size, outer_min_gain_split, outer_max_depth,
                  outer_max_leaf_nodes, inner_min_leaf_size, inner_min_gain_split,
                  inner_max_depth, inner_max_leaf_nodes,
@@ -81,18 +81,27 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("y"), py::arg("sample_weight") = py::none(),
            py::arg("features"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
-           "1-D uint class labels. Optional sample_weight is 1-D float32.")
+           "uint class labels, 1-D (n_samples,) or 2-D (n_samples, n_outputs). "
+           "Optional sample_weight is 1-D float32.")
       .def("predict", &ClassificationShapeGeneralizedTreePy::predict,
            py::arg("X"),
-           "Predict class labels for X (shape (n_samples, n_features)).")
+           "Predict class labels for X (shape (n_samples, n_features)). Returns "
+           "(n_samples,) for a single output or (n_samples, n_outputs) for "
+           "multi-output.")
       .def("predict_proba", &ClassificationShapeGeneralizedTreePy::predictProba,
            py::arg("X"),
-           "Predict class probabilities for X; output shape "
-           "(n_samples, n_classes).")
+           "Predict class probabilities for X. Single output: a "
+           "(n_samples, n_classes) array. Multi-output: a list of such arrays, "
+           "one per output.")
       .def_property_readonly(
           "num_leaves", &ClassificationShapeGeneralizedTreePy::numLeaves)
       .def_property_readonly(
           "num_nodes", &ClassificationShapeGeneralizedTreePy::numNodes)
+      .def_property_readonly(
+          "n_outputs", &ClassificationShapeGeneralizedTreePy::nOutputs)
+      .def_property_readonly(
+          "classes_per_output",
+          &ClassificationShapeGeneralizedTreePy::classesPerOutput)
       .def_property_readonly(
           "is_fitted", &ClassificationShapeGeneralizedTreePy::isFitted)
       .def_property_readonly(
@@ -142,13 +151,17 @@ is accepted for API parity with ClassificationShapeGeneralizedTree but ignored.)
            py::arg("y"), py::arg("sample_weight") = py::none(),
            py::arg("features"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
-           "1-D float32 targets. Optional sample_weight is 1-D float32.")
+           "float32 targets, 1-D (n_samples,) or 2-D (n_samples, n_outputs). "
+           "Optional sample_weight is 1-D float32.")
       .def("predict", &RegressionShapeGeneralizedTreePy::predict, py::arg("X"),
-           "Predict scalar targets for X (shape (n_samples,)).")
+           "Predict targets for X. Returns (n_samples,) for a single output or "
+           "(n_samples, n_outputs) for multi-output.")
       .def_property_readonly("num_leaves",
                              &RegressionShapeGeneralizedTreePy::numLeaves)
       .def_property_readonly("num_nodes",
                              &RegressionShapeGeneralizedTreePy::numNodes)
+      .def_property_readonly("n_outputs",
+                             &RegressionShapeGeneralizedTreePy::nOutputs)
       .def_property_readonly("is_fitted",
                              &RegressionShapeGeneralizedTreePy::isFitted)
       .def_property_readonly(

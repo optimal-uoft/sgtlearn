@@ -72,21 +72,26 @@ bool featureHasBetterShapeBranching(
  * Search partition counts k in [2, min(numBins, treeNumPartitions)] on a trained
  * inner discretizer and return the best penalized branch assignment.
  *
- * For AbsoluteError, pass @p ysub and @p wsub (node-local targets and weights)
- * so per-bin raw samples can be built for MAE branch assignment.
+ * For AbsoluteError, pass @p ysub (shape ``(nOutputs, xSubCols)``) and @p wsub
+ * (node-local targets and weights) so per-bin, per-output raw samples can be
+ * built for MAE branch assignment.
  *
- * @param useKMeansSeed  when true and smartInit is enabled, seed assignments
- *                       with k-means on bin stats (classification); otherwise
- *                       round-robin.
- * @param numClasses     required when @p useKMeansSeed is true.
+ * @param useKMeansSeed    when true and smartInit is enabled, seed assignments
+ *                         with k-means on bin stats (classification); otherwise
+ *                         round-robin.
+ * @param classesPerOutput per-output class counts (classification); empty for
+ *                         regression.
+ * @param nOutputs         number of outputs (regression stats blocks); ignored
+ *                         for classification (derived from classesPerOutput).
  */
 ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     InnerDiscretizerBase<double> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
     const CoordinateDescentParams &cdParams, double scoreEpsilon,
-    std::mt19937_64 &rng, bool useKMeansSeed = false, size_t numClasses = 0,
-    const arma::Row<float> *ysub = nullptr, const arma::Row<float> *wsub = nullptr,
+    std::mt19937_64 &rng, bool useKMeansSeed = false,
+    const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1,
+    const arma::Mat<float> *ysub = nullptr, const arma::Row<float> *wsub = nullptr,
     size_t xSubCols = 0);
 
 std::vector<std::vector<size_t>>

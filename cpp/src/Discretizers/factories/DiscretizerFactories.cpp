@@ -48,11 +48,12 @@ makeClassificationDiscretizer(LearningCriterion criterion,
 
 void trainClassificationDiscretizer(
     ClassificationDiscretizer &disc, const FeatureInfo &feature,
-    const arma::fmat &X, const arma::Row<size_t> &y, size_t numClasses,
-    size_t minLeafSize, double minGainSplit, size_t maxDepth,
-    size_t maxLeafNodes, const arma::Row<float> &sampleWeights) {
+    const arma::fmat &X, const arma::Mat<size_t> &y,
+    const std::vector<size_t> &nClassesPerOutput, size_t minLeafSize,
+    double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+    const arma::Row<float> &sampleWeights) {
   arma::uvec feats = feature.indices;
-  disc.Train(X, feats, y, numClasses, minLeafSize, minGainSplit, maxDepth,
+  disc.Train(X, feats, y, nClassesPerOutput, minLeafSize, minGainSplit, maxDepth,
              maxLeafNodes, sampleWeights);
 }
 
@@ -85,7 +86,7 @@ makeRegressionDiscretizer(LearningCriterion criterion,
 
 void trainRegressionDiscretizer(
     RegressionDiscretizer &disc, const FeatureInfo &feature, const arma::fmat &X,
-    const arma::Row<float> &y, size_t minLeafSize, double minGainSplit,
+    const arma::Mat<float> &y, size_t minLeafSize, double minGainSplit,
     size_t maxDepth, size_t maxLeafNodes,
     const arma::Row<float> &sampleWeights) {
   arma::uvec feats = feature.indices;

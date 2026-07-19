@@ -6,6 +6,7 @@
  */
 
 #include <cstddef>
+#include <vector>
 #include "Discretizers/DiscretizerInputKind.h"
 #include "Domain/FeatureInfo.h"
 #include "Domain/LearningCriterion.h"
@@ -28,9 +29,10 @@ makeClassificationDiscretizer(LearningCriterion criterion,
 
 void trainClassificationDiscretizer(
     ClassificationDiscretizer &disc, const FeatureInfo &feature,
-    const arma::fmat &X, const arma::Row<size_t> &y, size_t numClasses,
-    size_t minLeafSize, double minGainSplit, size_t maxDepth,
-    size_t maxLeafNodes, const arma::Row<float> &sampleWeights = arma::Row<float>());
+    const arma::fmat &X, const arma::Mat<size_t> &y,
+    const std::vector<size_t> &nClassesPerOutput, size_t minLeafSize,
+    double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+    const arma::Row<float> &sampleWeights = arma::Row<float>());
 
 /** ``criterion`` selects the regression splitter; ``inputKind`` selects the algorithm family. */
 std::unique_ptr<RegressionDiscretizer>
@@ -43,6 +45,6 @@ makeRegressionDiscretizer(LearningCriterion criterion, const FeatureInfo &featur
 
 void trainRegressionDiscretizer(
     RegressionDiscretizer &disc, const FeatureInfo &feature, const arma::fmat &X,
-    const arma::Row<float> &y, size_t minLeafSize, double minGainSplit,
+    const arma::Mat<float> &y, size_t minLeafSize, double minGainSplit,
     size_t maxDepth, size_t maxLeafNodes,
     const arma::Row<float> &sampleWeights = arma::Row<float>());

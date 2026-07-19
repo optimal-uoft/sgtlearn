@@ -53,24 +53,24 @@ public:
 private:
   TaoRunContext(
       bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
-      arma::Row<size_t> yClassification,
+      arma::Mat<size_t> yClassification,
       ClassificationShapeGeneralizedTree &tree);
 
   TaoRunContext(
       bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
-      bridge::ArmaRowBridge<float> yRegression, RegressionShapeGeneralizedTree &tree);
+      bridge::ArmaMatBridge<float> yRegression, RegressionShapeGeneralizedTree &tree);
 
   bool fitted_ = false;
   bridge::ArmaMatBridge<float> Xb_;
   arma::Row<float> sampleWeights_;
-  arma::Row<size_t> yClassification_;
-  std::optional<bridge::ArmaRowBridge<float>> yRegression_;
+  arma::Mat<size_t> yClassification_;
+  std::optional<bridge::ArmaMatBridge<float>> yRegression_;
   std::unique_ptr<tao::TaoAdapter> adapter_;
 };
 
 TaoRunContext::TaoRunContext(
     bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
-    arma::Row<size_t> yClassification, ClassificationShapeGeneralizedTree &tree)
+    arma::Mat<size_t> yClassification, ClassificationShapeGeneralizedTree &tree)
     : fitted_(fitted), Xb_(std::move(Xb)),
       sampleWeights_(std::move(sampleWeights)),
       yClassification_(std::move(yClassification)),
@@ -79,7 +79,7 @@ TaoRunContext::TaoRunContext(
 
 TaoRunContext::TaoRunContext(
     bool fitted, bridge::ArmaMatBridge<float> Xb, arma::Row<float> sampleWeights,
-    bridge::ArmaRowBridge<float> yRegression, RegressionShapeGeneralizedTree &tree)
+    bridge::ArmaMatBridge<float> yRegression, RegressionShapeGeneralizedTree &tree)
     : fitted_(fitted), Xb_(std::move(Xb)),
       sampleWeights_(std::move(sampleWeights)),
       yRegression_(std::move(yRegression)),
@@ -94,22 +94,19 @@ TaoRunContext TaoRunContext::make(py::object tree, const py::array &X,
 
   if (py::isinstance<bridge::ClassificationShapeGeneralizedTreePy>(tree)) {
     auto &clsTree = tree.cast<bridge::ClassificationShapeGeneralizedTreePy &>();
-    arma::Col<size_t> y_col = bridge::as1DColOwning<size_t>(y, "y");
-    if (y_col.n_elem != Xb.view().n_cols)
+    arma::Mat<size_t> y_mat = bridge::asSamplesByOutputsOwning<size_t>(y, "y");
+    if (y_mat.n_cols != Xb.view().n_cols)
       throw std::invalid_argument(
           "y.shape[0] must equal X.shape[0] (number of samples)");
-    arma::Row<size_t> y_row(y_col.n_elem);
-    for (arma::uword i = 0; i < y_col.n_elem; ++i)
-      y_row(i) = y_col(i);
 
     return TaoRunContext(clsTree.isFitted(), std::move(Xb), std::move(w_row),
-                         std::move(y_row), clsTree.impl());
+                         std::move(y_mat), clsTree.impl());
   }
 
   if (py::isinstance<bridge::RegressionShapeGeneralizedTreePy>(tree)) {
     auto &regTree = tree.cast<bridge::RegressionShapeGeneralizedTreePy &>();
-    auto yb = bridge::as1DRow<float>(y, "y");
-    if (yb.view().n_elem != Xb.view().n_cols)
+    auto yb = bridge::asSamplesByOutputs<float>(y, "y");
+    if (yb.view().n_cols != Xb.view().n_cols)
       throw std::invalid_argument(
           "y.shape[0] must equal X.shape[0] (number of samples)");
 

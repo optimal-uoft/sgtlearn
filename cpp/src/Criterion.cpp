@@ -52,6 +52,57 @@ double Criterion::squaredError(const std::vector<double> &yPowerSum,
   return sse / totalWeight;
 }
 
+double Criterion::entropyMulti(const std::vector<double> &classCounts,
+                               const std::vector<size_t> &classesPerOutput) {
+  double total = 0.0;
+  size_t offset = 0;
+  for (size_t nc : classesPerOutput) {
+    double blockWeight = 0.0;
+    for (size_t c = 0; c < nc && offset + c < classCounts.size(); ++c)
+      blockWeight += classCounts[offset + c];
+    const std::vector<double> block(
+        classCounts.begin() + static_cast<std::ptrdiff_t>(offset),
+        classCounts.begin() +
+            static_cast<std::ptrdiff_t>(std::min(offset + nc,
+                                                 classCounts.size())));
+    total += entropy(block, blockWeight);
+    offset += nc;
+  }
+  return total;
+}
+
+double Criterion::giniMulti(const std::vector<double> &classCounts,
+                            const std::vector<size_t> &classesPerOutput) {
+  double total = 0.0;
+  size_t offset = 0;
+  for (size_t nc : classesPerOutput) {
+    double blockWeight = 0.0;
+    for (size_t c = 0; c < nc && offset + c < classCounts.size(); ++c)
+      blockWeight += classCounts[offset + c];
+    const std::vector<double> block(
+        classCounts.begin() + static_cast<std::ptrdiff_t>(offset),
+        classCounts.begin() +
+            static_cast<std::ptrdiff_t>(std::min(offset + nc,
+                                                 classCounts.size())));
+    total += gini(block, blockWeight);
+    offset += nc;
+  }
+  return total;
+}
+
+double Criterion::squaredErrorMulti(const std::vector<double> &yPowerSum,
+                                    double totalWeight, size_t nOutputs) {
+  double total = 0.0;
+  for (size_t o = 0; o < nOutputs; ++o) {
+    const size_t base = 2 * o;
+    if (base + 1 >= yPowerSum.size())
+      break;
+    const std::vector<double> pair{yPowerSum[base], yPowerSum[base + 1]};
+    total += squaredError(pair, totalWeight);
+  }
+  return total;
+}
+
 Criterion::AbsoluteErrorStats
 Criterion::absoluteError(const std::vector<float> &ys,
                          const std::vector<float> &weights) {
