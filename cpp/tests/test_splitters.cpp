@@ -62,14 +62,14 @@ TEST_CASE("GiniSplitter score and makeRoot / predict") {
   y(0, 2) = 1;
   arma::frowvec w = unitWeights(3);
 
-  GiniSplitter splitter(X, w, y, 2);
+  GiniSplitter splitter(X, w, y, {2});
   UnivariateSplitCandidate root = splitter.makeRoot();
   REQUIRE(root.start == 0);
   REQUIRE(root.end == 2);
   REQUIRE(root.numSamples == 3);
   REQUIRE_THAT(root.nodeWeight, WithinAbs(3.0, kEps));
   REQUIRE_THAT(root.score, WithinAbs(1.0 - (1.0 / 9.0 + 4.0 / 9.0), kEps));
-  REQUIRE(splitter.predict(root) == 1);
+  REQUIRE(splitter.predict(root)[0] == 1);
 
   std::vector<double> pure{{5, 0}};
   REQUIRE_THAT(splitter.score(pure, 0, 4), WithinAbs(0.0, kEps));
@@ -85,7 +85,7 @@ TEST_CASE("GiniSplitter respects sample_weights in aggregates") {
   y(0, 2) = 1;
   arma::frowvec w{{2.F, 1.F, 1.F}};
 
-  GiniSplitter splitter(X, w, y, 2);
+  GiniSplitter splitter(X, w, y, {2});
   UnivariateSplitCandidate root = splitter.makeRoot();
   REQUIRE_THAT(root.nodeWeight, WithinAbs(4.0, kEps));
   const auto &stats = splitter.getStats(root);
@@ -100,16 +100,17 @@ TEST_CASE("EntropySplitter score") {
   y(0, 0) = 0;
   arma::frowvec w = unitWeights(1);
 
-  EntropySplitter splitter(X, w, y, 2);
+  EntropySplitter splitter(X, w, y, {2});
   std::vector<double> uniform2{{2, 2}};
   REQUIRE_THAT(splitter.score(uniform2, 0, 3), WithinAbs(1.0, kEps));
 
   std::vector<double> pure{{4, 0}};
   REQUIRE_THAT(splitter.score(pure, 0, 3), WithinAbs(0.0, kEps));
 
+  EntropySplitter splitter3(X, w, y, {3});
   std::vector<double> three_way{{1, 1, 1}};
   const double expected = std::log2(3.0);
-  REQUIRE_THAT(splitter.score(three_way, 0, 2), WithinAbs(expected, 1e-5));
+  REQUIRE_THAT(splitter3.score(three_way, 0, 2), WithinAbs(expected, 1e-5));
 }
 
 TEST_CASE("SquaredErrorSplitter makeRoot predict and score") {
@@ -122,7 +123,7 @@ TEST_CASE("SquaredErrorSplitter makeRoot predict and score") {
 
   SquaredErrorSplitter splitter(X, w, y);
   UnivariateSplitCandidate root = splitter.makeRoot();
-  REQUIRE_THAT(splitter.predict(root), WithinAbs(2.F, 1e-5f));
+  REQUIRE_THAT(splitter.predict(root)[0], WithinAbs(2.F, 1e-5f));
   // Weighted MSE for y in {1,2,3}: ((1-2)^2 + 0 + (3-2)^2) / 3 = 2/3
   const double expectedMse = 2.0 / 3.0;
   REQUIRE_THAT(root.score, WithinAbs(expectedMse, kEps));
@@ -145,7 +146,7 @@ TEST_CASE("SquaredErrorSplitter weighted MSE") {
   SquaredErrorSplitter splitter(X, w, y);
   UnivariateSplitCandidate root = splitter.makeRoot();
   REQUIRE_THAT(root.nodeWeight, WithinAbs(4.0, kEps));
-  REQUIRE_THAT(splitter.predict(root), WithinAbs(1.5F, 1e-5f));
+  REQUIRE_THAT(splitter.predict(root)[0], WithinAbs(1.5F, 1e-5f));
 }
 
 TEST_CASE("GainHessianSplitter makeRoot predict score and validates y rows") {
@@ -182,7 +183,7 @@ TEST_CASE("AbsoluteErrorSplitter predict and score match brute-force MAE") {
   UnivariateSplitCandidate root = splitter.makeRoot();
   std::vector<float> vals{{3.F, 1.F, 4.F, 1.F, 5.F}};
   const double expected_mae = brute_mae(vals);
-  REQUIRE_THAT(static_cast<double>(splitter.predict(root)), WithinAbs(3.0, 1e-4));
+  REQUIRE_THAT(splitter.predict(root)[0], WithinAbs(3.0, 1e-4));
   REQUIRE_THAT(splitter.score({}, 0, 4), WithinAbs(expected_mae, 1e-4));
   REQUIRE(root.numSamples == 5);
 }
@@ -199,8 +200,7 @@ TEST_CASE("AbsoluteErrorSplitter weighted score matches Criterion::absoluteError
   std::vector<float> ws{{1.F, 2.F, 3.F, 4.F}};
   const auto ref = Criterion::absoluteError(ys, ws);
   REQUIRE_THAT(splitter.score({}, 0, 3), WithinAbs(ref.mae, 1e-5));
-  REQUIRE_THAT(static_cast<double>(splitter.predict(root)),
-               WithinAbs(ref.median, 1e-5));
+  REQUIRE_THAT(splitter.predict(root)[0], WithinAbs(ref.median, 1e-5));
 }
 
 TEST_CASE("GiniSplitter findBestSplit separates two pure class blocks") {
@@ -214,7 +214,7 @@ TEST_CASE("GiniSplitter findBestSplit separates two pure class blocks") {
   }
   arma::frowvec w = unitWeights(6);
 
-  GiniSplitter splitter(X, w, y, 2);
+  GiniSplitter splitter(X, w, y, {2});
   UnivariateSplitCandidate root = splitter.makeRoot();
   const bool found = splitter.findBestSplit(root, 2);
   REQUIRE(found);
@@ -232,8 +232,8 @@ TEST_CASE("GiniSplitter findBestSplit separates two pure class blocks") {
   REQUIRE(children.size() == 2);
   UnivariateSplitCandidate left = children[1];
   UnivariateSplitCandidate right = children[0];
-  REQUIRE(splitter.predict(left) == 0);
-  REQUIRE(splitter.predict(right) == 1);
+  REQUIRE(splitter.predict(left)[0] == 0);
+  REQUIRE(splitter.predict(right)[0] == 1);
 }
 
 TEST_CASE("Splitter findBestSplit returns false when leaf too small") {
@@ -242,7 +242,7 @@ TEST_CASE("Splitter findBestSplit returns false when leaf too small") {
   y.fill(0);
   arma::frowvec w = unitWeights(3);
 
-  GiniSplitter splitter(X, w, y, 1);
+  GiniSplitter splitter(X, w, y, {1});
   UnivariateSplitCandidate root = splitter.makeRoot();
   REQUIRE_FALSE(splitter.findBestSplit(root, 2));
 }
