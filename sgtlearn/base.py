@@ -413,9 +413,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 )
             X = np.asarray(X)
             y2, self.n_outputs_ = as_output_matrix(y)
-            if self.n_outputs_ == 1 and not isinstance(
-                self.classes_, (list, tuple)
-            ):
+            if self.n_outputs_ == 1 and not isinstance(self.classes_, (list, tuple)):
                 preset = [_IdentityLabelEncoder(np.asarray(self.classes_))]
                 n_classes_list = [int(self.n_classes_)]
             else:
@@ -532,8 +530,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         if preds.ndim == 1:
             preds = preds.reshape(-1, 1)
         cols = [
-            encoders[o].inverse_transform(preds[:, o])
-            for o in range(self.n_outputs_)
+            encoders[o].inverse_transform(preds[:, o]) for o in range(self.n_outputs_)
         ]
         return squeeze_outputs(np.column_stack(cols), self.n_outputs_)
 

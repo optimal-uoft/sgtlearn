@@ -10,7 +10,6 @@ from sklearn.utils.validation import check_X_y
 
 from sgtlearn._multioutput import (
     encode_classification_targets,
-    squeeze_outputs,
     unwrap_classifier_public_attrs,
 )
 from sgtlearn._weights import effective_sample_weight_classification

@@ -121,13 +121,9 @@ def label_encoders_as_list(
     else:
         enc_list = [encoders]
     if len(enc_list) == 1 and n_outputs > 1:
-        raise ValueError(
-            f"expected {n_outputs} label encoders for multi-output; got 1"
-        )
+        raise ValueError(f"expected {n_outputs} label encoders for multi-output; got 1")
     if len(enc_list) != n_outputs:
-        raise ValueError(
-            f"expected {n_outputs} label encoders; got {len(enc_list)}"
-        )
+        raise ValueError(f"expected {n_outputs} label encoders; got {len(enc_list)}")
     return enc_list
 
 

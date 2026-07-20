@@ -94,9 +94,7 @@ def effective_sample_weight_classification(
                 f"output ({n_outputs}); got {len(cw_list)}"
             )
     else:
-        raise ValueError(
-            "class_weight must be a mapping or a sequence of mappings"
-        )
+        raise ValueError("class_weight must be a mapping or a sequence of mappings")
 
     n = y2.shape[0]
     if sample_weight is None:
