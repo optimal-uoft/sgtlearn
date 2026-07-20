@@ -40,7 +40,7 @@ TEST_CASE("EntropyBranchAssignment coordinate descent",
   constexpr size_t kClasses = 2;
   constexpr size_t kParts = 2;
   std::vector<size_t> assignments = {0, 0};
-  std::vector<std::vector<double>> stats = {{10, 0}, {0, 10}};
+  std::vector<std::vector<std::vector<double>>> stats = {{{10, 0}}, {{0, 10}}};
   std::vector<double> leafWeights = {10, 10};
   std::vector<size_t> leafSampleCounts = {10, 10};
   EntropyBranchAssignment obj(assignments, kParts, stats, leafWeights,
@@ -53,7 +53,7 @@ TEST_CASE("GiniBranchAssignment coordinate descent",
   constexpr size_t kClasses = 2;
   constexpr size_t kParts = 2;
   std::vector<size_t> assignments = {0, 0};
-  std::vector<std::vector<double>> stats = {{10, 0}, {0, 10}};
+  std::vector<std::vector<std::vector<double>>> stats = {{{10, 0}}, {{0, 10}}};
   std::vector<double> leafWeights = {10, 10};
   std::vector<size_t> leafSampleCounts = {10, 10};
   GiniBranchAssignment obj(assignments, kParts, stats, leafWeights,
@@ -107,7 +107,8 @@ TEST_CASE("AbsoluteErrorBranchAssignment coordinate descent",
 TEST_CASE("BranchAssignment tracks partition sample counts",
           "[branch_assignment][partition_counts]") {
   std::vector<size_t> assignments = {0, 1, 0};
-  std::vector<std::vector<double>> stats = {{4, 0}, {0, 2}, {1, 1}};
+  std::vector<std::vector<std::vector<double>>> stats = {
+      {{4, 0}}, {{0, 2}}, {{1, 1}}};
   std::vector<double> leafWeights = {4, 2, 2};
   std::vector<size_t> leafSampleCounts = {4, 2, 2};
   EntropyBranchAssignment obj(assignments, 2, stats, leafWeights,
@@ -127,7 +128,7 @@ TEST_CASE("BranchAssignment tracks partition sample counts",
 TEST_CASE("makeBranchAssignment entropy matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
-  std::vector<std::vector<double>> stats = {{5, 0}, {0, 5}};
+  std::vector<std::vector<std::vector<double>>> stats = {{{5, 0}}, {{0, 5}}};
   std::vector<double> leafWeights = {5, 5};
   std::vector<size_t> leafSampleCounts = {5, 5};
   auto ptr = makeBranchAssignment(LearningCriterion::Entropy, assignments, 2,
@@ -169,7 +170,7 @@ TEST_CASE("makeBranchAssignment absolute error matches manual",
 TEST_CASE("makeBranchAssignment gini matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
-  std::vector<std::vector<double>> stats = {{3, 0}, {0, 2}};
+  std::vector<std::vector<std::vector<double>>> stats = {{{3, 0}}, {{0, 2}}};
   std::vector<double> leafWeights = {3, 2};
   std::vector<size_t> leafSampleCounts = {3, 2};
   auto ptr = makeBranchAssignment(LearningCriterion::Gini, assignments, 2, stats,

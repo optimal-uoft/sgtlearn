@@ -9,96 +9,60 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
-#include <utility>
 #include <vector>
 
-double Criterion::entropy(const std::vector<double> &classCounts,
-                        double totalWeight) {
-  if (totalWeight <= 0.0)
-    return 0;
-  double ent = 0;
-  for (double count : classCounts) {
-    if (count <= 0.0)
+double Criterion::entropy(
+    const std::vector<std::vector<double>> &countsByOutput) {
+  double total = 0.0;
+  for (const auto &block : countsByOutput) {
+    double blockWeight = 0.0;
+    for (double c : block)
+      blockWeight += c;
+    if (blockWeight <= 0.0)
       continue;
-    const double p = count / totalWeight;
-    ent -= p * std::log2(p);
+    for (double count : block) {
+      if (count <= 0.0)
+        continue;
+      const double p = count / blockWeight;
+      total -= p * std::log2(p);
+    }
   }
-  return ent;
+  return total;
 }
-double Criterion::gini(const std::vector<double> &classCounts,
-                       double totalWeight) {
-  if (totalWeight <= 0.0)
-    return 0.0;
-  const double sumP2 =
-      std::accumulate(classCounts.begin(), classCounts.end(), 0.0,
-                      [totalWeight](const double acc, const double count) {
-                        const double p = count / totalWeight;
-                        return acc + p * p;
-                      });
-  return 1.0 - sumP2;
+
+double Criterion::gini(const std::vector<std::vector<double>> &countsByOutput) {
+  double total = 0.0;
+  for (const auto &block : countsByOutput) {
+    double blockWeight = 0.0;
+    for (double c : block)
+      blockWeight += c;
+    if (blockWeight <= 0.0)
+      continue;
+    const double sumP2 =
+        std::accumulate(block.begin(), block.end(), 0.0,
+                        [blockWeight](const double acc, const double count) {
+                          const double p = count / blockWeight;
+                          return acc + p * p;
+                        });
+    total += 1.0 - sumP2;
+  }
+  return total;
 }
+
 double Criterion::squaredError(const std::vector<double> &yPowerSum,
                                double totalWeight) {
-  if (totalWeight <= 0.0)
-    return 0;
-  const double ySum = yPowerSum[0];
-  const double ySqrdSum = yPowerSum[1];
-
-  const double mean = ySum / totalWeight;
-
-  // Weighted mean squared error: (1 / sum_w) * sum_i w_i (y_i - mean_w)^2
-  const double sse =
-      ySqrdSum - 2.0 * mean * ySum + totalWeight * mean * mean;
-  return sse / totalWeight;
-}
-
-double Criterion::entropyMulti(const std::vector<double> &classCounts,
-                               const std::vector<size_t> &classesPerOutput) {
-  double total = 0.0;
-  size_t offset = 0;
-  for (size_t nc : classesPerOutput) {
-    double blockWeight = 0.0;
-    for (size_t c = 0; c < nc && offset + c < classCounts.size(); ++c)
-      blockWeight += classCounts[offset + c];
-    const std::vector<double> block(
-        classCounts.begin() + static_cast<std::ptrdiff_t>(offset),
-        classCounts.begin() +
-            static_cast<std::ptrdiff_t>(std::min(offset + nc,
-                                                 classCounts.size())));
-    total += entropy(block, blockWeight);
-    offset += nc;
-  }
-  return total;
-}
-
-double Criterion::giniMulti(const std::vector<double> &classCounts,
-                            const std::vector<size_t> &classesPerOutput) {
-  double total = 0.0;
-  size_t offset = 0;
-  for (size_t nc : classesPerOutput) {
-    double blockWeight = 0.0;
-    for (size_t c = 0; c < nc && offset + c < classCounts.size(); ++c)
-      blockWeight += classCounts[offset + c];
-    const std::vector<double> block(
-        classCounts.begin() + static_cast<std::ptrdiff_t>(offset),
-        classCounts.begin() +
-            static_cast<std::ptrdiff_t>(std::min(offset + nc,
-                                                 classCounts.size())));
-    total += gini(block, blockWeight);
-    offset += nc;
-  }
-  return total;
-}
-
-double Criterion::squaredErrorMulti(const std::vector<double> &yPowerSum,
-                                    double totalWeight, size_t nOutputs) {
+  if (totalWeight <= 0.0 || yPowerSum.size() % 2 != 0)
+    return 0.0;
+  const size_t nOutputs = yPowerSum.size() / 2;
   double total = 0.0;
   for (size_t o = 0; o < nOutputs; ++o) {
     const size_t base = 2 * o;
-    if (base + 1 >= yPowerSum.size())
-      break;
-    const std::vector<double> pair{yPowerSum[base], yPowerSum[base + 1]};
-    total += squaredError(pair, totalWeight);
+    const double ySum = yPowerSum[base];
+    const double ySqrdSum = yPowerSum[base + 1];
+    const double mean = ySum / totalWeight;
+    const double sse =
+        ySqrdSum - 2.0 * mean * ySum + totalWeight * mean * mean;
+    total += sse / totalWeight;
   }
   return total;
 }

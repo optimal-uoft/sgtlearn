@@ -256,7 +256,7 @@ def _clf_leaf_node():
         "is_leaf": True,
         "n_samples": 42,
         "impurity": 0.123,
-        "class_counts": [10, 32],
+        "class_counts": [[10, 32]],
         "children": [],
     }
 

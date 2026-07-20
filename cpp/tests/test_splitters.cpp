@@ -71,10 +71,10 @@ TEST_CASE("GiniSplitter score and makeRoot / predict") {
   REQUIRE_THAT(root.score, WithinAbs(1.0 - (1.0 / 9.0 + 4.0 / 9.0), kEps));
   REQUIRE(splitter.predict(root)[0] == 1);
 
-  std::vector<double> pure{{5, 0}};
+  std::vector<std::vector<double>> pure{{5, 0}};
   REQUIRE_THAT(splitter.score(pure, 0, 4), WithinAbs(0.0, kEps));
 
-  std::vector<double> fifty_fifty{{2, 2}};
+  std::vector<std::vector<double>> fifty_fifty{{2, 2}};
   REQUIRE_THAT(splitter.score(fifty_fifty, 0, 3), WithinAbs(0.5, kEps));
 }
 
@@ -89,8 +89,8 @@ TEST_CASE("GiniSplitter respects sample_weights in aggregates") {
   UnivariateSplitCandidate root = splitter.makeRoot();
   REQUIRE_THAT(root.nodeWeight, WithinAbs(4.0, kEps));
   const auto &stats = splitter.getStats(root);
-  REQUIRE_THAT(stats[0], WithinAbs(3.0, kEps));
-  REQUIRE_THAT(stats[1], WithinAbs(1.0, kEps));
+  REQUIRE_THAT(stats[0][0], WithinAbs(3.0, kEps));
+  REQUIRE_THAT(stats[0][1], WithinAbs(1.0, kEps));
 }
 
 TEST_CASE("EntropySplitter score") {
@@ -101,14 +101,14 @@ TEST_CASE("EntropySplitter score") {
   arma::frowvec w = unitWeights(1);
 
   EntropySplitter splitter(X, w, y, {2});
-  std::vector<double> uniform2{{2, 2}};
+  std::vector<std::vector<double>> uniform2{{2, 2}};
   REQUIRE_THAT(splitter.score(uniform2, 0, 3), WithinAbs(1.0, kEps));
 
-  std::vector<double> pure{{4, 0}};
+  std::vector<std::vector<double>> pure{{4, 0}};
   REQUIRE_THAT(splitter.score(pure, 0, 3), WithinAbs(0.0, kEps));
 
   EntropySplitter splitter3(X, w, y, {3});
-  std::vector<double> three_way{{1, 1, 1}};
+  std::vector<std::vector<double>> three_way{{1, 1, 1}};
   const double expected = std::log2(3.0);
   REQUIRE_THAT(splitter3.score(three_way, 0, 2), WithinAbs(expected, 1e-5));
 }

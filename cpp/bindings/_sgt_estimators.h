@@ -62,8 +62,7 @@ inline py::list innerThresholdsPy(const ShapeFunctionNode &n) {
   return th;
 }
 
-inline bool isCategoricalInnerDiscretizer(
-    const InnerDiscretizerBase<double> &disc) {
+inline bool isCategoricalInnerDiscretizer(const InnerDiscretizerBase &disc) {
   return dynamic_cast<const CategoricalClassificationDiscretizer *>(&disc) !=
              nullptr ||
          dynamic_cast<const CategoricalRegressionDiscretizer *>(&disc) !=
@@ -71,7 +70,7 @@ inline bool isCategoricalInnerDiscretizer(
 }
 
 inline std::vector<std::vector<size_t>>
-categoricalCategoriesPerBin(const InnerDiscretizerBase<double> &disc) {
+categoricalCategoriesPerBin(const InnerDiscretizerBase &disc) {
   if (const auto *cc =
           dynamic_cast<const CategoricalClassificationDiscretizer *>(&disc))
     return cc->categoriesPerBin();
@@ -228,18 +227,15 @@ inline std::vector<FeatureInfo> parseFeaturesPy(const py::object &features) {
  */
 /**
  * Parse the Python ``num_classes`` argument into a per-output class-count
- * vector. Accepts an integer (single output, or a shared count that the C++
- * layer expands to match ``y.n_rows``) or a sequence of integers (one entry
- * per output). Returns an empty vector for the ``int`` case so the caller can
- * pick the scalar constructor.
+ * vector. Accepts an integer (shared count expanded to match ``y.n_rows`` at
+ * fit) or a sequence of integers (one entry per output).
  */
 inline std::vector<size_t> parseNumClassesPy(const py::object &num_classes) {
   py::object numbers = py::module_::import("numbers");
   if (py::isinstance<py::bool_>(num_classes))
     throw std::invalid_argument("num_classes cannot be bool");
-  if (py::isinstance(num_classes, numbers.attr("Integral"))) {
-    return {}; // signal: use scalar ctor
-  }
+  if (py::isinstance(num_classes, numbers.attr("Integral")))
+    return {py::cast<size_t>(num_classes)};
   if (py::isinstance<py::iterable>(num_classes)) {
     std::vector<size_t> out;
     for (const py::handle item : num_classes)
@@ -273,16 +269,9 @@ public:
     cd.maxIters = coordinateDescentMaxIters;
     cd.patience = coordinateDescentPatience;
     cd.smartInit = coordinateDescentSmartInit;
-    const std::vector<size_t> nClassesPerOutput = parseNumClassesPy(numClasses);
-    if (nClassesPerOutput.empty()) {
-      impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
-          crit, py::cast<size_t>(numClasses), numPartitions, outer, inner, cd,
-          random_state, parseMaxFeaturesPy(max_features));
-    } else {
-      impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
-          crit, nClassesPerOutput, numPartitions, outer, inner, cd,
-          random_state, parseMaxFeaturesPy(max_features));
-    }
+    impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
+        crit, parseNumClassesPy(numClasses), numPartitions, outer, inner, cd,
+        random_state, parseMaxFeaturesPy(max_features));
   }
 
   void fit(const py::array &X, const py::array &y,
@@ -364,7 +353,7 @@ public:
     out["num_partitions"] = impl_->numPartitions();
     out["num_nodes"] = impl_->numNodes();
     out["root_index"] = impl_->rootIndex();
-    out["num_classes"] = impl_->numClasses();
+    out["num_classes"] = classesPerOutput();
     out["num_outputs"] = impl_->nOutputs();
     out["classes_per_output"] = classesPerOutput();
     out["criterion"] = criterionStr_;
@@ -382,13 +371,20 @@ public:
       d["is_leaf"] = n.isLeaf;
       d["impurity"] = n.score;
 
-      // class_counts at every node (already populated at internal nodes too).
+      // class_counts[output][class] at every node (also populated at internals).
       py::list cc;
       size_t total = 0;
       if (i < classCounts.size()) {
-        for (double c : classCounts[i]) {
-          cc.append(c);
-          total += static_cast<size_t>(std::llround(c));
+        for (size_t o = 0; o < classCounts[i].size(); ++o) {
+          py::list row;
+          double rowSum = 0.0;
+          for (double c : classCounts[i][o]) {
+            row.append(c);
+            rowSum += c;
+          }
+          cc.append(row);
+          if (o == 0)
+            total = static_cast<size_t>(std::llround(rowSum));
         }
       }
       d["class_counts"] = cc;
@@ -415,10 +411,14 @@ public:
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
         py::list bc;
-        for (const auto &row : n.splitLeafStats) {
-          py::list r;
-          for (double c : row) r.append(c);
-          bc.append(r);
+        for (const auto &bin : n.splitClassCounts) {
+          py::list outputs;
+          for (const auto &hist : bin) {
+            py::list classes;
+            for (double c : hist) classes.append(c);
+            outputs.append(classes);
+          }
+          bc.append(outputs);
         }
         d["bin_counts"] = bc;
         py::list bw;

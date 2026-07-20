@@ -3,7 +3,7 @@
 /**
  * @file ClassificationDiscretizer.h
  * @brief Classification task contract: ``Train`` on label rows plus post-training
- *        state from ``InnerDiscretizerBase<double>``.
+ *        state from ``InnerDiscretizer<std::vector<double>>``.
  */
 
 #include <cstddef>
@@ -12,7 +12,8 @@
 
 #include <armadillo>
 
-class ClassificationDiscretizer : public virtual InnerDiscretizerBase<double> {
+class ClassificationDiscretizer
+    : public virtual InnerDiscretizer<std::vector<double>> {
 public:
   ~ClassificationDiscretizer() override = default;
 

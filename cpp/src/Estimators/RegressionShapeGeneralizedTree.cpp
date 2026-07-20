@@ -101,7 +101,7 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
       const size_t si = static_cast<size_t>(node.sampleIndices(i));
       totalWeight += static_cast<double>(fitSampleWeights_(si));
     }
-    return Criterion::squaredErrorMulti(st, totalWeight, nOutputs_);
+    return Criterion::squaredError(st, totalWeight);
   }
   if (criterion_ != LearningCriterion::AbsoluteError)
     throw std::invalid_argument(
@@ -223,7 +223,7 @@ void RegressionShapeGeneralizedTree::fit(
     leafRegressionStats.push_back(std::move(statsF));
     leafNumSamples.push_back(n);
     leafPredictions_.push_back(std::move(preds));
-    root.score = Criterion::squaredErrorMulti(st, rootWeight, nOutputs_);
+    root.score = Criterion::squaredError(st, rootWeight);
   } else {
     leafRegressionStats.push_back({});
     leafNumSamples.push_back(n);
@@ -323,7 +323,7 @@ void RegressionShapeGeneralizedTree::fit(
 
           featureHasBetterShapeBranching(
               featureBest, best, logicalIdx, xSubCols, feature.indices,
-              std::unique_ptr<InnerDiscretizerBase<double>>(std::move(disc)),
+              std::unique_ptr<InnerDiscretizer<double>>(std::move(disc)),
               outerTreeBuilder_.eps, applyTaskFields);
         }
 
@@ -383,7 +383,7 @@ void RegressionShapeGeneralizedTree::fit(
                                                     moments.sumW);
             }
             children[p].score =
-                Criterion::squaredErrorMulti(agg, moments.sumW, nOutputs_);
+                Criterion::squaredError(agg, moments.sumW);
             children[p].isLeaf = true;
             leafRegressionStats.push_back(std::move(aggF));
             leafNumSamples.push_back(children[p].sampleIndices.n_elem);

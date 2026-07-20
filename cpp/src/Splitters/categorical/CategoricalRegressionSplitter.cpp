@@ -32,7 +32,7 @@ double CategoricalRegressionSplitter::score(const std::vector<size_t> &samples) 
   switch (criterion_) {
   case LearningCriterion::SquaredError: {
     const auto stats = statsForSamples(samples);
-    return Criterion::squaredErrorMulti(stats, wTot, nOutputs_);
+    return Criterion::squaredError(stats, wTot);
   }
   case LearningCriterion::AbsoluteError: {
     const auto ws = wsForSamples(samples);

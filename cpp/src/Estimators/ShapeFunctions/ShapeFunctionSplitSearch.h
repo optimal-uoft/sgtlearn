@@ -27,7 +27,10 @@ struct ShapeBranchAssignmentSearchResult {
   size_t chosenK = 0;
   std::vector<size_t> assignments;
   std::vector<size_t> partitionSampleCounts;
-  std::vector<std::vector<double>> partitionClassCounts;
+  /** Classification: nested ``[partition][output][class]``. */
+  std::vector<std::vector<std::vector<double>>> partitionClassCounts;
+  /** Regression: flat aggregated partition stats (e.g. power sums). */
+  std::vector<std::vector<double>> partitionAggStats;
   std::vector<double> partitionWeights;
   double impurityDecrease = 0.0;
   bool found = false;
@@ -37,9 +40,10 @@ struct ShapeBestBranchingState {
   double penalizedChildScore = std::numeric_limits<double>::infinity();
   ShapeBranchingResult<double> branching;
   std::vector<double> binWeights;
-  std::vector<std::vector<double>> partitionClassCounts;
+  std::vector<std::vector<std::vector<double>>> partitionClassCounts;
+  std::vector<std::vector<std::vector<double>>> classLeafStats;
   std::vector<double> partitionWeights;
-  std::shared_ptr<const InnerDiscretizerBase<double>> winningDiscretizer;
+  std::shared_ptr<const InnerDiscretizerBase> winningDiscretizer;
   /** Column indices into ``X`` used for routing at inference. */
   arma::uvec routingColumnIndices;
 };
@@ -62,30 +66,31 @@ bool featureHasBetterShapeBranching(
     const ShapeBranchAssignmentSearchResult &search,
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
     const arma::uvec &routingColumnIndices,
-    std::unique_ptr<InnerDiscretizerBase<double>> disc, double scoreEpsilon,
+    std::unique_ptr<InnerDiscretizer<double>> disc, double scoreEpsilon,
     const std::function<void(ShapeBestBranchingState &,
                              const ShapeBranchAssignmentSearchResult &,
                              const std::vector<std::vector<double>> &)> &
+        applyTaskFields);
+
+bool featureHasBetterShapeBranching(
+    const ShapeBranchAssignmentSearchResult &search,
+    ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
+    const arma::uvec &routingColumnIndices,
+    std::unique_ptr<InnerDiscretizer<std::vector<double>>> disc,
+    double scoreEpsilon,
+    const std::function<void(
+        ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
+        const std::vector<std::vector<std::vector<double>>> &)> &
         applyTaskFields);
 
 /**
  * Search partition counts k in [2, min(numBins, treeNumPartitions)] on a trained
  * inner discretizer and return the best penalized branch assignment.
  *
- * For AbsoluteError, pass @p ysub (shape ``(nOutputs, xSubCols)``) and @p wsub
- * (node-local targets and weights) so per-bin, per-output raw samples can be
- * built for MAE branch assignment.
- *
- * @param useKMeansSeed    when true and smartInit is enabled, seed assignments
- *                         with k-means on bin stats (classification); otherwise
- *                         round-robin.
- * @param classesPerOutput per-output class counts (classification); empty for
- *                         regression.
- * @param nOutputs         number of outputs (regression stats blocks); ignored
- *                         for classification (derived from classesPerOutput).
+ * Regression overload: flat ``InnerDiscretizer<double>`` leaf stats.
  */
 ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
-    InnerDiscretizerBase<double> &disc, LearningCriterion criterion,
+    InnerDiscretizer<double> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
     const CoordinateDescentParams &cdParams, double scoreEpsilon,
@@ -93,6 +98,18 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1,
     const arma::Mat<float> *ysub = nullptr, const arma::Row<float> *wsub = nullptr,
     size_t xSubCols = 0);
+
+/**
+ * Classification overload: nested ``InnerDiscretizer<std::vector<double>>``
+ * leaf stats ``[bin][output][class]``.
+ */
+ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
+    InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
+    double parentImp, size_t treeNumPartitions,
+    const TreeBuildingParams &outerParams,
+    const CoordinateDescentParams &cdParams, double scoreEpsilon,
+    std::mt19937_64 &rng, bool useKMeansSeed = false,
+    const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1);
 
 std::vector<std::vector<size_t>>
 routeSamplesToPartitions(const ShapeFunctionNode &parent, const arma::fmat &X);

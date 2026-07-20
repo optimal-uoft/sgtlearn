@@ -14,35 +14,39 @@
 namespace tao {
 namespace {
 
-// Argmax within the block [offset, offset + nClasses) of a concatenated
-// histogram, returned relative to the block.
-size_t argMaxInBlock(const std::vector<double> &counts, size_t offset,
-                     size_t nClasses) {
+size_t argMaxInHistogram(const std::vector<double> &counts) {
   size_t best = 0;
   double bestVal = -1.0;
-  for (size_t c = 0; c < nClasses; ++c) {
-    const double v = (offset + c < counts.size()) ? counts[offset + c] : 0.0;
-    if (v > bestVal) {
-      bestVal = v;
+  for (size_t c = 0; c < counts.size(); ++c) {
+    if (counts[c] > bestVal) {
+      bestVal = counts[c];
       best = c;
     }
   }
   return best;
 }
 
+std::vector<size_t>
+argMaxClass(const std::vector<std::vector<double>> &countsByOutput) {
+  std::vector<size_t> preds(countsByOutput.size(), 0);
+  for (size_t o = 0; o < countsByOutput.size(); ++o)
+    preds[o] = argMaxInHistogram(countsByOutput[o]);
+  return preds;
+}
+
 void recomputeClassCounts(
-    std::vector<std::vector<double>> &classCounts,
+    std::vector<std::vector<std::vector<double>>> &classCounts,
     const std::vector<std::vector<arma::uword>> &nodeSamples,
     const arma::Mat<size_t> &y, const arma::Row<float> &sampleWeights,
-    const std::vector<size_t> &classOffsets, size_t nOutputs,
-    size_t totalClasses) {
+    const std::vector<size_t> &classesPerOutput, size_t nOutputs) {
   for (size_t ni = 0; ni < nodeSamples.size(); ++ni) {
-    std::vector<double> counts(totalClasses, 0.0);
+    std::vector<std::vector<double>> counts(nOutputs);
+    for (size_t o = 0; o < nOutputs; ++o)
+      counts[o].assign(classesPerOutput[o], 0.0);
     for (arma::uword col : nodeSamples[ni]) {
       const double w = static_cast<double>(sampleWeights(col));
       for (size_t o = 0; o < nOutputs; ++o)
-        counts[classOffsets[o] +
-               y(static_cast<arma::uword>(o), col)] += w;
+        counts[o][y(static_cast<arma::uword>(o), col)] += w;
     }
     classCounts[ni] = std::move(counts);
   }
@@ -56,15 +60,10 @@ ClassificationTaoAdapter::ClassificationTaoAdapter(
     : ShapeGeneralizedTaoAdapter(tree, X, sampleWeights),
       classificationTree_(tree), y_(y),
       classesPerOutput_(tree.classesPerOutput()),
-      nOutputs_(static_cast<size_t>(y.n_rows)), totalClasses_(0) {
+      nOutputs_(static_cast<size_t>(y.n_rows)) {
   if (classesPerOutput_.size() != nOutputs_)
     throw std::invalid_argument(
         "ClassificationTaoAdapter: y.n_rows must match tree nOutputs");
-  classOffsets_.assign(nOutputs_, 0);
-  for (size_t o = 0; o < nOutputs_; ++o) {
-    classOffsets_[o] = totalClasses_;
-    totalClasses_ += classesPerOutput_[o];
-  }
 }
 
 LearningCriterion ClassificationTaoAdapter::routerCriterion() const {
@@ -80,12 +79,11 @@ void ClassificationTaoAdapter::childRewards(
     // Reward = fraction of outputs each child's leaf classifies correctly.
     const double inv = 1.0 / static_cast<double>(nOutputs_);
     for (size_t c = 0; c < childLeaves.size(); ++c) {
-      const auto &counts = classificationTree_.classCounts[childLeaves[c]];
+      const auto predictions =
+          argMaxClass(classificationTree_.classCounts[childLeaves[c]]);
       size_t correct = 0;
       for (size_t o = 0; o < nOutputs_; ++o) {
-        const size_t pred =
-            argMaxInBlock(counts, classOffsets_[o], classesPerOutput_[o]);
-        if (pred == y_(static_cast<arma::uword>(o), col))
+        if (predictions[o] == y_(static_cast<arma::uword>(o), col))
           ++correct;
       }
       reward[c] = static_cast<double>(correct) * inv;
@@ -97,9 +95,9 @@ void ClassificationTaoAdapter::childRewards(
   const size_t label = y_(0, col);
   size_t numCorrect = 0;
   for (size_t c = 0; c < childLeaves.size(); ++c) {
-    const bool correct =
-        argMaxInBlock(classificationTree_.classCounts[childLeaves[c]], 0,
-                      classesPerOutput_[0]) == label;
+    const auto predictions =
+        argMaxClass(classificationTree_.classCounts[childLeaves[c]]);
+    const bool correct = predictions[0] == label;
     if (correct)
       ++numCorrect;
     reward[c] = correct ? 1.0 : 0.0;
@@ -177,7 +175,7 @@ NodeCareSet ClassificationTaoAdapter::buildCareSet(
 void ClassificationTaoAdapter::recomputeLeafStats(
     const std::vector<std::vector<arma::uword>> &nodeSamples) {
   recomputeClassCounts(classificationTree_.classCounts, nodeSamples, y_, w_,
-                       classOffsets_, nOutputs_, totalClasses_);
+                       classesPerOutput_, nOutputs_);
 }
 
 } // namespace tao

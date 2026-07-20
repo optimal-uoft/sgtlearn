@@ -27,7 +27,7 @@ public:
  * @tparam PredictT leaf prediction type routed to downstream code.
  */
 template <typename StatsT, typename PredictT = StatsT>
-class UnivariateDiscretizer : public virtual InnerDiscretizerBase<StatsT>,
+class UnivariateDiscretizer : public virtual InnerDiscretizer<StatsT>,
                               public UnivariateThresholds {
   enum class Step { Untrained, FitTree, LeavesProcessed };
   Step step = Step::Untrained;
@@ -121,7 +121,7 @@ public:
 
 /** Empty when ``disc`` is not a numeric univariate discretizer. */
 inline const std::vector<double> &
-numericInnerThresholds(const InnerDiscretizerBase<double> &disc) {
+numericInnerThresholds(const InnerDiscretizerBase &disc) {
   static const std::vector<double> kEmpty;
   const auto *uni = dynamic_cast<const UnivariateThresholds *>(&disc);
   return uni ? uni->thresholds() : kEmpty;

@@ -66,12 +66,8 @@ private:
   const arma::Mat<size_t> &y_;
   /** Per-output class counts (copied from the fitted tree). */
   std::vector<size_t> classesPerOutput_;
-  /** Prefix offsets into the concatenated histogram. */
-  std::vector<size_t> classOffsets_;
   /** Number of outputs (``y_.n_rows``). */
   size_t nOutputs_;
-  /** Width of a concatenated histogram (sum of ``classesPerOutput_``). */
-  size_t totalClasses_;
 };
 
 } // namespace tao

@@ -7,7 +7,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <numeric>
+#include <iterator>
 #include "Splitter.h"
 #include <armadillo>
 #include <limits>
@@ -15,34 +15,28 @@
 
 /**
  * Multi-output classification splitter. ``labels`` has shape
- * ``(nOutputs, nSamples)``. Per-interval stats are the concatenation of one
- * weighted class histogram per output (block ``o`` has ``classesPerOutput[o]``
- * entries). Concrete subclasses sum the per-output impurity across blocks.
- * ``predict`` returns the per-output argmax. Single-output matches the old
- * scalar path.
+ * ``(nOutputs, nSamples)``. Per-interval stats are nested weighted class
+ * histograms ``stats[output][class]``. Concrete subclasses sum the per-output
+ * impurity across outputs. ``predict`` returns the per-output argmax.
+ * Single-output matches the old scalar path.
  */
-class ClassificationSplitter : public Splitter<double, std::vector<size_t>> {
+class ClassificationSplitter
+    : public Splitter<std::vector<double>, std::vector<size_t>> {
 
 public:
   ClassificationSplitter(arma::frowvec &X, arma::frowvec &sampleWeights,
                          arma::Mat<size_t> &y,
                          const std::vector<size_t> &nClassesPerOutput)
-      : Splitter(X, sampleWeights, totalClasses(nClassesPerOutput)), labels(y),
+      : Splitter(X, sampleWeights, nClassesPerOutput.size()), labels(y),
         classesPerOutput(nClassesPerOutput),
-        nOutputs_(nClassesPerOutput.size()) {
-    classOffsets_.assign(nOutputs_, 0);
-    size_t off = 0;
-    for (size_t o = 0; o < nOutputs_; ++o) {
-      classOffsets_[o] = off;
-      off += classesPerOutput[o];
-    }
-  }
+        nOutputs_(nClassesPerOutput.size()) {}
+
   UnivariateSplitCandidate makeRoot() override {
     auto stats = makeEmptyStats();
     for (size_t idx = 0; idx < labels.n_cols; idx++) {
       const double w = static_cast<double>(sampleWeights(idx));
       for (size_t o = 0; o < nOutputs_; ++o)
-        stats[classOffsets_[o] + labels(o, idx)] += w;
+        stats[o][labels(o, idx)] += w;
     }
 
     splitStats[0][labels.n_cols - 1] = stats;
@@ -62,36 +56,35 @@ public:
     const auto &v = getStats(split);
     std::vector<size_t> preds(nOutputs_, 0);
     for (size_t o = 0; o < nOutputs_; ++o) {
-      const size_t off = classOffsets_[o];
-      const size_t nc = classesPerOutput[o];
-      auto it = std::max_element(v.begin() + static_cast<std::ptrdiff_t>(off),
-                                 v.begin() + static_cast<std::ptrdiff_t>(off + nc));
-      preds[o] = static_cast<size_t>(
-          std::distance(v.begin() + static_cast<std::ptrdiff_t>(off), it));
+      auto it = std::max_element(v[o].begin(), v[o].end());
+      preds[o] = static_cast<size_t>(std::distance(v[o].begin(), it));
     }
     return preds;
   }
 
-  double score(const std::vector<double> &stats, size_t l, size_t r) override = 0;
+  double score(const std::vector<std::vector<double>> &stats, size_t l,
+               size_t r) override = 0;
 
 protected:
   const arma::Mat<size_t> &labels;
   std::vector<size_t> classesPerOutput;
-  std::vector<size_t> classOffsets_;
   size_t nOutputs_;
 
-  static size_t totalClasses(const std::vector<size_t> &nClassesPerOutput) {
-    return std::accumulate(nClassesPerOutput.begin(), nClassesPerOutput.end(),
-                           size_t{0});
+  std::vector<std::vector<double>> makeEmptyStats() override {
+    std::vector<std::vector<double>> stats(nOutputs_);
+    for (size_t o = 0; o < nOutputs_; ++o)
+      stats[o].assign(classesPerOutput[o], 0.0);
+    return stats;
   }
 
-  void moveSample(std::vector<double> &rightStats, std::vector<double> &leftStats,
+  void moveSample(std::vector<std::vector<double>> &rightStats,
+                  std::vector<std::vector<double>> &leftStats,
                   size_t idx) override {
     const double w = static_cast<double>(sampleWeights(idx));
     for (size_t o = 0; o < nOutputs_; ++o) {
-      const size_t pos = classOffsets_[o] + labels(o, idx);
-      leftStats[pos] += w;
-      rightStats[pos] -= w;
+      const size_t lab = labels(o, idx);
+      leftStats[o][lab] += w;
+      rightStats[o][lab] -= w;
     }
   }
 };

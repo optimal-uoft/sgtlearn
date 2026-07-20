@@ -22,7 +22,7 @@ concept TClassificationSplitter =
 
 template <TClassificationSplitter Tsplitter = GiniSplitter>
 class UnivariateClassificationDiscretizer
-    : public UnivariateDiscretizer<double, std::vector<size_t>>,
+    : public UnivariateDiscretizer<std::vector<double>, std::vector<size_t>>,
       public ClassificationDiscretizer {
 public:
   ~UnivariateClassificationDiscretizer() override = default;
@@ -30,12 +30,13 @@ public:
   using ClassificationDiscretizer::Train;
 
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override {
-    UnivariateDiscretizer<double, std::vector<size_t>>::transform(X, binLoc);
+    UnivariateDiscretizer<std::vector<double>, std::vector<size_t>>::transform(
+        X, binLoc);
   }
 
   size_t routeToBin(const std::vector<float> &featureValues) const override {
-    return UnivariateDiscretizer<double, std::vector<size_t>>::routeToBin(
-        featureValues);
+    return UnivariateDiscretizer<std::vector<double>,
+                                 std::vector<size_t>>::routeToBin(featureValues);
   }
 
   void Train(const arma::fmat &X, arma::uvec &features, const arma::Mat<size_t> &y,

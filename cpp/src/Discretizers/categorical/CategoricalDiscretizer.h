@@ -19,7 +19,7 @@ class CategoricalSplitter;
  * @tparam PredictT leaf prediction type routed to downstream code.
  */
 template <typename StatsT, typename PredictT = StatsT>
-class CategoricalDiscretizer : public virtual InnerDiscretizerBase<StatsT> {
+class CategoricalDiscretizer : public virtual InnerDiscretizer<StatsT> {
   enum class Step { Untrained, FitTree, LeavesProcessed };
   Step step = Step::Untrained;
 

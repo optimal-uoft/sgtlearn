@@ -28,38 +28,28 @@
 
 namespace classificationInference {
 
-size_t argMaxClass(const std::vector<double> &counts) {
-  if (counts.empty())
-    throw std::runtime_error("classification counts cannot be empty");
-  auto it = std::max_element(counts.begin(), counts.end());
-  return std::distance(counts.begin(), it);
-}
-
-// Argmax within the block [offset, offset + nClasses) of a concatenated
-// histogram, returned as a class index relative to the block.
-size_t argMaxClassInBlock(const std::vector<double> &counts, size_t offset,
-                          size_t nClasses) {
-  size_t best = 0;
-  double bestVal = -1.0;
-  for (size_t c = 0; c < nClasses; ++c) {
-    const double v = (offset + c < counts.size()) ? counts[offset + c] : 0.0;
-    if (v > bestVal) {
-      bestVal = v;
-      best = c;
-    }
+std::vector<size_t>
+argMaxClass(const std::vector<std::vector<double>> &countsByOutput) {
+  std::vector<size_t> preds(countsByOutput.size(), 0);
+  for (size_t o = 0; o < countsByOutput.size(); ++o) {
+    const auto &counts = countsByOutput[o];
+    if (counts.empty())
+      throw std::runtime_error("classification counts cannot be empty");
+    auto it = std::max_element(counts.begin(), counts.end());
+    preds[o] = static_cast<size_t>(std::distance(counts.begin(), it));
   }
-  return best;
+  return preds;
 }
 
 } // namespace classificationInference
 
 ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
-    LearningCriterion criterion, size_t numClasses, size_t numPartitions,
-    TreeBuildingParams outerParams, TreeBuildingParams innerParams,
-    CoordinateDescentParams cdParams, uint64_t random_state,
-    FeatureBaggingPickFn featureBagging)
+    LearningCriterion criterion, std::vector<size_t> numClasses,
+    size_t numPartitions, TreeBuildingParams outerParams,
+    TreeBuildingParams innerParams, CoordinateDescentParams cdParams,
+    uint64_t random_state, FeatureBaggingPickFn featureBagging)
     : ShapeGeneralizedTree(criterion, numPartitions, outerParams, innerParams),
-      numClasses_(numClasses), cdParams_(cdParams),
+      numClasses_(std::move(numClasses)), cdParams_(cdParams),
       random_state_(random_state), rng_(),
       featureBagging_(featureBagging
                           ? std::move(featureBagging)
@@ -71,38 +61,10 @@ ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
     throw std::invalid_argument(
         "ClassificationShapeGeneralizedTree: criterion must be Entropy or "
         "Gini");
-  if (numClasses_ < 2)
+  if (numClasses_.empty())
     throw std::invalid_argument(
-        "ClassificationShapeGeneralizedTree: numClasses must be >= 2");
-  if (numPartitions < 2)
-    throw std::invalid_argument(
-        "ClassificationShapeGeneralizedTree: numPartitions must be >= 2");
-}
-
-ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
-    LearningCriterion criterion, std::vector<size_t> nClassesPerOutput,
-    size_t numPartitions, TreeBuildingParams outerParams,
-    TreeBuildingParams innerParams, CoordinateDescentParams cdParams,
-    uint64_t random_state, FeatureBaggingPickFn featureBagging)
-    : ShapeGeneralizedTree(criterion, numPartitions, outerParams, innerParams),
-      numClasses_(nClassesPerOutput.empty() ? 0 : nClassesPerOutput[0]),
-      configuredClassesPerOutput_(std::move(nClassesPerOutput)),
-      cdParams_(cdParams), random_state_(random_state), rng_(),
-      featureBagging_(featureBagging
-                          ? std::move(featureBagging)
-                          : FeatureBaggingPickFn(pickAllFeatureIndices)),
-      outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
-                        outerParams_.maxDepth, outerParams_.maxLeafNodes) {
-  if (criterion != LearningCriterion::Entropy &&
-      criterion != LearningCriterion::Gini)
-    throw std::invalid_argument(
-        "ClassificationShapeGeneralizedTree: criterion must be Entropy or "
-        "Gini");
-  if (configuredClassesPerOutput_.empty())
-    throw std::invalid_argument(
-        "ClassificationShapeGeneralizedTree: nClassesPerOutput must be "
-        "non-empty");
-  for (size_t nc : configuredClassesPerOutput_)
+        "ClassificationShapeGeneralizedTree: numClasses must be non-empty");
+  for (size_t nc : numClasses_)
     if (nc < 2)
       throw std::invalid_argument(
           "ClassificationShapeGeneralizedTree: each output must have >= 2 "
@@ -114,45 +76,38 @@ ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
 
 void ClassificationShapeGeneralizedTree::resolveOutputLayout(size_t nOutputs) {
   nOutputs_ = nOutputs;
-  classesPerOutput_.clear();
-  if (!configuredClassesPerOutput_.empty()) {
-    if (configuredClassesPerOutput_.size() == 1)
-      classesPerOutput_.assign(nOutputs_, configuredClassesPerOutput_[0]);
-    else if (configuredClassesPerOutput_.size() == nOutputs_)
-      classesPerOutput_ = configuredClassesPerOutput_;
-    else
-      throw std::invalid_argument(
-          "ClassificationShapeGeneralizedTree::fit: nClassesPerOutput length "
-          "must be 1 or match y.n_rows");
-  } else {
-    classesPerOutput_.assign(nOutputs_, numClasses_);
-  }
-  classOffsets_.assign(nOutputs_, 0);
-  totalClasses_ = 0;
-  for (size_t o = 0; o < nOutputs_; ++o) {
-    classOffsets_[o] = totalClasses_;
-    totalClasses_ += classesPerOutput_[o];
-  }
+  if (numClasses_.size() == 1)
+    classesPerOutput_.assign(nOutputs_, numClasses_[0]);
+  else if (numClasses_.size() == nOutputs_)
+    classesPerOutput_ = numClasses_;
+  else
+    throw std::invalid_argument(
+        "ClassificationShapeGeneralizedTree::fit: numClasses length must be 1 "
+        "or match y.n_rows");
+}
+
+std::vector<std::vector<double>>
+ClassificationShapeGeneralizedTree::makeEmptyHistogram() const {
+  std::vector<std::vector<double>> hist(nOutputs_);
+  for (size_t o = 0; o < nOutputs_; ++o)
+    hist[o].assign(classesPerOutput_[o], 0.0);
+  return hist;
 }
 
 double ClassificationShapeGeneralizedTree::impurityForClassCounts(
-    const std::vector<double> &classCounts) const {
-  double totalWeight = 0.0;
-  for (double c : classCounts)
-    totalWeight += c;
-  if (totalWeight <= 0.0)
-    return 0.0;
+    const std::vector<std::vector<double>> &classCounts) const {
   if (criterion_ == LearningCriterion::Gini)
-    return Criterion::giniMulti(classCounts, classesPerOutput_);
+    return Criterion::gini(classCounts);
   if (criterion_ == LearningCriterion::Entropy)
-    return Criterion::entropyMulti(classCounts, classesPerOutput_);
+    return Criterion::entropy(classCounts);
   throw std::runtime_error("ClassificationShapeGeneralizedTree::"
                            "impurityForClassCounts: invalid criterion");
 }
 
-std::vector<double> ClassificationShapeGeneralizedTree::fillLeafHistogram(
+std::vector<std::vector<double>>
+ClassificationShapeGeneralizedTree::fillLeafHistogram(
     ShapeFunctionNode &node, const arma::Mat<size_t> &y) const {
-  std::vector<double> counts(totalClasses_, 0.0);
+  auto counts = makeEmptyHistogram();
   for (arma::uword i = 0; i < node.sampleIndices.n_elem; ++i) {
     const size_t si = static_cast<size_t>(node.sampleIndices(i));
     const double w = static_cast<double>(fitSampleWeights_(si));
@@ -163,7 +118,7 @@ std::vector<double> ClassificationShapeGeneralizedTree::fillLeafHistogram(
         throw std::invalid_argument(
             "ClassificationShapeGeneralizedTree::fit: class label out of "
             "range");
-      counts[classOffsets_[o] + lab] += w;
+      counts[o][lab] += w;
     }
   }
   return counts;
@@ -263,8 +218,8 @@ void ClassificationShapeGeneralizedTree::fit(
         const auto applyTaskFields =
             [](ShapeBestBranchingState &state,
                const ShapeBranchAssignmentSearchResult &search,
-               const std::vector<std::vector<double>> &leafStats) {
-              state.branching.leafStats = leafStats;
+               const std::vector<std::vector<std::vector<double>>> &leafStats) {
+              state.classLeafStats = leafStats;
               state.partitionClassCounts = search.partitionClassCounts;
               state.partitionWeights = search.partitionWeights;
             };
@@ -294,7 +249,8 @@ void ClassificationShapeGeneralizedTree::fit(
 
           featureHasBetterShapeBranching(
               featureBest, best, logicalIdx, xSubCols, feature.indices,
-              std::unique_ptr<InnerDiscretizerBase<double>>(std::move(disc)),
+              std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
+                  std::move(disc)),
               outerTreeBuilder_.eps, applyTaskFields);
         }
 
@@ -312,7 +268,8 @@ void ClassificationShapeGeneralizedTree::fit(
         node.innerDiscretizer = best.winningDiscretizer;
         node.binToPartition = std::move(best.branching.binToPartition);
         node.sampleBins = std::move(best.branching.sampleBins);
-        node.splitLeafStats = std::move(best.branching.leafStats);
+        node.splitClassCounts = std::move(best.classLeafStats);
+        node.splitLeafStats.clear();
         node.splitBinWeights = std::move(best.binWeights);
         node.binSampleCounts = std::move(best.branching.leafNumSamples);
         node.numPartitions = best.branching.numPartitionsUsed;
@@ -325,27 +282,29 @@ void ClassificationShapeGeneralizedTree::fit(
       [this, &X](const ShapeFunctionNode &parent)
           -> std::vector<ShapeFunctionNode> {
         const auto buckets = routeSamplesToPartitions(parent, X);
-        const auto &binStats = parent.splitLeafStats;
+        const auto &binStats = parent.splitClassCounts;
         if (binStats.size() != parent.binToPartition.size())
           throw std::runtime_error(
-              "ClassificationShapeGeneralizedTree::fit: splitLeafStats / "
+              "ClassificationShapeGeneralizedTree::fit: splitClassCounts / "
               "binToPartition size mismatch");
 
         auto children =
             makeRoutedChildNodes(parent, buckets, numPartitions_);
         for (size_t p = 0; p < children.size(); ++p) {
-          std::vector<double> childClassCounts(totalClasses_, 0.0);
+          auto childClassCounts = makeEmptyHistogram();
           for (size_t b = 0; b < binStats.size(); ++b) {
             if (parent.binToPartition[b] != p)
               continue;
             const auto &sb = binStats[b];
-            for (size_t c = 0; c < totalClasses_; ++c)
-              childClassCounts[c] +=
-                  (c < sb.size()) ? static_cast<double>(sb[c]) : 0.0;
+            for (size_t o = 0; o < nOutputs_ && o < sb.size(); ++o) {
+              for (size_t c = 0; c < classesPerOutput_[o] && c < sb[o].size();
+                   ++c)
+                childClassCounts[o][c] += sb[o][c];
+            }
           }
           children[p].score = impurityForClassCounts(childClassCounts);
           children[p].isLeaf = true;
-          classCounts.push_back(childClassCounts);
+          classCounts.push_back(std::move(childClassCounts));
         }
         return children;
       };
@@ -407,11 +366,10 @@ ClassificationShapeGeneralizedTree::predict(const arma::fmat &X) const {
     while (true) {
       const auto &node = nodes_[idx];
       if (node.isLeaf) {
-        const auto &counts = classCounts[node.nodeIndex];
-        for (size_t o = 0; o < nOutputs_; ++o)
-          yhat(static_cast<arma::uword>(o), static_cast<arma::uword>(s)) =
-              classificationInference::argMaxClassInBlock(
-                  counts, classOffsets_[o], classesPerOutput_[o]);
+        const auto predictions =
+            classificationInference::argMaxClass(classCounts[node.nodeIndex]);
+        yhat.col(static_cast<arma::uword>(s)) =
+            arma::Col<size_t>(predictions);
         break;
       }
       const size_t part = node.routeSampleToPartition(X, static_cast<arma::uword>(s));
@@ -458,18 +416,16 @@ ClassificationShapeGeneralizedTree::predictProba(const arma::fmat &X) const {
       if (node.isLeaf) {
         const auto &h = classCounts[node.nodeIndex];
         for (size_t o = 0; o < nOutputs_; ++o) {
-          const size_t off = classOffsets_[o];
           const size_t K = classesPerOutput_[o];
           const float uniform = K > 0 ? 1.f / static_cast<float>(K) : 0.f;
           double sum = 0.0;
           for (size_t c = 0; c < K; ++c)
-            sum += (off + c < h.size()) ? static_cast<double>(h[off + c]) : 0.0;
+            sum += (c < h[o].size()) ? h[o][c] : 0.0;
           if (sum <= 0.0) {
             probas[o].col(s).fill(uniform);
           } else {
             for (size_t c = 0; c < K; ++c) {
-              const double cnt =
-                  (off + c < h.size()) ? static_cast<double>(h[off + c]) : 0.0;
+              const double cnt = (c < h[o].size()) ? h[o][c] : 0.0;
               probas[o](static_cast<arma::uword>(c),
                         static_cast<arma::uword>(s)) =
                   static_cast<float>(cnt / sum);

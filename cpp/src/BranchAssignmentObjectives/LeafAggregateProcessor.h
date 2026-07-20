@@ -23,39 +23,28 @@ public:
 };
 
 /**
- * Multi-output entropy: ``aggregatedStats`` is the concatenation of one
- * histogram per output; returns the SUM of per-output entropy. A single-entry
- * ``classesPerOutput`` reproduces the scalar path.
+ * Multi-output entropy: ``aggregatedStats[o]`` is the histogram for output
+ * ``o``; returns the SUM of per-output entropy.
  */
-class EntropyProcessor final : public ILeafAggregateProcessor<double> {
+class EntropyProcessor final
+    : public ILeafAggregateProcessor<std::vector<double>> {
 public:
-  explicit EntropyProcessor(std::vector<size_t> classesPerOutput)
-      : classesPerOutput_(std::move(classesPerOutput)) {}
-
-  double compute(const std::vector<double> &aggregatedStats,
+  double compute(const std::vector<std::vector<double>> &aggregatedStats,
                  double totalWeight) const override {
     (void)totalWeight;
-    return Criterion::entropyMulti(aggregatedStats, classesPerOutput_);
+    return Criterion::entropy(aggregatedStats);
   }
-
-private:
-  std::vector<size_t> classesPerOutput_;
 };
 
-/** Multi-output Gini: SUM of per-output Gini over concatenated histograms. */
-class GiniProcessor final : public ILeafAggregateProcessor<double> {
+/** Multi-output Gini: SUM of per-output Gini over nested histograms. */
+class GiniProcessor final
+    : public ILeafAggregateProcessor<std::vector<double>> {
 public:
-  explicit GiniProcessor(std::vector<size_t> classesPerOutput)
-      : classesPerOutput_(std::move(classesPerOutput)) {}
-
-  double compute(const std::vector<double> &aggregatedStats,
+  double compute(const std::vector<std::vector<double>> &aggregatedStats,
                  double totalWeight) const override {
     (void)totalWeight;
-    return Criterion::giniMulti(aggregatedStats, classesPerOutput_);
+    return Criterion::gini(aggregatedStats);
   }
-
-private:
-  std::vector<size_t> classesPerOutput_;
 };
 
 /**
@@ -64,15 +53,10 @@ private:
  */
 class SquaredErrorProcessor final : public ILeafAggregateProcessor<double> {
 public:
-  explicit SquaredErrorProcessor(size_t nOutputs = 1) : nOutputs_(nOutputs) {}
-
   double compute(const std::vector<double> &aggregatedStats,
                  double totalWeight) const override {
-    return Criterion::squaredErrorMulti(aggregatedStats, totalWeight, nOutputs_);
+    return Criterion::squaredError(aggregatedStats, totalWeight);
   }
-
-private:
-  size_t nOutputs_;
 };
 
 class GainHessianProcessor final : public ILeafAggregateProcessor<float> {

@@ -404,7 +404,8 @@ def _draw_leaf_text(
     artists: list = []
 
     if is_classifier:
-        counts = list(node.get("class_counts", []))
+        counts_by_output = list(node.get("class_counts", []))
+        counts = list(counts_by_output[0]) if counts_by_output else []
         if counts:
             arg = max(range(len(counts)), key=lambda i: counts[i])
             primary = class_names[arg] if class_names is not None else str(arg)
@@ -728,7 +729,7 @@ def plot_tree(
         )
         resolved_class_names = [str(c) for c in classes]
     elif class_names in (None, False):
-        resolved_class_names = [str(c) for c in range(tree["num_classes"])]
+        resolved_class_names = [str(c) for c in range(tree["num_classes"][0])]
     else:
         resolved_class_names = list(class_names)  # type: ignore[arg-type]
 

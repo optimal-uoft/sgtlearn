@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
+#include <string>
 
 namespace tao {
 
@@ -111,15 +113,32 @@ double TaoObjective::scoreDiscretizer(
   if (disc.numLeaves() < 1)
     return -std::numeric_limits<double>::infinity();
 
-  const std::vector<double> &thr =
-      numericInnerThresholds(static_cast<const InnerDiscretizerBase<double> &>(disc));
-  const std::vector<std::vector<double>> &leafStats = disc.leafStats();
+  const std::vector<double> &thr = numericInnerThresholds(disc);
+  const std::vector<std::vector<std::vector<double>>> &leafStats =
+      disc.leafStats();
+  if (leafStats.empty())
+    throw std::runtime_error(
+        "TaoObjective::scoreDiscretizer: discretizer has no leaf stats");
+
   thresholdsOut.resize(thr.size());
   for (size_t b = 0; b < thr.size(); ++b)
     thresholdsOut[b] = static_cast<float>(thr[b]);
   binToPartitionOut.resize(leafStats.size());
-  for (size_t b = 0; b < leafStats.size(); ++b)
-    binToPartitionOut[b] = argMax(leafStats[b]);
+
+  // TAO trains the inner discretizer on scalar care-set pseudo-labels (child
+  // partition indices 0..k-1), so each bin's stats are [1][k] not multi-output.
+  for (size_t b = 0; b < leafStats.size(); ++b) {
+    if (leafStats[b].size() != 1)
+      throw std::runtime_error(
+          "TaoObjective::scoreDiscretizer: bin " + std::to_string(b) +
+          " expected 1 output row of class counts, got " +
+          std::to_string(leafStats[b].size()));
+    if (leafStats[b][0].empty())
+      throw std::runtime_error(
+          "TaoObjective::scoreDiscretizer: bin " + std::to_string(b) +
+          " class histogram is empty");
+    binToPartitionOut[b] = argMax(leafStats[b][0]);
+  }
 
   return scoreRouting(feature, thresholdsOut, binToPartitionOut);
 }

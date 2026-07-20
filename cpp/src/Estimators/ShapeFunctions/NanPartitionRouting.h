@@ -34,7 +34,7 @@ missing_column_indices(const arma::frowvec &featureRow) {
  * it. Multi-output: ``binStats[b]`` holds the concatenated
  * ``[Σw·y0, Σw·y0², Σw·y1, Σw·y1², ...]`` (length ``2 * nOutputs``), and
  * ``missingMoments`` holds the same layout for the NaN bucket. Loss is summed
- * across outputs via ``Criterion::squaredErrorMulti``.
+ * across outputs via ``Criterion::squaredError``.
  */
 inline size_t choose_nan_partition_squared_error_from_moments(
     size_t numPartitions, const std::vector<size_t> &binToPartition,
@@ -66,7 +66,7 @@ inline size_t choose_nan_partition_squared_error_from_moments(
     if (partWeights[p] > 0.0)
       baseWeightedLoss +=
           partWeights[p] *
-          Criterion::squaredErrorMulti(partMoments[p], partWeights[p], nOutputs);
+          Criterion::squaredError(partMoments[p], partWeights[p]);
   }
   if (totalWeight <= 0.0)
     return 0;
@@ -81,11 +81,11 @@ inline size_t choose_nan_partition_squared_error_from_moments(
     const double trialWeight = partWeights[p] + missingWeight;
     double trialLoss = 0.0;
     if (trialWeight > 0.0)
-      trialLoss = Criterion::squaredErrorMulti(trialSt, trialWeight, nOutputs);
+      trialLoss = Criterion::squaredError(trialSt, trialWeight);
     double basePartLoss = 0.0;
     if (partWeights[p] > 0.0)
       basePartLoss =
-          Criterion::squaredErrorMulti(partMoments[p], partWeights[p], nOutputs);
+          Criterion::squaredError(partMoments[p], partWeights[p]);
     const double weightedLoss =
         baseWeightedLoss - partWeights[p] * basePartLoss + trialWeight * trialLoss;
     trialScores[p] = weightedLoss / totalWeight;

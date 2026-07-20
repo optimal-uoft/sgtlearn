@@ -68,7 +68,10 @@ public:
   /**
    * @param criterion       impurity for inner splits, partition scoring, and
    *                        coordinate descent (Entropy or Gini).
-   * @param numClasses      number of distinct class labels in [0, numClasses).
+   * @param numClasses      per-output class counts. A single entry is expanded
+   *                        to match ``y.n_rows`` at ``fit``; length may also
+   *                        equal the number of outputs. Scalar single-output
+   *                        is just ``{K}``.
    * @param numPartitions   fan-out of every internal routing node (>= 2).
    * @param outerParams     tree-building params for the outer routing tree.
    * @param innerParams     tree-building params for the per-feature inner
@@ -79,25 +82,23 @@ public:
    *                         ``std::function`` defaults to all candidates.
    */
   ClassificationShapeGeneralizedTree(
-      LearningCriterion criterion, size_t numClasses, size_t numPartitions,
-      TreeBuildingParams outerParams = {},
-      TreeBuildingParams innerParams = {},
-      CoordinateDescentParams cdParams = {}, uint64_t random_state = 42,
-      FeatureBaggingPickFn featureBagging = {});
-
-  /**
-   * Multi-output constructor.
-   *
-   * @param nClassesPerOutput  per-output class counts; length is the number of
-   *                           outputs. A length-1 vector is expanded to match
-   *                           ``y.n_rows`` at ``fit`` time.
-   */
-  ClassificationShapeGeneralizedTree(
-      LearningCriterion criterion, std::vector<size_t> nClassesPerOutput,
+      LearningCriterion criterion, std::vector<size_t> numClasses,
       size_t numPartitions, TreeBuildingParams outerParams = {},
       TreeBuildingParams innerParams = {},
       CoordinateDescentParams cdParams = {}, uint64_t random_state = 42,
       FeatureBaggingPickFn featureBagging = {});
+
+  /** Convenience overload: single-output / shared class count ``{numClasses}``. */
+  ClassificationShapeGeneralizedTree(
+      LearningCriterion criterion, size_t numClasses, size_t numPartitions,
+      TreeBuildingParams outerParams = {},
+      TreeBuildingParams innerParams = {},
+      CoordinateDescentParams cdParams = {}, uint64_t random_state = 42,
+      FeatureBaggingPickFn featureBagging = {})
+      : ClassificationShapeGeneralizedTree(
+            criterion, std::vector<size_t>{numClasses}, numPartitions,
+            outerParams, innerParams, cdParams, random_state,
+            std::move(featureBagging)) {}
 
   ~ClassificationShapeGeneralizedTree() = default;
 
@@ -116,7 +117,7 @@ public:
    * @param X  (numFeatures, numSamples) column-major; one sample per column.
    *           Routing candidates are row indices ``0 .. numFeatures-1``.
    * @param y  (numOutputs, numSamples) integer class labels; output ``o`` has
-   *           labels in ``[0, nClassesPerOutput[o])``. Single-output is
+   *           labels in ``[0, classesPerOutput[o])``. Single-output is
    *           ``n_rows == 1``.
    *
    * @param features  logical feature groups resolved in Python.
@@ -131,38 +132,35 @@ public:
   arma::Mat<size_t> predict(const arma::fmat &X) const;
 
   /**
-   * Class probabilities: one ``(nClassesPerOutput[o], numSamples)`` matrix per
+   * Class probabilities: one ``(classesPerOutput[o], numSamples)`` matrix per
    * output. Single-output returns a length-1 vector.
    */
   std::vector<arma::fmat> predictProba(const arma::fmat &X) const;
 
   /**
-   * Per-node class histograms (also populated at internal nodes); each entry is
-   * the concatenation of per-output histograms (length ``totalClasses``).
+   * Per-node class histograms (also populated at internal nodes).
+   * Shape: ``classCounts[node][output][class]``.
    */
-  std::vector<std::vector<double>> classCounts;
+  std::vector<std::vector<std::vector<double>>> classCounts;
 
-  /** Number of class labels for output 0 (first output). */
-  size_t numClasses() const { return classesPerOutput_.empty() ? numClasses_ : classesPerOutput_[0]; }
+  /** Per-output class counts (configured, or fit-resolved when available). */
+  const std::vector<size_t> &numClasses() const {
+    return classesPerOutput_.empty() ? numClasses_ : classesPerOutput_;
+  }
 
   /** Number of outputs the tree was fitted on (>= 1). */
   size_t nOutputs() const { return nOutputs_; }
 
-  /** Per-output class counts (length ``nOutputs``). */
+  /** Fit-resolved per-output class counts (empty before ``fit``). */
   const std::vector<size_t> &classesPerOutput() const {
     return classesPerOutput_;
   }
 
 private:
-  size_t numClasses_;
-  /** Configured per-output class counts (empty when scalar ctor used). */
-  std::vector<size_t> configuredClassesPerOutput_;
+  /** Configured class counts from the ctor (length 1 or nOutputs). */
+  std::vector<size_t> numClasses_;
   /** Resolved per-output class counts, set at ``fit`` (length ``nOutputs_``). */
   std::vector<size_t> classesPerOutput_;
-  /** Prefix offsets into the concatenated histogram, length ``nOutputs_``. */
-  std::vector<size_t> classOffsets_;
-  /** Sum of ``classesPerOutput_`` (width of a concatenated histogram). */
-  size_t totalClasses_ = 0;
   /** Number of outputs, set at ``fit``. */
   size_t nOutputs_ = 1;
   CoordinateDescentParams cdParams_;
@@ -174,14 +172,19 @@ private:
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
 
-  /** Resolve ``classesPerOutput_`` / offsets / total from config and ``y``. */
+  /** Resolve ``classesPerOutput_`` from config and ``y``. */
   void resolveOutputLayout(size_t nOutputs);
 
-  /** Summed Gini/entropy over the concatenated per-output histogram. */
-  double impurityForClassCounts(const std::vector<double> &classCounts) const;
+  /** Summed Gini/entropy over per-output histograms. */
+  double impurityForClassCounts(
+      const std::vector<std::vector<double>> &classCounts) const;
 
-  std::vector<double> fillLeafHistogram(ShapeFunctionNode &node,
-                                        const arma::Mat<size_t> &y) const;
+  /** Empty nested histogram with the correct per-output lengths. */
+  std::vector<std::vector<double>> makeEmptyHistogram() const;
+
+  std::vector<std::vector<double>>
+  fillLeafHistogram(ShapeFunctionNode &node,
+                    const arma::Mat<size_t> &y) const;
 
   arma::Row<float> fitSampleWeights_;
 };

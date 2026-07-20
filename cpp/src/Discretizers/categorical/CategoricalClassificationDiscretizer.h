@@ -15,7 +15,7 @@
 #include <stdexcept>
 
 class CategoricalClassificationDiscretizer
-    : public CategoricalDiscretizer<double, std::vector<size_t>>,
+    : public CategoricalDiscretizer<std::vector<double>, std::vector<size_t>>,
       public ClassificationDiscretizer {
 public:
   explicit CategoricalClassificationDiscretizer(
@@ -30,12 +30,13 @@ public:
   using ClassificationDiscretizer::Train;
 
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override {
-    CategoricalDiscretizer<double, std::vector<size_t>>::transform(X, binLoc);
+    CategoricalDiscretizer<std::vector<double>, std::vector<size_t>>::transform(
+        X, binLoc);
   }
 
   size_t routeToBin(const std::vector<float> &featureValues) const override {
-    return CategoricalDiscretizer<double, std::vector<size_t>>::routeToBin(
-        featureValues);
+    return CategoricalDiscretizer<std::vector<double>,
+                                  std::vector<size_t>>::routeToBin(featureValues);
   }
 
   void Train(const arma::fmat &X, arma::uvec &features,

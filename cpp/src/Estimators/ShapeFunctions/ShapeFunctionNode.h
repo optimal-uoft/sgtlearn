@@ -53,7 +53,7 @@ public:
   /** Maps each inner discretizer bin (including NaN) to a child partition. */
   std::vector<size_t> binToPartition;
   /** Winning inner discretizer for this split; required on internal nodes. */
-  std::shared_ptr<const InnerDiscretizerBase<double>> innerDiscretizer;
+  std::shared_ptr<const InnerDiscretizerBase> innerDiscretizer;
 
   /**
    * During fit: original column indices into X at this node (Python
@@ -68,10 +68,16 @@ public:
   std::vector<size_t> sampleBins;
   /**
    * Per-bin sufficient statistics from the winning inner discretizer (same
-   * length as ``binToPartition``). Classification: weighted class counts.
-   * Regression (squared error): ``[sum w·y, sum w·y²]``. Empty for MAE leaves.
+   * length as ``binToPartition``). Regression (squared error):
+   * ``[sum w·y, sum w·y²]``. Empty for classification and MAE leaves.
    */
   std::vector<std::vector<double>> splitLeafStats;
+  /**
+   * Classification per-bin nested class histograms
+   * ``[bin][output][class]`` from the winning inner discretizer. Empty for
+   * regression.
+   */
+  std::vector<std::vector<std::vector<double>>> splitClassCounts;
   /**
    * Per-bin sum of sample weights (``sum w``) from the inner discretizer.
    * Same length as ``binToPartition``.

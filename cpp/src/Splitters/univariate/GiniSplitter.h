@@ -16,10 +16,11 @@ public:
                const std::vector<size_t> &nClassesPerOutput)
       : ClassificationSplitter(X, sampleWeights, y, nClassesPerOutput) {};
 
-  double score(const std::vector<double> &stats, size_t l, size_t r) override {
+  double score(const std::vector<std::vector<double>> &stats, size_t l,
+               size_t r) override {
     (void)l;
     (void)r;
-    return Criterion::giniMulti(stats, classesPerOutput);
+    return Criterion::gini(stats);
   }
 
   double score(const UnivariateSplitCandidate &split) override {

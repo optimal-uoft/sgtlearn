@@ -12,44 +12,37 @@
 #include <memory>
 #include <vector>
 
-namespace branch_assignment_detail {
-inline size_t totalClasses(const std::vector<size_t> &classesPerOutput) {
-  size_t total = 0;
-  for (size_t nc : classesPerOutput)
-    total += nc;
-  return total;
-}
-} // namespace branch_assignment_detail
-
-/** Classification: statsDim = sum(classesPerOutput); summed per-output entropy. */
+/** Classification: nested ``[leaf][output][class]``; statsDim = nOutputs. */
 class EntropyBranchAssignment
-    : public leaf_aggregate::LeafAggregationBranchAssignment<double> {
+    : public leaf_aggregate::LeafAggregationBranchAssignment<
+          std::vector<double>> {
 public:
-  EntropyBranchAssignment(std::vector<size_t> &assignments, size_t numPartitions,
-                          std::vector<std::vector<double>> &stats,
-                          std::vector<double> &leafWeights,
-                          const std::vector<size_t> &leafSampleCounts,
-                          const std::vector<size_t> &classesPerOutput)
-      : leaf_aggregate::LeafAggregationBranchAssignment<double>(
+  EntropyBranchAssignment(
+      std::vector<size_t> &assignments, size_t numPartitions,
+      std::vector<std::vector<std::vector<double>>> &stats,
+      std::vector<double> &leafWeights,
+      const std::vector<size_t> &leafSampleCounts,
+      const std::vector<size_t> &classesPerOutput)
+      : leaf_aggregate::LeafAggregationBranchAssignment<std::vector<double>>(
             assignments, numPartitions, stats, leafWeights, leafSampleCounts,
-            branch_assignment_detail::totalClasses(classesPerOutput),
-            std::make_unique<leaf_aggregate::EntropyProcessor>(
-                classesPerOutput)) {}
+            classesPerOutput.size(),
+            std::make_unique<leaf_aggregate::EntropyProcessor>()) {}
 };
 
-/** Classification: statsDim = sum(classesPerOutput); summed per-output Gini. */
+/** Classification: nested ``[leaf][output][class]``; statsDim = nOutputs. */
 class GiniBranchAssignment
-    : public leaf_aggregate::LeafAggregationBranchAssignment<double> {
+    : public leaf_aggregate::LeafAggregationBranchAssignment<
+          std::vector<double>> {
 public:
   GiniBranchAssignment(std::vector<size_t> &assignments, size_t numPartitions,
-                       std::vector<std::vector<double>> &stats,
+                       std::vector<std::vector<std::vector<double>>> &stats,
                        std::vector<double> &leafWeights,
                        const std::vector<size_t> &leafSampleCounts,
                        const std::vector<size_t> &classesPerOutput)
-      : leaf_aggregate::LeafAggregationBranchAssignment<double>(
+      : leaf_aggregate::LeafAggregationBranchAssignment<std::vector<double>>(
             assignments, numPartitions, stats, leafWeights, leafSampleCounts,
-            branch_assignment_detail::totalClasses(classesPerOutput),
-            std::make_unique<leaf_aggregate::GiniProcessor>(classesPerOutput)) {}
+            classesPerOutput.size(),
+            std::make_unique<leaf_aggregate::GiniProcessor>()) {}
 };
 
 /** Regression MSE: statsDim = 2 * nOutputs (per-output sum y, sum y²). */
@@ -65,7 +58,7 @@ public:
       : leaf_aggregate::LeafAggregationBranchAssignment<double>(
             assignments, numPartitions, stats, leafWeights, leafSampleCounts,
             2 * nOutputs,
-            std::make_unique<leaf_aggregate::SquaredErrorProcessor>(nOutputs)) {}
+            std::make_unique<leaf_aggregate::SquaredErrorProcessor>()) {}
 };
 
 /** Gradient boosting: statsDim = 2 (sum g, sum h); L2 leaf regularization λ. */

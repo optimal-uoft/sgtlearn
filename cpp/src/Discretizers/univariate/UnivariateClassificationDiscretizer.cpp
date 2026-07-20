@@ -44,23 +44,19 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
   if (nClassesPerOutput.size() != nOutputs)
     throw std::invalid_argument(
         "nClassesPerOutput length must equal y.n_rows");
-  size_t totalClasses = 0;
-  std::vector<size_t> classOffsets(nOutputs, 0);
-  for (size_t o = 0; o < nOutputs; ++o) {
-    classOffsets[o] = totalClasses;
-    totalClasses += nClassesPerOutput[o];
-  }
   feature = features(0);
   const auto sort = missing_values::sort_index_finite_first(X.row(feature));
   const arma::uword n_finite =
       static_cast<arma::uword>(sort.first_non_finite_index);
 
-  // NaN bucket: aggregate the non-finite tail (concatenated per-output weighted
+  // NaN bucket: aggregate the non-finite tail (nested per-output weighted
   // class counts). The inner tree below is fit on finite values only, so the
   // splitter operates on N_numeric = N - N_nan samples and min_samples_leaf
   // applies to numerics.
   this->nanSeen_ = (n_finite < X.n_cols);
-  this->nanStats_.assign(totalClasses, 0.0);
+  this->nanStats_.assign(nOutputs, std::vector<double>{});
+  for (size_t o = 0; o < nOutputs; ++o)
+    this->nanStats_[o].assign(nClassesPerOutput[o], 0.0);
   this->nanNumSamples_ = 0;
   this->nanNodeWeight_ = 0.0;
   this->nanInSampleIndices_.clear();
@@ -69,7 +65,7 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
     const double w =
         sampleWeights.n_elem == 0 ? 1.0 : static_cast<double>(sampleWeights(idx));
     for (size_t o = 0; o < nOutputs; ++o)
-      this->nanStats_[classOffsets[o] + y(o, idx)] += w;
+      this->nanStats_[o][y(o, idx)] += w;
     this->nanNodeWeight_ += w;
     ++this->nanNumSamples_;
     this->nanInSampleIndices_.push_back(static_cast<size_t>(idx));

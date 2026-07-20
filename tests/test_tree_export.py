@@ -37,7 +37,7 @@ def test_classifier_export_top_level_keys():
     assert set(tr) >= {"num_partitions", "num_nodes", "root_index",
                        "num_classes", "criterion", "nodes"}
     assert tr["num_partitions"] == 2
-    assert tr["num_classes"] == 2
+    assert tr["num_classes"] == [2]
     assert tr["criterion"] == "gini"
     assert tr["num_nodes"] == len(tr["nodes"])
     assert tr["nodes"][tr["root_index"]]["depth"] == 0
@@ -70,8 +70,10 @@ def test_classifier_leaf_invariants():
         assert leaf["children"] == []
         assert leaf["bin_to_partition"] == []
         assert leaf["bin_sample_counts"] == []
-        assert sum(leaf["class_counts"]) == leaf["n_samples"]
-        assert len(leaf["class_counts"]) == tr["num_classes"]
+        assert sum(leaf["class_counts"][0]) == leaf["n_samples"]
+        assert len(leaf["class_counts"]) == len(tr["num_classes"])
+        for o, row in enumerate(leaf["class_counts"]):
+            assert len(row) == tr["num_classes"][o]
 
 
 def test_regressor_mse_export():

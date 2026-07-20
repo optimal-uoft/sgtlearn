@@ -47,7 +47,7 @@ SquaredErrorSplitter::predict(const UnivariateSplitCandidate &split) {
 
 double SquaredErrorSplitter::score(const std::vector<double> &stats, size_t l,
                                    size_t r) {
-  return Criterion::squaredErrorMulti(stats, intervalWeight(l, r), nOutputs_);
+  return Criterion::squaredError(stats, intervalWeight(l, r));
 }
 void SquaredErrorSplitter::moveSample(std::vector<double> &rightStats,
                                       std::vector<double> &leftStats,
