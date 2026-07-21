@@ -15,7 +15,7 @@ try:
 
     release = _pkg_version("sgtlearn")
 except Exception:  # noqa: BLE001 - fall back to a hardcoded value off-RTD
-    release = "0.1.1"
+    release = "0.2.0"
 version = ".".join(release.split(".")[:2])
 
 # -- Project information -----------------------------------------------------
