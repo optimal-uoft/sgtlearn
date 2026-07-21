@@ -69,9 +69,9 @@ public:
   /**
    * Per-bin sufficient statistics from the winning inner discretizer (same
    * length as ``binToPartition``). Regression (squared error):
-   * ``[sum w·y, sum w·y²]``. Empty for classification and MAE leaves.
+   * ``[output][Σw·y, Σw·y²]``. Empty for MAE leaves.
    */
-  std::vector<std::vector<double>> splitLeafStats;
+  std::vector<std::vector<std::vector<double>>> splitLeafStats;
   /**
    * Classification per-bin nested class histograms
    * ``[bin][output][class]`` from the winning inner discretizer. Empty for

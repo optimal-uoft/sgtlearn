@@ -11,12 +11,17 @@
 AbsoluteErrorSplitter::AbsoluteErrorSplitter(arma::frowvec &X,
                                              arma::frowvec &sampleWeights,
                                              arma::Mat<float> &y)
-    : Splitter(X, sampleWeights, 0), targets(y),
-      nOutputs_(static_cast<size_t>(y.n_rows)) {
+    : Splitter(X, sampleWeights, static_cast<size_t>(y.n_rows)), targets(y),
+      nOutputs_(static_cast<size_t>(y.n_rows)),
+      empty_stats_cache_(nOutputs_) {
   waveletTrees_.reserve(nOutputs_);
   for (size_t o = 0; o < nOutputs_; ++o)
     waveletTrees_.push_back(std::make_unique<WaveletTreeMAE>(
         arma::Row<float>(y.row(o)), arma::Row<float>(sampleWeights)));
+}
+
+std::vector<std::vector<double>> AbsoluteErrorSplitter::makeEmptyStats() {
+  return std::vector<std::vector<double>>(nOutputs_);
 }
 
 UnivariateSplitCandidate AbsoluteErrorSplitter::makeRoot() {
@@ -41,8 +46,8 @@ AbsoluteErrorSplitter::predict(const UnivariateSplitCandidate &split) {
   return medians;
 }
 
-double AbsoluteErrorSplitter::score(const std::vector<double> &stats, size_t l,
-                                    size_t r) {
+double AbsoluteErrorSplitter::score(const std::vector<std::vector<double>> &stats,
+                                    size_t l, size_t r) {
   (void)stats;
   double total = 0.0;
   for (size_t o = 0; o < nOutputs_; ++o)
@@ -57,14 +62,14 @@ double AbsoluteErrorSplitter::score(const UnivariateSplitCandidate &split) {
   return score(makeEmptyStats(), split.start, split.end);
 }
 
-const std::vector<double> &
+const std::vector<std::vector<double>> &
 AbsoluteErrorSplitter::getStats(const UnivariateSplitCandidate &split) {
   (void)split;
   return empty_stats_cache_;
 }
 
-void AbsoluteErrorSplitter::moveSample(std::vector<double> &rightStats,
-                                       std::vector<double> &leftStats,
+void AbsoluteErrorSplitter::moveSample(std::vector<std::vector<double>> &rightStats,
+                                       std::vector<std::vector<double>> &leftStats,
                                        size_t idx) {
   (void)rightStats;
   (void)leftStats;

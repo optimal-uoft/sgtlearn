@@ -46,23 +46,22 @@ void UnivariateRegressionDiscretizer<TSplitter>::Train(
   const arma::uword n_finite =
       static_cast<arma::uword>(sort.first_non_finite_index);
 
-  // NaN bucket: aggregate the non-finite tail as
-  // ``[sum w*y0, sum w*y0^2, sum w*y1, sum w*y1^2, ...]`` (length 2*nOutputs).
+  // NaN bucket: aggregate the non-finite tail as ``[output][Σw·y, Σw·y²]``.
   // The inner tree below is fit on finite values only, so the splitter operates
   // on N_numeric = N - N_nan samples and min_samples_leaf applies to numerics.
   this->nanSeen_ = (n_finite < X.n_cols);
   this->nanNumSamples_ = 0;
   this->nanNodeWeight_ = 0.0;
   this->nanInSampleIndices_.clear();
-  std::vector<double> nanStats(2 * nOutputs, 0.0);
+  std::vector<std::vector<double>> nanStats(nOutputs, std::vector<double>(2, 0.0));
   for (arma::uword i = n_finite; i < X.n_cols; ++i) {
     const arma::uword idx = sort.order(i);
     const double w =
         sampleWeights.n_elem == 0 ? 1.0 : static_cast<double>(sampleWeights(idx));
     for (size_t o = 0; o < nOutputs; ++o) {
       const double v = static_cast<double>(y(o, idx));
-      nanStats[2 * o] += w * v;
-      nanStats[2 * o + 1] += w * v * v;
+      nanStats[o][0] += w * v;
+      nanStats[o][1] += w * v * v;
     }
     this->nanNodeWeight_ += w;
     ++this->nanNumSamples_;

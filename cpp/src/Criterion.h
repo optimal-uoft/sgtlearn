@@ -25,11 +25,11 @@ double entropy(const std::vector<std::vector<double>> &countsByOutput);
 double gini(const std::vector<std::vector<double>> &countsByOutput);
 
 /**
- * Weighted MSE. ``yPowerSum`` is ``[Σw·y0, Σw·y0², Σw·y1, Σw·y1², ...]``
- * (length ``2 * nOutputs``). Returns the SUM of per-output MSE. Single-output
- * is length 2.
+ * Weighted MSE. ``momentsByOutput[o]`` is ``[Σw·y, Σw·y²]`` for output ``o``.
+ * Returns the SUM of per-output MSE. Single-output is a length-1 outer vector.
  */
-double squaredError(const std::vector<double> &yPowerSum, double totalWeight);
+double squaredError(const std::vector<std::vector<double>> &momentsByOutput,
+                    double totalWeight);
 
 /** Weighted median and mean MAE (sklearn ``precompute_absolute_errors``). */
 struct AbsoluteErrorStats {

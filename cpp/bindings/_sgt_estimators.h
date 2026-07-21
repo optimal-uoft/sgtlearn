@@ -580,10 +580,14 @@ public:
         for (size_t p : n.binToPartition) b2p.append(p);
         d["bin_to_partition"] = b2p;
         py::list bc;
-        for (const auto &row : n.splitLeafStats) {
-          py::list r;
-          for (double v : row) r.append(v);
-          bc.append(r);
+        for (const auto &bin : n.splitLeafStats) {
+          py::list outputs;
+          for (const auto &moments : bin) {
+            py::list row;
+            for (double v : moments) row.append(v);
+            outputs.append(row);
+          }
+          bc.append(outputs);
         }
         d["bin_counts"] = bc;
         py::list bw;

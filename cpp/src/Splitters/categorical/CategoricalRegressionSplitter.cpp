@@ -47,24 +47,25 @@ double CategoricalRegressionSplitter::score(const std::vector<size_t> &samples) 
   }
 }
 
-std::vector<double>
+std::vector<std::vector<double>>
 CategoricalRegressionSplitter::statsForSamples(
     const std::vector<size_t> &samples) {
   switch (criterion_) {
   case LearningCriterion::SquaredError: {
-    std::vector<double> stats(2 * nOutputs_, 0.0);
+    std::vector<std::vector<double>> stats(nOutputs_,
+                                           std::vector<double>(2, 0.0));
     for (size_t i : samples) {
       const double wi = static_cast<double>(sampleWeights(i));
       for (size_t o = 0; o < nOutputs_; ++o) {
         const double v = static_cast<double>(y_(o, i));
-        stats[2 * o] += wi * v;
-        stats[2 * o + 1] += wi * v * v;
+        stats[o][0] += wi * v;
+        stats[o][1] += wi * v * v;
       }
     }
     return stats;
   }
   case LearningCriterion::AbsoluteError:
-    return {};
+    return std::vector<std::vector<double>>(nOutputs_);
   default:
     throw std::invalid_argument(
         "CategoricalRegressionSplitter requires SquaredError or AbsoluteError");
@@ -79,7 +80,7 @@ CategoricalRegressionSplitter::predict(const std::vector<size_t> &samples) {
   case LearningCriterion::SquaredError: {
     const auto stats = statsForSamples(samples);
     for (size_t o = 0; o < nOutputs_; ++o)
-      preds[o] = wTot > 0.0 ? static_cast<float>(stats[2 * o] / wTot) : 0.f;
+      preds[o] = wTot > 0.0 ? static_cast<float>(stats[o][0] / wTot) : 0.f;
     return preds;
   }
   case LearningCriterion::AbsoluteError: {

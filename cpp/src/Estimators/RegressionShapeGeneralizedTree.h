@@ -159,9 +159,9 @@ private:
   double impurityAtNode(const arma::Mat<float> &y,
                         const ShapeFunctionNode &node) const;
 
-  /** Concatenated ``[Σw·y_o, Σw·y_o²]`` per output; length ``2 * nOutputs_``. */
-  std::vector<double> aggregateYSquaredStats(const ShapeFunctionNode &node,
-                                             const arma::Mat<float> &y) const;
+  /** Nested ``[output][Σw·y, Σw·y²]`` per node sample set. */
+  std::vector<std::vector<double>> aggregateYSquaredStats(
+      const ShapeFunctionNode &node, const arma::Mat<float> &y) const;
 
   arma::Row<float> fitSampleWeights_;
 };

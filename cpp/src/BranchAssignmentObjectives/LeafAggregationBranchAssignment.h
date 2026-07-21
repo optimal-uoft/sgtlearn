@@ -95,7 +95,6 @@ protected:
   double computePartitionLoss(size_t i);
 };
 
-extern template class LeafAggregationBranchAssignment<double>;
 extern template class LeafAggregationBranchAssignment<float>;
 extern template class LeafAggregationBranchAssignment<std::vector<double>>;
 

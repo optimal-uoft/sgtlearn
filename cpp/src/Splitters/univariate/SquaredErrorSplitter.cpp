@@ -9,14 +9,21 @@
 #include "SquaredErrorSplitter.h"
 #include "Criterion.h"
 
+std::vector<std::vector<double>> SquaredErrorSplitter::makeEmptyStats() {
+  std::vector<std::vector<double>> stats(nOutputs_);
+  for (size_t o = 0; o < nOutputs_; ++o)
+    stats[o] = {0.0, 0.0};
+  return stats;
+}
+
 UnivariateSplitCandidate SquaredErrorSplitter::makeRoot() {
   auto stats = makeEmptyStats();
   for (size_t idx = 0; idx < targets.n_cols; idx++) {
     const double w = static_cast<double>(sampleWeights(idx));
     for (size_t o = 0; o < nOutputs_; ++o) {
       const double v = static_cast<double>(targets(o, idx));
-      stats[2 * o] += w * v;
-      stats[2 * o + 1] += w * v * v;
+      stats[o][0] += w * v;
+      stats[o][1] += w * v * v;
     }
   }
 
@@ -41,23 +48,24 @@ SquaredErrorSplitter::predict(const UnivariateSplitCandidate &split) {
   const auto &stats = getStats(split);
   std::vector<float> means(nOutputs_, 0.f);
   for (size_t o = 0; o < nOutputs_; ++o)
-    means[o] = static_cast<float>(stats[2 * o] / W);
+    means[o] = static_cast<float>(stats[o][0] / W);
   return means;
 }
 
-double SquaredErrorSplitter::score(const std::vector<double> &stats, size_t l,
-                                   size_t r) {
+double SquaredErrorSplitter::score(const std::vector<std::vector<double>> &stats,
+                                   size_t l, size_t r) {
   return Criterion::squaredError(stats, intervalWeight(l, r));
 }
-void SquaredErrorSplitter::moveSample(std::vector<double> &rightStats,
-                                      std::vector<double> &leftStats,
+
+void SquaredErrorSplitter::moveSample(std::vector<std::vector<double>> &rightStats,
+                                      std::vector<std::vector<double>> &leftStats,
                                       size_t idx) {
   const double w = static_cast<double>(sampleWeights(idx));
   for (size_t o = 0; o < nOutputs_; ++o) {
     const double v = static_cast<double>(targets(o, idx));
-    rightStats[2 * o] -= w * v;
-    leftStats[2 * o] += w * v;
-    rightStats[2 * o + 1] -= w * v * v;
-    leftStats[2 * o + 1] += w * v * v;
+    rightStats[o][0] -= w * v;
+    leftStats[o][0] += w * v;
+    rightStats[o][1] -= w * v * v;
+    leftStats[o][1] += w * v * v;
   }
 }

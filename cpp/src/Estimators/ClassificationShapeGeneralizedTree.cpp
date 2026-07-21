@@ -219,7 +219,7 @@ void ClassificationShapeGeneralizedTree::fit(
             [](ShapeBestBranchingState &state,
                const ShapeBranchAssignmentSearchResult &search,
                const std::vector<std::vector<std::vector<double>>> &leafStats) {
-              state.classLeafStats = leafStats;
+              state.nestedLeafStats = leafStats;
               state.partitionClassCounts = search.partitionClassCounts;
               state.partitionWeights = search.partitionWeights;
             };
@@ -268,7 +268,7 @@ void ClassificationShapeGeneralizedTree::fit(
         node.innerDiscretizer = best.winningDiscretizer;
         node.binToPartition = std::move(best.branching.binToPartition);
         node.sampleBins = std::move(best.branching.sampleBins);
-        node.splitClassCounts = std::move(best.classLeafStats);
+        node.splitClassCounts = std::move(best.nestedLeafStats);
         node.splitLeafStats.clear();
         node.splitBinWeights = std::move(best.binWeights);
         node.binSampleCounts = std::move(best.branching.leafNumSamples);

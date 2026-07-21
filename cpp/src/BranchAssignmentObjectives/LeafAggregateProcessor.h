@@ -48,12 +48,13 @@ public:
 };
 
 /**
- * Multi-output MSE: ``aggregatedStats`` is ``[Σw·y0, Σw·y0², ...]`` (length
- * ``2 * nOutputs``); returns the SUM of per-output squared error.
+ * Multi-output MSE: ``aggregatedStats[o]`` is ``[Σw·y, Σw·y²]`` for output
+ * ``o``; returns the SUM of per-output squared error.
  */
-class SquaredErrorProcessor final : public ILeafAggregateProcessor<double> {
+class SquaredErrorProcessor final
+    : public ILeafAggregateProcessor<std::vector<double>> {
 public:
-  double compute(const std::vector<double> &aggregatedStats,
+  double compute(const std::vector<std::vector<double>> &aggregatedStats,
                  double totalWeight) const override {
     return Criterion::squaredError(aggregatedStats, totalWeight);
   }

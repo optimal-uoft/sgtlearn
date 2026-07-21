@@ -49,16 +49,17 @@ double Criterion::gini(const std::vector<std::vector<double>> &countsByOutput) {
   return total;
 }
 
-double Criterion::squaredError(const std::vector<double> &yPowerSum,
-                               double totalWeight) {
-  if (totalWeight <= 0.0 || yPowerSum.size() % 2 != 0)
+double Criterion::squaredError(
+    const std::vector<std::vector<double>> &momentsByOutput,
+    double totalWeight) {
+  if (totalWeight <= 0.0)
     return 0.0;
-  const size_t nOutputs = yPowerSum.size() / 2;
   double total = 0.0;
-  for (size_t o = 0; o < nOutputs; ++o) {
-    const size_t base = 2 * o;
-    const double ySum = yPowerSum[base];
-    const double ySqrdSum = yPowerSum[base + 1];
+  for (const auto &moments : momentsByOutput) {
+    if (moments.size() < 2)
+      continue;
+    const double ySum = moments[0];
+    const double ySqrdSum = moments[1];
     const double mean = ySum / totalWeight;
     const double sse =
         ySqrdSum - 2.0 * mean * ySum + totalWeight * mean * mean;

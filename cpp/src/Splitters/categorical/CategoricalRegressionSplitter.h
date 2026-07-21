@@ -16,12 +16,12 @@
 
 /**
  * Multi-output one-hot categorical regression splitter. ``y`` has shape
- * ``(nOutputs, nSamples)``; MSE stats are ``[Σw·y0, Σw·y0², ...]`` (length
- * ``2 * nOutputs``) and both MSE and MAE scores sum per-output loss.
- * ``predict`` returns the per-output mean (MSE) or median (MAE).
+ * ``(nOutputs, nSamples)``; MSE stats are nested ``[output][Σw·y, Σw·y²]`` and
+ * both MSE and MAE scores sum per-output loss. ``predict`` returns the
+ * per-output mean (MSE) or median (MAE).
  */
 class CategoricalRegressionSplitter
-    : public CategoricalSplitter<double, std::vector<float>> {
+    : public CategoricalSplitter<std::vector<double>, std::vector<float>> {
 public:
   CategoricalRegressionSplitter(
       const arma::fmat &X, const arma::Row<float> &sampleWeights,
@@ -39,7 +39,7 @@ public:
 
   double score(const std::vector<size_t> &samples) override;
 
-  std::vector<double> statsForSamples(
+  std::vector<std::vector<double>> statsForSamples(
       const std::vector<size_t> &samples) override;
 
 private:

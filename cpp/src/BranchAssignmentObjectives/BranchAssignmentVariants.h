@@ -45,19 +45,19 @@ public:
             std::make_unique<leaf_aggregate::GiniProcessor>()) {}
 };
 
-/** Regression MSE: statsDim = 2 * nOutputs (per-output sum y, sum y²). */
+/** Regression MSE: nested ``[leaf][output][Σw·y, Σw·y²]``; statsDim = nOutputs. */
 class SquaredErrorBranchAssignment
-    : public leaf_aggregate::LeafAggregationBranchAssignment<double> {
+    : public leaf_aggregate::LeafAggregationBranchAssignment<
+          std::vector<double>> {
 public:
-  SquaredErrorBranchAssignment(std::vector<size_t> &assignments,
-                               size_t numPartitions,
-                               std::vector<std::vector<double>> &stats,
-                               std::vector<double> &leafWeights,
-                               const std::vector<size_t> &leafSampleCounts,
-                               size_t nOutputs = 1)
-      : leaf_aggregate::LeafAggregationBranchAssignment<double>(
+  SquaredErrorBranchAssignment(
+      std::vector<size_t> &assignments, size_t numPartitions,
+      std::vector<std::vector<std::vector<double>>> &stats,
+      std::vector<double> &leafWeights,
+      const std::vector<size_t> &leafSampleCounts, size_t nOutputs = 1)
+      : leaf_aggregate::LeafAggregationBranchAssignment<std::vector<double>>(
             assignments, numPartitions, stats, leafWeights, leafSampleCounts,
-            2 * nOutputs,
+            nOutputs,
             std::make_unique<leaf_aggregate::SquaredErrorProcessor>()) {}
 };
 

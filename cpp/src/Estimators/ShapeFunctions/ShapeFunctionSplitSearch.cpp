@@ -20,15 +20,14 @@
 
 namespace {
 
-void refineShapeBranchAssignmentRegression(
+void refineShapeBranchAssignmentNested(
     std::unique_ptr<BranchAssignment> &branchObj, size_t k,
     size_t numRoutingBins, LearningCriterion criterion,
     const CoordinateDescentParams &cdParams, std::mt19937_64 &rng,
-    std::vector<std::vector<double>> &stats, std::vector<double> &leafWeights,
+    std::vector<std::vector<std::vector<double>>> &stats,
+    std::vector<double> &leafWeights,
     const std::vector<size_t> &leafSampleCounts,
-    const std::vector<size_t> &classesPerOutput, size_t nOutputs,
-    std::vector<std::vector<std::vector<float>>> *maeLeafYs,
-    std::vector<std::vector<float>> *maeLeafWs) {
+    const std::vector<size_t> &classesPerOutput, size_t nOutputs) {
   if (k >= numRoutingBins ||
       criterion == LearningCriterion::AbsoluteError)
     return;
@@ -43,32 +42,7 @@ void refineShapeBranchAssignmentRegression(
 
   std::vector<size_t> rollback = snapshot;
   branchObj = makeBranchAssignment(criterion, rollback, k, stats, leafWeights,
-                                   leafSampleCounts, classesPerOutput, nOutputs,
-                                   maeLeafYs, maeLeafWs);
-}
-
-void refineShapeBranchAssignmentClassification(
-    std::unique_ptr<BranchAssignment> &branchObj, size_t k,
-    size_t numRoutingBins, LearningCriterion criterion,
-    const CoordinateDescentParams &cdParams, std::mt19937_64 &rng,
-    std::vector<std::vector<std::vector<double>>> &stats,
-    std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts,
-    const std::vector<size_t> &classesPerOutput) {
-  if (k >= numRoutingBins)
-    return;
-
-  const std::vector<size_t> snapshot = branchObj->assignments;
-  const double objBeforeCd = branchObj->objective();
-  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience);
-  const double objAfterCd = branchObj->objective();
-  if (std::isfinite(objAfterCd) &&
-      objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
-    return;
-
-  std::vector<size_t> rollback = snapshot;
-  branchObj = makeBranchAssignment(criterion, rollback, k, stats, leafWeights,
-                                   leafSampleCounts, classesPerOutput);
+                                   leafSampleCounts, classesPerOutput, nOutputs);
 }
 
 void seedTrialBinAssignments(size_t k, size_t numRoutingBins,
@@ -109,7 +83,7 @@ flattenNestedBinStats(const std::vector<std::vector<std::vector<double>>> &stats
 } // namespace
 
 ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
-    InnerDiscretizer<double> &disc, LearningCriterion criterion,
+    InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
     const CoordinateDescentParams &cdParams, double scoreEpsilon,
@@ -122,12 +96,15 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
   auto &leafWeights = disc.leafNodeWeights();
   const size_t numRoutingBins = stats.size();
 
-  const size_t kmeansDim = stats.empty() ? 0 : stats.front().size();
+  size_t kmeansDim = 0;
+  const std::vector<std::vector<double>> flatStats =
+      flattenNestedBinStats(stats, kmeansDim);
 
   std::vector<std::vector<std::vector<float>>> maeLeafYsStorage;
   std::vector<std::vector<float>> maeLeafWsStorage;
   std::vector<std::vector<std::vector<float>>> *maeLeafYs = nullptr;
   std::vector<std::vector<float>> *maeLeafWs = nullptr;
+  std::vector<std::vector<double>> dummyLeafStats;
   if (criterion == LearningCriterion::AbsoluteError) {
     if (!ysub || !wsub)
       throw std::invalid_argument(
@@ -153,71 +130,8 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     }
     maeLeafYs = &maeLeafYsStorage;
     maeLeafWs = &maeLeafWsStorage;
+    dummyLeafStats.resize(numRoutingBins);
   }
-
-  ShapeBranchAssignmentSearchResult result;
-  const size_t kMax = std::min(numRoutingBins, treeNumPartitions);
-
-  for (size_t k = 2; k <= kMax; ++k) {
-    std::vector<size_t> trialAssignments;
-    seedTrialBinAssignments(k, numRoutingBins, stats, sizes, leafWeights,
-                            useKMeansSeed, cdParams.smartInit, kmeansDim, rng,
-                            trialAssignments);
-
-    std::unique_ptr<BranchAssignment> branchObj = makeBranchAssignment(
-        criterion, trialAssignments, k, stats, leafWeights, sizes,
-        classesPerOutput, nOutputs, maeLeafYs, maeLeafWs);
-
-    refineShapeBranchAssignmentRegression(branchObj, k, numRoutingBins, criterion,
-                                          cdParams, rng, stats, leafWeights, sizes,
-                                          classesPerOutput, nOutputs, maeLeafYs,
-                                          maeLeafWs);
-
-    if (!branchObj->partitionCountsMeetMinLeaf(outerParams.minLeafSize))
-      continue;
-
-    const double childImp = branchObj->objective();
-    const double gain = parentImp - childImp;
-    if (gain < outerParams.minGainSplit - scoreEpsilon)
-      continue;
-
-    const double score = algorithms::penalizedBranchingScore(
-        childImp, k, outerParams.branchingPenalty);
-    if (score < result.bestFeatureScore - scoreEpsilon) {
-      result.bestFeatureScore = score;
-      result.chosenK = k;
-      result.assignments = trialAssignments;
-      result.partitionSampleCounts = branchObj->partitionSampleCounts();
-      if (const auto *leafAgg = dynamic_cast<
-              leaf_aggregate::LeafAggregationBranchAssignment<double> *>(
-              branchObj.get())) {
-        result.partitionAggStats = leafAgg->aggregatedPartitionStats();
-        result.partitionWeights = leafAgg->aggregatedPartitionWeights();
-      }
-      result.impurityDecrease = gain;
-      result.found = true;
-    }
-  }
-
-  return result;
-}
-
-ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
-    InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
-    double parentImp, size_t treeNumPartitions,
-    const TreeBuildingParams &outerParams,
-    const CoordinateDescentParams &cdParams, double scoreEpsilon,
-    std::mt19937_64 &rng, bool useKMeansSeed,
-    const std::vector<size_t> &classesPerOutput, size_t nOutputs) {
-  (void)nOutputs;
-  auto &stats = disc.leafStats();
-  auto &sizes = disc.leafNumSamples();
-  auto &leafWeights = disc.leafNodeWeights();
-  const size_t numRoutingBins = stats.size();
-
-  size_t kmeansDim = 0;
-  const std::vector<std::vector<double>> flatStats =
-      flattenNestedBinStats(stats, kmeansDim);
 
   ShapeBranchAssignmentSearchResult result;
   const size_t kMax = std::min(numRoutingBins, treeNumPartitions);
@@ -228,13 +142,19 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
                             useKMeansSeed, cdParams.smartInit, kmeansDim, rng,
                             trialAssignments);
 
-    std::unique_ptr<BranchAssignment> branchObj = makeBranchAssignment(
-        criterion, trialAssignments, k, stats, leafWeights, sizes,
-        classesPerOutput);
-
-    refineShapeBranchAssignmentClassification(
-        branchObj, k, numRoutingBins, criterion, cdParams, rng, stats,
-        leafWeights, sizes, classesPerOutput);
+    std::unique_ptr<BranchAssignment> branchObj;
+    if (criterion == LearningCriterion::AbsoluteError) {
+      branchObj = makeBranchAssignment(criterion, trialAssignments, k,
+                                       dummyLeafStats, leafWeights, sizes,
+                                       maeLeafYs, maeLeafWs);
+    } else {
+      branchObj = makeBranchAssignment(criterion, trialAssignments, k, stats,
+                                       leafWeights, sizes, classesPerOutput,
+                                       nOutputs);
+      refineShapeBranchAssignmentNested(
+          branchObj, k, numRoutingBins, criterion, cdParams, rng, stats,
+          leafWeights, sizes, classesPerOutput, nOutputs);
+    }
 
     if (!branchObj->partitionCountsMeetMinLeaf(outerParams.minLeafSize))
       continue;
@@ -254,7 +174,11 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
       if (const auto *leafAgg =
               dynamic_cast<leaf_aggregate::LeafAggregationBranchAssignment<
                   std::vector<double>> *>(branchObj.get())) {
-        result.partitionClassCounts = leafAgg->aggregatedPartitionStats();
+        const auto &aggStats = leafAgg->aggregatedPartitionStats();
+        if (criterion == LearningCriterion::SquaredError)
+          result.partitionAggStats = aggStats;
+        else
+          result.partitionClassCounts = aggStats;
         result.partitionWeights = leafAgg->aggregatedPartitionWeights();
       }
       result.impurityDecrease = gain;
@@ -310,32 +234,6 @@ void applySharedShapeBranchingFields(
   best.branching.numPartitionsUsed = search.chosenK;
   best.branching.partitionSampleCounts = search.partitionSampleCounts;
   fillSampleBinsFromDiscretizer(xSubCols, perBinCols, best.branching.sampleBins);
-}
-
-bool featureHasBetterShapeBranching(
-    const ShapeBranchAssignmentSearchResult &search,
-    ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
-    const arma::uvec &routingColumnIndices,
-    std::unique_ptr<InnerDiscretizer<double>> disc, double scoreEpsilon,
-    const std::function<void(ShapeBestBranchingState &,
-                             const ShapeBranchAssignmentSearchResult &,
-                             const std::vector<std::vector<double>> &)> &
-        applyTaskFields) {
-  if (!search.found || search.assignments.empty())
-    return false;
-  if (search.bestFeatureScore >= best.penalizedChildScore - scoreEpsilon)
-    return false;
-
-  applySharedShapeBranchingFields(best, search, featureIndex, xSubCols,
-                                  disc->inSampleDiscretizations());
-  best.branching.leafNumSamples = disc->leafNumSamples();
-  best.binWeights.assign(disc->leafNodeWeights().begin(),
-                         disc->leafNodeWeights().end());
-  applyTaskFields(best, search, disc->leafStats());
-  best.routingColumnIndices = routingColumnIndices;
-  best.winningDiscretizer =
-      std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
-  return true;
 }
 
 bool featureHasBetterShapeBranching(

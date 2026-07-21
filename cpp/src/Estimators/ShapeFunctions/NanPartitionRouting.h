@@ -31,20 +31,18 @@ missing_column_indices(const arma::frowvec &featureRow) {
 /**
  * Squared-error NaN routing from precomputed NaN-bucket moments. Picks the
  * partition whose weighted MSE grows least when the NaN bucket is merged into
- * it. Multi-output: ``binStats[b]`` holds the concatenated
- * ``[Σw·y0, Σw·y0², Σw·y1, Σw·y1², ...]`` (length ``2 * nOutputs``), and
- * ``missingMoments`` holds the same layout for the NaN bucket. Loss is summed
- * across outputs via ``Criterion::squaredError``.
+ * it. Multi-output: ``binStats[b][o]`` is ``[Σw·y, Σw·y²]`` for output ``o``,
+ * and ``missingMoments`` uses the same nested layout for the NaN bucket. Loss
+ * is summed across outputs via ``Criterion::squaredError``.
  */
 inline size_t choose_nan_partition_squared_error_from_moments(
     size_t numPartitions, const std::vector<size_t> &binToPartition,
-    const std::vector<std::vector<double>> &binStats,
+    const std::vector<std::vector<std::vector<double>>> &binStats,
     const std::vector<double> &binWeights,
-    const std::vector<double> &missingMoments, double missingWeight,
+    const std::vector<std::vector<double>> &missingMoments, double missingWeight,
     size_t nOutputs = 1) {
-  const size_t dim = 2 * nOutputs;
-  std::vector<std::vector<double>> partMoments(numPartitions,
-                                               std::vector<double>(dim, 0.0));
+  std::vector<std::vector<std::vector<double>>> partMoments(
+      numPartitions, std::vector<std::vector<double>>(nOutputs, {0.0, 0.0}));
   std::vector<double> partWeights(numPartitions, 0.0);
   for (size_t b = 0; b < binStats.size(); ++b) {
     if (b >= binToPartition.size())
@@ -55,8 +53,12 @@ inline size_t choose_nan_partition_squared_error_from_moments(
     if (b < binWeights.size())
       partWeights[p] += binWeights[b];
     const auto &sb = binStats[b];
-    for (size_t d = 0; d < dim && d < sb.size(); ++d)
-      partMoments[p][d] += sb[d];
+    for (size_t o = 0; o < nOutputs && o < sb.size(); ++o) {
+      if (sb[o].size() >= 2) {
+        partMoments[p][o][0] += sb[o][0];
+        partMoments[p][o][1] += sb[o][1];
+      }
+    }
   }
 
   double baseWeightedLoss = 0.0;
@@ -65,8 +67,7 @@ inline size_t choose_nan_partition_squared_error_from_moments(
     totalWeight += partWeights[p];
     if (partWeights[p] > 0.0)
       baseWeightedLoss +=
-          partWeights[p] *
-          Criterion::squaredError(partMoments[p], partWeights[p]);
+          partWeights[p] * Criterion::squaredError(partMoments[p], partWeights[p]);
   }
   if (totalWeight <= 0.0)
     return 0;
@@ -74,10 +75,17 @@ inline size_t choose_nan_partition_squared_error_from_moments(
   std::vector<double> trialScores(numPartitions,
                                   std::numeric_limits<double>::infinity());
   for (size_t p = 0; p < numPartitions; ++p) {
-    std::vector<double> trialSt(dim, 0.0);
-    for (size_t d = 0; d < dim; ++d)
-      trialSt[d] =
-          partMoments[p][d] + (d < missingMoments.size() ? missingMoments[d] : 0.0);
+    std::vector<std::vector<double>> trialSt = partMoments[p];
+    for (size_t o = 0; o < nOutputs; ++o) {
+      if (o < missingMoments.size()) {
+        if (trialSt[o].size() < 2)
+          trialSt[o].resize(2, 0.0);
+        if (missingMoments[o].size() >= 2) {
+          trialSt[o][0] += missingMoments[o][0];
+          trialSt[o][1] += missingMoments[o][1];
+        }
+      }
+    }
     const double trialWeight = partWeights[p] + missingWeight;
     double trialLoss = 0.0;
     if (trialWeight > 0.0)
@@ -95,16 +103,16 @@ inline size_t choose_nan_partition_squared_error_from_moments(
 
 inline size_t choose_nan_partition_squared_error(
     size_t numPartitions, const std::vector<size_t> &binToPartition,
-    const std::vector<std::vector<double>> &binStats,
+    const std::vector<std::vector<std::vector<double>>> &binStats,
     const std::vector<double> &binWeights,
     const std::vector<size_t> &missingCols, const arma::Mat<float> &ysub,
     const arma::Row<float> &wsub,
-    std::vector<double> *missingMomentsOut = nullptr,
+    std::vector<std::vector<double>> *missingMomentsOut = nullptr,
     double *missingWeightOut = nullptr) {
   const size_t nOutputs = std::max<size_t>(ysub.n_rows, 1);
-  const size_t dim = 2 * nOutputs;
 
-  std::vector<double> missingMoments(dim, 0.0);
+  std::vector<std::vector<double>> missingMoments(nOutputs,
+                                                  std::vector<double>(2, 0.0));
   double missingWeight = 0.0;
   for (size_t col : missingCols) {
     if (col >= static_cast<size_t>(ysub.n_cols))
@@ -113,8 +121,8 @@ inline size_t choose_nan_partition_squared_error(
     for (size_t o = 0; o < nOutputs; ++o) {
       const double v = static_cast<double>(
           ysub(static_cast<arma::uword>(o), static_cast<arma::uword>(col)));
-      missingMoments[2 * o] += w * v;
-      missingMoments[2 * o + 1] += w * v * v;
+      missingMoments[o][0] += w * v;
+      missingMoments[o][1] += w * v * v;
     }
     missingWeight += w;
   }

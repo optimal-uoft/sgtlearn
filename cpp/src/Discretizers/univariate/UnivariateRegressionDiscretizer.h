@@ -20,18 +20,19 @@ concept TRegressionSplitter =
 
 template <TRegressionSplitter TSplitter>
 class UnivariateRegressionDiscretizer
-    : public UnivariateDiscretizer<double, std::vector<float>>,
+    : public UnivariateDiscretizer<std::vector<double>, std::vector<float>>,
       public RegressionDiscretizer {
 public:
   ~UnivariateRegressionDiscretizer() override = default;
 
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override {
-    UnivariateDiscretizer<double, std::vector<float>>::transform(X, binLoc);
+    UnivariateDiscretizer<std::vector<double>, std::vector<float>>::transform(
+        X, binLoc);
   }
 
   size_t routeToBin(const std::vector<float> &featureValues) const override {
-    return UnivariateDiscretizer<double, std::vector<float>>::routeToBin(
-        featureValues);
+    return UnivariateDiscretizer<std::vector<double>, std::vector<float>>::
+        routeToBin(featureValues);
   }
 
   void Train(const arma::fmat &X, arma::uvec &features, const arma::Mat<float> &y,

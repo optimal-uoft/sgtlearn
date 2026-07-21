@@ -105,7 +105,6 @@ double LeafAggregationBranchAssignment<T>::computePartitionLoss(size_t i) {
   return processor_->compute(partitionStats[i], partitionWeight[i]);
 }
 
-template class LeafAggregationBranchAssignment<double>;
 template class LeafAggregationBranchAssignment<float>;
 template class LeafAggregationBranchAssignment<std::vector<double>>;
 

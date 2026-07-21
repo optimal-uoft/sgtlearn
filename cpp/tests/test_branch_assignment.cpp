@@ -65,7 +65,8 @@ TEST_CASE("SquaredErrorBranchAssignment coordinate descent",
           "[branch_assignment][coordinate_descent]") {
   constexpr size_t kParts = 2;
   std::vector<size_t> assignments = {0, 0};
-  std::vector<std::vector<double>> stats = {{0.0, 0.0}, {30.0, 300.0}};
+  std::vector<std::vector<std::vector<double>>> stats = {
+      {{0.0, 0.0}}, {{30.0, 300.0}}};
   std::vector<double> leafWeights = {3, 3};
   std::vector<size_t> leafSampleCounts = {3, 3};
   SquaredErrorBranchAssignment obj(assignments, kParts, stats, leafWeights,
@@ -141,11 +142,13 @@ TEST_CASE("makeBranchAssignment entropy matches manual",
 TEST_CASE("makeBranchAssignment squared error matches manual",
           "[branch_assignment][factory]") {
   std::vector<size_t> assignments = {0, 1};
-  std::vector<std::vector<double>> stats = {{0.0, 0.0}, {20.0, 200.0}};
+  std::vector<std::vector<std::vector<double>>> stats = {
+      {{0.0, 0.0}}, {{20.0, 200.0}}};
   std::vector<double> leafWeights = {2, 2};
   std::vector<size_t> leafSampleCounts = {2, 2};
   auto ptr = makeBranchAssignment(LearningCriterion::SquaredError, assignments,
-                                  2, stats, leafWeights, leafSampleCounts);
+                                  2, stats, leafWeights, leafSampleCounts, {},
+                                  1);
   SquaredErrorBranchAssignment direct(assignments, 2, stats, leafWeights,
                                       leafSampleCounts);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));
@@ -161,7 +164,7 @@ TEST_CASE("makeBranchAssignment absolute error matches manual",
   std::vector<std::vector<double>> unusedStats;
   auto ptr = makeBranchAssignment(LearningCriterion::AbsoluteError, assignments,
                                   2, unusedStats, leafWeights, leafSampleCounts,
-                                  {}, 1, &leafYs, &leafWs);
+                                  &leafYs, &leafWs);
   AbsoluteErrorBranchAssignment direct(assignments, 2, leafYs, leafWs,
                                        leafWeights, leafSampleCounts);
   REQUIRE_THAT(ptr->objective(), WithinAbs(direct.objective(), kEps));

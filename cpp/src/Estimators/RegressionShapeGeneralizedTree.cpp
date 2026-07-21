@@ -43,7 +43,7 @@ struct PartitionMoments {
 };
 
 PartitionMoments aggregatePartitionFromBins(
-    const std::vector<std::vector<double>> &binStats,
+    const std::vector<std::vector<std::vector<double>>> &binStats,
     const std::vector<double> &binWeights,
     const std::vector<size_t> &binToPartition, size_t partition,
     size_t nOutputs) {
@@ -54,9 +54,9 @@ PartitionMoments aggregatePartitionFromBins(
     if (binToPartition[b] != partition)
       continue;
     for (size_t o = 0; o < nOutputs; ++o) {
-      if (binStats[b].size() >= 2 * (o + 1)) {
-        out.sumWY[o] += binStats[b][2 * o];
-        out.sumWY2[o] += binStats[b][2 * o + 1];
+      if (o < binStats[b].size() && binStats[b][o].size() >= 2) {
+        out.sumWY[o] += binStats[b][o][0];
+        out.sumWY2[o] += binStats[b][o][1];
       }
     }
     if (b < binWeights.size())
@@ -141,17 +141,17 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
   return total;
 }
 
-std::vector<double> RegressionShapeGeneralizedTree::aggregateYSquaredStats(
+std::vector<std::vector<double>> RegressionShapeGeneralizedTree::aggregateYSquaredStats(
     const ShapeFunctionNode &node, const arma::Mat<float> &y) const {
-  std::vector<double> st(2 * nOutputs_, 0.0);
+  std::vector<std::vector<double>> st(nOutputs_, std::vector<double>(2, 0.0));
   for (arma::uword i = 0; i < node.sampleIndices.n_elem; ++i) {
     const size_t si = static_cast<size_t>(node.sampleIndices(i));
     const double w = static_cast<double>(fitSampleWeights_(si));
     for (size_t o = 0; o < nOutputs_; ++o) {
       const double v =
           static_cast<double>(y(static_cast<arma::uword>(o), static_cast<arma::uword>(si)));
-      st[2 * o] += w * v;
-      st[2 * o + 1] += w * v * v;
+      st[o][0] += w * v;
+      st[o][1] += w * v * v;
     }
   }
   return st;
@@ -207,18 +207,18 @@ void RegressionShapeGeneralizedTree::fit(
   root.isLeaf = true;
 
   if (criterion_ == LearningCriterion::SquaredError) {
-    const std::vector<double> st = aggregateYSquaredStats(root, y);
+    const std::vector<std::vector<double>> st = aggregateYSquaredStats(root, y);
     double rootWeight = 0.0;
     for (arma::uword i = 0; i < root.sampleIndices.n_elem; ++i) {
       const size_t si = static_cast<size_t>(root.sampleIndices(i));
       rootWeight += static_cast<double>(fitSampleWeights_(si));
     }
-    std::vector<float> statsF(st.size());
+    std::vector<float> statsF(2 * nOutputs_, 0.0f);
     std::vector<double> preds(nOutputs_, 0.0);
     for (size_t o = 0; o < nOutputs_; ++o) {
-      statsF[2 * o] = static_cast<float>(st[2 * o]);
-      statsF[2 * o + 1] = static_cast<float>(st[2 * o + 1]);
-      preds[o] = weightedMeanFromAggregates(st[2 * o], rootWeight);
+      statsF[2 * o] = static_cast<float>(st[o][0]);
+      statsF[2 * o + 1] = static_cast<float>(st[o][1]);
+      preds[o] = weightedMeanFromAggregates(st[o][0], rootWeight);
     }
     leafRegressionStats.push_back(std::move(statsF));
     leafNumSamples.push_back(n);
@@ -283,14 +283,12 @@ void RegressionShapeGeneralizedTree::fit(
         const auto applyTaskFields =
             [this](ShapeBestBranchingState &state,
                    const ShapeBranchAssignmentSearchResult &search,
-                   const std::vector<std::vector<double>> &leafStats) {
+                   const std::vector<std::vector<std::vector<double>>> &leafStats) {
               (void)search;
               if (criterion_ == LearningCriterion::SquaredError)
-                state.branching.leafStats = leafStats;
-              else {
-                state.branching.leafStats.clear();
-                state.branching.leafStats.resize(leafStats.size());
-              }
+                state.nestedLeafStats = leafStats;
+              else
+                state.nestedLeafStats.clear();
             };
 
         for (size_t fi = 0; fi < featureSubset.size(); ++fi) {
@@ -323,7 +321,8 @@ void RegressionShapeGeneralizedTree::fit(
 
           featureHasBetterShapeBranching(
               featureBest, best, logicalIdx, xSubCols, feature.indices,
-              std::unique_ptr<InnerDiscretizer<double>>(std::move(disc)),
+              std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
+                  std::move(disc)),
               outerTreeBuilder_.eps, applyTaskFields);
         }
 
@@ -345,7 +344,7 @@ void RegressionShapeGeneralizedTree::fit(
         node.informationGain = best.branching.impurityDecrease;
 
         if (criterion_ == LearningCriterion::SquaredError)
-          node.splitLeafStats = std::move(best.branching.leafStats);
+          node.splitLeafStats = std::move(best.nestedLeafStats);
         else
           node.splitLeafStats.clear();
         node.splitBinWeights = std::move(best.binWeights);
@@ -371,19 +370,18 @@ void RegressionShapeGeneralizedTree::fit(
             const PartitionMoments moments = aggregatePartitionFromBins(
                 parent.splitLeafStats, parent.splitBinWeights,
                 parent.binToPartition, p, nOutputs_);
-            std::vector<double> agg(2 * nOutputs_, 0.0);
+            std::vector<std::vector<double>> aggMoments(nOutputs_);
             std::vector<float> aggF(2 * nOutputs_, 0.0f);
             std::vector<double> preds(nOutputs_, 0.0);
             for (size_t o = 0; o < nOutputs_; ++o) {
-              agg[2 * o] = moments.sumWY[o];
-              agg[2 * o + 1] = moments.sumWY2[o];
+              aggMoments[o] = {moments.sumWY[o], moments.sumWY2[o]};
               aggF[2 * o] = static_cast<float>(moments.sumWY[o]);
               aggF[2 * o + 1] = static_cast<float>(moments.sumWY2[o]);
               preds[o] = weightedMeanFromAggregates(moments.sumWY[o],
                                                     moments.sumW);
             }
             children[p].score =
-                Criterion::squaredError(agg, moments.sumW);
+                Criterion::squaredError(aggMoments, moments.sumW);
             children[p].isLeaf = true;
             leafRegressionStats.push_back(std::move(aggF));
             leafNumSamples.push_back(children[p].sampleIndices.n_elem);

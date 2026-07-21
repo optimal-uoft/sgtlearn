@@ -85,8 +85,9 @@ def test_regressor_mse_export():
     assert internals
     for n in internals:
         assert len(n["bin_counts"]) == len(n["bin_to_partition"])
-        for pair in n["bin_counts"]:
-            assert len(pair) == 2  # [sum_y, sum_y^2]
+        for output_stats in n["bin_counts"]:
+            assert len(output_stats) == 1
+            assert len(output_stats[0]) == 2  # [sum_y, sum_y^2]
         assert len(n["bin_sample_counts"]) == len(n["bin_to_partition"])
     leaves = [n for n in tr["nodes"] if n["is_leaf"]]
     for leaf in leaves:

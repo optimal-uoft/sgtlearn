@@ -3,15 +3,17 @@
 /**
  * @file RegressionDiscretizer.h
  * @brief Regression task contract: ``Train`` on target rows plus post-training
- *        state from ``InnerDiscretizer<double>``.
+ *        state from ``InnerDiscretizer<std::vector<double>>``.
  */
 
 #include <cstddef>
+#include <vector>
 #include "Discretizers/InnerDiscretizerBase.h"
 
 #include <armadillo>
 
-class RegressionDiscretizer : public virtual InnerDiscretizer<double> {
+class RegressionDiscretizer
+    : public virtual InnerDiscretizer<std::vector<double>> {
 public:
   ~RegressionDiscretizer() override = default;
 
