@@ -104,7 +104,7 @@ bool optimizeNodeInPlace(
   bool haveSingle = false;
   size_t bestFeature = 0;
   std::vector<size_t> bestBinToPartition;
-  std::shared_ptr<const InnerDiscretizerBase<double>> bestDiscretizer;
+  std::shared_ptr<const InnerDiscretizerBase> bestDiscretizer;
   arma::uvec featOne(1);
 
   for (size_t f = 0; f < numFeatures; ++f) {
@@ -124,7 +124,7 @@ bool optimizeNodeInPlace(
       bestFeature = f;
       bestBinToPartition = std::move(binToPartition);
       bestDiscretizer =
-          std::shared_ptr<const InnerDiscretizerBase<double>>(std::move(disc));
+          std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
       haveSingle = true;
     }
   }
@@ -138,7 +138,7 @@ bool optimizeNodeInPlace(
     disc->Train(care.Xexp, featOne, care.yexp, k, innerParams.minLeafSize,
                 innerParams.minGainSplit, innerParams.maxDepth, 1, care.wexp);
     node.innerDiscretizer =
-        std::shared_ptr<const InnerDiscretizerBase<double>>(std::move(disc));
+        std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
     node.binToPartition = {objective.dummyChild(), objective.dummyChild()};
     node.numPartitions = k;
     return true;

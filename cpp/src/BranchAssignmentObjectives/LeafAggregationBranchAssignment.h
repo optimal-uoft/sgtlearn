@@ -13,10 +13,41 @@
 
 namespace leaf_aggregate {
 
+namespace detail {
+
+template <typename T>
+inline void accumulateStat(T &dst, const T &src) {
+  dst += src;
+}
+
+template <typename T>
+inline void subtractStat(T &dst, const T &src) {
+  dst -= src;
+}
+
+inline void accumulateStat(std::vector<double> &dst,
+                           const std::vector<double> &src) {
+  if (dst.size() < src.size())
+    dst.resize(src.size(), 0.0);
+  for (size_t i = 0; i < src.size(); ++i)
+    dst[i] += src[i];
+}
+
+inline void subtractStat(std::vector<double> &dst,
+                         const std::vector<double> &src) {
+  if (dst.size() < src.size())
+    dst.resize(src.size(), 0.0);
+  for (size_t i = 0; i < src.size(); ++i)
+    dst[i] -= src[i];
+}
+
+} // namespace detail
+
 /**
  * Coordinate-descent objective for assigning histogram leaves to partitions.
  *
- * @tparam T bin statistic scalar type (e.g. size_t for class counts, float for gradients).
+ * @tparam T bin statistic scalar type (e.g. ``double`` for regression power
+ *         sums, ``std::vector<double>`` for nested class histograms).
  */
 template <typename T>
 class LeafAggregationBranchAssignment : public BranchAssignment {
@@ -64,7 +95,7 @@ protected:
   double computePartitionLoss(size_t i);
 };
 
-extern template class LeafAggregationBranchAssignment<double>;
 extern template class LeafAggregationBranchAssignment<float>;
+extern template class LeafAggregationBranchAssignment<std::vector<double>>;
 
 } // namespace leaf_aggregate

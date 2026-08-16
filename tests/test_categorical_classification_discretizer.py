@@ -20,6 +20,7 @@ from tests.discretizer_grid import (
     MIN_LEAF_VALUES,
     N_VALUES,
     NUM_CLASSES_VALUES,
+    n_outputs_params,
 )
 
 
@@ -27,11 +28,13 @@ def _make_onehot(
     n_samples: int,
     n_categories: int,
     rng: np.random.Generator,
+    n_outputs: int = 1,
 ) -> tuple[np.ndarray, np.ndarray]:
     cats = rng.integers(0, n_categories, size=n_samples)
     x = np.zeros((n_samples, n_categories), dtype=np.float32)
     x[np.arange(n_samples), cats] = 1.0
-    y = rng.integers(0, n_categories, size=n_samples, dtype=np.uintp)
+    y_size = n_samples if n_outputs == 1 else (n_samples, n_outputs)
+    y = rng.integers(0, n_categories, size=y_size, dtype=np.uintp)
     return x, y
 
 
@@ -59,6 +62,7 @@ IDS = [
 ]
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 @pytest.mark.parametrize(
     "n_samples,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf",
@@ -73,10 +77,11 @@ def test_categorical_onehot_classification_discretizer_vs_sklearn_fidelity(
     min_gain_split: float,
     max_depth: int,
     max_leaf: int,
+    n_outputs: int,
 ) -> None:
     """Predictions should track ``DecisionTreeClassifier`` on one-hot features."""
     rng = np.random.default_rng(12345)
-    x, y = _make_onehot(n_samples, num_classes, rng)
+    x, y = _make_onehot(n_samples, num_classes, rng, n_outputs=n_outputs)
 
     clf = DecisionTreeClassifier(
         criterion=criterion,

@@ -6,6 +6,8 @@
  */
 
 #include "Criterion.h"
+#include <cstddef>
+#include <utility>
 #include <vector>
 
 namespace leaf_aggregate {
@@ -20,33 +22,39 @@ public:
                          double totalWeight) const = 0;
 };
 
-class EntropyProcessor final : public ILeafAggregateProcessor<double> {
+/**
+ * Multi-output entropy: ``aggregatedStats[o]`` is the histogram for output
+ * ``o``; returns the SUM of per-output entropy.
+ */
+class EntropyProcessor final
+    : public ILeafAggregateProcessor<std::vector<double>> {
 public:
-  double compute(const std::vector<double> &aggregatedStats,
+  double compute(const std::vector<std::vector<double>> &aggregatedStats,
                  double totalWeight) const override {
     (void)totalWeight;
-    double w = 0.0;
-    for (double c : aggregatedStats)
-      w += c;
-    return Criterion::entropy(aggregatedStats, w);
+    return Criterion::entropy(aggregatedStats);
   }
 };
 
-class GiniProcessor final : public ILeafAggregateProcessor<double> {
+/** Multi-output Gini: SUM of per-output Gini over nested histograms. */
+class GiniProcessor final
+    : public ILeafAggregateProcessor<std::vector<double>> {
 public:
-  double compute(const std::vector<double> &aggregatedStats,
+  double compute(const std::vector<std::vector<double>> &aggregatedStats,
                  double totalWeight) const override {
     (void)totalWeight;
-    double w = 0.0;
-    for (double c : aggregatedStats)
-      w += c;
-    return Criterion::gini(aggregatedStats, w);
+    return Criterion::gini(aggregatedStats);
   }
 };
 
-class SquaredErrorProcessor final : public ILeafAggregateProcessor<double> {
+/**
+ * Multi-output MSE: ``aggregatedStats[o]`` is ``[Σw·y, Σw·y²]`` for output
+ * ``o``; returns the SUM of per-output squared error.
+ */
+class SquaredErrorProcessor final
+    : public ILeafAggregateProcessor<std::vector<double>> {
 public:
-  double compute(const std::vector<double> &aggregatedStats,
+  double compute(const std::vector<std::vector<double>> &aggregatedStats,
                  double totalWeight) const override {
     return Criterion::squaredError(aggregatedStats, totalWeight);
   }

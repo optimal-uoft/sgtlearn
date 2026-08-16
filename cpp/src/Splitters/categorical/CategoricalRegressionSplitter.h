@@ -14,31 +14,40 @@
 #include <stdexcept>
 #include <vector>
 
-class CategoricalRegressionSplitter : public CategoricalSplitter<double, float> {
+/**
+ * Multi-output one-hot categorical regression splitter. ``y`` has shape
+ * ``(nOutputs, nSamples)``; MSE stats are nested ``[output][Σw·y, Σw·y²]`` and
+ * both MSE and MAE scores sum per-output loss. ``predict`` returns the
+ * per-output mean (MSE) or median (MAE).
+ */
+class CategoricalRegressionSplitter
+    : public CategoricalSplitter<std::vector<double>, std::vector<float>> {
 public:
   CategoricalRegressionSplitter(
       const arma::fmat &X, const arma::Row<float> &sampleWeights,
-      const arma::Row<float> &y, const std::vector<size_t> &featureIndices,
+      const arma::Mat<float> &y, const std::vector<size_t> &featureIndices,
       LearningCriterion criterion)
       : CategoricalSplitter(X, sampleWeights, featureIndices), y_(y),
-        criterion_(criterion) {
+        nOutputs_(static_cast<size_t>(y.n_rows)), criterion_(criterion) {
     if (criterion_ != LearningCriterion::SquaredError &&
         criterion_ != LearningCriterion::AbsoluteError)
       throw std::invalid_argument(
           "CategoricalRegressionSplitter requires SquaredError or AbsoluteError");
   }
 
-  float predict(const std::vector<size_t> &samples) override;
+  std::vector<float> predict(const std::vector<size_t> &samples) override;
 
   double score(const std::vector<size_t> &samples) override;
 
-  std::vector<double> statsForSamples(
+  std::vector<std::vector<double>> statsForSamples(
       const std::vector<size_t> &samples) override;
 
 private:
-  const arma::Row<float> &y_;
+  const arma::Mat<float> &y_;
+  size_t nOutputs_;
   LearningCriterion criterion_;
 
-  std::vector<float> ysForSamples(const std::vector<size_t> &samples) const;
+  std::vector<float> ysForSamples(size_t output,
+                                  const std::vector<size_t> &samples) const;
   std::vector<float> wsForSamples(const std::vector<size_t> &samples) const;
 };

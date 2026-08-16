@@ -45,7 +45,7 @@ LeafAggregationBranchAssignment<T>::LeafAggregationBranchAssignment(
     partitionWeight[partition] += leafWeights[b];
     partitionSampleCount_[partition] += leafSampleCounts_[b];
     for (size_t d = 0; d < statsDim; d++)
-      partitionStats[partition][d] += stats[b][d];
+      detail::accumulateStat(partitionStats[partition][d], stats[b][d]);
   }
 
   for (size_t partition = 0; partition < numPartitions; partition++) {
@@ -66,13 +66,10 @@ double LeafAggregationBranchAssignment<T>::objective() {
 
 template <typename T>
 void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) {
-  // if (allLeavesAssigned)
-  //   throw std::runtime_error("Cannot assign a leaf if none ever left");
-
   weightedSumLoss -= partitionWeight[partition] * partitionLoss[partition];
 
   for (size_t d = 0; d < statsDim; d++)
-    partitionStats[partition][d] += stats[leaf][d];
+    detail::accumulateStat(partitionStats[partition][d], stats[leaf][d]);
   partitionWeight[partition] += leafWeights[leaf];
   partitionSampleCount_[partition] += leafSampleCounts_[leaf];
   sumNumberOfSamples += leafWeights[leaf];
@@ -81,15 +78,10 @@ void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) 
   weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
 
   assignments[leaf] = partition;
-  // allLeavesAssigned = true;
 }
 
 template <typename T>
 void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
-  // if (!allLeavesAssigned)
-  //   throw std::runtime_error(
-  //       "More than one leaf cannot be removed from the objective");
-
   const size_t partition = assignments[leaf];
   if (partition >= numPartitions)
     throw std::runtime_error(
@@ -100,13 +92,12 @@ void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
   partitionWeight[partition] -= leafWeights[leaf];
   partitionSampleCount_[partition] -= leafSampleCounts_[leaf];
   for (size_t d = 0; d < statsDim; d++)
-    partitionStats[partition][d] -= stats[leaf][d];
+    detail::subtractStat(partitionStats[partition][d], stats[leaf][d]);
 
   partitionLoss[partition] = computePartitionLoss(partition);
   weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
 
   assignments[leaf] = numPartitions;
-  // allLeavesAssigned = false;
 }
 
 template <typename T>
@@ -114,7 +105,7 @@ double LeafAggregationBranchAssignment<T>::computePartitionLoss(size_t i) {
   return processor_->compute(partitionStats[i], partitionWeight[i]);
 }
 
-template class LeafAggregationBranchAssignment<double>;
 template class LeafAggregationBranchAssignment<float>;
+template class LeafAggregationBranchAssignment<std::vector<double>>;
 
 } // namespace leaf_aggregate

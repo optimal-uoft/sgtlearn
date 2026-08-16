@@ -15,6 +15,9 @@
 #include <string>
 #include <variant>
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
+
 #include "Splitters/univariate/AbsoluteErrorSplitter.h"
 #include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"
 #include "Discretizers/categorical/CategoricalRegressionDiscretizer.h"
@@ -55,14 +58,6 @@ py::array_t<size_t> col_to_numpy_1d(const arma::Col<size_t> &col) {
   auto buf = out.mutable_unchecked<1>();
   for (size_t i = 0; i < col.n_elem; ++i)
     buf(static_cast<py::ssize_t>(i)) = col(i);
-  return out;
-}
-
-py::array_t<float> vector_float_to_numpy_1d(const std::vector<float> &v) {
-  py::array_t<float> out({static_cast<py::ssize_t>(v.size())});
-  auto buf = out.mutable_unchecked<1>();
-  for (size_t i = 0; i < v.size(); ++i)
-    buf(static_cast<py::ssize_t>(i)) = v[i];
   return out;
 }
 
@@ -115,6 +110,119 @@ VectorOfVectorsToNumpyList(const std::vector<std::vector<size_t>> &bins) {
   return out;
 }
 
+/**
+ * Build a ``(n_outputs, n_samples)`` label matrix from a NumPy array that is
+ * either 1-D ``(n_samples,)`` or 2-D ``(n_samples, n_outputs)``.
+ */
+arma::Mat<size_t> classification_y_to_arma(const py::array_t<size_t> &y,
+                                           arma::uword n_samples) {
+  py::array_t<size_t> ycopy = py::array_t<size_t>::ensure(y);
+  arma::Mat<size_t> yArma;
+  if (ycopy.ndim() == 1) {
+    yArma = carma::arr_to_row<size_t>(ycopy, true);
+  } else if (ycopy.ndim() == 2) {
+    yArma = arma::Mat<size_t>(carma::arr_to_mat<size_t>(ycopy, true).t());
+  } else {
+    throw std::invalid_argument(
+        "y must be a 1D (n_samples,) or 2D (n_samples, n_outputs) numpy array");
+  }
+  if (yArma.n_cols != n_samples)
+    throw std::invalid_argument("y length must match X.shape[0]");
+  return yArma;
+}
+
+/**
+ * Build a ``(n_outputs, n_samples)`` target matrix from a NumPy array that is
+ * either 1-D ``(n_samples,)`` or 2-D ``(n_samples, n_outputs)``.
+ */
+arma::Mat<float> regression_y_to_arma(const py::array_t<float> &y,
+                                      arma::uword n_samples) {
+  py::array_t<float> ycopy = py::array_t<float>::ensure(y);
+  arma::Mat<float> yArma;
+  if (ycopy.ndim() == 1) {
+    yArma = carma::arr_to_row<float>(ycopy, true);
+  } else if (ycopy.ndim() == 2) {
+    yArma = arma::Mat<float>(carma::arr_to_mat<float>(ycopy, true).t());
+  } else {
+    throw std::invalid_argument(
+        "y must be a 1D (n_samples,) or 2D (n_samples, n_outputs) numpy array");
+  }
+  if (yArma.n_cols != n_samples)
+    throw std::invalid_argument("y length must match X.shape[0]");
+  return yArma;
+}
+
+/**
+ * Resolve a Python ``numClasses`` argument (int or sequence of ints) into a
+ * per-output class-count vector of length ``n_outputs``. An int is broadcast
+ * to every output; a sequence must match ``n_outputs``.
+ */
+std::vector<size_t> num_classes_per_output_from_py(const py::object &numClasses,
+                                                   arma::uword n_outputs) {
+  py::object numbers = py::module_::import("numbers");
+  if (py::isinstance<py::bool_>(numClasses))
+    throw std::invalid_argument("numClasses cannot be bool");
+  if (py::isinstance(numClasses, numbers.attr("Integral")))
+    return std::vector<size_t>(static_cast<size_t>(n_outputs),
+                               py::cast<size_t>(numClasses));
+  if (py::isinstance<py::iterable>(numClasses)) {
+    std::vector<size_t> out;
+    for (const py::handle item : numClasses)
+      out.push_back(py::cast<size_t>(py::reinterpret_borrow<py::object>(item)));
+    if (out.size() != static_cast<size_t>(n_outputs))
+      throw std::invalid_argument(
+          "numClasses sequence length must match the number of outputs "
+          "(y.shape[1])");
+    return out;
+  }
+  throw std::invalid_argument(
+      "numClasses must be an int or a sequence of ints");
+}
+
+/**
+ * Convert per-bin classification predictions (one vector of length
+ * ``n_outputs`` per bin) into a NumPy array: 1-D ``(n_bins,)`` for a single
+ * output, else 2-D ``(n_bins, n_outputs)``.
+ */
+template <typename T>
+py::array bin_predictions_to_numpy_impl(const std::vector<std::vector<T>> &preds) {
+  const size_t nBins = preds.size();
+  // Bins with no samples (e.g. the trailing NaN routing bin) carry an empty
+  // prediction vector, so derive the output width from the widest bin.
+  size_t nOut = 0;
+  for (const auto &p : preds)
+    nOut = std::max(nOut, p.size());
+  if (nOut == 0)
+    nOut = 1;
+  if (nOut == 1) {
+    py::array_t<T> out({static_cast<py::ssize_t>(nBins)});
+    auto buf = out.template mutable_unchecked<1>();
+    for (size_t i = 0; i < nBins; ++i)
+      buf(static_cast<py::ssize_t>(i)) =
+          preds[i].empty() ? static_cast<T>(0) : preds[i][0];
+    return out;
+  }
+  py::array_t<T> out(
+      {static_cast<py::ssize_t>(nBins), static_cast<py::ssize_t>(nOut)});
+  auto buf = out.template mutable_unchecked<2>();
+  for (size_t i = 0; i < nBins; ++i)
+    for (size_t o = 0; o < nOut; ++o)
+      buf(static_cast<py::ssize_t>(i), static_cast<py::ssize_t>(o)) =
+          o < preds[i].size() ? preds[i][o] : static_cast<T>(0);
+  return out;
+}
+
+py::array
+bin_predictions_to_numpy(const std::vector<std::vector<size_t>> &preds) {
+  return bin_predictions_to_numpy_impl(preds);
+}
+
+/** Regression counterpart of :func:`bin_predictions_to_numpy`. */
+py::array
+bin_predictions_to_numpy(const std::vector<std::vector<float>> &preds) {
+  return bin_predictions_to_numpy_impl(preds);
+}
+
 class UnivariateClassificationDiscretizerPy {
   std::variant<GiniDisc, EntropyDisc> impl_;
 
@@ -132,7 +240,7 @@ public:
   }
 
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
-             const py::array_t<size_t> &y, size_t numClasses,
+             const py::array_t<size_t> &y, py::object numClasses,
              size_t minLeafSize, double minGainSplit, size_t maxDepth,
              size_t maxLeafNodes, py::object sample_weights = py::none()) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
@@ -148,12 +256,9 @@ public:
     const arma::uvec featuresArma =
         arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
 
-    py::array_t<size_t> ycopy = py::array_t<size_t>::ensure(y);
-    if (ycopy.ndim() != 1)
-      throw std::invalid_argument("y must be a 1D numpy array");
-    arma::Mat<size_t> yArma = carma::arr_to_row<size_t>(ycopy, true);
-    if (yArma.n_elem != xArma.n_cols)
-      throw std::invalid_argument("y length must match X.shape[0]");
+    arma::Mat<size_t> yArma = classification_y_to_arma(y, xArma.n_cols);
+    const std::vector<size_t> nClassesPerOutput =
+        num_classes_per_output_from_py(numClasses, yArma.n_rows);
 
     const arma::Row<float> wRow =
         sampleWeightRowFromPy(sample_weights, xArma.n_cols);
@@ -161,7 +266,7 @@ public:
     arma::uvec featuresMut = featuresArma;
     std::visit(
         [&](auto &d) {
-          d.Train(xArma, featuresMut, yArma, numClasses, minLeafSize,
+          d.Train(xArma, featuresMut, yArma, nClassesPerOutput, minLeafSize,
                   minGainSplit, maxDepth, maxLeafNodes, wRow);
         },
         impl_);
@@ -198,15 +303,9 @@ public:
         impl_);
   }
 
-  py::array_t<size_t> getBinPredictions() {
+  py::array getBinPredictions() {
     return std::visit(
-        [](auto &d) {
-          const auto &preds = d.getBinPredictions();
-          arma::Col<size_t> col(preds.size());
-          for (size_t i = 0; i < preds.size(); ++i)
-            col(i) = preds[i];
-          return col_to_numpy_1d(col);
-        },
+        [](auto &d) { return bin_predictions_to_numpy(d.getBinPredictions()); },
         impl_);
   }
 
@@ -252,12 +351,7 @@ public:
     const arma::uvec featuresArma =
         arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
 
-    py::array_t<float> ycopy = py::array_t<float>::ensure(y);
-    if (ycopy.ndim() != 1)
-      throw std::invalid_argument("y must be a 1D numpy array");
-    arma::Mat<float> yArma = carma::arr_to_row<float>(ycopy, true);
-    if (yArma.n_elem != xArma.n_cols)
-      throw std::invalid_argument("y length must match X.shape[0]");
+    arma::Mat<float> yArma = regression_y_to_arma(y, xArma.n_cols);
 
     const arma::Row<float> wRow =
         sampleWeightRowFromPy(sample_weights, xArma.n_cols);
@@ -302,11 +396,9 @@ public:
         impl_);
   }
 
-  py::array_t<float> getBinPredictions() {
+  py::array getBinPredictions() {
     return std::visit(
-        [](auto &d) {
-          return vector_float_to_numpy_1d(d.getBinPredictions());
-        },
+        [](auto &d) { return bin_predictions_to_numpy(d.getBinPredictions()); },
         impl_);
   }
 
@@ -336,7 +428,7 @@ public:
   }
 
   void Train(const py::array_t<float> &X, const py::array_t<size_t> &features,
-             const py::array_t<size_t> &y, size_t numClasses,
+             const py::array_t<size_t> &y, py::object numClasses,
              size_t minLeafSize, double minGainSplit, size_t maxDepth,
              size_t maxLeafNodes, py::object sample_weights = py::none()) {
     py::array_t<float> Xcopy = py::array_t<float>::ensure(X);
@@ -352,19 +444,16 @@ public:
     const arma::uvec featuresArma =
         arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
 
-    py::array_t<size_t> ycopy = py::array_t<size_t>::ensure(y);
-    if (ycopy.ndim() != 1)
-      throw std::invalid_argument("y must be a 1D numpy array");
-    arma::Mat<size_t> yArma = carma::arr_to_row<size_t>(ycopy, true);
-    if (yArma.n_elem != xArma.n_cols)
-      throw std::invalid_argument("y length must match X.shape[0]");
+    arma::Mat<size_t> yArma = classification_y_to_arma(y, xArma.n_cols);
+    const std::vector<size_t> nClassesPerOutput =
+        num_classes_per_output_from_py(numClasses, yArma.n_rows);
 
     const arma::Row<float> wRow =
         sampleWeightRowFromPy(sample_weights, xArma.n_cols);
 
     arma::uvec featuresMut = featuresArma;
-    impl_.Train(xArma, featuresMut, yArma, numClasses, minLeafSize, minGainSplit,
-                maxDepth, maxLeafNodes, wRow);
+    impl_.Train(xArma, featuresMut, yArma, nClassesPerOutput, minLeafSize,
+                minGainSplit, maxDepth, maxLeafNodes, wRow);
   }
 
   py::array_t<size_t> transform(const py::array_t<float> &X) {
@@ -390,12 +479,8 @@ public:
     return VectorOfVectorsToNumpyList(impl_.inSampleDiscretizations());
   }
 
-  py::array_t<size_t> getBinPredictions() {
-    const auto &preds = impl_.getBinPredictions();
-    arma::Col<size_t> col(preds.size());
-    for (size_t i = 0; i < preds.size(); ++i)
-      col(i) = preds[i];
-    return col_to_numpy_1d(col);
+  py::array getBinPredictions() {
+    return bin_predictions_to_numpy(impl_.getBinPredictions());
   }
 
   size_t getNumLeaves() const { return impl_.numLeaves(); }
@@ -436,12 +521,7 @@ public:
     const arma::uvec featuresArma =
         arma::conv_to<arma::uvec>::from(carma::arr_to_col<size_t>(fcopy, true));
 
-    py::array_t<float> ycopy = py::array_t<float>::ensure(y);
-    if (ycopy.ndim() != 1)
-      throw std::invalid_argument("y must be a 1D numpy array");
-    arma::Mat<float> yArma = carma::arr_to_row<float>(ycopy, true);
-    if (yArma.n_elem != xArma.n_cols)
-      throw std::invalid_argument("y length must match X.shape[0]");
+    arma::Mat<float> yArma = regression_y_to_arma(y, xArma.n_cols);
 
     const arma::Row<float> wRow =
         sampleWeightRowFromPy(sample_weights, xArma.n_cols);
@@ -474,8 +554,8 @@ public:
     return VectorOfVectorsToNumpyList(impl_.inSampleDiscretizations());
   }
 
-  py::array_t<float> getBinPredictions() {
-    return vector_float_to_numpy_1d(impl_.getBinPredictions());
+  py::array getBinPredictions() {
+    return bin_predictions_to_numpy(impl_.getBinPredictions());
   }
 
   size_t getNumLeaves() const { return impl_.numLeaves(); }
@@ -486,6 +566,16 @@ public:
 } // namespace
 
 PYBIND11_MODULE(Discretizers, m) {
+  // CARMA's allocator may lazily call _import_array() on free/alloc; prime it
+  // here (GIL held) so destructions during ShapeGeneralizedTrees.fit (which can
+  // resolve to this module's statically-linked core symbols) stay safe.
+  if (_import_array() < 0) {
+    PyErr_Clear();
+    throw std::runtime_error(
+        "Discretizers: numpy.core.multiarray failed to import; "
+        "ensure numpy is installed and importable before importing this module");
+  }
+
   py::class_<UnivariateClassificationDiscretizerPy>(
       m, "UnivariateClassificationDiscretizer")
       .def(py::init<std::string>(), py::arg("criterion") = "gini")

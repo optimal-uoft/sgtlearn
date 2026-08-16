@@ -13,20 +13,31 @@
 #include <vector>
 
 /**
- * Build a branch-assignment objective for @p criterion.
+ * Regression MAE branch assignment.
  *
- * Classification (Entropy, Gini): pass @p numClasses and per-leaf class-count
- * stats in @p leafStats.
- *
- * SquaredError: pass per-leaf ``{sum y, sum y^2}`` stats in @p leafStats.
- *
- * AbsoluteError: pass raw per-leaf y samples and weights via @p maeLeafYs and
- * @p maeLeafWs (required).
+ * AbsoluteError: pass raw per-leaf, per-output y samples and per-sample weights
+ * via @p maeLeafYs (``[bin][output][sample]``) and @p maeLeafWs
+ * (``[bin][sample]``); both required.
  */
 std::unique_ptr<BranchAssignment> makeBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
     size_t numPartitions, std::vector<std::vector<double>> &leafStats,
     std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts, size_t numClasses = 0,
-    std::vector<std::vector<float>> *maeLeafYs = nullptr,
-    std::vector<std::vector<float>> *maeLeafWs = nullptr);
+    const std::vector<size_t> &leafSampleCounts,
+    std::vector<std::vector<std::vector<float>>> *maeLeafYs,
+    std::vector<std::vector<float>> *maeLeafWs);
+
+/**
+ * Classification / regression MSE branch assignment.
+ *
+ * Pass nested per-leaf stats ``[bin][output][*]`` in @p leafStats. For
+ * classification, ``*`` is class counts and @p classesPerOutput is required.
+ * For regression MSE, ``*`` is ``[Σw·y, Σw·y²]`` and @p nOutputs must be set.
+ */
+std::unique_ptr<BranchAssignment> makeBranchAssignment(
+    LearningCriterion criterion, std::vector<size_t> &assignments,
+    size_t numPartitions,
+    std::vector<std::vector<std::vector<double>>> &leafStats,
+    std::vector<double> &leafWeights,
+    const std::vector<size_t> &leafSampleCounts,
+    const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1);

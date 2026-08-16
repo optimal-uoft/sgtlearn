@@ -14,6 +14,12 @@ from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from TreeAlternatingOptimization import TreeAlternatingOptimization
 
+from sgtlearn._multioutput import (
+    as_output_matrix,
+    encode_classification_targets,
+    label_encoders_as_list,
+    native_y_array,
+)
 from sgtlearn._weights import (
     effective_sample_weight_classification,
     normalize_sample_weight,
@@ -71,6 +77,7 @@ def _validate_X_y(
                 dtype=np.float64,
                 ensure_all_finite="allow-nan",
                 y_numeric=True,
+                multi_output=True,
             )
             if np.isnan(np.asarray(y, dtype=np.float64)).any():
                 raise ValueError("Input y contains NaN.")
@@ -109,21 +116,26 @@ def _prepare_tao_arrays(
     X32 = np.ascontiguousarray(X, dtype=np.float32)
 
     if isinstance(model, (SGTClassifier, RandomSGForestClassifier)):
-        if isinstance(model, SGTClassifier):
-            y_enc = model._le.transform(y.ravel())  # type: ignore[union-attr]
-            classes_ = model.classes_
-            class_weight = model.class_weight
-        else:
-            y_enc = model._label_encoder_.transform(np.asarray(y).ravel())
-            classes_ = model.classes_
-            class_weight = model.class_weight
-
+        classes_ = model.classes_
+        class_weight = model.class_weight
         if classes_ is None:
             raise NotFittedError(
                 f"This {type(model).__name__} instance is not fitted yet."
             )
+        n_outputs = int(getattr(model, "n_outputs_", 1) or 1)
+        y_arr = np.asarray(y)
 
-        y_out = np.ascontiguousarray(y_enc, dtype=np.uint64).reshape(-1)
+        if isinstance(model, SGTClassifier):
+            encoders = model._le
+        else:
+            encoders = getattr(model, "_label_encoders_", None)
+            if encoders is None:
+                encoders = model._label_encoder_
+
+        enc_list = label_encoders_as_list(encoders, n_outputs)
+        y_enc, _, _, _ = encode_classification_targets(y_arr, encoders=enc_list)
+        y_out = native_y_array(y_enc, dtype=np.uint64)
+
         if class_weight is not None:
             sw = effective_sample_weight_classification(
                 sample_weight, y_enc, class_weight, classes_
@@ -133,7 +145,8 @@ def _prepare_tao_arrays(
             sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
         return X32, y_out, sw
 
-    y_reg = np.ascontiguousarray(y, dtype=np.float32).reshape(-1)
+    y2, _ = as_output_matrix(np.asarray(y, dtype=np.float32))
+    y_reg = native_y_array(y2, dtype=np.float32)
     sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
     sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
     return X32, y_reg, sw
@@ -159,7 +172,8 @@ def TAO_refine(
     in parallel via joblib.
 
     Training data must be supplied again because per-sample partitions are not
-    retained after ``fit``.
+    retained after ``fit``. Supports single- and multi-output ``y`` (same shapes
+    as :meth:`~sgtlearn.SGTClassifier.fit` / :meth:`~sgtlearn.SGTRegressor.fit`).
 
     ``lambda_`` is a per-sample complexity rate (cost-complexity style). At each
     internal node, a non-constant routing rule must beat the dummy rule by more

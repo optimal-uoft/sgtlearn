@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 template <typename StatsT, typename PredictT>
 size_t CategoricalDiscretizer<StatsT, PredictT>::dominantActiveCategory(
@@ -131,12 +132,32 @@ void CategoricalDiscretizer<StatsT, PredictT>::buildTree(
   this->numLeaves_ = leaves_.size();
 }
 
+namespace categorical_discretizer_detail {
+
+template <typename T>
+T zeroStatLike(const T &) {
+  return T{};
+}
+
+inline double zeroStatLike(const double &) { return 0.0; }
+
+inline std::vector<double> zeroStatLike(const std::vector<double> &v) {
+  return std::vector<double>(v.size(), 0.0);
+}
+
+} // namespace categorical_discretizer_detail
+
 template <typename StatsT, typename PredictT>
 void CategoricalDiscretizer<StatsT, PredictT>::appendNanRoutingBin() {
   this->inSampleDiscretizations_.push_back({});
-  const size_t statsDim =
-      this->leafStats_.empty() ? 0 : this->leafStats_.front().size();
-  this->leafStats_.push_back(std::vector<StatsT>(statsDim, StatsT{0}));
+  std::vector<StatsT> emptyRow;
+  if (!this->leafStats_.empty()) {
+    const auto &proto = this->leafStats_.front();
+    emptyRow.resize(proto.size());
+    for (size_t i = 0; i < proto.size(); ++i)
+      emptyRow[i] = categorical_discretizer_detail::zeroStatLike(proto[i]);
+  }
+  this->leafStats_.push_back(std::move(emptyRow));
   this->leafNumSamples_.push_back(0);
   this->leafNodeWeights_.push_back(0.0);
   binPredictions_.push_back(PredictT{});

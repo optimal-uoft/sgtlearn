@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <cstddef>
+#include <vector>
 #include "Splitters/factories/SplitterFactory.h"
 
 #include "Splitters/univariate/AbsoluteErrorSplitter.h"
@@ -19,12 +20,16 @@ std::unique_ptr<ClassificationSplitter>
 makeClassificationSplitter(LearningCriterion criterion, arma::frowvec &X,
                            arma::frowvec &sampleWeights,
                            arma::Mat<size_t> &labels, size_t numClasses) {
+  const size_t nOutputs =
+      labels.n_rows == 0 ? 1 : static_cast<size_t>(labels.n_rows);
+  const std::vector<size_t> nClassesPerOutput(nOutputs, numClasses);
   switch (criterion) {
   case LearningCriterion::Entropy:
     return std::make_unique<EntropySplitter>(X, sampleWeights, labels,
-                                             numClasses);
+                                             nClassesPerOutput);
   case LearningCriterion::Gini:
-    return std::make_unique<GiniSplitter>(X, sampleWeights, labels, numClasses);
+    return std::make_unique<GiniSplitter>(X, sampleWeights, labels,
+                                          nClassesPerOutput);
   case LearningCriterion::SquaredError:
   case LearningCriterion::GainHessian:
   case LearningCriterion::AbsoluteError:

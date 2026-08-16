@@ -9,20 +9,16 @@
 #include <iterator>
 #include <stdexcept>
 
-namespace {
-
-size_t majorityClass(const std::vector<double> &counts) {
-  return static_cast<size_t>(std::distance(
-      counts.begin(), std::max_element(counts.begin(), counts.end())));
-}
-
-} // namespace
-
-std::vector<double> CategoricalClassificationSplitter::classCounts(
+std::vector<std::vector<double>> CategoricalClassificationSplitter::classCounts(
     const std::vector<size_t> &samples) const {
-  std::vector<double> counts(numClasses_, 0.0);
-  for (size_t i : samples)
-    counts[y_(i)] += static_cast<double>(sampleWeights(i));
+  std::vector<std::vector<double>> counts(nOutputs_);
+  for (size_t o = 0; o < nOutputs_; ++o)
+    counts[o].assign(classesPerOutput_[o], 0.0);
+  for (size_t i : samples) {
+    const double w = static_cast<double>(sampleWeights(i));
+    for (size_t o = 0; o < nOutputs_; ++o)
+      counts[o][y_(o, i)] += w;
+  }
   return counts;
 }
 
@@ -34,21 +30,28 @@ double CategoricalClassificationSplitter::score(
   const auto counts = classCounts(samples);
   switch (criterion_) {
   case LearningCriterion::Gini:
-    return Criterion::gini(counts, wTot);
+    return Criterion::gini(counts);
   case LearningCriterion::Entropy:
-    return Criterion::entropy(counts, wTot);
+    return Criterion::entropy(counts);
   default:
     throw std::invalid_argument(
         "CategoricalClassificationSplitter requires Gini or Entropy");
   }
 }
 
-std::vector<double> CategoricalClassificationSplitter::statsForSamples(
+std::vector<std::vector<double>>
+CategoricalClassificationSplitter::statsForSamples(
     const std::vector<size_t> &samples) {
   return classCounts(samples);
 }
 
-size_t CategoricalClassificationSplitter::predict(
+std::vector<size_t> CategoricalClassificationSplitter::predict(
     const std::vector<size_t> &samples) {
-  return majorityClass(classCounts(samples));
+  const auto counts = classCounts(samples);
+  std::vector<size_t> preds(nOutputs_, 0);
+  for (size_t o = 0; o < nOutputs_; ++o) {
+    auto it = std::max_element(counts[o].begin(), counts[o].end());
+    preds[o] = static_cast<size_t>(std::distance(counts[o].begin(), it));
+  }
+  return preds;
 }

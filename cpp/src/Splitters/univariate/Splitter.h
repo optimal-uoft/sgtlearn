@@ -52,7 +52,7 @@ protected:
 
   void fillIntervalMeta(UnivariateSplitCandidate &split) const;
 
-  std::vector<StatsT> makeEmptyStats();
+  virtual std::vector<StatsT> makeEmptyStats();
 
   std::unordered_map<size_t,
                      std::unordered_map<size_t, std::vector<std::vector<StatsT>>>>

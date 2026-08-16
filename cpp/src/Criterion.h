@@ -5,22 +5,31 @@
  * @brief Closed-form impurity and loss helpers shared by splitters and branch-assignment processors.
  */
 
+#include <cstddef>
 #include <vector>
 
 namespace Criterion {
 
-/** Multiclass Shannon entropy from weighted histogram counts. */
-double entropy(const std::vector<double> &classCounts, double totalWeight);
-
-/** Multiclass Gini impurity from weighted histogram counts. */
-double gini(const std::vector<double> &classCounts, double totalWeight);
+/**
+ * Shannon entropy over per-output class histograms.
+ * ``countsByOutput[o]`` is the weighted class histogram for output ``o``.
+ * Returns the SUM of per-output entropy (each row normalizes by its own
+ * weight sum). Single-output is a length-1 outer vector.
+ */
+double entropy(const std::vector<std::vector<double>> &countsByOutput);
 
 /**
- * @param yPowerSum weighted sum of y and y^2 (index 0 and 1).
- * @param totalWeight sum of sample weights in the set.
- * @return weighted MSE
+ * Gini impurity over per-output class histograms.
+ * Same layout and aggregation as ``entropy``.
  */
-double squaredError(const std::vector<double> &yPowerSum, double totalWeight);
+double gini(const std::vector<std::vector<double>> &countsByOutput);
+
+/**
+ * Weighted MSE. ``momentsByOutput[o]`` is ``[Σw·y, Σw·y²]`` for output ``o``.
+ * Returns the SUM of per-output MSE. Single-output is a length-1 outer vector.
+ */
+double squaredError(const std::vector<std::vector<double>> &momentsByOutput,
+                    double totalWeight);
 
 /** Weighted median and mean MAE (sklearn ``precompute_absolute_errors``). */
 struct AbsoluteErrorStats {

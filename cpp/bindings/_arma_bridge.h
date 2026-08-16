@@ -159,6 +159,66 @@ ArmaMatBridge<T> asSamplesByFeatures(const py::array &X,
   return ArmaMatBridge<T>(std::move(owner), std::move(view));
 }
 
+/**
+ * Wrap a NumPy target array as an Armadillo `(n_outputs, n_samples)` matrix
+ * view, mirroring the sklearn ``y`` convention:
+ *   - 1-D ``(n_samples,)``            -> Mat ``(1, n_samples)``
+ *   - 2-D ``(n_samples, n_outputs)``  -> Mat ``(n_outputs, n_samples)``
+ *
+ * Uses the same byte-identity trick as :func:`asSamplesByFeatures`: a
+ * C-contiguous ``(n_samples, n_outputs)`` buffer is bytewise identical to an
+ * F-contiguous ``(n_outputs, n_samples)`` matrix, so the view borrows storage
+ * with zero copies in the canonical case.
+ */
+template <typename T>
+ArmaMatBridge<T> asSamplesByOutputs(const py::array &y,
+                                    const char *name = "y") {
+  auto owner = detail::acquireCStyle<T>(y);
+  arma::uword nSamples = 0;
+  arma::uword nOutputs = 0;
+  if (owner.ndim() == 1) {
+    nOutputs = 1;
+    nSamples = static_cast<arma::uword>(owner.shape(0));
+  } else if (owner.ndim() == 2) {
+    nSamples = static_cast<arma::uword>(owner.shape(0));
+    nOutputs = static_cast<arma::uword>(owner.shape(1));
+  } else {
+    detail::throwShape(name, "1-D (n_samples,) or 2-D (n_samples, n_outputs)",
+                       owner.ndim());
+  }
+  arma::Mat<T> view(static_cast<T *>(owner.mutable_data()), nOutputs, nSamples,
+                    /*copy_aux_mem=*/false, /*strict=*/true);
+  return ArmaMatBridge<T>(std::move(owner), std::move(view));
+}
+
+/**
+ * Convert a NumPy target array to an OWNING Armadillo
+ * ``(n_outputs, n_samples)`` matrix. Prefer this for integer label matrices
+ * where zero-copy views can trip Armadillo strict checks and where the C++
+ * side expects ``arma::Mat<size_t>``.
+ */
+template <typename T>
+arma::Mat<T> asSamplesByOutputsOwning(const py::array &y,
+                                      const char *name = "y") {
+  auto owner = detail::acquireCStyle<T>(y);
+  arma::uword nSamples = 0;
+  arma::uword nOutputs = 0;
+  if (owner.ndim() == 1) {
+    nOutputs = 1;
+    nSamples = static_cast<arma::uword>(owner.shape(0));
+  } else if (owner.ndim() == 2) {
+    nSamples = static_cast<arma::uword>(owner.shape(0));
+    nOutputs = static_cast<arma::uword>(owner.shape(1));
+  } else {
+    detail::throwShape(name, "1-D (n_samples,) or 2-D (n_samples, n_outputs)",
+                       owner.ndim());
+  }
+  arma::Mat<T> out(nOutputs, nSamples);
+  if (out.n_elem)
+    std::memcpy(out.memptr(), owner.data(), out.n_elem * sizeof(T));
+  return out;
+}
+
 /** Wrap a 1-D NumPy array as an `arma::Row<T>` view. */
 template <typename T>
 ArmaRowBridge<T> as1DRow(const py::array &v, const char *name = "v") {
@@ -252,6 +312,33 @@ template <typename T>
 py::array_t<T> samplesByFeaturesToNumpy(const arma::Mat<T> &m) {
   py::array_t<T> out({static_cast<py::ssize_t>(m.n_cols),
                       static_cast<py::ssize_t>(m.n_rows)});
+  if (m.n_elem)
+    std::memcpy(out.mutable_data(), m.memptr(), m.n_elem * sizeof(T));
+  return out;
+}
+
+/**
+ * Convert an Armadillo ``(n_outputs, n_samples)`` prediction matrix into a
+ * NumPy array following the sklearn ``y`` convention:
+ *   - ``n_outputs == 1`` -> 1-D ``(n_samples,)``
+ *   - ``n_outputs  > 1`` -> 2-D ``(n_samples, n_outputs)``
+ *
+ * Single memcpy thanks to the layout coincidence described in the module
+ * header (F-contiguous ``(n_outputs, n_samples)`` == C-contiguous
+ * ``(n_samples, n_outputs)``).
+ */
+template <typename T>
+py::array_t<T> samplesByOutputsToNumpy(const arma::Mat<T> &m) {
+  const arma::uword nOutputs = m.n_rows;
+  const arma::uword nSamples = m.n_cols;
+  if (nOutputs == 1) {
+    py::array_t<T> out({static_cast<py::ssize_t>(nSamples)});
+    if (m.n_elem)
+      std::memcpy(out.mutable_data(), m.memptr(), m.n_elem * sizeof(T));
+    return out;
+  }
+  py::array_t<T> out({static_cast<py::ssize_t>(nSamples),
+                      static_cast<py::ssize_t>(nOutputs)});
   if (m.n_elem)
     std::memcpy(out.mutable_data(), m.memptr(), m.n_elem * sizeof(T));
   return out;

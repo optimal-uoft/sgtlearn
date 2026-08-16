@@ -14,16 +14,15 @@
 class EntropySplitter : public ClassificationSplitter {
 public:
   EntropySplitter(arma::frowvec &X, arma::frowvec &sampleWeights,
-                  arma::Mat<size_t> &y, size_t numClasses)
-      : ClassificationSplitter(X, sampleWeights, y, numClasses) {}
+                  arma::Mat<size_t> &y,
+                  const std::vector<size_t> &nClassesPerOutput)
+      : ClassificationSplitter(X, sampleWeights, y, nClassesPerOutput) {}
 
-  double score(const std::vector<double> &stats, size_t l, size_t r) override {
+  double score(const std::vector<std::vector<double>> &stats, size_t l,
+               size_t r) override {
     (void)l;
     (void)r;
-    double W = 0.0;
-    for (double c : stats)
-      W += c;
-    return Criterion::entropy(stats, W);
+    return Criterion::entropy(stats);
   }
 
   double score(const UnivariateSplitCandidate &split) override {

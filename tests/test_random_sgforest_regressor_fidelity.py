@@ -23,13 +23,21 @@ pytest.importorskip("sklearn")
 from sgtlearn import RandomSGForestRegressor, SGTRegressor
 
 from tests.constants import TEST_TAO_N_RUNS
+from tests.discretizer_grid import n_outputs_params
 
 
-def _load_xy():
+def _load_xy(n_outputs: int = 1):
     bunch = load_diabetes()
     X = np.asarray(bunch.data, dtype=np.float32)
-    y = np.asarray(bunch.target, dtype=np.float64)
-    return X, y
+    y0 = np.asarray(bunch.target, dtype=np.float64)
+    if n_outputs == 1:
+        return X, y0
+    rng = np.random.default_rng(0)
+    extras = [
+        y0 * (0.5 + 0.25 * i) + rng.normal(0.0, 5.0, size=y0.shape)
+        for i in range(1, n_outputs)
+    ]
+    return X, np.column_stack([y0, *extras])
 
 
 def _first_tree_random_state(forest_random_state: int) -> int:
@@ -129,12 +137,14 @@ def test_random_sg_forest_train_error_at_most_sklearn_random_forest(
     )
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
 def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     criterion: str,
+    n_outputs: int,
 ) -> None:
     """One tree, no bootstrap, ``inner_max_depth=1``: same in-sample behavior as ``DecisionTreeRegressor()``."""
-    X, y = _load_xy()
+    X, y = _load_xy(n_outputs)
     forest_rs = 7
     tree_kw = {
         **_forest_tree_defaults(),

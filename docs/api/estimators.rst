@@ -18,6 +18,24 @@ instead (see :doc:`ensemble`). Prefer built-in importances when TAO is off
 (``tao_n_runs=0``); see :doc:`../tutorials/feature-importance` for permutation
 importance with categoricals.
 
+Multi-output targets
+--------------------
+
+``y`` may be 1-D ``(n_samples,)`` or 2-D ``(n_samples, n_outputs)``. Internally
+both use the same training path (a single target is ``n_outputs=1``). Split
+impurity / loss is the **sum** across outputs.
+
+Sklearn-compatible return shapes are preserved at the API boundary:
+
+* **Regressor** — :meth:`~SGTRegressor.predict` returns ``(n_samples,)`` or
+  ``(n_samples, n_outputs)``.
+* **Classifier** — :meth:`~SGTClassifier.predict` matches ``y``'s rank;
+  :attr:`~SGTClassifier.classes_` / :attr:`~SGTClassifier.n_classes_` are a
+  scalar array / int for one output, or a list per output for multi-output;
+  :meth:`~SGTClassifier.predict_proba` returns an array or a list of arrays.
+* **``class_weight``** — a dict applies to every output, or pass a list of
+  dicts (one per output). Weights multiply into one ``sample_weight`` vector.
+
 SGTClassifier
 -------------
 

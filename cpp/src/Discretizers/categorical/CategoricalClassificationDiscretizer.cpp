@@ -31,19 +31,25 @@ void validateFeatureIndices(const arma::fmat &X, const arma::uvec &featureIndice
 } // namespace
 
 void CategoricalClassificationDiscretizer::Train(
-    const arma::fmat &X, arma::uvec &features, const arma::Row<size_t> &y,
-    size_t numClasses, size_t minLeafSize, double minGainSplit, size_t maxDepth,
-    size_t maxLeafNodes, const arma::Row<float> &sampleWeights) {
-  if (y.n_elem != X.n_cols)
-    throw std::invalid_argument("y length must equal X.n_cols");
-  if (numClasses < 2)
-    throw std::invalid_argument("numClasses must be >= 2");
+    const arma::fmat &X, arma::uvec &features, const arma::Mat<size_t> &y,
+    const std::vector<size_t> &nClassesPerOutput, size_t minLeafSize,
+    double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
+    const arma::Row<float> &sampleWeights) {
+  if (y.n_cols != X.n_cols)
+    throw std::invalid_argument("y columns must equal X.n_cols");
+  if (nClassesPerOutput.size() != y.n_rows)
+    throw std::invalid_argument(
+        "nClassesPerOutput length must equal y.n_rows");
+  for (size_t nc : nClassesPerOutput) {
+    if (nc < 2)
+      throw std::invalid_argument("numClasses must be >= 2");
+  }
   validateFeatureIndices(X, features);
   featureIndices_.assign(features.begin(), features.end());
   const arma::Row<float> w = normalizedSampleWeights(X, sampleWeights);
 
-  CategoricalClassificationSplitter splitter(X, w, y, numClasses, featureIndices_,
-                                             criterion_);
+  CategoricalClassificationSplitter splitter(X, w, y, nClassesPerOutput,
+                                             featureIndices_, criterion_);
   buildTree(X, splitter, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
   processLeaves(splitter);
 }

@@ -10,6 +10,10 @@ forwarded to each base tree and TAO runs on that tree's bootstrap sample (or
 the full training set when ``bootstrap=False``) at the end of each tree's
 ``fit``. See :doc:`tao` for post-hoc refinement on the full ``(X, y)``.
 
+Multi-output ``y`` is supported the same way as for single trees
+(see :doc:`estimators`): one joint forest over all outputs, with sklearn-shaped
+``predict`` / ``predict_proba`` returns.
+
 :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`
 and :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.std_feature_importance_`
 (and the regressor counterparts) summarize per-tree

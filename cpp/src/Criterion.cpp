@@ -9,47 +9,63 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
-#include <utility>
 #include <vector>
 
-double Criterion::entropy(const std::vector<double> &classCounts,
-                        double totalWeight) {
-  if (totalWeight <= 0.0)
-    return 0;
-  double ent = 0;
-  for (double count : classCounts) {
-    if (count <= 0.0)
+double Criterion::entropy(
+    const std::vector<std::vector<double>> &countsByOutput) {
+  double total = 0.0;
+  for (const auto &block : countsByOutput) {
+    double blockWeight = 0.0;
+    for (double c : block)
+      blockWeight += c;
+    if (blockWeight <= 0.0)
       continue;
-    const double p = count / totalWeight;
-    ent -= p * std::log2(p);
+    for (double count : block) {
+      if (count <= 0.0)
+        continue;
+      const double p = count / blockWeight;
+      total -= p * std::log2(p);
+    }
   }
-  return ent;
+  return total;
 }
-double Criterion::gini(const std::vector<double> &classCounts,
-                       double totalWeight) {
+
+double Criterion::gini(const std::vector<std::vector<double>> &countsByOutput) {
+  double total = 0.0;
+  for (const auto &block : countsByOutput) {
+    double blockWeight = 0.0;
+    for (double c : block)
+      blockWeight += c;
+    if (blockWeight <= 0.0)
+      continue;
+    const double sumP2 =
+        std::accumulate(block.begin(), block.end(), 0.0,
+                        [blockWeight](const double acc, const double count) {
+                          const double p = count / blockWeight;
+                          return acc + p * p;
+                        });
+    total += 1.0 - sumP2;
+  }
+  return total;
+}
+
+double Criterion::squaredError(
+    const std::vector<std::vector<double>> &momentsByOutput,
+    double totalWeight) {
   if (totalWeight <= 0.0)
     return 0.0;
-  const double sumP2 =
-      std::accumulate(classCounts.begin(), classCounts.end(), 0.0,
-                      [totalWeight](const double acc, const double count) {
-                        const double p = count / totalWeight;
-                        return acc + p * p;
-                      });
-  return 1.0 - sumP2;
-}
-double Criterion::squaredError(const std::vector<double> &yPowerSum,
-                               double totalWeight) {
-  if (totalWeight <= 0.0)
-    return 0;
-  const double ySum = yPowerSum[0];
-  const double ySqrdSum = yPowerSum[1];
-
-  const double mean = ySum / totalWeight;
-
-  // Weighted mean squared error: (1 / sum_w) * sum_i w_i (y_i - mean_w)^2
-  const double sse =
-      ySqrdSum - 2.0 * mean * ySum + totalWeight * mean * mean;
-  return sse / totalWeight;
+  double total = 0.0;
+  for (const auto &moments : momentsByOutput) {
+    if (moments.size() < 2)
+      continue;
+    const double ySum = moments[0];
+    const double ySqrdSum = moments[1];
+    const double mean = ySum / totalWeight;
+    const double sse =
+        ySqrdSum - 2.0 * mean * ySum + totalWeight * mean * mean;
+    total += sse / totalWeight;
+  }
+  return total;
 }
 
 Criterion::AbsoluteErrorStats

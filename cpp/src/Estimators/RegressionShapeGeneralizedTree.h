@@ -97,33 +97,45 @@ public:
    *
    * @param X  (numFeatures, numSamples) column-major; one sample per column.
    *           Routing candidates are row indices ``0 .. numFeatures-1``.
-   * @param y  (numSamples,) real-valued targets.
+   * @param y  (numOutputs, numSamples) real-valued targets; single-output is
+   *           ``n_rows == 1``.
    *
    * @param features  logical feature groups resolved in Python.
    *
    * @throws std::invalid_argument on shape mismatch.
    */
-  void fit(const arma::fmat &X, const arma::Row<float> &y,
+  void fit(const arma::fmat &X, const arma::Mat<float> &y,
            const arma::Row<float> &sampleWeights,
            const std::vector<FeatureInfo> &features);
 
-  /** Predicted responses, shape (numSamples,). */
-  arma::Row<double> predict(const arma::fmat &X) const;
+  /** Predicted responses, shape (numOutputs, numSamples). */
+  arma::Mat<double> predict(const arma::fmat &X) const;
+
+  /** Number of outputs the tree was fitted on (>= 1). */
+  size_t nOutputs() const { return nOutputs_; }
 
   /**
-   * Per outer-tree node index: for squared error, ``{sum y, sum y^2}`` at
-   * leaves (empty at internal nodes after fit). For absolute error, empty at
-   * every leaf (no extra MAE statistic storage).
+   * Per outer-tree node index: for squared error, concatenated
+   * ``[Σw·y0, Σw·y0², Σw·y1, Σw·y1², ...]`` (length ``2 * nOutputs``) at leaves
+   * (empty at internal nodes after fit). For absolute error, empty at every
+   * leaf (no extra MAE statistic storage).
    */
   std::vector<std::vector<float>> leafRegressionStats;
   /** Sample count per leaf (same indexing as ``leafRegressionStats``). */
   std::vector<size_t> leafNumSamples;
 
-  /** Per-leaf prediction (mean or median), keyed by node id. */
-  const std::vector<double> &leafPredictions() const { return leafPredictions_; }
+  /**
+   * Per-leaf prediction, keyed by node id; inner vector has length
+   * ``nOutputs`` (mean per output for squared error, median for absolute).
+   */
+  const std::vector<std::vector<double>> &leafPredictions() const {
+    return leafPredictions_;
+  }
 
   /** Mutable leaf predictions for in-place refinement (e.g. TAO). */
-  std::vector<double> &mutableLeafPredictions() { return leafPredictions_; }
+  std::vector<std::vector<double>> &mutableLeafPredictions() {
+    return leafPredictions_;
+  }
 
 private:
   CoordinateDescentParams cdParams_;
@@ -135,14 +147,21 @@ private:
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
   TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
 
-  /** Leaf constant prediction (mean or median) keyed by ``nodeIndex``. */
-  std::vector<double> leafPredictions_;
+  /** Number of outputs (``y.n_rows``), set at ``fit``. */
+  size_t nOutputs_ = 1;
 
-  double impurityAtNode(const arma::Row<float> &y,
+  /**
+   * Leaf constant prediction keyed by ``nodeIndex``; inner vector length
+   * ``nOutputs_`` (mean per output for squared error, median for absolute).
+   */
+  std::vector<std::vector<double>> leafPredictions_;
+
+  double impurityAtNode(const arma::Mat<float> &y,
                         const ShapeFunctionNode &node) const;
 
-  std::vector<double> aggregateYSquaredStats(const ShapeFunctionNode &node,
-                                             const arma::Row<float> &y) const;
+  /** Nested ``[output][Σw·y, Σw·y²]`` per node sample set. */
+  std::vector<std::vector<double>> aggregateYSquaredStats(
+      const ShapeFunctionNode &node, const arma::Mat<float> &y) const;
 
   arma::Row<float> fitSampleWeights_;
 };

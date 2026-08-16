@@ -15,7 +15,7 @@
 #include <stdexcept>
 
 class CategoricalRegressionDiscretizer
-    : public CategoricalDiscretizer<double, float>,
+    : public CategoricalDiscretizer<std::vector<double>, std::vector<float>>,
       public RegressionDiscretizer {
 public:
   explicit CategoricalRegressionDiscretizer(
@@ -29,15 +29,17 @@ public:
   }
 
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override {
-    CategoricalDiscretizer<double, float>::transform(X, binLoc);
+    CategoricalDiscretizer<std::vector<double>, std::vector<float>>::transform(
+        X, binLoc);
   }
 
   size_t routeToBin(const std::vector<float> &featureValues) const override {
-    return CategoricalDiscretizer<double, float>::routeToBin(featureValues);
+    return CategoricalDiscretizer<std::vector<double>, std::vector<float>>::
+        routeToBin(featureValues);
   }
 
   void Train(const arma::fmat &X, arma::uvec &features,
-             const arma::Row<float> &y, size_t minLeafSize, double minGainSplit,
+             const arma::Mat<float> &y, size_t minLeafSize, double minGainSplit,
              size_t maxDepth, size_t maxLeafNodes,
              const arma::Row<float> &sampleWeights) override;
 

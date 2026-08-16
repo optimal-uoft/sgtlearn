@@ -39,7 +39,7 @@ public:
    * @param sampleWeights  (numSamples,) per-sample weights.
    */
   ClassificationTaoAdapter(ClassificationShapeGeneralizedTree &tree,
-                           const arma::fmat &X, const arma::Row<size_t> &y,
+                           const arma::fmat &X, const arma::Mat<size_t> &y,
                            const arma::Row<float> &sampleWeights);
 
   /** Same as the tree's impurity criterion (Gini or entropy). */
@@ -53,14 +53,21 @@ public:
 
 private:
   /**
-   * Per-child correctness rewards for one sample: ``1/x`` split uniformly across
-   * correct children (``x`` = count of correct), else ``0``.
+   * Per-child correctness rewards for one sample.
+   *
+   * Single-output: ``1/x`` split uniformly across correct children (``x`` =
+   * count of correct), else ``0``. Multi-output: fraction of outputs correctly
+   * classified by each child's leaf.
    */
   void childRewards(const std::vector<size_t> &childLeaves, arma::uword col,
                     std::vector<double> &reward) const;
 
   ClassificationShapeGeneralizedTree &classificationTree_;
-  const arma::Row<size_t> &y_;
+  const arma::Mat<size_t> &y_;
+  /** Per-output class counts (copied from the fitted tree). */
+  std::vector<size_t> classesPerOutput_;
+  /** Number of outputs (``y_.n_rows``). */
+  size_t nOutputs_;
 };
 
 } // namespace tao

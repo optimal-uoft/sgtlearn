@@ -15,8 +15,21 @@ from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 
 from sgtlearn import SGTClassifier
+from tests.discretizer_grid import n_outputs_params
 
 pytest.importorskip("sklearn")
+
+
+def _load_xy(n_outputs: int = 1):
+    X, y0 = load_breast_cancer(return_X_y=True)
+    X = np.asarray(X, dtype=np.float32)
+    if n_outputs == 1:
+        return X, y0
+    extras = [
+        (X[:, i] > np.median(X[:, i])).astype(np.int64)
+        for i in range(n_outputs - 1)
+    ]
+    return X, np.column_stack([y0, *extras])
 
 
 @pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
@@ -63,19 +76,20 @@ def test_sgt_train_accuracy_at_least_sklearn_decision_tree(
     )
 
 
+@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize("tao_n_runs", [0, 10], ids=["no_tao", "with_tao"])
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
 def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
     criterion: str,
     tao_n_runs: int,
+    n_outputs: int,
 ) -> None:
     """``inner_max_depth=1`` only; all other hyperparameters are estimator defaults.
 
     Compared against ``DecisionTreeClassifier()`` with the same ``criterion`` so
     both trainers use their respective default stopping rules and depth limits.
     """
-    X, y = load_breast_cancer(return_X_y=True)
-    X = np.asarray(X, dtype=np.float32)
+    X, y = _load_xy(n_outputs)
 
     sk_criterion = "entropy" if criterion == "log_loss" else criterion
 
@@ -87,9 +101,20 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
     dt = DecisionTreeClassifier(criterion=sk_criterion)
     dt.fit(X, y)
 
-    np.testing.assert_array_equal(sgt.classes_, dt.classes_)
-    np.testing.assert_array_equal(sgt.predict(X), dt.predict(X))
-    np.testing.assert_allclose(
-        sgt.predict_proba(X),
-        dt.predict_proba(X)
-    )
+    expected_shape = (X.shape[0],) if n_outputs == 1 else (X.shape[0], n_outputs)
+    pred = sgt.predict(X)
+    assert pred.shape == expected_shape
+    np.testing.assert_array_equal(pred, dt.predict(X))
+
+    if n_outputs == 1:
+        np.testing.assert_array_equal(sgt.classes_, dt.classes_)
+        np.testing.assert_allclose(sgt.predict_proba(X), dt.predict_proba(X))
+    else:
+        assert len(sgt.classes_) == len(dt.classes_) == n_outputs
+        for a, b in zip(sgt.classes_, dt.classes_):
+            np.testing.assert_array_equal(a, b)
+        sgt_proba = sgt.predict_proba(X)
+        dt_proba = dt.predict_proba(X)
+        assert len(sgt_proba) == len(dt_proba) == n_outputs
+        for a, b in zip(sgt_proba, dt_proba):
+            np.testing.assert_allclose(a, b)

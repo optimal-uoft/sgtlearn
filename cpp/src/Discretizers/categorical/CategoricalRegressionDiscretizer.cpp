@@ -31,11 +31,11 @@ void validateFeatureIndices(const arma::fmat &X, const arma::uvec &featureIndice
 } // namespace
 
 void CategoricalRegressionDiscretizer::Train(
-    const arma::fmat &X, arma::uvec &features, const arma::Row<float> &y,
+    const arma::fmat &X, arma::uvec &features, const arma::Mat<float> &y,
     size_t minLeafSize, double minGainSplit, size_t maxDepth, size_t maxLeafNodes,
     const arma::Row<float> &sampleWeights) {
-  if (y.n_elem != X.n_cols)
-    throw std::invalid_argument("y length must equal X.n_cols");
+  if (y.n_cols != X.n_cols)
+    throw std::invalid_argument("y columns must equal X.n_cols");
   validateFeatureIndices(X, features);
   featureIndices_.assign(features.begin(), features.end());
   const arma::Row<float> w = normalizedSampleWeights(X, sampleWeights);
