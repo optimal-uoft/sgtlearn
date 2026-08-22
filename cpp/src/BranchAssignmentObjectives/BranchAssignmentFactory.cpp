@@ -9,6 +9,7 @@
 
 #include "AbsoluteErrorBranchAssignment.h"
 #include "BranchAssignmentVariants.h"
+#include "MaeBranchConfig.h"
 
 #include <stdexcept>
 
@@ -26,6 +27,10 @@ std::unique_ptr<BranchAssignment> makeBranchAssignment(
       throw std::invalid_argument(
           "makeBranchAssignment(AbsoluteError): maeLeafYs and maeLeafWs "
           "required");
+    if (mae_branch_config::backend() == mae_branch_config::Backend::Sort)
+      return std::make_unique<AbsoluteErrorBranchAssignmentSort>(
+          assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights,
+          leafSampleCounts);
     return std::make_unique<AbsoluteErrorBranchAssignment>(
         assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights,
         leafSampleCounts);
