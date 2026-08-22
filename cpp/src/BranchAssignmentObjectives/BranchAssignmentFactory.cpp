@@ -3,15 +3,22 @@
  * @brief Factory implementation for ``BranchAssignment`` objects.
  */
 
-#include <memory>
 #include <cstddef>
+#include <memory>
 #include "BranchAssignmentFactory.h"
 
 #include "AbsoluteErrorBranchAssignment.h"
+#include "AbsoluteErrorBranchAssignmentBst.h"
+#include "AbsoluteErrorBranchAssignmentSort.h"
 #include "BranchAssignmentVariants.h"
 #include "MaeBranchConfig.h"
 
 #include <stdexcept>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 std::unique_ptr<BranchAssignment> makeBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
@@ -27,13 +34,21 @@ std::unique_ptr<BranchAssignment> makeBranchAssignment(
       throw std::invalid_argument(
           "makeBranchAssignment(AbsoluteError): maeLeafYs and maeLeafWs "
           "required");
-    if (mae_branch_config::backend() == mae_branch_config::Backend::Sort)
+    switch (mae_branch_config::backend()) {
+    case mae_branch_config::Backend::Sort:
       return std::make_unique<AbsoluteErrorBranchAssignmentSort>(
           assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights,
           leafSampleCounts);
-    return std::make_unique<AbsoluteErrorBranchAssignment>(
-        assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights,
-        leafSampleCounts);
+    case mae_branch_config::Backend::Bst:
+      return std::make_unique<AbsoluteErrorBranchAssignmentBst>(
+          assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights,
+          leafSampleCounts);
+    case mae_branch_config::Backend::Merge:
+    default:
+      return std::make_unique<AbsoluteErrorBranchAssignment>(
+          assignments, numPartitions, *maeLeafYs, *maeLeafWs, leafWeights,
+          leafSampleCounts);
+    }
   case LearningCriterion::SquaredError:
   case LearningCriterion::Entropy:
   case LearningCriterion::Gini:
@@ -45,6 +60,9 @@ std::unique_ptr<BranchAssignment> makeBranchAssignment(
         "makeBranchAssignment: unsupported learning criterion");
   }
 }
+
+#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
 
 std::unique_ptr<BranchAssignment> makeBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,

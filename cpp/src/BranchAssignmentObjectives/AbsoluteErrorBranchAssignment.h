@@ -2,71 +2,28 @@
 
 /**
  * @file AbsoluteErrorBranchAssignment.h
- * @brief MAE branch assignment with per-partition ``WeightedMAETree`` multisets.
+ * @brief Default MAE branch assignment: sorted bins + merge/filter partitions.
+ *
+ * Production AbsoluteError backend. Deprecated alternatives:
+ * ``AbsoluteErrorBranchAssignmentBst``, ``AbsoluteErrorBranchAssignmentSort``.
+ * Hot-swap via ``SGTLEARN_MAE_BACKEND`` (default ``merge``).
  */
 
 #include <cstddef>
 #include "BranchAssignment.h"
-#include "algorithms/WeightedMAETree.h"
 #include <vector>
 
 /**
- * Multi-output MAE branch-assignment objective: per-partition loss is the SUM
- * over outputs of the MAE about that output's median. Each partition/output
- * owns a ``WeightedMAETree``; ``addLeaf`` / ``removeLeaf`` batch-insert or
- * batch-erase that bin's ``(y, w)`` samples in ``O(K log N)``.
+ * Multi-output MAE using pre-sorted per-bin arrays and sorted partitions.
+ * Join: mergesort-style merge (``O(n + k)``). Leave: filter by source-bin id
+ * (``O(n)``). MAE uses ``Criterion::absoluteErrorPresorted``.
  */
 class AbsoluteErrorBranchAssignment : public BranchAssignment {
 public:
   AbsoluteErrorBranchAssignment(
       std::vector<size_t> &assignments, size_t numPartitions,
       std::vector<std::vector<std::vector<float>>> &leafYs,
-      std::vector<std::vector<float>> &leafWs,
-      std::vector<double> &leafWeights,
-      const std::vector<size_t> &leafSampleCounts);
-
-  double objective() override;
-
-  void addLeaf(size_t leaf, size_t partition) override;
-
-  void removeLeaf(size_t leaf) override;
-
-private:
-  std::vector<std::vector<std::vector<float>>> &leafYs_;
-  std::vector<std::vector<float>> &leafWs_;
-  std::vector<double> &leafWeights_;
-  size_t nOutputs_ = 0;
-
-  double weightedSumLoss_ = 0;
-  double sumNumberOfSamples_ = 0;
-
-  std::vector<double> partitionWeight_;
-  std::vector<double> partitionLoss_;
-  /** ``trees_[partition][output]``. */
-  std::vector<std::vector<WeightedMAETree>> trees_;
-
-  double computePartitionMae(size_t partition) const;
-
-  void insertLeafIntoPartition(size_t leaf, size_t partition);
-  void eraseLeafFromPartition(size_t leaf, size_t partition);
-
-  /** Valid partitions are [0, numPartitions); this marks a leaf not in any partition. */
-  static constexpr size_t kUnassignedPartition(size_t numPartitions) {
-    return numPartitions;
-  }
-};
-
-/**
- * Reference MAE branch assignment that re-sorts each affected partition on every
- * add/remove (original ``O(n log n)`` path). Kept for correctness / perf tests.
- */
-class AbsoluteErrorBranchAssignmentSort : public BranchAssignment {
-public:
-  AbsoluteErrorBranchAssignmentSort(
-      std::vector<size_t> &assignments, size_t numPartitions,
-      std::vector<std::vector<std::vector<float>>> &leafYs,
-      std::vector<std::vector<float>> &leafWs,
-      std::vector<double> &leafWeights,
+      std::vector<std::vector<float>> &leafWs, std::vector<double> &leafWeights,
       const std::vector<size_t> &leafSampleCounts);
 
   double objective() override;
@@ -85,12 +42,20 @@ private:
   std::vector<double> partitionWeight_;
   std::vector<double> partitionLoss_;
 
-  void collectPartitionSamples(size_t partition, size_t output,
-                               std::vector<float> &ys,
-                               std::vector<float> &ws) const;
-  double computePartitionMae(size_t partition) const;
+  std::vector<std::vector<std::vector<float>>> binYsSorted_;
+  std::vector<std::vector<std::vector<float>>> binWsSorted_;
 
-  static constexpr size_t kUnassignedPartition(size_t numPartitions) {
-    return numPartitions;
-  }
+  std::vector<std::vector<std::vector<float>>> partYs_;
+  std::vector<std::vector<std::vector<float>>> partWs_;
+  std::vector<std::vector<std::vector<size_t>>> partSrcBin_;
+
+  void buildSortedBin(size_t leaf);
+  void mergeLeafIntoPartition(size_t leaf, size_t partition);
+  void filterLeafFromPartition(size_t leaf, size_t partition);
+  double computePartitionMae(size_t partition) const;
 };
+
+/** @deprecated Prefer ``AbsoluteErrorBranchAssignment`` (merge is default). */
+using AbsoluteErrorBranchAssignmentMerge [[deprecated(
+    "Use AbsoluteErrorBranchAssignment; merge is the default backend")]] =
+    AbsoluteErrorBranchAssignment;

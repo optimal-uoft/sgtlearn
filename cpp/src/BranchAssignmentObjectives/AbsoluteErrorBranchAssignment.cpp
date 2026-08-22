@@ -1,56 +1,16 @@
 /**
  * @file AbsoluteErrorBranchAssignment.cpp
- * @brief MAE objectives: BST-backed (default) and sort-based (reference).
+ * @brief Default MAE branch assignment (sorted merge / filter).
  */
 
-#include <cstddef>
 #include "AbsoluteErrorBranchAssignment.h"
 
+#include "AbsoluteErrorBranchAssignmentCommon.h"
 #include "Criterion.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <stdexcept>
-
-namespace {
-
-void validateAbsoluteErrorInputs(
-    const std::vector<size_t> &assignments, size_t numPartitions,
-    const std::vector<std::vector<std::vector<float>>> &leafYs,
-    const std::vector<std::vector<float>> &leafWs,
-    const std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts, size_t &nOutputs) {
-  if (assignments.size() != leafYs.size() || leafYs.size() != leafWs.size() ||
-      leafYs.size() != leafWeights.size())
-    throw std::runtime_error(
-        "assignments, leafYs, leafWs, and leafWeights must have the same length");
-  if (leafSampleCounts.size() != leafYs.size())
-    throw std::runtime_error(
-        "leafSampleCounts must have the same length as bin statistics");
-
-  nOutputs = 0;
-  for (const auto &binOutputs : leafYs) {
-    if (!binOutputs.empty()) {
-      nOutputs = binOutputs.size();
-      break;
-    }
-  }
-
-  for (size_t i = 0; i < leafYs.size(); ++i) {
-    if (assignments[i] >= numPartitions)
-      throw std::runtime_error("assignments[i] must be a valid partition index");
-    for (const auto &outputYs : leafYs[i]) {
-      if (outputYs.size() != leafWs[i].size())
-        throw std::runtime_error(
-            "leafYs[i][o] and leafWs[i] must have the same length");
-    }
-  }
-}
-
-} // namespace
-
-// ---------------------------------------------------------------------------
-// BST-backed AbsoluteErrorBranchAssignment
-// ---------------------------------------------------------------------------
 
 AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
     std::vector<size_t> &assignments, size_t numPartitions,
@@ -60,22 +20,29 @@ AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
     : BranchAssignment(assignments, numPartitions, leafSampleCounts),
       leafYs_(leafYs), leafWs_(leafWs), leafWeights_(leafWeights) {
 
-  validateAbsoluteErrorInputs(assignments, numPartitions, leafYs, leafWs,
-                              leafWeights, leafSampleCounts, nOutputs_);
+  absolute_error_branch::validateInputs(assignments, numPartitions, leafYs,
+                                        leafWs, leafWeights, leafSampleCounts,
+                                        nOutputs_);
+
+  const size_t numLeaves = assignments.size();
+  binYsSorted_.assign(numLeaves, {});
+  binWsSorted_.assign(numLeaves, {});
+  for (size_t b = 0; b < numLeaves; ++b)
+    buildSortedBin(b);
 
   partitionWeight_.assign(numPartitions, 0.0);
   partitionLoss_.assign(numPartitions, 0.0);
-  trees_.resize(numPartitions);
-  for (size_t p = 0; p < numPartitions; ++p)
-    trees_[p].resize(nOutputs_);
+  partYs_.assign(numPartitions, std::vector<std::vector<float>>(nOutputs_));
+  partWs_.assign(numPartitions, std::vector<std::vector<float>>(nOutputs_));
+  partSrcBin_.assign(numPartitions,
+                     std::vector<std::vector<size_t>>(nOutputs_));
 
-  const size_t numLeaves = assignments.size();
   for (size_t b = 0; b < numLeaves; ++b) {
     if (assignments[b] >= numPartitions)
       continue;
     partitionWeight_[assignments[b]] += leafWeights_[b];
     partitionSampleCount_[assignments[b]] += leafSampleCounts_[b];
-    insertLeafIntoPartition(b, assignments[b]);
+    mergeLeafIntoPartition(b, assignments[b]);
   }
 
   for (size_t p = 0; p < numPartitions; ++p) {
@@ -85,34 +52,121 @@ AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
   }
 }
 
+void AbsoluteErrorBranchAssignment::buildSortedBin(size_t leaf) {
+  binYsSorted_[leaf].assign(nOutputs_, {});
+  binWsSorted_[leaf].assign(nOutputs_, {});
+  const auto &ws = leafWs_[leaf];
+  for (size_t o = 0; o < nOutputs_; ++o) {
+    if (o >= leafYs_[leaf].size())
+      continue;
+    const auto &ys = leafYs_[leaf][o];
+    const size_t n = ys.size();
+    std::vector<size_t> order(n);
+    for (size_t i = 0; i < n; ++i)
+      order[i] = i;
+    std::sort(order.begin(), order.end(),
+              [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
+    auto &ysOut = binYsSorted_[leaf][o];
+    auto &wsOut = binWsSorted_[leaf][o];
+    ysOut.resize(n);
+    wsOut.resize(n);
+    for (size_t i = 0; i < n; ++i) {
+      ysOut[i] = ys[order[i]];
+      wsOut[i] = ws[order[i]];
+    }
+  }
+}
+
+void AbsoluteErrorBranchAssignment::mergeLeafIntoPartition(size_t leaf,
+                                                           size_t partition) {
+  for (size_t o = 0; o < nOutputs_; ++o) {
+    const auto &binY = binYsSorted_[leaf][o];
+    const auto &binW = binWsSorted_[leaf][o];
+    auto &partY = partYs_[partition][o];
+    auto &partW = partWs_[partition][o];
+    auto &partSrc = partSrcBin_[partition][o];
+
+    if (binY.empty())
+      continue;
+    if (partY.empty()) {
+      partY = binY;
+      partW = binW;
+      partSrc.assign(binY.size(), leaf);
+      continue;
+    }
+
+    std::vector<float> outY;
+    std::vector<float> outW;
+    std::vector<size_t> outSrc;
+    outY.reserve(partY.size() + binY.size());
+    outW.reserve(partW.size() + binW.size());
+    outSrc.reserve(partSrc.size() + binY.size());
+
+    size_t i = 0;
+    size_t j = 0;
+    while (i < partY.size() && j < binY.size()) {
+      if (partY[i] <= binY[j]) {
+        outY.push_back(partY[i]);
+        outW.push_back(partW[i]);
+        outSrc.push_back(partSrc[i]);
+        ++i;
+      } else {
+        outY.push_back(binY[j]);
+        outW.push_back(binW[j]);
+        outSrc.push_back(leaf);
+        ++j;
+      }
+    }
+    while (i < partY.size()) {
+      outY.push_back(partY[i]);
+      outW.push_back(partW[i]);
+      outSrc.push_back(partSrc[i]);
+      ++i;
+    }
+    while (j < binY.size()) {
+      outY.push_back(binY[j]);
+      outW.push_back(binW[j]);
+      outSrc.push_back(leaf);
+      ++j;
+    }
+    partY.swap(outY);
+    partW.swap(outW);
+    partSrc.swap(outSrc);
+  }
+}
+
+void AbsoluteErrorBranchAssignment::filterLeafFromPartition(size_t leaf,
+                                                            size_t partition) {
+  for (size_t o = 0; o < nOutputs_; ++o) {
+    auto &partY = partYs_[partition][o];
+    auto &partW = partWs_[partition][o];
+    auto &partSrc = partSrcBin_[partition][o];
+    if (partY.empty())
+      continue;
+
+    std::vector<float> outY;
+    std::vector<float> outW;
+    std::vector<size_t> outSrc;
+    outY.reserve(partY.size());
+    outW.reserve(partW.size());
+    outSrc.reserve(partSrc.size());
+    for (size_t i = 0; i < partY.size(); ++i) {
+      if (partSrc[i] == leaf)
+        continue;
+      outY.push_back(partY[i]);
+      outW.push_back(partW[i]);
+      outSrc.push_back(partSrc[i]);
+    }
+    partY.swap(outY);
+    partW.swap(outW);
+    partSrc.swap(outSrc);
+  }
+}
+
 double AbsoluteErrorBranchAssignment::objective() {
   return sumNumberOfSamples_ > 0.0
              ? weightedSumLoss_ / static_cast<double>(sumNumberOfSamples_)
              : 0.0;
-}
-
-void AbsoluteErrorBranchAssignment::insertLeafIntoPartition(size_t leaf,
-                                                            size_t partition) {
-  if (nOutputs_ == 0)
-    return;
-  const auto &ws = leafWs_[leaf];
-  for (size_t o = 0; o < nOutputs_; ++o) {
-    if (o >= leafYs_[leaf].size())
-      continue;
-    trees_[partition][o].insert_batch(leafYs_[leaf][o], ws);
-  }
-}
-
-void AbsoluteErrorBranchAssignment::eraseLeafFromPartition(size_t leaf,
-                                                           size_t partition) {
-  if (nOutputs_ == 0)
-    return;
-  const auto &ws = leafWs_[leaf];
-  for (size_t o = 0; o < nOutputs_; ++o) {
-    if (o >= leafYs_[leaf].size())
-      continue;
-    trees_[partition][o].remove_batch(leafYs_[leaf][o], ws);
-  }
 }
 
 void AbsoluteErrorBranchAssignment::addLeaf(size_t leaf, size_t partition) {
@@ -122,7 +176,7 @@ void AbsoluteErrorBranchAssignment::addLeaf(size_t leaf, size_t partition) {
   partitionSampleCount_[partition] += leafSampleCounts_[leaf];
   sumNumberOfSamples_ += leafWeights_[leaf];
 
-  insertLeafIntoPartition(leaf, partition);
+  mergeLeafIntoPartition(leaf, partition);
 
   partitionLoss_[partition] = computePartitionMae(partition);
   weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
@@ -141,128 +195,20 @@ void AbsoluteErrorBranchAssignment::removeLeaf(size_t leaf) {
   partitionWeight_[partition] -= leafWeights_[leaf];
   partitionSampleCount_[partition] -= leafSampleCounts_[leaf];
 
-  eraseLeafFromPartition(leaf, partition);
+  filterLeafFromPartition(leaf, partition);
 
   partitionLoss_[partition] = computePartitionMae(partition);
   weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
 
-  assignments[leaf] = kUnassignedPartition(numPartitions);
+  assignments[leaf] = absolute_error_branch::unassignedPartition(numPartitions);
 }
 
 double
 AbsoluteErrorBranchAssignment::computePartitionMae(size_t partition) const {
   double total = 0.0;
   for (size_t o = 0; o < nOutputs_; ++o)
-    total += trees_[partition][o].mae();
-  return total;
-}
-
-// ---------------------------------------------------------------------------
-// Sort-based reference (original algorithm)
-// ---------------------------------------------------------------------------
-
-AbsoluteErrorBranchAssignmentSort::AbsoluteErrorBranchAssignmentSort(
-    std::vector<size_t> &assignments, size_t numPartitions,
-    std::vector<std::vector<std::vector<float>>> &leafYs,
-    std::vector<std::vector<float>> &leafWs, std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts)
-    : BranchAssignment(assignments, numPartitions, leafSampleCounts),
-      leafYs_(leafYs), leafWs_(leafWs), leafWeights_(leafWeights) {
-
-  validateAbsoluteErrorInputs(assignments, numPartitions, leafYs, leafWs,
-                              leafWeights, leafSampleCounts, nOutputs_);
-
-  partitionWeight_.assign(numPartitions, 0.0);
-  partitionLoss_.assign(numPartitions, 0.0);
-
-  const size_t numLeaves = assignments.size();
-  for (size_t b = 0; b < numLeaves; ++b) {
-    if (assignments[b] < numPartitions) {
-      partitionWeight_[assignments[b]] += leafWeights_[b];
-      partitionSampleCount_[assignments[b]] += leafSampleCounts_[b];
-    }
-  }
-
-  for (size_t p = 0; p < numPartitions; ++p) {
-    sumNumberOfSamples_ += partitionWeight_[p];
-    partitionLoss_[p] = computePartitionMae(p);
-    weightedSumLoss_ += partitionWeight_[p] * partitionLoss_[p];
-  }
-}
-
-double AbsoluteErrorBranchAssignmentSort::objective() {
-  return sumNumberOfSamples_ > 0.0
-             ? weightedSumLoss_ / static_cast<double>(sumNumberOfSamples_)
-             : 0.0;
-}
-
-void AbsoluteErrorBranchAssignmentSort::addLeaf(size_t leaf, size_t partition) {
-  weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
-
-  partitionWeight_[partition] += leafWeights_[leaf];
-  partitionSampleCount_[partition] += leafSampleCounts_[leaf];
-  sumNumberOfSamples_ += leafWeights_[leaf];
-  assignments[leaf] = partition;
-
-  partitionLoss_[partition] = computePartitionMae(partition);
-  weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
-}
-
-void AbsoluteErrorBranchAssignmentSort::removeLeaf(size_t leaf) {
-  const size_t partition = assignments[leaf];
-  if (partition >= numPartitions)
-    throw std::runtime_error(
-        "removeLeaf: leaf is not assigned to a valid partition");
-
-  weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
-  sumNumberOfSamples_ -= leafWeights_[leaf];
-  partitionWeight_[partition] -= leafWeights_[leaf];
-  partitionSampleCount_[partition] -= leafSampleCounts_[leaf];
-  assignments[leaf] = kUnassignedPartition(numPartitions);
-
-  partitionLoss_[partition] = computePartitionMae(partition);
-  weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
-}
-
-void AbsoluteErrorBranchAssignmentSort::collectPartitionSamples(
-    size_t partition, size_t output, std::vector<float> &ys,
-    std::vector<float> &ws) const {
-  ys.clear();
-  ws.clear();
-  for (size_t b = 0; b < assignments.size(); ++b) {
-    if (assignments[b] != partition)
-      continue;
-    if (output < leafYs_[b].size())
-      ys.insert(ys.end(), leafYs_[b][output].begin(), leafYs_[b][output].end());
-    ws.insert(ws.end(), leafWs_[b].begin(), leafWs_[b].end());
-  }
-}
-
-double
-AbsoluteErrorBranchAssignmentSort::computePartitionMae(size_t partition) const {
-  double total = 0.0;
-  std::vector<float> ys;
-  std::vector<float> ws;
-  for (size_t o = 0; o < nOutputs_; ++o) {
-    collectPartitionSamples(partition, o, ys, ws);
-    if (ys.size() <= 1) {
-      total += Criterion::absoluteError(ys, ws).mae;
-      continue;
-    }
-    std::vector<size_t> order(ys.size());
-    for (size_t i = 0; i < order.size(); ++i)
-      order[i] = i;
-    std::sort(order.begin(), order.end(),
-              [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
-    std::vector<float> ysSorted;
-    std::vector<float> wsSorted;
-    ysSorted.reserve(ys.size());
-    wsSorted.reserve(ws.size());
-    for (size_t idx : order) {
-      ysSorted.push_back(ys[idx]);
-      wsSorted.push_back(ws[idx]);
-    }
-    total += Criterion::absoluteError(ysSorted, wsSorted).mae;
-  }
+    total += Criterion::absoluteErrorPresorted(partYs_[partition][o],
+                                               partWs_[partition][o])
+                 .mae;
   return total;
 }

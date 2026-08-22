@@ -41,5 +41,12 @@ struct AbsoluteErrorStats {
 AbsoluteErrorStats absoluteError(const std::vector<float> &ys,
                                  const std::vector<float> &weights);
 
+/**
+ * Same as ``absoluteError`` but assumes ``ys`` are already sorted ascending
+ * (weights aligned). Skips the internal sort — used by merge/filter MAE CD.
+ */
+AbsoluteErrorStats absoluteErrorPresorted(const std::vector<float> &ys,
+                                          const std::vector<float> &weights);
+
 double gainAndHessian(const std::vector<float> &derivatives, double lambda);
 } // namespace Criterion

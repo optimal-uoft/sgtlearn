@@ -121,8 +121,13 @@ add_library(sgtlearn_core STATIC
         src/Estimators/RegressionShapeGeneralizedTree.h
         src/Estimators/RegressionShapeGeneralizedTree.cpp
         src/BranchAssignmentObjectives/BranchAssignment.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentCommon.h
         src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.h
         src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.cpp
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentBst.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentBst.cpp
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentSort.h
+        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentSort.cpp
         src/BranchAssignmentObjectives/MaeBranchConfig.h
         src/BranchAssignmentObjectives/LeafAggregateProcessor.h
         src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.h
