@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 from sklearn.base import RegressorMixin
 from sklearn.utils.validation import check_X_y
 
+from sgtlearn._multioutput import squeeze_outputs
 from sgtlearn.base import SGTRegressor
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
-from sgtlearn._multioutput import squeeze_outputs
 
 
 class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
@@ -102,8 +102,8 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         *,
         criterion: str = "squared_error",
         num_partitions: int = 2,
-        max_depth: Optional[int] = None,
-        max_leaf_nodes: Optional[int] = None,
+        max_depth: int | None = None,
+        max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
         inner_max_depth: int = 3,
@@ -113,13 +113,13 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
-        max_features: Optional[Union[int, float, str]] = "sqrt",
+        max_features: float | str | None = "sqrt",
         bootstrap: bool = True,
-        max_samples: Optional[Union[int, float]] = None,
-        random_state: Optional[Union[int, np.random.RandomState]] = None,
+        max_samples: float | None = None,
+        random_state: int | np.random.RandomState | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
-        n_jobs: Optional[int] = None,
+        n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
         super().__init__(

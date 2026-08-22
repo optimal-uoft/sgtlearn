@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 from sklearn.base import ClassifierMixin
@@ -114,8 +115,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         *,
         criterion: str = "gini",
         num_partitions: int = 2,
-        max_depth: Optional[int] = None,
-        max_leaf_nodes: Optional[int] = None,
+        max_depth: int | None = None,
+        max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
         inner_max_depth: int = 3,
@@ -125,16 +126,14 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
-        max_features: Optional[Union[int, float, str]] = "sqrt",
+        max_features: float | str | None = "sqrt",
         bootstrap: bool = True,
-        max_samples: Optional[Union[int, float]] = None,
-        random_state: Optional[Union[int, np.random.RandomState]] = None,
-        class_weight: Optional[
-            Union[Mapping[Any, float], Sequence[Mapping[Any, float]]]
-        ] = None,
+        max_samples: float | None = None,
+        random_state: int | np.random.RandomState | None = None,
+        class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
-        n_jobs: Optional[int] = None,
+        n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
         self.class_weight = class_weight
@@ -192,9 +191,9 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     def _prepare_sample_weight(
         self,
         y: np.ndarray,
-        sample_weight: Optional[np.ndarray],
+        sample_weight: np.ndarray | None,
         n_samples: int,
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         if self.class_weight is None:
             return super()._prepare_sample_weight(y, sample_weight, n_samples)
         return effective_sample_weight_classification(

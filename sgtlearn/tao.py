@@ -6,7 +6,7 @@ See :func:`TAO_refine`.
 
 from __future__ import annotations
 
-from typing import Optional, TypeVar, Union
+from typing import TypeVar
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
@@ -26,12 +26,12 @@ from sgtlearn._weights import (
 )
 from sgtlearn.base import BaseShapeCART, SGTClassifier, SGTRegressor
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
-from sgtlearn.ensemble.RandomSGForestClassifier import RandomSGForestClassifier
-from sgtlearn.ensemble.RandomSGForestRegressor import RandomSGForestRegressor
+from sgtlearn.ensemble.random_sgforest_classifier import RandomSGForestClassifier
+from sgtlearn.ensemble.random_sgforest_regressor import RandomSGForestRegressor
 
 __all__ = ["TAO_refine"]
 
-TaoModel = TypeVar("TaoModel", bound=Union[BaseShapeCART, RandomSGForest])
+TaoModel = TypeVar("TaoModel", bound=BaseShapeCART | RandomSGForest)
 
 
 def _tao_targets(model: TaoModel) -> list[SGTClassifier | SGTRegressor]:
@@ -110,7 +110,7 @@ def _prepare_tao_arrays(
     model: TaoModel,
     X: np.ndarray,
     y: np.ndarray,
-    sample_weight: Optional[np.ndarray],
+    sample_weight: np.ndarray | None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build ``(X32, y_native, sample_weights)`` shared by all trees in ``model``."""
     X32 = np.ascontiguousarray(X, dtype=np.float32)
@@ -157,11 +157,11 @@ def TAO_refine(
     X: np.ndarray,
     y: np.ndarray,
     *,
-    sample_weight: Optional[np.ndarray] = None,
+    sample_weight: np.ndarray | None = None,
     n_runs: int = 10,
     lambda_: float = 0.0,
     check_input: bool = True,
-    n_jobs: Optional[int] = None,
+    n_jobs: int | None = None,
 ) -> TaoModel:
     """Refine a fitted shape-generalized tree or forest in place with TAO.
 

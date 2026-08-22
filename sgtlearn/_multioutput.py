@@ -7,7 +7,8 @@ targets are always treated as ``(n_samples, n_outputs)``.
 
 from __future__ import annotations
 
-from typing import Any, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -15,10 +16,10 @@ from sklearn.preprocessing import LabelEncoder
 __all__ = [
     "as_output_matrix",
     "encode_classification_targets",
-    "unwrap_classifier_public_attrs",
     "label_encoders_as_list",
     "native_y_array",
     "squeeze_outputs",
+    "unwrap_classifier_public_attrs",
 ]
 
 
@@ -44,7 +45,7 @@ def as_output_matrix(y: Any) -> tuple[np.ndarray, int]:
 def encode_classification_targets(
     y: Any,
     *,
-    encoders: Union[None, LabelEncoder, Sequence[Any]] = None,
+    encoders: None | LabelEncoder | Sequence[Any] = None,
 ) -> tuple[np.ndarray, list[Any], list[np.ndarray], list[int]]:
     """Encode labels with one encoder per output.
 
@@ -75,13 +76,13 @@ def encode_classification_targets(
             cols.append(le.fit_transform(y2[:, o]))
             fitted.append(le)
             classes_list.append(np.asarray(le.classes_))
-            n_classes_list.append(int(len(le.classes_)))
+            n_classes_list.append(len(le.classes_))
         return np.column_stack(cols), fitted, classes_list, n_classes_list
 
     enc_list = label_encoders_as_list(encoders, n_outputs)
     cols = [enc_list[o].transform(y2[:, o]) for o in range(n_outputs)]
     classes_list = [np.asarray(enc_list[o].classes_) for o in range(n_outputs)]
-    n_classes_list = [int(len(c)) for c in classes_list]
+    n_classes_list = [len(c) for c in classes_list]
     return np.column_stack(cols), enc_list, classes_list, n_classes_list
 
 
@@ -112,9 +113,7 @@ def unwrap_classifier_public_attrs(
     )
 
 
-def label_encoders_as_list(
-    encoders: Union[Any, Sequence[Any]], n_outputs: int
-) -> list[Any]:
+def label_encoders_as_list(encoders: Any | Sequence[Any], n_outputs: int) -> list[Any]:
     """Normalize a scalar encoder or sequence to length ``n_outputs``."""
     if isinstance(encoders, (list, tuple)):
         enc_list = list(encoders)

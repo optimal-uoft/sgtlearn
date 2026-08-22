@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 __all__ = ["make_plus"]
@@ -14,7 +12,7 @@ def make_plus(
     *,
     grid: int = 3,
     margin: float = 0.05,
-    random_state: Optional[int] = None,
+    random_state: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate the "Plus Sign" dataset.
 

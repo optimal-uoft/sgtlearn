@@ -9,11 +9,13 @@ every leaf is drawn as a text box with the predicted class / value.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
+
 import numpy as np
 from matplotlib.patches import FancyArrowPatch
 
-__all__ = ["plot_tree", "export_graphviz", "export_text"]
+__all__ = ["export_graphviz", "export_text", "plot_tree"]
 
 import matplotlib.pyplot as plt
 from sklearn.utils.validation import check_is_fitted
@@ -198,7 +200,7 @@ def _merge_routing_regions(
     return regions
 
 
-def _route_samples(tree: dict, X) -> "dict[int, Any]":
+def _route_samples(tree: dict, X) -> dict[int, Any]:
     """Route ``X`` through the tree; return ``{node_id: column-indices}``.
 
     The returned array for each node lists the row indices of ``X`` that
@@ -273,7 +275,7 @@ def _route_samples(tree: dict, X) -> "dict[int, Any]":
 
 
 def _compute_layout_leafcounter(
-    tree: dict, max_depth: Optional[int]
+    tree: dict, max_depth: int | None
 ) -> dict[int, tuple[float, float]]:
     """Leaf-counter layout in axes coords [0, 1].
 
@@ -290,9 +292,7 @@ def _compute_layout_leafcounter(
         n = nodes_by_id[nid]
         if n["is_leaf"]:
             return True
-        if max_depth is not None and depth >= max_depth:
-            return True
-        return False
+        return bool(max_depth is not None and depth >= max_depth)
 
     x_int: dict[int, float] = {}
     counter = [0]
@@ -388,10 +388,10 @@ def _draw_leaf_text(
     node: dict,
     *,
     is_classifier: bool,
-    class_names: Optional[list[str]],
+    class_names: list[str] | None,
     criterion: str,
     precision: int,
-    fontsize: Optional[int],
+    fontsize: int | None,
     color,
     label: str,
     impurity: bool,
@@ -458,7 +458,7 @@ def _draw_internal_panel_categorical(
     palette,
     feat_names: list[str],
     X_rows: np.ndarray | None,
-    fontsize: Optional[int],
+    fontsize: int | None,
     label: str,
 ) -> list:
     cx, cy = center
@@ -551,7 +551,7 @@ def _draw_internal_panel(
     feat_names: list[str],
     n_hist_bins: int,
     precision: int,
-    fontsize: Optional[int],
+    fontsize: int | None,
     label: str,
 ) -> list:
     """Render a single internal node panel: slabs + optional fine histogram."""
@@ -663,16 +663,16 @@ def plot_tree(
     estimator: Any,
     *,
     X=None,
-    max_depth: Optional[int] = None,
-    feature_names: Optional[list[str]] = None,
-    class_names: Union[list[str], bool, None] = None,
+    max_depth: int | None = None,
+    feature_names: list[str] | None = None,
+    class_names: list[str] | bool | None = None,
     label: str = "feature",
     impurity: bool = False,
     proportion: bool = False,
     precision: int = 2,
     cmap: Any = _DEFAULT_PALETTE_COLORS,
-    ax: Optional[plt.Axes] = None,
-    fontsize: Optional[int] = None,
+    ax: plt.Axes | None = None,
+    fontsize: int | None = None,
     node_aspect_ratio: float = 2.5,
     n_hist_bins: int = 20,
 ) -> list[Any]:
@@ -719,7 +719,7 @@ def plot_tree(
     palette = _build_palette(cmap, tree["num_partitions"])
 
     is_classifier = isinstance(estimator, SGTClassifier)
-    resolved_class_names: Optional[list[str]]
+    resolved_class_names: list[str] | None
     if not is_classifier:
         resolved_class_names = None
     elif class_names is True:
