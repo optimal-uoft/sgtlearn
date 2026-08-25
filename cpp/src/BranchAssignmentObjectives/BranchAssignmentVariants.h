@@ -7,6 +7,8 @@
 
 #include <cstddef>
 #include "AbsoluteErrorBranchAssignment.h"
+#include "AbsoluteErrorBranchAssignmentBst.h"
+#include "AbsoluteErrorBranchAssignmentSort.h"
 #include "BranchAssignmentFactory.h"
 #include "LeafAggregationBranchAssignment.h"
 #include <memory>

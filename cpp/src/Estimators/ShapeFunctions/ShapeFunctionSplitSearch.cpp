@@ -11,6 +11,7 @@
 #include "BranchAssignmentObjectives/BranchAssignment.h"
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
 #include "BranchAssignmentObjectives/LeafAggregationBranchAssignment.h"
+#include "BranchAssignmentObjectives/MaeBranchConfig.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
 
@@ -43,6 +44,32 @@ void refineShapeBranchAssignmentNested(
   std::vector<size_t> rollback = snapshot;
   branchObj = makeBranchAssignment(criterion, rollback, k, stats, leafWeights,
                                    leafSampleCounts, classesPerOutput, nOutputs);
+}
+
+void refineShapeBranchAssignmentAbsoluteError(
+    std::unique_ptr<BranchAssignment> &branchObj, size_t k,
+    size_t numRoutingBins, const CoordinateDescentParams &cdParams,
+    std::mt19937_64 &rng,
+    std::vector<std::vector<std::vector<float>>> &maeLeafYs,
+    std::vector<std::vector<float>> &maeLeafWs,
+    std::vector<double> &leafWeights,
+    const std::vector<size_t> &leafSampleCounts) {
+  if (k >= numRoutingBins || !mae_branch_config::coordinateDescentEnabled())
+    return;
+
+  const std::vector<size_t> snapshot = branchObj->assignments;
+  const double objBeforeCd = branchObj->objective();
+  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience);
+  const double objAfterCd = branchObj->objective();
+  if (std::isfinite(objAfterCd) &&
+      objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
+    return;
+
+  std::vector<size_t> rollback = snapshot;
+  std::vector<std::vector<double>> dummyLeafStats(maeLeafYs.size());
+  branchObj = makeBranchAssignment(
+      LearningCriterion::AbsoluteError, rollback, k, dummyLeafStats, leafWeights,
+      leafSampleCounts, &maeLeafYs, &maeLeafWs);
 }
 
 void seedTrialBinAssignments(size_t k, size_t numRoutingBins,
@@ -147,6 +174,9 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
       branchObj = makeBranchAssignment(criterion, trialAssignments, k,
                                        dummyLeafStats, leafWeights, sizes,
                                        maeLeafYs, maeLeafWs);
+      refineShapeBranchAssignmentAbsoluteError(
+          branchObj, k, numRoutingBins, cdParams, rng, maeLeafYsStorage,
+          maeLeafWsStorage, leafWeights, sizes);
     } else {
       branchObj = makeBranchAssignment(criterion, trialAssignments, k, stats,
                                        leafWeights, sizes, classesPerOutput,

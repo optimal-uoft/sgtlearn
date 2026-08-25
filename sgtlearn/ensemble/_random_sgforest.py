@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from numbers import Integral
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
@@ -12,14 +13,12 @@ from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array, check_is_fitted
 
-from sgtlearn.base import _column_names_from_X, _configure_processed_features
 from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
+from sgtlearn.base import _column_names_from_X, _configure_processed_features
 
 
-def _n_samples_bootstrap(
-    n_samples: int, max_samples: Optional[Union[int, float]]
-) -> int:
+def _n_samples_bootstrap(n_samples: int, max_samples: float | None) -> int:
     if max_samples is None:
         return n_samples
     if isinstance(max_samples, Integral) and not isinstance(max_samples, bool):
@@ -32,7 +31,7 @@ def _n_samples_bootstrap(
     m = float(max_samples)
     if not (0.0 < m <= 1.0):
         raise ValueError("max_samples as float must be in (0.0, 1.0].")
-    return max(1, int(round(m * n_samples)))
+    return max(1, round(m * n_samples))
 
 
 def _parallel_fit_tree(
@@ -42,10 +41,10 @@ def _parallel_fit_tree(
     n_bootstrap: int,
     X: np.ndarray,
     y: np.ndarray,
-    sample_weight: Optional[np.ndarray],
+    sample_weight: np.ndarray | None,
     tree_kw: dict[str, Any],
     tree_factory: Any,
-    processed_features: Optional[ProcessedFeatures],
+    processed_features: ProcessedFeatures | None,
 ) -> Any:
     """Fit one bootstrapped (or full) base tree; module-level for ``joblib`` workers."""
     if bootstrap:
@@ -85,8 +84,8 @@ class RandomSGForest(BaseEstimator, ABC):
         *,
         criterion: str,
         num_partitions: int = 2,
-        max_depth: Optional[int] = None,
-        max_leaf_nodes: Optional[int] = None,
+        max_depth: int | None = None,
+        max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
         inner_max_depth: int = 3,
@@ -96,13 +95,13 @@ class RandomSGForest(BaseEstimator, ABC):
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
-        max_features: Optional[Union[int, float, str]] = None,
+        max_features: float | str | None = None,
         bootstrap: bool = True,
-        max_samples: Optional[Union[int, float]] = None,
-        random_state: Optional[Union[int, np.random.RandomState]] = None,
+        max_samples: float | None = None,
+        random_state: int | np.random.RandomState | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
-        n_jobs: Optional[int] = None,
+        n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
         self.n_estimators = int(n_estimators)
@@ -129,24 +128,24 @@ class RandomSGForest(BaseEstimator, ABC):
         self.verbose = int(verbose)
 
     def _tree_kwargs(self) -> dict[str, Any]:
-        return dict(
-            criterion=self.criterion,
-            num_partitions=self.num_partitions,
-            max_depth=self.max_depth,
-            max_leaf_nodes=self.max_leaf_nodes,
-            min_samples_leaf=self.min_samples_leaf,
-            min_impurity_decrease=self.min_impurity_decrease,
-            inner_max_depth=self.inner_max_depth,
-            inner_max_leaf_nodes=self.inner_max_leaf_nodes,
-            inner_min_samples_leaf=self.inner_min_samples_leaf,
-            inner_min_impurity_decrease=self.inner_min_impurity_decrease,
-            coordinate_descent_max_iters=self.coordinate_descent_max_iters,
-            coordinate_descent_patience=self.coordinate_descent_patience,
-            coordinate_descent_smart_init=self.coordinate_descent_smart_init,
-            max_features=self.max_features,
-            tao_n_runs=self.tao_n_runs,
-            tao_lambda=self.tao_lambda,
-        )
+        return {
+            "criterion": self.criterion,
+            "num_partitions": self.num_partitions,
+            "max_depth": self.max_depth,
+            "max_leaf_nodes": self.max_leaf_nodes,
+            "min_samples_leaf": self.min_samples_leaf,
+            "min_impurity_decrease": self.min_impurity_decrease,
+            "inner_max_depth": self.inner_max_depth,
+            "inner_max_leaf_nodes": self.inner_max_leaf_nodes,
+            "inner_min_samples_leaf": self.inner_min_samples_leaf,
+            "inner_min_impurity_decrease": self.inner_min_impurity_decrease,
+            "coordinate_descent_max_iters": self.coordinate_descent_max_iters,
+            "coordinate_descent_patience": self.coordinate_descent_patience,
+            "coordinate_descent_smart_init": self.coordinate_descent_smart_init,
+            "max_features": self.max_features,
+            "tao_n_runs": self.tao_n_runs,
+            "tao_lambda": self.tao_lambda,
+        }
 
     @abstractmethod
     def _check_X_y(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -159,9 +158,9 @@ class RandomSGForest(BaseEstimator, ABC):
     def _prepare_sample_weight(
         self,
         y: np.ndarray,
-        sample_weight: Optional[np.ndarray],
+        sample_weight: np.ndarray | None,
         n_samples: int,
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """Return per-sample weights for tree fitting (subclasses may apply class weights)."""
         return normalize_sample_weight(sample_weight, n_samples)
 
@@ -169,10 +168,10 @@ class RandomSGForest(BaseEstimator, ABC):
         self,
         X: np.ndarray,
         y: np.ndarray,
-        sample_weight: Optional[np.ndarray] = None,
+        sample_weight: np.ndarray | None = None,
         *,
-        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
-        processed_features: Optional[ProcessedFeatures] = None,
+        feature_dict: Mapping[int | str, Sequence[int | str]] | None = None,
+        processed_features: ProcessedFeatures | None = None,
     ) -> RandomSGForest:
         """Fit the forest on ``X`` and targets ``y``.
 

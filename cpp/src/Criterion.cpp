@@ -69,40 +69,34 @@ double Criterion::squaredError(
 }
 
 Criterion::AbsoluteErrorStats
-Criterion::absoluteError(const std::vector<float> &ys,
-                         const std::vector<float> &weights) {
+Criterion::absoluteErrorPresorted(const std::vector<float> &ys,
+                                  const std::vector<float> &weights) {
   AbsoluteErrorStats out;
   const size_t n = ys.size();
   if (n == 0 || n != weights.size())
     return out;
 
-  std::vector<std::pair<double, double>> pairs;
-  pairs.reserve(n);
   for (size_t i = 0; i < n; ++i) {
     const double w = static_cast<double>(weights[i]);
     if (w < 0.0)
-      return out;
-    pairs.emplace_back(static_cast<double>(ys[i]), w);
+      return AbsoluteErrorStats{};
     out.totalWeight += w;
   }
   if (out.totalWeight <= 0.0)
     return out;
 
-  std::sort(pairs.begin(), pairs.end(),
-            [](const auto &a, const auto &b) { return a.first < b.first; });
-
   const double half = 0.5 * out.totalWeight;
   double wLeft = 0.0;
   double wyLeft = 0.0;
   double totalWy = 0.0;
-  for (const auto &[y, w] : pairs)
-    totalWy += w * y;
+  for (size_t i = 0; i < n; ++i)
+    totalWy += static_cast<double>(weights[i]) * static_cast<double>(ys[i]);
 
-  int medianRank = static_cast<int>(pairs.size()) - 1;
+  int medianRank = static_cast<int>(n) - 1;
   int medianPrevRank = medianRank > 0 ? medianRank - 1 : -1;
   bool found = false;
-  for (size_t rank = 0; rank < pairs.size(); ++rank) {
-    const double w = pairs[rank].second;
+  for (size_t rank = 0; rank < n; ++rank) {
+    const double w = static_cast<double>(weights[rank]);
     if (wLeft + w > half) {
       medianRank = static_cast<int>(rank);
       medianPrevRank = rank > 0 ? static_cast<int>(rank - 1) : -1;
@@ -110,18 +104,19 @@ Criterion::absoluteError(const std::vector<float> &ys,
       break;
     }
     wLeft += w;
-    wyLeft += w * pairs[rank].first;
+    wyLeft += w * static_cast<double>(ys[rank]);
   }
   if (!found) {
-    wLeft = out.totalWeight - pairs.back().second;
-    wyLeft = totalWy - pairs.back().second * pairs.back().first;
+    const double wLast = static_cast<double>(weights.back());
+    wLeft = out.totalWeight - wLast;
+    wyLeft = totalWy - wLast * static_cast<double>(ys.back());
   }
 
   if (medianPrevRank >= 0 && std::fabs(wLeft - half) <= 1e-12) {
-    out.median = 0.5 * (pairs[static_cast<size_t>(medianPrevRank)].first +
-                        pairs[static_cast<size_t>(medianRank)].first);
+    out.median = 0.5 * (static_cast<double>(ys[static_cast<size_t>(medianPrevRank)]) +
+                        static_cast<double>(ys[static_cast<size_t>(medianRank)]));
   } else {
-    out.median = pairs[static_cast<size_t>(medianRank)].first;
+    out.median = static_cast<double>(ys[static_cast<size_t>(medianRank)]);
   }
 
   const double wRight = out.totalWeight - wLeft;
@@ -130,6 +125,30 @@ Criterion::absoluteError(const std::vector<float> &ys,
                          (out.median * wLeft - wyLeft);
   out.mae = pinball / out.totalWeight;
   return out;
+}
+
+Criterion::AbsoluteErrorStats
+Criterion::absoluteError(const std::vector<float> &ys,
+                         const std::vector<float> &weights) {
+  AbsoluteErrorStats out;
+  const size_t n = ys.size();
+  if (n == 0 || n != weights.size())
+    return out;
+
+  std::vector<float> ysSorted;
+  std::vector<float> wsSorted;
+  ysSorted.reserve(n);
+  wsSorted.reserve(n);
+  std::vector<size_t> order(n);
+  for (size_t i = 0; i < n; ++i)
+    order[i] = i;
+  std::sort(order.begin(), order.end(),
+            [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
+  for (size_t idx : order) {
+    ysSorted.push_back(ys[idx]);
+    wsSorted.push_back(weights[idx]);
+  }
+  return absoluteErrorPresorted(ysSorted, wsSorted);
 }
 
 double Criterion::gainAndHessian(const std::vector<float> &derivatives,

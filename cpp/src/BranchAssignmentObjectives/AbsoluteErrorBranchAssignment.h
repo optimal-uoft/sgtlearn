@@ -2,7 +2,11 @@
 
 /**
  * @file AbsoluteErrorBranchAssignment.h
- * @brief MAE branch assignment using per-leaf raw ``y`` samples and partition medians.
+ * @brief Default MAE branch assignment: sorted bins + merge/filter partitions.
+ *
+ * Production AbsoluteError backend. Deprecated alternatives:
+ * ``AbsoluteErrorBranchAssignmentBst``, ``AbsoluteErrorBranchAssignmentSort``.
+ * Hot-swap via ``SGTLEARN_MAE_BACKEND`` (default ``merge``).
  */
 
 #include <cstddef>
@@ -10,26 +14,20 @@
 #include <vector>
 
 /**
- * Multi-output MAE branch-assignment objective: per-partition loss is the SUM
- * over outputs of the MAE about that output's median over the y values in the
- * partition. Holds raw per-leaf, per-output y samples (``leafYs[bin][output]``)
- * with per-sample weights shared across outputs (``leafWs[bin]``); add/remove
- * recomputes the summed MAE for the affected partition(s). Single-output
- * matches the old scalar path.
+ * Multi-output MAE using pre-sorted per-bin arrays and sorted partitions.
+ * Join: mergesort-style merge (``O(n + k)``). Leave: filter by source-bin id
+ * (``O(n)``). MAE uses ``Criterion::absoluteErrorPresorted``.
  */
 class AbsoluteErrorBranchAssignment : public BranchAssignment {
 public:
   AbsoluteErrorBranchAssignment(
       std::vector<size_t> &assignments, size_t numPartitions,
       std::vector<std::vector<std::vector<float>>> &leafYs,
-      std::vector<std::vector<float>> &leafWs,
-      std::vector<double> &leafWeights,
+      std::vector<std::vector<float>> &leafWs, std::vector<double> &leafWeights,
       const std::vector<size_t> &leafSampleCounts);
 
   double objective() override;
-
   void addLeaf(size_t leaf, size_t partition) override;
-
   void removeLeaf(size_t leaf) override;
 
 private:
@@ -40,18 +38,24 @@ private:
 
   double weightedSumLoss_ = 0;
   double sumNumberOfSamples_ = 0;
-  bool allLeavesAssigned_ = true;
 
   std::vector<double> partitionWeight_;
   std::vector<double> partitionLoss_;
 
-  void collectPartitionSamples(size_t partition, size_t output,
-                               std::vector<float> &ys,
-                               std::vector<float> &ws) const;
-  double computePartitionMae(size_t partition) const;
+  std::vector<std::vector<std::vector<float>>> binYsSorted_;
+  std::vector<std::vector<std::vector<float>>> binWsSorted_;
 
-  /** Valid partitions are [0, numPartitions); this marks a leaf not in any partition. */
-  static constexpr size_t kUnassignedPartition(size_t numPartitions) {
-    return numPartitions;
-  }
+  std::vector<std::vector<std::vector<float>>> partYs_;
+  std::vector<std::vector<std::vector<float>>> partWs_;
+  std::vector<std::vector<std::vector<size_t>>> partSrcBin_;
+
+  void buildSortedBin(size_t leaf);
+  void mergeLeafIntoPartition(size_t leaf, size_t partition);
+  void filterLeafFromPartition(size_t leaf, size_t partition);
+  double computePartitionMae(size_t partition) const;
 };
+
+/** @deprecated Prefer ``AbsoluteErrorBranchAssignment`` (merge is default). */
+using AbsoluteErrorBranchAssignmentMerge [[deprecated(
+    "Use AbsoluteErrorBranchAssignment; merge is the default backend")]] =
+    AbsoluteErrorBranchAssignment;

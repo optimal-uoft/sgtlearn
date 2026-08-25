@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
+from ShapeGeneralizedTrees import (
+    ClassificationShapeGeneralizedTree,
+    RegressionShapeGeneralizedTree,
+)
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
+from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from sgtlearn._features import ProcessedFeatures, configure_feature_dict
@@ -19,20 +25,15 @@ from sgtlearn._multioutput import (
     unwrap_classifier_public_attrs,
 )
 from sgtlearn._weights import (
-    normalize_sample_weight,
     effective_sample_weight_classification,
+    normalize_sample_weight,
 )
-from ShapeGeneralizedTrees import (
-    ClassificationShapeGeneralizedTree,
-    RegressionShapeGeneralizedTree,
-)
-from sklearn.preprocessing import LabelEncoder
 
 __all__ = [
     "BaseShapeCART",
+    "ProcessedFeatures",
     "SGTClassifier",
     "SGTRegressor",
-    "ProcessedFeatures",
     "configure_feature_dict",
 ]
 
@@ -73,7 +74,7 @@ class _IdentityLabelEncoder(LabelEncoder):
     def __init__(self, classes_: np.ndarray) -> None:
         self.classes_ = np.asarray(classes_)
 
-    def fit(self, y: np.ndarray) -> "_IdentityLabelEncoder":
+    def fit(self, y: np.ndarray) -> _IdentityLabelEncoder:
         raise NotImplementedError(
             "_IdentityLabelEncoder is built with preset classes_; "
             "fit the enclosing meta-estimator instead."
@@ -293,8 +294,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         *,
         criterion: str = "gini",
         num_partitions: int = 2,
-        max_depth: Optional[int] = None,
-        max_leaf_nodes: Optional[int] = None,
+        max_depth: int | None = None,
+        max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
         inner_max_depth: int = 3,
@@ -304,11 +305,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
-        random_state: Optional[int] = 42,
-        max_features: Optional[Union[int, float, str]] = None,
-        class_weight: Optional[
-            Union[Mapping[Any, float], Sequence[Mapping[Any, float]]]
-        ] = None,
+        random_state: int | None = 42,
+        max_features: float | str | None = None,
+        class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
     ) -> None:
@@ -334,22 +333,22 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.tao_lambda = tao_lambda
         self._est: Any = None
         self._le: Any = None
-        self.classes_: Optional[Any] = None
-        self.n_classes_: Optional[Any] = None
+        self.classes_: Any | None = None
+        self.n_classes_: Any | None = None
         self.n_outputs_: int = 1
-        self.n_features_in_: Optional[int] = None
-        self.feature_names_in_: Optional[np.ndarray] = None
+        self.n_features_in_: int | None = None
+        self.feature_names_in_: np.ndarray | None = None
 
     def fit(
         self,
         X: np.ndarray,
         y: np.ndarray,
-        sample_weight: Optional[np.ndarray] = None,
+        sample_weight: np.ndarray | None = None,
         *,
-        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
-        processed_features: Optional[ProcessedFeatures] = None,
+        feature_dict: Mapping[int | str, Sequence[int | str]] | None = None,
+        processed_features: ProcessedFeatures | None = None,
         check_input: bool = True,
-    ) -> "SGTClassifier":
+    ) -> SGTClassifier:
         """Fit the tree on ``X`` and class labels ``y``.
 
         Parameters
@@ -438,7 +437,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             if y_enc.shape[0] != X.shape[0]:
                 raise ValueError("X and y must have the same number of samples.")
 
-        sw: Optional[np.ndarray] = None
+        sw: np.ndarray | None = None
         if self.class_weight is not None:
             sw = effective_sample_weight_classification(
                 sample_weight, y_enc, self.class_weight, self.classes_
@@ -449,7 +448,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
-        self.feature_names_in_: Optional[np.ndarray] = (
+        self.feature_names_in_: np.ndarray | None = (
             np.asarray(column_names, dtype=object) if column_names is not None else None
         )
 
@@ -682,8 +681,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         *,
         criterion: str = "squared_error",
         num_partitions: int = 2,
-        max_depth: Optional[int] = None,
-        max_leaf_nodes: Optional[int] = None,
+        max_depth: int | None = None,
+        max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
         inner_max_depth: int = 3,
@@ -693,8 +692,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
         coordinate_descent_smart_init: bool = True,
-        random_state: Optional[int] = 42,
-        max_features: Optional[Union[int, float, str]] = None,
+        random_state: int | None = 42,
+        max_features: float | str | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
     ) -> None:
@@ -717,19 +716,19 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.tao_lambda = tao_lambda
         self._est: Any = None
         self.n_outputs_: int = 1
-        self.n_features_in_: Optional[int] = None
-        self.feature_names_in_: Optional[np.ndarray] = None
+        self.n_features_in_: int | None = None
+        self.feature_names_in_: np.ndarray | None = None
 
     def fit(
         self,
         X: np.ndarray,
         y: np.ndarray,
-        sample_weight: Optional[np.ndarray] = None,
+        sample_weight: np.ndarray | None = None,
         *,
-        feature_dict: Optional[Mapping[int | str, Sequence[int | str]]] = None,
-        processed_features: Optional[ProcessedFeatures] = None,
+        feature_dict: Mapping[int | str, Sequence[int | str]] | None = None,
+        processed_features: ProcessedFeatures | None = None,
         check_input: bool = True,
-    ) -> "SGTRegressor":
+    ) -> SGTRegressor:
         """Fit the tree on ``X`` and continuous targets ``y``.
 
         Parameters
@@ -776,7 +775,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
-        self.feature_names_in_: Optional[np.ndarray] = (
+        self.feature_names_in_: np.ndarray | None = (
             np.asarray(column_names, dtype=object) if column_names is not None else None
         )
 

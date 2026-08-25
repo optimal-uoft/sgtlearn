@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, MutableMapping, Sequence
+from typing import Any
 
 FeatureInfoDict = dict[str, Any]
 FeatureDict = Mapping[int | str, Sequence[int | str]]

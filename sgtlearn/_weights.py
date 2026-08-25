@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping as ABCMapping, Sequence as ABCSequence
-from typing import Any, Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from collections.abc import Mapping as ABCMapping
+from collections.abc import Sequence as ABCSequence
+from typing import Any
 
 import numpy as np
 
 from sgtlearn._multioutput import as_output_matrix
 
 __all__ = [
-    "normalize_sample_weight",
     "effective_sample_weight_classification",
+    "normalize_sample_weight",
 ]
 
 
@@ -28,8 +30,8 @@ def _validate_sample_weight_array(sw: np.ndarray, n_samples: int) -> None:
 
 
 def normalize_sample_weight(
-    sample_weight: Optional[np.ndarray], n_samples: int
-) -> Optional[np.ndarray]:
+    sample_weight: np.ndarray | None, n_samples: int
+) -> np.ndarray | None:
     """Validated float64 weights for tree ``fit``, or ``None`` for uniform weighting."""
     if sample_weight is None:
         return None
@@ -60,10 +62,10 @@ def _per_class_multiplier(
 
 
 def effective_sample_weight_classification(
-    sample_weight: Optional[np.ndarray],
+    sample_weight: np.ndarray | None,
     y_enc: np.ndarray,
-    class_weight: Union[Mapping[Any, float], Sequence[Mapping[Any, float]]],
-    classes_: Union[np.ndarray, Sequence[np.ndarray]],
+    class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]],
+    classes_: np.ndarray | Sequence[np.ndarray],
 ) -> np.ndarray:
     """``sample_weight * class_weight[y]`` in encoded label space.
 
@@ -94,7 +96,7 @@ def effective_sample_weight_classification(
                 f"output ({n_outputs}); got {len(cw_list)}"
             )
     else:
-        raise ValueError("class_weight must be a mapping or a sequence of mappings")
+        raise TypeError("class_weight must be a mapping or a sequence of mappings")
 
     n = y2.shape[0]
     if sample_weight is None:

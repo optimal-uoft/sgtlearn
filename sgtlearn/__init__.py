@@ -4,29 +4,29 @@ The heavy lifting lives in optional native extensions (``ShapeGeneralizedTrees``
 ``Discretizers``). Import ``SGTClassifier`` from this package for the sklearn-style API.
 """
 
+from sgtlearn import tao
+from sgtlearn._export import export_graphviz, export_text, plot_tree
 from sgtlearn.base import (
     BaseShapeCART,
+    ProcessedFeatures,
     SGTClassifier,
     SGTRegressor,
-    ProcessedFeatures,
     configure_feature_dict,
 )
-from sgtlearn.ensemble import RandomSGForestClassifier, RandomSGForestRegressor
-from sgtlearn._export import export_graphviz, export_text, plot_tree
 from sgtlearn.datasets import make_plus
-from sgtlearn import tao
+from sgtlearn.ensemble import RandomSGForestClassifier, RandomSGForestRegressor
 
 __all__ = [
     "BaseShapeCART",
-    "SGTClassifier",
-    "SGTRegressor",
     "ProcessedFeatures",
-    "configure_feature_dict",
     "RandomSGForestClassifier",
     "RandomSGForestRegressor",
+    "SGTClassifier",
+    "SGTRegressor",
+    "configure_feature_dict",
     "export_graphviz",
     "export_text",
-    "plot_tree",
     "make_plus",
+    "plot_tree",
     "tao",
 ]
