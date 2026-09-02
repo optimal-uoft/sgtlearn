@@ -24,7 +24,7 @@ package root as ``sgtlearn.tao``):
 TAO parameters on estimators
 ----------------------------
 
-All four public tree estimators accept the same two constructor / ``fit``-time
+All four public tree estimators accept the same three constructor / ``fit``-time
 TAO knobs:
 
 ``tao_n_runs`` : int, default=10
@@ -37,8 +37,14 @@ TAO knobs:
     ``tao_lambda * n_samples`` in weighted reward units to be accepted. With the
     default ``0.0``, weighted training accuracy / loss does not decrease.
 
-These map directly to the keyword arguments of :func:`~sgtlearn.tao.TAO_refine`
-(``n_runs`` and ``lambda_``).
+``tao_pair_scale`` : float, default=1.1
+    Finite, non-negative multiplier for the TAO complexity penalty of a
+    retained bivariate candidate. It applies only to that TAO penalty and
+    never reuses ``pairwise_penalty``. TAO only reconsiders pairs retained by
+    the node's initial pair screening; it does not search new pairs.
+
+These map directly to ``n_runs``, ``lambda_``, and ``tao_pair_scale`` on
+:func:`~sgtlearn.tao.TAO_refine`.
 
 Supported estimators
 ~~~~~~~~~~~~~~~~~~~~

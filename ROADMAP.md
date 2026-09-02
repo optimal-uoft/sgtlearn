@@ -17,6 +17,12 @@
 - [x] **NaN routing at predict**: if training saw missing at that split, follow the stored direction; otherwise route to the majority child.
 
 ## v0.3.0
-- [ ] multioutput support
-- [ ] Shape$^2$CART
-- [ ] Shape$^2$CART Random Forest Ensembling  
+- [x] multioutput support
+- [x] Opt-in Shape$^2$CART for SGT estimators, including continuous/categorical
+  pairs, joint missing routing, and multiway branching
+- [x] Shape$^2$CART Random Forest Ensembling
+- [x] Pair-aware TAO refinement ([#48](https://github.com/optimal-uoft/sgtlearn/issues/48))
+- [x] Shape$^2$CART routing heatmap visualization ([#28](https://github.com/optimal-uoft/sgtlearn/issues/28))
+
+See the implementation specification in [#42](https://github.com/optimal-uoft/sgtlearn/issues/42)
+and the umbrella issue [#27](https://github.com/optimal-uoft/sgtlearn/issues/27).

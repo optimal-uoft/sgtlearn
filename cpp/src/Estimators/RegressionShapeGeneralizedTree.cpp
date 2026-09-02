@@ -13,6 +13,7 @@
 #include "Estimators/RegressionShapeGeneralizedTree.h"
 
 #include "Criterion.h"
+#include "Discretizers/pair/PairRegressionDiscretizer.h"
 #include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/RegressionDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
@@ -65,19 +66,77 @@ PartitionMoments aggregatePartitionFromBins(
   return out;
 }
 
+double crossedRegressionImpurity(
+    const std::vector<size_t> &firstPartitions, size_t firstK,
+    const std::vector<size_t> &secondPartitions, size_t secondK,
+    const arma::Mat<float> &y, const arma::Row<float> &weights,
+    LearningCriterion criterion, size_t nOutputs) {
+  const size_t numCells = firstK * secondK;
+  std::vector<double> cellWeights(numCells, 0.0);
+  double totalWeight = 0.0;
+  for (size_t sample = 0; sample < firstPartitions.size(); ++sample) {
+    const size_t cell = firstPartitions[sample] * secondK + secondPartitions[sample];
+    const double w = weights(sample);
+    cellWeights[cell] += w;
+    totalWeight += w;
+  }
+  if (totalWeight <= 0.0)
+    return 0.0;
+
+  if (criterion == LearningCriterion::SquaredError) {
+    std::vector<std::vector<std::vector<double>>> stats(
+        numCells, std::vector<std::vector<double>>(nOutputs,
+                                                    std::vector<double>(2, 0.0)));
+    for (size_t sample = 0; sample < firstPartitions.size(); ++sample) {
+      const size_t cell = firstPartitions[sample] * secondK + secondPartitions[sample];
+      const double w = weights(sample);
+      for (size_t o = 0; o < nOutputs; ++o) {
+        const double value = y(o, sample);
+        stats[cell][o][0] += w * value;
+        stats[cell][o][1] += w * value * value;
+      }
+    }
+    double result = 0.0;
+    for (size_t cell = 0; cell < numCells; ++cell)
+      result += cellWeights[cell] / totalWeight *
+                Criterion::squaredError(stats[cell], cellWeights[cell]);
+    return result;
+  }
+
+  std::vector<std::vector<std::vector<float>>> cellYs(
+      numCells, std::vector<std::vector<float>>(nOutputs));
+  std::vector<std::vector<float>> cellWs(numCells);
+  for (size_t sample = 0; sample < firstPartitions.size(); ++sample) {
+    const size_t cell = firstPartitions[sample] * secondK + secondPartitions[sample];
+    cellWs[cell].push_back(weights(sample));
+    for (size_t o = 0; o < nOutputs; ++o)
+      cellYs[cell][o].push_back(y(o, sample));
+  }
+  double result = 0.0;
+  for (size_t cell = 0; cell < numCells; ++cell) {
+    double cellImpurity = 0.0;
+    for (size_t o = 0; o < nOutputs; ++o)
+      cellImpurity += Criterion::absoluteError(cellYs[cell][o], cellWs[cell]).mae;
+    result += cellWeights[cell] / totalWeight * cellImpurity;
+  }
+  return result;
+}
+
 } // namespace
 
 RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
     LearningCriterion criterion, size_t numPartitions,
     TreeBuildingParams outerParams, TreeBuildingParams innerParams,
     CoordinateDescentParams cdParams, uint64_t random_state,
-    FeatureBaggingPickFn featureBagging)
+    FeatureBaggingPickFn featureBagging, size_t pairwiseCandidates,
+    double pairwisePenalty)
     : ShapeGeneralizedTree(criterion, numPartitions, outerParams, innerParams),
       cdParams_(cdParams),
       random_state_(random_state), rng_(),
       featureBagging_(featureBagging
                           ? std::move(featureBagging)
                           : FeatureBaggingPickFn(pickAllFeatureIndices)),
+      pairwiseCandidates_(pairwiseCandidates), pairwisePenalty_(pairwisePenalty),
       outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
                         outerParams_.maxDepth, outerParams_.maxLeafNodes) {
   if (criterion != LearningCriterion::SquaredError &&
@@ -88,6 +147,14 @@ RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
   if (numPartitions < 2)
     throw std::invalid_argument(
         "RegressionShapeGeneralizedTree: numPartitions must be >= 2");
+  if (!std::isfinite(pairwisePenalty_) || pairwisePenalty_ < 0.0)
+    throw std::invalid_argument("pairwise_penalty must be finite and non-negative");
+}
+
+bool RegressionShapeGeneralizedTree::hasPairNodes() const {
+  return std::any_of(nodes_.begin(), nodes_.end(), [](const ShapeFunctionNode &node) {
+    return !node.isLeaf && node.logicalFeatureIndices.size() == 2;
+  });
 }
 
 
@@ -279,6 +346,22 @@ void RegressionShapeGeneralizedTree::fit(
 
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
         ShapeBestBranchingState best{};
+        const arma::Row<float> wsub =
+            subSampleWeights(fitSampleWeights_, subIdx);
+        struct UnivariateProxy {
+          size_t logicalIndex;
+          size_t numPartitions;
+          double childImpurity;
+          std::vector<size_t> partitions;
+        };
+        std::vector<UnivariateProxy> univariateProxies;
+        std::vector<RetainedPairCandidate> retainedPairCandidates;
+
+        const auto addNoSplitProxy = [&univariateProxies, xSubCols,
+                                      parentImp](size_t logicalIdx) {
+          univariateProxies.push_back(
+              {logicalIdx, 1, parentImp, std::vector<size_t>(xSubCols, 0)});
+        };
 
         const auto applyTaskFields =
             [this](ShapeBestBranchingState &state,
@@ -295,16 +378,16 @@ void RegressionShapeGeneralizedTree::fit(
           const size_t logicalIdx = featureSubset[fi];
           const FeatureInfo &feature = features_[logicalIdx];
 
-          const arma::Row<float> wsub =
-              subSampleWeights(fitSampleWeights_, subIdx);
-
           auto disc = makeRegressionDiscretizer(criterion_, feature);
           trainRegressionDiscretizer(
               *disc, feature, Xsub, ysub, innerParams_.minLeafSize,
               innerParams_.minGainSplit, innerParams_.maxDepth,
               innerParams_.maxLeafNodes, wsub);
-          if (disc->numLeaves() < 2)
+          if (disc->numLeaves() < 2) {
+            if (pairwiseCandidates_ > 0)
+              addNoSplitProxy(logicalIdx);
             continue;
+          }
 
           const ShapeBranchAssignmentSearchResult featureBest =
               searchShapeBranchAssignmentFromDiscretizer(
@@ -316,14 +399,100 @@ void RegressionShapeGeneralizedTree::fit(
                   criterion_ == LearningCriterion::AbsoluteError ? &wsub
                                                                    : nullptr,
                   xSubCols);
-          if (!featureBest.found)
+          if (!featureBest.found) {
+            if (pairwiseCandidates_ > 0)
+              addNoSplitProxy(logicalIdx);
             continue;
+          }
+
+          if (pairwiseCandidates_ > 0) {
+            std::vector<size_t> partitions(xSubCols, 0);
+            const auto &perBin = disc->inSampleDiscretizations();
+            for (size_t bin = 0; bin < perBin.size(); ++bin)
+              for (size_t sample : perBin[bin])
+                partitions[sample] = featureBest.assignments[bin];
+            univariateProxies.push_back(
+                {logicalIdx, featureBest.chosenK,
+                 parentImp - featureBest.impurityDecrease,
+                 std::move(partitions)});
+          }
 
           featureHasBetterShapeBranching(
               featureBest, best, logicalIdx, xSubCols, feature.indices,
               std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
                   std::move(disc)),
               outerTreeBuilder_.eps, applyTaskFields);
+        }
+
+        if (pairwiseCandidates_ > 0 && univariateProxies.size() >= 2) {
+          std::sort(univariateProxies.begin(), univariateProxies.end(),
+                    [](const UnivariateProxy &a, const UnivariateProxy &b) {
+                      return a.logicalIndex < b.logicalIndex;
+                    });
+          struct PairProxy {
+            double score;
+            size_t first;
+            size_t second;
+          };
+          const auto proxyLess = [](const PairProxy &a, const PairProxy &b) {
+            if (a.score != b.score)
+              return a.score < b.score;
+            if (a.first != b.first)
+              return a.first < b.first;
+            return a.second < b.second;
+          };
+          std::vector<PairProxy> retained;
+          for (size_t i = 0; i + 1 < univariateProxies.size(); ++i) {
+            for (size_t j = i + 1; j < univariateProxies.size(); ++j) {
+              const double crossed = crossedRegressionImpurity(
+                  univariateProxies[i].partitions, univariateProxies[i].numPartitions,
+                  univariateProxies[j].partitions, univariateProxies[j].numPartitions,
+                  ysub, wsub, criterion_, nOutputs_);
+              retained.push_back(
+                  {crossed - std::min(univariateProxies[i].childImpurity,
+                                      univariateProxies[j].childImpurity),
+                   univariateProxies[i].logicalIndex,
+                   univariateProxies[j].logicalIndex});
+              std::sort(retained.begin(), retained.end(), proxyLess);
+              if (retained.size() > pairwiseCandidates_)
+                retained.resize(pairwiseCandidates_);
+            }
+          }
+
+          retainedPairCandidates.reserve(retained.size());
+          for (const PairProxy &pair : retained)
+            retainedPairCandidates.push_back(
+                {{pair.first, pair.second},
+                 {features_[pair.first], features_[pair.second]}});
+
+          for (const PairProxy &pair : retained) {
+            const FeatureInfo &first = features_[pair.first];
+            const FeatureInfo &second = features_[pair.second];
+            arma::uvec rawFeatures = arma::join_cols(first.indices, second.indices);
+            auto pairDisc = std::make_unique<PairRegressionDiscretizer>(
+                criterion_, first, second);
+            pairDisc->Train(
+                Xsub, rawFeatures, ysub, innerParams_.minLeafSize,
+                innerParams_.minGainSplit, innerParams_.maxDepth,
+                innerParams_.maxLeafNodes, wsub);
+            if (pairDisc->numLeaves() < 2)
+              continue;
+            ShapeBranchAssignmentSearchResult pairBest =
+                searchShapeBranchAssignmentFromDiscretizer(
+                    *pairDisc, criterion_, parentImp, numPartitions_, outerParams_,
+                    cdParams_, outerTreeBuilder_.eps, rng_,
+                    /*useKMeansSeed=*/false, /*classesPerOutput=*/{}, nOutputs_,
+                    criterion_ == LearningCriterion::AbsoluteError ? &ysub : nullptr,
+                    criterion_ == LearningCriterion::AbsoluteError ? &wsub : nullptr,
+                    xSubCols, /*hasNanRoutingBin=*/false);
+            pairBest.bestFeatureScore += pairwisePenalty_;
+            if (featureHasBetterShapeBranching(
+                    pairBest, best, pair.first, xSubCols, rawFeatures,
+                    std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
+                        std::move(pairDisc)),
+                    outerTreeBuilder_.eps, applyTaskFields))
+              best.logicalFeatureIndices = {pair.first, pair.second};
+          }
         }
 
         if (!std::isfinite(best.penalizedChildScore) ||
@@ -335,6 +504,8 @@ void RegressionShapeGeneralizedTree::fit(
 
         node.isLeaf = false;
         node.splitFeatureIndex = best.branching.featureIndex;
+        node.logicalFeatureIndices = best.logicalFeatureIndices;
+        node.retainedPairCandidates = std::move(retainedPairCandidates);
         node.routingFeatures.assign(best.routingColumnIndices.begin(),
                                     best.routingColumnIndices.end());
         node.innerDiscretizer = best.winningDiscretizer;
@@ -423,8 +594,15 @@ void RegressionShapeGeneralizedTree::fit(
       nodes_[0], findBestSplit, makeChildren,
       [this](ShapeFunctionNode &parent,
              std::vector<ShapeFunctionNode> &children) {
-        sumOfNodeImportancesByFeature_(parent.splitFeatureIndex) +=
-            parent.informationGain;
+        if (parent.logicalFeatureIndices.size() == 2) {
+          sumOfNodeImportancesByFeature_(parent.logicalFeatureIndices[0]) +=
+              parent.informationGain / 2.0;
+          sumOfNodeImportancesByFeature_(parent.logicalFeatureIndices[1]) +=
+              parent.informationGain / 2.0;
+        } else {
+          sumOfNodeImportancesByFeature_(parent.splitFeatureIndex) +=
+              parent.informationGain;
+        }
         totalNodeImportanceSum_ += parent.informationGain;
         const size_t pid = parent.nodeIndex;
         nodes_[pid] = parent;
@@ -508,5 +686,3 @@ RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
   }
   return yhat;
 }
-
-

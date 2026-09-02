@@ -156,4 +156,39 @@ void RegressionTaoAdapter::recomputeLeafStats(
   }
 }
 
+void RegressionTaoAdapter::refreshNodeBinMetadata(
+    ShapeFunctionNode &node, const std::vector<arma::uword> &samples) {
+  if (!node.innerDiscretizer)
+    throw std::runtime_error(
+        "RegressionTaoAdapter: accepted router has no discretizer");
+  arma::Row<size_t> bins;
+  node.innerDiscretizer->transform(X_, bins);
+  const size_t nBins = node.binToPartition.size();
+  node.binSampleCounts.assign(nBins, 0);
+  node.splitBinWeights.assign(nBins, 0.0);
+  node.splitClassCounts.clear();
+  if (squared_)
+    node.splitLeafStats.assign(
+        nBins, std::vector<std::vector<double>>(
+                   y_.n_rows, std::vector<double>(2, 0.0)));
+  else
+    node.splitLeafStats.clear();
+  for (arma::uword col : samples) {
+    const size_t bin = bins(col);
+    if (bin >= nBins)
+      throw std::runtime_error(
+          "RegressionTaoAdapter: accepted router bin out of range");
+    ++node.binSampleCounts[bin];
+    const double weight = static_cast<double>(w_(col));
+    node.splitBinWeights[bin] += weight;
+    if (!squared_)
+      continue;
+    for (arma::uword o = 0; o < y_.n_rows; ++o) {
+      const double value = static_cast<double>(y_(o, col));
+      node.splitLeafStats[bin][o][0] += weight * value;
+      node.splitLeafStats[bin][o][1] += weight * value * value;
+    }
+  }
+}
+
 } // namespace tao

@@ -7,7 +7,7 @@
  * Encapsulates scoring of candidate routing rules at one internal node. Rewards
  * come from the task-specific ``NodeCareSet``; this class only sums per-sample
  * rewards under a routing map (current node rule, dummy constant rule, or a
- * single-feature rule induced by a trained classification discretizer).
+ * rule induced by a trained classification discretizer).
  */
 
 #include "Discretizers/ClassificationDiscretizer.h"
@@ -22,15 +22,13 @@ namespace tao {
 /**
  * Mean care-set reward under a routing rule, with optional split penalty.
  *
- * Non-dummy candidates subtract ``lambda * totalSampleWeight / careWeight`` from
- * the mean reward (equivalently ``lambda * totalSampleWeight`` from the weighted
- * reward sum). ``scoreDummy`` is unpenalized. ``totalSampleWeight`` is the sum
- * of training sample weights (or the sample count when weights are uniform).
+ * Candidates subtract ``complexityScale * lambda * nodeSampleCount`` from the
+ * weighted reward sum. ``scoreDummy`` uses scale zero.
  */
 class TaoObjective {
 public:
   TaoObjective(const NodeCareSet &care, const arma::fmat &X, double lambda,
-               double totalSampleWeight);
+               double nodeSampleCount);
 
   /** Number of care samples at this node. */
   size_t nCare() const { return nCare_; }
@@ -41,7 +39,8 @@ public:
   const NodeCareSet &careSet() const { return care_; }
 
   /** Mean care reward under the node's current routing rule, minus split penalty. */
-  double scoreCurrent(const ShapeFunctionNode &node) const;
+  double scoreCurrent(const ShapeFunctionNode &node,
+                      double complexityScale) const;
 
   /** Mean care reward when every care sample routes to ``dummyChild``. */
   double scoreDummy() const;
@@ -50,37 +49,29 @@ public:
    * Extract routing from a trained discretizer and score it on the care set.
    *
    * Bins are mapped to child partitions by argmax over discretizer leaf stats.
-   * Writes the induced thresholds and bin-to-partition map to the out-params.
+   * Writes the induced bin-to-partition map to the out-param.
    *
    * @returns Penalized mean reward, or ``-infinity`` when ``disc`` has no bins.
    */
-  double scoreDiscretizer(size_t feature, ClassificationDiscretizer &disc,
-                          std::vector<float> &thresholdsOut,
-                          std::vector<size_t> &binToPartitionOut) const;
-
-  /** Mean care reward for an explicit single-feature routing rule, minus penalty. */
-  double scoreRouting(size_t feature, const std::vector<float> &thresholds,
-                      const std::vector<size_t> &binToPartition) const;
+  double scoreDiscretizer(ClassificationDiscretizer &disc,
+                          std::vector<size_t> &binToPartitionOut,
+                          double complexityScale) const;
 
 private:
   static size_t argMax(const std::vector<double> &counts);
 
-  static size_t routeValue(float value, const std::vector<float> &thresholds,
-                           const std::vector<size_t> &binToPartition,
-                           size_t nanPartition);
-
-  double rewardSumForPartition(size_t feature,
-                               const std::vector<float> &thresholds,
-                               const std::vector<size_t> &binToPartition) const;
+  double rewardSumForDiscretizer(
+      const ClassificationDiscretizer &disc,
+      const std::vector<size_t> &binToPartition) const;
 
   double meanReward(double rewardSum) const;
-  double penalizedScore(double rewardSum) const;
+  double penalizedScore(double rewardSum, double complexityScale) const;
   double careWeight(size_t i) const;
 
   const NodeCareSet &care_;
   const arma::fmat &X_;
   double lambda_;
-  double totalSampleWeight_;
+  double nodeSampleCount_;
   size_t nCare_;
   double totalCareWeight_;
 };

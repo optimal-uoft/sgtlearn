@@ -24,7 +24,12 @@ from sgtlearn._weights import (
     effective_sample_weight_classification,
     normalize_sample_weight,
 )
-from sgtlearn.base import BaseShapeCART, SGTClassifier, SGTRegressor
+from sgtlearn.base import (
+    BaseShapeCART,
+    SGTClassifier,
+    SGTRegressor,
+    _validate_tao_pair_scale,
+)
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 from sgtlearn.ensemble.random_sgforest_classifier import RandomSGForestClassifier
 from sgtlearn.ensemble.random_sgforest_regressor import RandomSGForestRegressor
@@ -160,6 +165,7 @@ def TAO_refine(
     sample_weight: np.ndarray | None = None,
     n_runs: int = 10,
     lambda_: float = 0.0,
+    tao_pair_scale: float = 1.1,
     check_input: bool = True,
     n_jobs: int | None = None,
 ) -> TaoModel:
@@ -179,7 +185,9 @@ def TAO_refine(
     internal node, a non-constant routing rule must beat the dummy rule by more
     than ``lambda_ * n_samples`` in weighted reward units (equivalently
     ``lambda_ * n_samples / n_care`` on the mean care reward).
+    Pair routers pay ``tao_pair_scale`` times this cost; dummy routers pay zero.
     """
+    tao_pair_scale = _validate_tao_pair_scale(tao_pair_scale)
     targets = _tao_targets(model)
     X, y = _validate_X_y(model, X, y, check_input=check_input)
     X32, y_native, sw = _prepare_tao_arrays(model, X, y, sample_weight)
@@ -191,12 +199,24 @@ def TAO_refine(
     if len(targets) == 1 or n_jobs_eff == 1:
         for tree in targets:
             TreeAlternatingOptimization(
-                tree._est, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_
+                tree._est,
+                X32,
+                y_native,
+                sw,
+                n_runs=n_runs,
+                lambda_=lambda_,
+                tao_pair_scale=tao_pair_scale,
             )
     else:
         Parallel(n_jobs=n_jobs_eff, prefer="threads")(
             delayed(TreeAlternatingOptimization)(
-                tree._est, X32, y_native, sw, n_runs=n_runs, lambda_=lambda_
+                tree._est,
+                X32,
+                y_native,
+                sw,
+                n_runs=n_runs,
+                lambda_=lambda_,
+                tao_pair_scale=tao_pair_scale,
             )
             for tree in targets
         )

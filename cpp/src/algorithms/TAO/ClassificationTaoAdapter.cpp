@@ -178,4 +178,33 @@ void ClassificationTaoAdapter::recomputeLeafStats(
                        classesPerOutput_, nOutputs_);
 }
 
+void ClassificationTaoAdapter::refreshNodeBinMetadata(
+    ShapeFunctionNode &node, const std::vector<arma::uword> &samples) {
+  if (!node.innerDiscretizer)
+    throw std::runtime_error(
+        "ClassificationTaoAdapter: accepted router has no discretizer");
+  arma::Row<size_t> bins;
+  node.innerDiscretizer->transform(X_, bins);
+  const size_t nBins = node.binToPartition.size();
+  node.binSampleCounts.assign(nBins, 0);
+  node.splitBinWeights.assign(nBins, 0.0);
+  node.splitClassCounts.assign(nBins, std::vector<std::vector<double>>(nOutputs_));
+  for (size_t b = 0; b < nBins; ++b)
+    for (size_t o = 0; o < nOutputs_; ++o)
+      node.splitClassCounts[b][o].assign(classesPerOutput_[o], 0.0);
+  for (arma::uword col : samples) {
+    const size_t bin = bins(col);
+    if (bin >= nBins)
+      throw std::runtime_error(
+          "ClassificationTaoAdapter: accepted router bin out of range");
+    ++node.binSampleCounts[bin];
+    const double weight = static_cast<double>(w_(col));
+    node.splitBinWeights[bin] += weight;
+    for (size_t o = 0; o < nOutputs_; ++o)
+      node.splitClassCounts[bin][o][y_(static_cast<arma::uword>(o), col)] +=
+          weight;
+  }
+  node.splitLeafStats.clear();
+}
+
 } // namespace tao

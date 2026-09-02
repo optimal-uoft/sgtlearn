@@ -8,6 +8,7 @@
 #include "algorithms/TAO/TreeAlternatingOptimization.h"
 
 #include "Discretizers/ClassificationDiscretizer.h"
+#include "Discretizers/pair/PairClassificationDiscretizer.h"
 #include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/InnerDiscretizerBase.h"
 #include "algorithms/TAO/TaoObjective.h"
@@ -53,24 +54,12 @@ computeNodeSamples(const std::vector<ShapeFunctionNode> &nodes,
   return nodeSamples;
 }
 
-double totalSampleWeight(const arma::Row<float> &sampleWeights,
-                         arma::uword numSamples) {
-  if (sampleWeights.is_empty())
-    return static_cast<double>(numSamples);
-  double sum = 0.0;
-  for (arma::uword i = 0; i < sampleWeights.n_elem; ++i)
-    sum += static_cast<double>(sampleWeights(i));
-  if (sum <= 0.0)
-    return static_cast<double>(numSamples);
-  return sum;
-}
-
 } // namespace
 
 bool optimizeNodeInPlace(
     TaoAdapter &adapter,
     const std::vector<std::vector<arma::uword>> &nodeSamples, size_t nodeIdx,
-    double lambda) {
+    double lambda, double taoPairScale) {
   auto &nodes = adapter.nodes();
   auto &childIndices = adapter.childIndices();
   const arma::fmat &X = adapter.X();
@@ -94,10 +83,14 @@ bool optimizeNodeInPlace(
   if (care.empty())
     return false;
 
-  const double nTotal =
-      totalSampleWeight(adapter.sampleWeights(), X.n_cols);
-  TaoObjective objective(care, X, lambda, nTotal);
-  const double currScore = objective.scoreCurrent(node);
+  TaoObjective objective(care, X, lambda,
+                         static_cast<double>(samples.size()));
+  const double currentScale = node.logicalFeatureIndices.empty()
+                                  ? 0.0
+                                  : (node.logicalFeatureIndices.size() == 2
+                                         ? taoPairScale
+                                         : 1.0);
+  const double currScore = objective.scoreCurrent(node, currentScale);
   const double dummyScore = objective.scoreDummy();
 
   double bestSingleScore = -std::numeric_limits<double>::infinity();
@@ -115,10 +108,9 @@ bool optimizeNodeInPlace(
                 innerParams.minGainSplit, innerParams.maxDepth,
                 innerParams.maxLeafNodes, care.wexp);
 
-    std::vector<float> thresholds;
     std::vector<size_t> binToPartition;
-    const double score =
-        objective.scoreDiscretizer(f, *disc, thresholds, binToPartition);
+    const double score = objective.scoreDiscretizer(
+        *disc, binToPartition, /*complexityScale=*/1.0);
     if (score > bestSingleScore) {
       bestSingleScore = score;
       bestFeature = f;
@@ -129,8 +121,40 @@ bool optimizeNodeInPlace(
     }
   }
 
-  if (dummyScore >= currScore && dummyScore >= bestSingleScore) {
+  double bestPairScore = -std::numeric_limits<double>::infinity();
+  bool havePair = false;
+  std::array<size_t, 2> bestPairLogical{};
+  std::vector<size_t> bestPairRoutingFeatures;
+  std::vector<size_t> bestPairBinToPartition;
+  std::shared_ptr<const InnerDiscretizerBase> bestPairDiscretizer;
+  for (const RetainedPairCandidate &pair : node.retainedPairCandidates) {
+    arma::uvec rawFeatures = arma::join_cols(pair.features[0].indices,
+                                            pair.features[1].indices);
+    auto disc = std::make_unique<PairClassificationDiscretizer>(
+        routerCriterion, pair.features[0], pair.features[1]);
+    disc->Train(care.Xexp, rawFeatures, care.yexp, std::vector<size_t>{k},
+                innerParams.minLeafSize, innerParams.minGainSplit,
+                innerParams.maxDepth, innerParams.maxLeafNodes, care.wexp);
+    std::vector<size_t> binToPartition;
+    const double score = objective.scoreDiscretizer(
+        *disc, binToPartition, taoPairScale);
+    if (!havePair || score > bestPairScore ||
+        (score == bestPairScore &&
+         pair.logicalFeatureIndices < bestPairLogical)) {
+      bestPairScore = score;
+      bestPairLogical = pair.logicalFeatureIndices;
+      bestPairRoutingFeatures.assign(rawFeatures.begin(), rawFeatures.end());
+      bestPairBinToPartition = std::move(binToPartition);
+      bestPairDiscretizer =
+          std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
+      havePair = true;
+    }
+  }
+
+  if (dummyScore >= currScore && dummyScore >= bestSingleScore &&
+      dummyScore >= bestPairScore) {
     node.isLeaf = false;
+    node.logicalFeatureIndices.clear();
     node.routingFeatures = {0};
     featOne(0) = 0;
     auto disc = makeClassificationDiscretizer(routerCriterion,
@@ -141,21 +165,40 @@ bool optimizeNodeInPlace(
         std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
     node.binToPartition = {objective.dummyChild(), objective.dummyChild()};
     node.numPartitions = k;
+    node.informationGain = 0.0;
+    adapter.refreshNodeBinMetadata(node, samples);
     return true;
   }
   if (haveSingle && bestSingleScore > currScore &&
-      bestSingleScore > dummyScore) {
+      bestSingleScore > dummyScore && bestSingleScore >= bestPairScore) {
     node.isLeaf = false;
+    node.splitFeatureIndex = bestFeature;
+    node.logicalFeatureIndices = {bestFeature};
     node.routingFeatures = {bestFeature};
     node.innerDiscretizer = std::move(bestDiscretizer);
     node.binToPartition = std::move(bestBinToPartition);
     node.numPartitions = k;
+    adapter.refreshNodeBinMetadata(node, samples);
+    return true;
+  }
+  if (havePair && bestPairScore > currScore &&
+      bestPairScore > dummyScore && bestPairScore > bestSingleScore) {
+    node.isLeaf = false;
+    node.splitFeatureIndex = bestPairLogical[0];
+    node.logicalFeatureIndices.assign(bestPairLogical.begin(),
+                                      bestPairLogical.end());
+    node.routingFeatures = std::move(bestPairRoutingFeatures);
+    node.innerDiscretizer = std::move(bestPairDiscretizer);
+    node.binToPartition = std::move(bestPairBinToPartition);
+    node.numPartitions = k;
+    adapter.refreshNodeBinMetadata(node, samples);
     return true;
   }
   return false;
 }
 
-void optimize(TaoAdapter &adapter, size_t nRuns, double lambda) {
+void optimize(TaoAdapter &adapter, size_t nRuns, double lambda,
+              double taoPairScale) {
   auto &nodes = adapter.nodes();
   auto &childIndices = adapter.childIndices();
   const size_t rootIndex = adapter.rootIndex();
@@ -164,6 +207,7 @@ void optimize(TaoAdapter &adapter, size_t nRuns, double lambda) {
   if (nodes.empty())
     return;
 
+  bool anyChanged = false;
   for (size_t run = 0; run < nRuns; ++run) {
     bool changed = false;
     std::vector<std::vector<arma::uword>> nodeSamples =
@@ -182,8 +226,10 @@ void optimize(TaoAdapter &adapter, size_t nRuns, double lambda) {
           stack.emplace_back(child, false);
         continue;
       }
-      if (optimizeNodeInPlace(adapter, nodeSamples, nodeIdx, lambda)) {
+      if (optimizeNodeInPlace(adapter, nodeSamples, nodeIdx, lambda,
+                              taoPairScale)) {
         changed = true;
+        anyChanged = true;
         nodeSamples =
             computeNodeSamples(nodes, childIndices, rootIndex, X);
         adapter.recomputeLeafStats(nodeSamples);
@@ -193,6 +239,8 @@ void optimize(TaoAdapter &adapter, size_t nRuns, double lambda) {
     if (!changed)
       break;
   }
+  if (anyChanged)
+    adapter.refreshFeatureImportances();
 }
 
 } // namespace tao

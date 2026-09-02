@@ -13,9 +13,7 @@
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
 > [!NOTE]
-> This codebase is an efficient, but working implementation of the algorithms in the paper "Empowering Decision Trees via Shape Function Branching". Please refer to the [ROADMAP](ROADMAP.md) for a detailed list of features that are currently implemented and those that are planned for future releases. For the canonical code base for the paper, please refer to https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions. Features in the paper that are not yet implemented in this codebase include: 
-> * Bivariate shape functions (Shape$^2$CART) + Higher branching factors for bivariate splits (Shape$^2$SGT$_K$)
-> * Visualization for bivariate splits (ex. contour plots)
+> This codebase is an efficient, but working implementation of the algorithms in the paper "Empowering Decision Trees via Shape Function Branching". Please refer to the [ROADMAP](ROADMAP.md) for a detailed list of features that are currently implemented and those that are planned for future releases. For the canonical code base for the paper, please refer to https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions. Shape²CART is available as an opt-in feature, with pair-aware TAO and dedicated bivariate routing heatmaps included in the v0.3.0 implementation.
 
 ## Installation
 

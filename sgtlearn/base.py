@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from math import ceil, isfinite
+from numbers import Integral, Real
 from typing import Any
+import warnings
 
 import numpy as np
 from ShapeGeneralizedTrees import (
@@ -61,6 +64,25 @@ def _configure_processed_features(
     )
 
 
+def _resolve_pairwise_candidates(value: int | float, n_features: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError("pairwise_candidates must be a non-negative int or float")
+    if not isfinite(float(value)) or value < 0:
+        raise ValueError("pairwise_candidates must be finite and non-negative")
+    if isinstance(value, Integral):
+        return int(value)
+    return ceil(float(value) * n_features)
+
+
+def _validate_tao_pair_scale(value: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError("tao_pair_scale must be finite and non-negative")
+    scale = float(value)
+    if not isfinite(scale) or scale < 0:
+        raise ValueError("tao_pair_scale must be finite and non-negative")
+    return scale
+
+
 class _IdentityLabelEncoder(LabelEncoder):
     """``LabelEncoder`` for targets already encoded as ``0 .. n_classes - 1``.
 
@@ -103,6 +125,12 @@ class BaseShapeCART(BaseEstimator):
         training.
         """
         check_is_fitted(self, attributes=("_est",))
+        if getattr(self._est, "has_pair_nodes", False):
+            warnings.warn(
+                "Pair-node impurity gain is attributed equally to both features.",
+                UserWarning,
+                stacklevel=2,
+            )
         return np.asarray(self._est.feature_importance, dtype=np.float64).ravel()
 
     @property
@@ -127,6 +155,8 @@ def _normalize_tree_export(tree: dict) -> dict:
     """
     for node in tree.get("nodes", []):
         if node.get("is_leaf", True):
+            continue
+        if node.get("routing_kind") == "pair":
             continue
         if node.get("is_categorical"):
             b2p = node.get("bin_to_partition")
@@ -223,6 +253,15 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         - ``"log2"``: use ``max(1, int(log2(n_features)))`` columns.
 
         String values are case-insensitive in the native binding.
+    pairwise_candidates : int or float, default=0
+        Maximum retained feature pairs fitted per node. An integer is an
+        absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
+        Zero preserves univariate-only training.
+    pairwise_penalty : float, default=0.0
+        Non-negative penalty added when comparing a fitted pair with the best
+        univariate candidate.
+    tao_pair_scale : float, default=1.1
+        Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     class_weight : dict, list of dict, or None, default=None
         Per-class multipliers. A single mapping applies to every output; for
         multi-output ``y`` of shape ``(n_samples, n_outputs)``, pass a list of
@@ -307,9 +346,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
+        pairwise_candidates: int | float = 0,
+        pairwise_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
+        tao_pair_scale: float = 1.1,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
@@ -327,10 +369,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
+        self.pairwise_candidates = pairwise_candidates
+        self.pairwise_penalty = pairwise_penalty
         self.class_weight = class_weight
 
         self.tao_n_runs = tao_n_runs
         self.tao_lambda = tao_lambda
+        self.tao_pair_scale = tao_pair_scale
         self._est: Any = None
         self._le: Any = None
         self.classes_: Any | None = None
@@ -459,6 +504,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             column_names=column_names,
         )
         self._processed_features = processed_features
+        resolved_pairwise_candidates = _resolve_pairwise_candidates(
+            self.pairwise_candidates, len(processed_features.features)
+        )
+        if (
+            not isinstance(self.pairwise_penalty, Real)
+            or not isfinite(float(self.pairwise_penalty))
+            or self.pairwise_penalty < 0
+        ):
+            raise ValueError("pairwise_penalty must be finite and non-negative")
+        tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -484,6 +539,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             bool(self.coordinate_descent_smart_init),
             int(42 if self.random_state is None else self.random_state),
             self.max_features,
+            resolved_pairwise_candidates,
+            float(self.pairwise_penalty),
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
@@ -503,6 +560,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 check_input=check_input,
                 n_runs=self.tao_n_runs,
                 lambda_=self.tao_lambda,
+                tao_pair_scale=tao_pair_scale,
             )
         return self
 
@@ -624,6 +682,15 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     max_features : int, float, {"sqrt", "log2"} or None, default=None
         Per-split feature subsampling. Same semantics as
         :class:`SGTClassifier`.
+    pairwise_candidates : int or float, default=0
+        Maximum retained feature pairs fitted per node. An integer is an
+        absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
+        Zero preserves univariate-only training.
+    pairwise_penalty : float, default=0.0
+        Non-negative penalty applied only when comparing fitted pair and
+        univariate candidates.
+    tao_pair_scale : float, default=1.1
+        Multiplier applied to ``tao_lambda`` for pair routers during TAO.
 
     Attributes
     ----------
@@ -694,8 +761,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
+        pairwise_candidates: int | float = 0,
+        pairwise_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
+        tao_pair_scale: float = 1.1,
     ) -> None:
         self.criterion = criterion
         self.num_partitions = int(num_partitions)
@@ -712,8 +782,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
+        self.pairwise_candidates = pairwise_candidates
+        self.pairwise_penalty = pairwise_penalty
         self.tao_n_runs = tao_n_runs
         self.tao_lambda = tao_lambda
+        self.tao_pair_scale = tao_pair_scale
         self._est: Any = None
         self.n_outputs_: int = 1
         self.n_features_in_: int | None = None
@@ -786,6 +859,16 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             column_names=column_names,
         )
         self._processed_features = processed_features
+        resolved_pairwise_candidates = _resolve_pairwise_candidates(
+            self.pairwise_candidates, len(processed_features.features)
+        )
+        if (
+            not isinstance(self.pairwise_penalty, Real)
+            or not isfinite(float(self.pairwise_penalty))
+            or self.pairwise_penalty < 0
+        ):
+            raise ValueError("pairwise_penalty must be finite and non-negative")
+        tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -810,6 +893,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             bool(self.coordinate_descent_smart_init),
             int(42 if self.random_state is None else self.random_state),
             self.max_features,
+            resolved_pairwise_candidates,
+            float(self.pairwise_penalty),
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
@@ -833,6 +918,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 check_input=check_input,
                 n_runs=self.tao_n_runs,
                 lambda_=self.tao_lambda,
+                tao_pair_scale=tao_pair_scale,
             )
         return self
 

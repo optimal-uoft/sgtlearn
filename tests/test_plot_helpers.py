@@ -143,6 +143,40 @@ def test_route_samples_dtype_indices_are_int():
         assert arr.dtype.kind in ("i", "u")
 
 
+def test_route_samples_replays_pair_missing_edges() -> None:
+    tree = {
+        "root_index": 0,
+        "nodes": [
+            {
+                "id": 0, "is_leaf": False, "routing_kind": "pair",
+                "features": [0, 1], "children": [1, 2, 3],
+                "bin_to_partition": [0, 1, 2, 2, 2],
+                "pair_axes": [
+                    {"kind": "continuous", "columns": [0]},
+                    {"kind": "continuous", "columns": [1]},
+                ],
+                "pair_inner_tree": [
+                    {"id": 0, "is_leaf": False, "axis": 0, "kind": "continuous", "feature": 0, "threshold": 0.0, "left": 1, "right": 2, "missing": 3},
+                    {"id": 1, "is_leaf": True, "bin": 0},
+                    {"id": 2, "is_leaf": True, "bin": 1},
+                    {"id": 3, "is_leaf": False, "axis": 1, "kind": "continuous", "feature": 1, "threshold": 0.0, "left": 4, "right": 5, "missing": 6},
+                    {"id": 4, "is_leaf": True, "bin": 2},
+                    {"id": 5, "is_leaf": True, "bin": 3},
+                    {"id": 6, "is_leaf": True, "bin": 4},
+                ],
+            },
+            {"id": 1, "is_leaf": True, "children": []},
+            {"id": 2, "is_leaf": True, "children": []},
+            {"id": 3, "is_leaf": True, "children": []},
+        ],
+    }
+    X = np.array([[-1.0, 1.0], [1.0, 1.0], [np.nan, -1.0], [np.nan, 1.0], [np.nan, np.nan]])
+    reach = _route_samples(tree, X)
+    assert reach[1].tolist() == [0]
+    assert reach[2].tolist() == [1]
+    assert reach[3].tolist() == [2, 3, 4]
+
+
 def _toy_tree() -> dict:
     """Hand-rolled tree dict matching tree_export()'s shape for layout tests.
 

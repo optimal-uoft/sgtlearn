@@ -54,7 +54,7 @@ namespace tao {
 bool optimizeNodeInPlace(
     TaoAdapter &adapter,
     const std::vector<std::vector<arma::uword>> &nodeSamples, size_t nodeIdx,
-    double lambda);
+    double lambda, double taoPairScale);
 
 /**
  * Run TAO refinement on a fitted tree.
@@ -63,6 +63,7 @@ bool optimizeNodeInPlace(
  * @param nRuns   Maximum number of bottom-up sweeps (early-stops on no change).
  * @param lambda  Cost-complexity rate passed to ``optimizeNodeInPlace``.
  */
-void optimize(TaoAdapter &adapter, size_t nRuns = 10, double lambda = 0.0);
+void optimize(TaoAdapter &adapter, size_t nRuns = 10, double lambda = 0.0,
+              double taoPairScale = 1.1);
 
 } // namespace tao

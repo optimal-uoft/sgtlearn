@@ -17,6 +17,8 @@
 
 #include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"
 #include "Discretizers/categorical/CategoricalRegressionDiscretizer.h"
+#include "Discretizers/pair/PairClassificationDiscretizer.h"
+#include "Discretizers/pair/PairRegressionDiscretizer.h"
 #include "Domain/LearningCriterion.h"
 #include "Domain/FeatureInfo.h"
 #include "Discretizers/univariate/UnivariateDiscretizer.h"
@@ -43,6 +45,39 @@ inline py::list routingFeaturesPy(const ShapeFunctionNode &n) {
   for (size_t f : n.routingFeatures)
     feats.append(f);
   return feats;
+}
+
+inline py::list logicalFeaturesPy(const ShapeFunctionNode &n) {
+  py::list feats;
+  for (size_t f : n.logicalFeatureIndices)
+    feats.append(f);
+  return feats;
+}
+
+inline py::list pairAxesPy(const ShapeFunctionNode &n,
+                           const std::array<FeatureInfo, 2> &axes) {
+  py::list out;
+  for (size_t axis = 0; axis < axes.size(); ++axis) {
+    py::dict item;
+    item["logical_feature"] = n.logicalFeatureIndices.at(axis);
+    item["kind"] = axes[axis].type == FeatureType::Categorical
+                       ? "categorical"
+                       : "continuous";
+    py::list columns;
+    py::list categories;
+    for (size_t raw : axes[axis].indices) {
+      columns.append(raw);
+      if (axes[axis].type == FeatureType::Categorical)
+        categories.append(raw);
+    }
+    item["columns"] = columns;
+    item["categories"] = categories;
+    item["catchall"] = axes[axis].type == FeatureType::Categorical
+                            ? py::cast("missing")
+                            : py::none();
+    out.append(item);
+  }
+  return out;
 }
 
 inline py::object primaryRoutingFeaturePy(const ShapeFunctionNode &n) {
@@ -258,7 +293,8 @@ public:
       double innerMinGainSplit, size_t innerMaxDepth, size_t innerMaxLeafNodes,
       size_t coordinateDescentMaxIters, size_t coordinateDescentPatience,
       bool coordinateDescentSmartInit, uint64_t random_state,
-      py::object max_features = py::none()) {
+      py::object max_features = py::none(), size_t pairwiseCandidates = 0,
+      double pairwisePenalty = 0.0) {
     criterionStr_ = criterion;
     const LearningCriterion crit = parseClassificationCriterion(criterion);
     const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
@@ -271,7 +307,8 @@ public:
     cd.smartInit = coordinateDescentSmartInit;
     impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
         crit, parseNumClassesPy(numClasses), numPartitions, outer, inner, cd,
-        random_state, parseMaxFeaturesPy(max_features));
+        random_state, parseMaxFeaturesPy(max_features), pairwiseCandidates,
+        pairwisePenalty);
   }
 
   void fit(const py::array &X, const py::array &y,
@@ -334,6 +371,7 @@ public:
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
   size_t nOutputs() const { return impl_->nOutputs(); }
+  bool hasPairNodes() const { return impl_->hasPairNodes(); }
 
   py::list classesPerOutput() const {
     py::list out;
@@ -401,6 +439,46 @@ public:
       } else {
         d["feature"] = primaryRoutingFeaturePy(n);
         d["features"] = routingFeaturesPy(n);
+        const auto *pairDisc = dynamic_cast<const PairClassificationDiscretizer *>(
+            n.innerDiscretizer.get());
+        if (pairDisc) {
+          d["routing_kind"] = "pair";
+          d["pair_features"] = logicalFeaturesPy(n);
+          d["pair_axes"] = pairAxesPy(n, pairDisc->axes());
+          py::list innerTree;
+          py::list leafBins;
+          const auto &routingTree = pairDisc->routingTree();
+          for (size_t nodeIndex = 0; nodeIndex < routingTree.size(); ++nodeIndex) {
+            const PairRoutingTreeNode &inner = routingTree[nodeIndex];
+            py::dict innerNode;
+            innerNode["id"] = nodeIndex;
+            innerNode["is_leaf"] = inner.isLeaf;
+            if (inner.isLeaf) {
+              innerNode["bin"] = inner.bin;
+              leafBins.append(inner.bin);
+            } else {
+              innerNode["feature"] = inner.rawFeature;
+              innerNode["axis"] = inner.featurePosition;
+              innerNode["kind"] = inner.featureType == FeatureType::Categorical
+                                      ? "categorical"
+                                      : "continuous";
+              innerNode["threshold"] =
+                  inner.featureType == FeatureType::Continuous
+                      ? py::cast(inner.threshold)
+                      : py::none();
+              innerNode["category"] =
+                  inner.featureType == FeatureType::Categorical
+                      ? py::cast(inner.rawFeature)
+                      : py::none();
+              innerNode["left"] = inner.left;
+              innerNode["right"] = inner.right;
+              innerNode["missing"] = inner.missing;
+            }
+            innerTree.append(innerNode);
+          }
+          d["pair_inner_tree"] = innerTree;
+          d["pair_leaf_bins"] = leafBins;
+        }
         const bool isCategorical =
             isCategoricalInnerDiscretizer(*n.innerDiscretizer);
         d["is_categorical"] = isCategorical;
@@ -427,8 +505,9 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
-        d["nan_prediction_partition"] =
-            n.binToPartition.empty() ? 0 : n.binToPartition.back();
+        if (!pairDisc)
+          d["nan_prediction_partition"] =
+              n.binToPartition.empty() ? 0 : n.binToPartition.back();
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);
@@ -454,7 +533,8 @@ public:
       size_t innerMinLeafSize, double innerMinGainSplit, size_t innerMaxDepth,
       size_t innerMaxLeafNodes, size_t coordinateDescentMaxIters,
       size_t coordinateDescentPatience, bool coordinateDescentSmartInit,
-      uint64_t random_state, py::object max_features = py::none()) {
+      uint64_t random_state, py::object max_features = py::none(),
+      size_t pairwiseCandidates = 0, double pairwisePenalty = 0.0) {
     criterionStr_ = criterion;
     const LearningCriterion crit = parseRegressionCriterion(criterion);
     const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
@@ -467,7 +547,7 @@ public:
     cd.smartInit = coordinateDescentSmartInit;
     impl_ = std::make_unique<RegressionShapeGeneralizedTree>(
         crit, numPartitions, outer, inner, cd, random_state,
-        parseMaxFeaturesPy(max_features));
+        parseMaxFeaturesPy(max_features), pairwiseCandidates, pairwisePenalty);
   }
 
   void fit(const py::array &X, const py::array &y,
@@ -507,6 +587,7 @@ public:
   size_t numNodes() const { return impl_->numNodes(); }
   bool isFitted() const { return impl_->isFitted(); }
   size_t nOutputs() const { return impl_->nOutputs(); }
+  bool hasPairNodes() const { return impl_->hasPairNodes(); }
 
   py::array_t<double> featureImportance() const {
     return colToNumpy(impl_->featureImportance());
@@ -570,6 +651,51 @@ public:
         d["n_samples"] = total;
         d["feature"] = primaryRoutingFeaturePy(n);
         d["features"] = routingFeaturesPy(n);
+        const auto *pairDisc = dynamic_cast<const PairRegressionDiscretizer *>(
+            n.innerDiscretizer.get());
+        const auto *taoPairDisc =
+            dynamic_cast<const PairClassificationDiscretizer *>(
+                n.innerDiscretizer.get());
+        if (pairDisc || taoPairDisc) {
+          d["routing_kind"] = "pair";
+          d["pair_features"] = logicalFeaturesPy(n);
+          d["pair_axes"] = pairAxesPy(
+              n, pairDisc ? pairDisc->axes() : taoPairDisc->axes());
+          py::list innerTree;
+          py::list leafBins;
+          const auto &routingTree =
+              pairDisc ? pairDisc->routingTree() : taoPairDisc->routingTree();
+          for (size_t nodeIndex = 0; nodeIndex < routingTree.size(); ++nodeIndex) {
+            const PairRoutingTreeNode &inner = routingTree[nodeIndex];
+            py::dict innerNode;
+            innerNode["id"] = nodeIndex;
+            innerNode["is_leaf"] = inner.isLeaf;
+            if (inner.isLeaf) {
+              innerNode["bin"] = inner.bin;
+              leafBins.append(inner.bin);
+            } else {
+              innerNode["feature"] = inner.rawFeature;
+              innerNode["axis"] = inner.featurePosition;
+              innerNode["kind"] = inner.featureType == FeatureType::Categorical
+                                      ? "categorical"
+                                      : "continuous";
+              innerNode["threshold"] =
+                  inner.featureType == FeatureType::Continuous
+                      ? py::cast(inner.threshold)
+                      : py::none();
+              innerNode["category"] =
+                  inner.featureType == FeatureType::Categorical
+                      ? py::cast(inner.rawFeature)
+                      : py::none();
+              innerNode["left"] = inner.left;
+              innerNode["right"] = inner.right;
+              innerNode["missing"] = inner.missing;
+            }
+            innerTree.append(innerNode);
+          }
+          d["pair_inner_tree"] = innerTree;
+          d["pair_leaf_bins"] = leafBins;
+        }
         const bool isCategorical =
             isCategoricalInnerDiscretizer(*n.innerDiscretizer);
         d["is_categorical"] = isCategorical;
@@ -596,8 +722,9 @@ public:
         py::list bsc;
         for (size_t v : n.binSampleCounts) bsc.append(v);
         d["bin_sample_counts"] = bsc;
-        d["nan_prediction_partition"] =
-            n.binToPartition.empty() ? 0 : n.binToPartition.back();
+        if (!pairDisc && !taoPairDisc)
+          d["nan_prediction_partition"] =
+              n.binToPartition.empty() ? 0 : n.binToPartition.back();
         py::list ch;
         if (i < childIdx.size()) {
           for (size_t c : childIdx[i]) ch.append(c);

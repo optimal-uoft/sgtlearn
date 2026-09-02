@@ -86,7 +86,8 @@ public:
       size_t numPartitions, TreeBuildingParams outerParams = {},
       TreeBuildingParams innerParams = {},
       CoordinateDescentParams cdParams = {}, uint64_t random_state = 42,
-      FeatureBaggingPickFn featureBagging = {});
+      FeatureBaggingPickFn featureBagging = {}, size_t pairwiseCandidates = 0,
+      double pairwisePenalty = 0.0);
 
   /** Convenience overload: single-output / shared class count ``{numClasses}``. */
   ClassificationShapeGeneralizedTree(
@@ -94,11 +95,12 @@ public:
       TreeBuildingParams outerParams = {},
       TreeBuildingParams innerParams = {},
       CoordinateDescentParams cdParams = {}, uint64_t random_state = 42,
-      FeatureBaggingPickFn featureBagging = {})
+      FeatureBaggingPickFn featureBagging = {}, size_t pairwiseCandidates = 0,
+      double pairwisePenalty = 0.0)
       : ClassificationShapeGeneralizedTree(
             criterion, std::vector<size_t>{numClasses}, numPartitions,
             outerParams, innerParams, cdParams, random_state,
-            std::move(featureBagging)) {}
+            std::move(featureBagging), pairwiseCandidates, pairwisePenalty) {}
 
   ~ClassificationShapeGeneralizedTree() = default;
 
@@ -151,6 +153,8 @@ public:
   /** Number of outputs the tree was fitted on (>= 1). */
   size_t nOutputs() const { return nOutputs_; }
 
+  bool hasPairNodes() const;
+
   /** Fit-resolved per-output class counts (empty before ``fit``). */
   const std::vector<size_t> &classesPerOutput() const {
     return classesPerOutput_;
@@ -167,6 +171,8 @@ private:
   uint64_t random_state_;
   std::mt19937_64 rng_;
   FeatureBaggingPickFn featureBagging_;
+  size_t pairwiseCandidates_ = 0;
+  double pairwisePenalty_ = 0.0;
   std::vector<FeatureInfo> features_;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */

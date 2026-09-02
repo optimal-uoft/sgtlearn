@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from numbers import Integral
 from typing import Any
+import warnings
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
@@ -99,8 +100,11 @@ class RandomSGForest(BaseEstimator, ABC):
         bootstrap: bool = True,
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
+        pairwise_candidates: int | float = 0,
+        pairwise_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
+        tao_pair_scale: float = 1.1,
         n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
@@ -122,8 +126,11 @@ class RandomSGForest(BaseEstimator, ABC):
         self.bootstrap = bool(bootstrap)
         self.max_samples = max_samples
         self.random_state = random_state
+        self.pairwise_candidates = pairwise_candidates
+        self.pairwise_penalty = pairwise_penalty
         self.tao_n_runs = int(tao_n_runs)
         self.tao_lambda = float(tao_lambda)
+        self.tao_pair_scale = tao_pair_scale
         self.n_jobs = n_jobs
         self.verbose = int(verbose)
 
@@ -143,8 +150,11 @@ class RandomSGForest(BaseEstimator, ABC):
             "coordinate_descent_patience": self.coordinate_descent_patience,
             "coordinate_descent_smart_init": self.coordinate_descent_smart_init,
             "max_features": self.max_features,
+            "pairwise_candidates": self.pairwise_candidates,
+            "pairwise_penalty": self.pairwise_penalty,
             "tao_n_runs": self.tao_n_runs,
             "tao_lambda": self.tao_lambda,
+            "tao_pair_scale": self.tao_pair_scale,
         }
 
     @abstractmethod
@@ -254,12 +264,24 @@ class RandomSGForest(BaseEstimator, ABC):
 
     def _tree_feature_importances_matrix(self) -> np.ndarray:
         check_is_fitted(self, attributes=("estimators_",))
-        return np.stack(
-            [
-                np.asarray(est.feature_importances_, dtype=np.float64)
-                for est in self.estimators_
-            ]
+        has_pair_nodes = any(
+            getattr(getattr(est, "_est", None), "has_pair_nodes", False)
+            for est in self.estimators_
         )
+        if has_pair_nodes:
+            warnings.warn(
+                "Pair-node impurity gain is attributed equally to both features.",
+                UserWarning,
+                stacklevel=2,
+            )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            return np.stack(
+                [
+                    np.asarray(est.feature_importances_, dtype=np.float64)
+                    for est in self.estimators_
+                ]
+            )
 
     @property
     def mean_feature_importances_(self) -> np.ndarray:

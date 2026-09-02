@@ -145,3 +145,34 @@ Columns you do not mention stay as individual continuous features. See
 :doc:`tutorials/categorical-features` tutorial for a worked example with
 plots. For permutation importance on raw categoricals, see
 :doc:`tutorials/feature-importance`.
+
+Bivariate branching
+-------------------
+
+To let a node consider interactions between two logical features, enable
+Shape²CART explicitly.  The inner model is a small, ordinary axis-aligned CART
+over the pair; ``pairwise_candidates=0`` (the default) leaves the usual
+univariate training path unchanged:
+
+.. code-block:: python
+
+   model = SGTClassifier(
+       max_depth=3,
+       pairwise_candidates=8,  # or a fraction such as 0.5
+       pairwise_penalty=0.0,
+       random_state=42,
+   ).fit(X_train, y_train)
+
+The same options are available on ``SGTRegressor`` and both random-forest
+estimators.  Candidate pairs are sampled from the logical features available
+at that node, after ``max_features`` is applied.  Continuous/categorical pairs
+and per-feature joint missing-value bins are supported, including multiway
+branching.  If a fitted tree contains pair nodes, reading
+``feature_importances_`` emits a warning because each pair's gain is shared
+equally between its two features. Pair-aware TAO uses ``tao_pair_scale=1.1``
+by default; it penalizes only retained screened pairs and never reuses
+``pairwise_penalty``. The existing ``plot_tree`` API renders exact pair
+routing heatmaps, including continuous/categorical layouts, independent
+missing strips/corner, ``X`` overlays/counts, and ``K`` colors. See issues
+`#48 <https://github.com/optimal-uoft/sgtlearn/issues/48>`_ and `#28
+<https://github.com/optimal-uoft/sgtlearn/issues/28>`_.

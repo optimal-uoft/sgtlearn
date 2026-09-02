@@ -123,6 +123,14 @@ public:
    */
   virtual void recomputeLeafStats(
       const std::vector<std::vector<arma::uword>> &nodeSamples) = 0;
+
+  /** Refresh exported per-bin metadata for a router accepted by TAO. */
+  virtual void refreshNodeBinMetadata(
+      ShapeFunctionNode &node,
+      const std::vector<arma::uword> &samples) = 0;
+
+  /** Rebuild feature importances after one or more routing changes. */
+  virtual void refreshFeatureImportances() = 0;
 };
 
 } // namespace tao

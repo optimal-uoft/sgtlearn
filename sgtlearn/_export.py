@@ -10,10 +10,10 @@ every leaf is drawn as a text box with the predicted class / value.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
-from matplotlib.patches import FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch, Rectangle
 
 __all__ = ["export_graphviz", "export_text", "plot_tree"]
 
@@ -160,6 +160,43 @@ def _finite_routing_bins(
     return bin_to_partition
 
 
+def _is_pair_node(node: dict) -> bool:
+    return node.get("routing_kind") == "pair"
+
+
+def _pair_axis_missing(row: np.ndarray, axis: dict) -> bool:
+    columns = [int(c) for c in axis["columns"]]
+    if axis["kind"] == "continuous":
+        return not np.isfinite(row[columns[0]])
+    return _active_onehot_column(row, columns) is None
+
+
+def _route_pair_bin(node: dict, row: np.ndarray) -> int:
+    """Replay one exported pair router exactly."""
+    inner = {int(n["id"]): n for n in node["pair_inner_tree"]}
+    axes = node["pair_axes"]
+    current = 0
+    while not inner[current]["is_leaf"]:
+        split = inner[current]
+        if _pair_axis_missing(row, axes[int(split["axis"])]):
+            current = int(split["missing"])
+        elif split["kind"] == "categorical":
+            current = int(
+                split["right"] if row[int(split["feature"])] >= 0.5 else split["left"]
+            )
+        else:
+            current = int(
+                split["left"]
+                if row[int(split["feature"])] <= float(split["threshold"])
+                else split["right"]
+            )
+    return int(inner[current]["bin"])
+
+
+def _route_pair_partition(node: dict, row: np.ndarray) -> int:
+    return int(node["bin_to_partition"][_route_pair_bin(node, row)])
+
+
 def _merge_routing_regions(
     thresholds: list[float],
     bin_to_partition: list[int],
@@ -231,8 +268,15 @@ def _route_samples(tree: dict, X) -> dict[int, Any]:
                 reach.setdefault(cid, np.empty(0, dtype=np.int64))
                 queue.append(cid)
             continue
-        feature = node["feature"]
-        if _is_categorical_node(node):
+        feature = node.get("feature")
+        if _is_pair_node(node):
+            part_idx = np.fromiter(
+                (_route_pair_partition(node, X_arr[int(row_i)]) for row_i in rows),
+                dtype=np.int64,
+                count=rows.size,
+            )
+            children = list(node["children"])
+        elif _is_categorical_node(node):
             feature_cols = [int(c) for c in node["features"]]
             bin_categories = _bin_categories_for_node(node)
             b2p = np.asarray(list(node["bin_to_partition"]), dtype=np.int64)
@@ -659,6 +703,146 @@ def _draw_internal_panel(
     return [inset, *extra]
 
 
+def _pair_axis_label(
+    estimator: Any, axis: dict, feat_names: list[str], *, prefer_logical_name: bool = True
+) -> str:
+    processed = getattr(estimator, "processed_features_", None)
+    logical = int(axis["logical_feature"])
+    if prefer_logical_name and processed is not None and processed.logical_names and logical < len(processed.logical_names):
+        return str(processed.logical_names[logical])
+    return _category_label_for_columns(axis["columns"], feat_names)
+
+
+def _pair_axis_cells(
+    node: dict, axis_index: int, axis: dict, values: np.ndarray | None
+) -> list[tuple[float, float, object]]:
+    if axis["kind"] == "categorical":
+        categories = [int(c) for c in axis["categories"]]
+        return [(float(i), float(i + 1), category) for i, category in enumerate(categories)] + [
+            (float(len(categories)) + 0.15, float(len(categories)) + 0.85, None)
+        ]
+    thresholds = sorted({
+        float(split["threshold"])
+        for split in node["pair_inner_tree"]
+        if not split["is_leaf"]
+        and int(split["axis"]) == axis_index
+        and split["kind"] == "continuous"
+    })
+    finite = values[np.isfinite(values)] if values is not None else np.array([])
+    if finite.size:
+        lo, hi = float(finite.min()), float(finite.max())
+    elif thresholds:
+        delta = max((thresholds[-1] - thresholds[0]) / max(len(thresholds) - 1, 1), 1.0)
+        lo, hi = thresholds[0] - delta, thresholds[-1] + delta
+    else:
+        lo, hi = 0.0, 1.0
+    if hi <= lo:
+        hi = lo + 1.0
+    edges = [lo, *[t for t in thresholds if lo < t < hi], hi]
+    cells = [(edges[i], edges[i + 1], (edges[i] + edges[i + 1]) / 2) for i in range(len(edges) - 1)]
+    span = hi - lo
+    return cells + [(hi + span * 0.08, hi + span * 0.26, None)]
+
+
+def _pair_cell_row(node: dict, x_axis: dict, x_value, y_axis: dict, y_value) -> np.ndarray:
+    width = max([int(c) for c in node["features"]] + [0]) + 1
+    row = np.zeros(width, dtype=np.float64)
+    for axis, value in ((x_axis, x_value), (y_axis, y_value)):
+        columns = [int(c) for c in axis["columns"]]
+        if value is None:
+            if axis["kind"] == "continuous":
+                row[columns[0]] = np.nan
+        elif axis["kind"] == "continuous":
+            row[columns[0]] = float(value)
+        else:
+            row[int(value)] = 1.0
+    return row
+
+
+def _draw_internal_panel_pair(
+    host_ax,
+    center: tuple[float, float],
+    size: tuple[float, float],
+    node: dict,
+    palette,
+    estimator: Any,
+    feat_names: list[str],
+    X_rows: np.ndarray | None,
+    fontsize: int | None,
+    label: str,
+    prefer_logical_name: bool,
+) -> list:
+    """Draw exported pair-routing cells, including the two missing margins."""
+    cx, cy = center
+    w, h = size
+    inset = host_ax.inset_axes([cx - w / 2, cy - h / 2, w, h], transform=host_ax.transAxes)
+    x_axis, y_axis = node["pair_axes"]
+    x_values = X_rows[:, int(x_axis["columns"][0])] if X_rows is not None and x_axis["kind"] == "continuous" else None
+    y_values = X_rows[:, int(y_axis["columns"][0])] if X_rows is not None and y_axis["kind"] == "continuous" else None
+    x_cells = _pair_axis_cells(node, 0, x_axis, x_values)
+    y_cells = _pair_axis_cells(node, 1, y_axis, y_values)
+    counts: dict[tuple[int, int], int] = {}
+    if X_rows is not None:
+        for row in X_rows:
+            for xi, (x0, x1, xv) in enumerate(x_cells):
+                if _pair_axis_missing(row, x_axis) != (xv is None):
+                    continue
+                if xv is not None and x_axis["kind"] == "continuous" and not (x0 <= row[int(x_axis["columns"][0])] <= x1):
+                    continue
+                if xv is not None and x_axis["kind"] == "categorical" and _active_onehot_column(row, x_axis["columns"]) != xv:
+                    continue
+                for yi, (y0, y1, yv) in enumerate(y_cells):
+                    if _pair_axis_missing(row, y_axis) != (yv is None):
+                        continue
+                    if yv is not None and y_axis["kind"] == "continuous" and not (y0 <= row[int(y_axis["columns"][0])] <= y1):
+                        continue
+                    if yv is not None and y_axis["kind"] == "categorical" and _active_onehot_column(row, y_axis["columns"]) != yv:
+                        continue
+                    counts[(xi, yi)] = counts.get((xi, yi), 0) + 1
+                    break
+                break
+    for xi, (x0, x1, xv) in enumerate(x_cells):
+        for yi, (y0, y1, yv) in enumerate(y_cells):
+            part = _route_pair_partition(node, _pair_cell_row(node, x_axis, xv, y_axis, yv))
+            inset.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, facecolor=palette[part], alpha=0.55, edgecolor="white", linewidth=0.5))
+            if X_rows is not None and (x_axis["kind"] == "categorical" or y_axis["kind"] == "categorical"):
+                inset.text((x0 + x1) / 2, (y0 + y1) / 2, str(counts.get((xi, yi), 0)), ha="center", va="center", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+    if X_rows is not None and "continuous" in (x_axis["kind"], y_axis["kind"]):
+        def coordinate(row: np.ndarray, axis: dict, cells):
+            if _pair_axis_missing(row, axis):
+                return None
+            if axis["kind"] == "continuous":
+                return float(row[int(axis["columns"][0])])
+            active = _active_onehot_column(row, axis["columns"])
+            for start, end, value in cells:
+                if value == active:
+                    return (start + end) / 2
+            return None
+
+        points = [
+            (coordinate(row, x_axis, x_cells), coordinate(row, y_axis, y_cells))
+            for row in X_rows
+        ]
+        points = [(x, y) for x, y in points if x is not None and y is not None]
+        if points:
+            inset.scatter(*np.asarray(points).T, s=6, alpha=0.18, color="#333333", linewidths=0, zorder=2)
+    inset.set_xlabel(_pair_axis_label(estimator, x_axis, feat_names, prefer_logical_name=prefer_logical_name), fontsize=(fontsize - 1) if isinstance(fontsize, int) else None)
+    inset.set_ylabel(_pair_axis_label(estimator, y_axis, feat_names, prefer_logical_name=prefer_logical_name), fontsize=(fontsize - 1) if isinstance(fontsize, int) else None)
+    if x_axis["kind"] == "categorical":
+        inset.set_xticks([(a + b) / 2 for a, b, _ in x_cells])
+        inset.set_xticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in x_cells], rotation=30, ha="right", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+    if y_axis["kind"] == "categorical":
+        inset.set_yticks([(a + b) / 2 for a, b, _ in y_cells])
+        inset.set_yticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in y_cells], fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+    else:
+        inset.set_yticks([])
+    if x_axis["kind"] != "categorical":
+        inset.set_xticks([])
+    if label != "none":
+        inset.text(1.0, 1.0, f"n={node['n_samples']}", transform=inset.transAxes, ha="right", va="top", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None, color="#444444")
+    return [inset]
+
+
 def plot_tree(
     estimator: Any,
     *,
@@ -836,7 +1020,21 @@ def plot_tree(
         if node_rows is not None and feat_idx is not None:
             feat_vals = node_rows[:, feat_idx]
 
-        if _is_categorical_node(node):
+        if _is_pair_node(node):
+            panel_artists = _draw_internal_panel_pair(
+                host_ax=ax,
+                center=pos,
+                size=(internal_w, internal_h),
+                node=node,
+                palette=palette,
+                estimator=estimator,
+                feat_names=feat_names,
+                X_rows=node_rows,
+                fontsize=fontsize,
+                label=label,
+                prefer_logical_name=feature_names is None,
+            )
+        elif _is_categorical_node(node):
             panel_artists = _draw_internal_panel_categorical(
                 host_ax=ax,
                 center=pos,
@@ -864,11 +1062,15 @@ def plot_tree(
             )
         artists.extend(panel_artists)
 
-        feat_name = _logical_feature_label(
-            estimator,
-            node,
-            feat_names,
-            prefer_logical_name=feature_names is None,
+        feat_name = (
+            " × ".join(_pair_axis_label(estimator, axis, feat_names, prefer_logical_name=feature_names is None) for axis in node["pair_axes"])
+            if _is_pair_node(node)
+            else _logical_feature_label(
+                estimator,
+                node,
+                feat_names,
+                prefer_logical_name=feature_names is None,
+            )
         )
         feat_text = ax.text(
             pos[0] + internal_w * 0.55,
