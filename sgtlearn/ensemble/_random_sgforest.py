@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from numbers import Integral
 from typing import Any
-import warnings
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
@@ -100,7 +100,7 @@ class RandomSGForest(BaseEstimator, ABC):
         bootstrap: bool = True,
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
-        pairwise_candidates: int | float = 0,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,

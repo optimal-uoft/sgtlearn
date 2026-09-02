@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping, Sequence
 from math import ceil, isfinite
 from numbers import Integral, Real
 from typing import Any
-import warnings
 
 import numpy as np
 from ShapeGeneralizedTrees import (
@@ -64,9 +64,11 @@ def _configure_processed_features(
     )
 
 
-def _resolve_pairwise_candidates(value: int | float, n_features: int) -> int:
+def _resolve_pairwise_candidates(value: float, n_features: int) -> int:
     if isinstance(value, bool) or not isinstance(value, Real):
-        raise ValueError("pairwise_candidates must be a non-negative int or float")
+        raise ValueError(  # noqa: TRY004 - sklearn parameters use ValueError
+            "pairwise_candidates must be a non-negative int or float"
+        )
     if not isfinite(float(value)) or value < 0:
         raise ValueError("pairwise_candidates must be finite and non-negative")
     if isinstance(value, Integral):
@@ -76,7 +78,9 @@ def _resolve_pairwise_candidates(value: int | float, n_features: int) -> int:
 
 def _validate_tao_pair_scale(value: float) -> float:
     if isinstance(value, bool) or not isinstance(value, Real):
-        raise ValueError("tao_pair_scale must be finite and non-negative")
+        raise ValueError(  # noqa: TRY004 - sklearn parameters use ValueError
+            "tao_pair_scale must be finite and non-negative"
+        )
     scale = float(value)
     if not isfinite(scale) or scale < 0:
         raise ValueError("tao_pair_scale must be finite and non-negative")
@@ -355,7 +359,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
-        pairwise_candidates: int | float = 0,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         tao_n_runs: int = 10,
@@ -773,7 +777,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
-        pairwise_candidates: int | float = 0,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,

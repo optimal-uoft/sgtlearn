@@ -141,7 +141,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
-        pairwise_candidates: int | float = 0,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
