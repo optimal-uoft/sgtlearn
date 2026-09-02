@@ -129,8 +129,6 @@ public:
       ShapeFunctionNode &node,
       const std::vector<arma::uword> &samples) = 0;
 
-  /** Rebuild feature importances after one or more routing changes. */
-  virtual void refreshFeatureImportances() = 0;
 };
 
 } // namespace tao

@@ -207,7 +207,6 @@ void optimize(TaoAdapter &adapter, size_t nRuns, double lambda,
   if (nodes.empty())
     return;
 
-  bool anyChanged = false;
   for (size_t run = 0; run < nRuns; ++run) {
     bool changed = false;
     std::vector<std::vector<arma::uword>> nodeSamples =
@@ -229,7 +228,6 @@ void optimize(TaoAdapter &adapter, size_t nRuns, double lambda,
       if (optimizeNodeInPlace(adapter, nodeSamples, nodeIdx, lambda,
                               taoPairScale)) {
         changed = true;
-        anyChanged = true;
         nodeSamples =
             computeNodeSamples(nodes, childIndices, rootIndex, X);
         adapter.recomputeLeafStats(nodeSamples);
@@ -239,8 +237,6 @@ void optimize(TaoAdapter &adapter, size_t nRuns, double lambda,
     if (!changed)
       break;
   }
-  if (anyChanged)
-    adapter.refreshFeatureImportances();
 }
 
 } // namespace tao

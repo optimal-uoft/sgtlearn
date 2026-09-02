@@ -60,9 +60,6 @@ public:
    */
   const arma::vec &featureImportance() const;
 
-  /** Rebuild feature importances after an in-place routing refinement. */
-  void refreshFeatureImportances();
-
   /** Impurity criterion this tree was constructed with. */
   virtual LearningCriterion criterion() const { return criterion_; }
 

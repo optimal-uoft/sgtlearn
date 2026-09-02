@@ -45,8 +45,6 @@ public:
   size_t numFeatures() const override;
   const arma::Row<float> &sampleWeights() const override;
 
-  void refreshFeatureImportances() override;
-
   LearningCriterion criterion() const override;
   const TreeBuildingParams &innerParams() const override;
 

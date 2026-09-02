@@ -34,23 +34,3 @@ const arma::vec &ShapeGeneralizedTree::featureImportance() const {
         "ShapeGeneralizedTree::featureImportance: model is not fitted");
   return featureImportance_;
 }
-
-void ShapeGeneralizedTree::refreshFeatureImportances() {
-  sumOfNodeImportancesByFeature_.zeros();
-  totalNodeImportanceSum_ = 0.0;
-  for (const ShapeFunctionNode &node : nodes_) {
-    if (node.isLeaf || node.logicalFeatureIndices.empty())
-      continue;
-    const double gain = node.informationGain;
-    if (node.logicalFeatureIndices.size() == 2) {
-      sumOfNodeImportancesByFeature_(node.logicalFeatureIndices[0]) += gain / 2.0;
-      sumOfNodeImportancesByFeature_(node.logicalFeatureIndices[1]) += gain / 2.0;
-    } else {
-      sumOfNodeImportancesByFeature_(node.logicalFeatureIndices[0]) += gain;
-    }
-    totalNodeImportanceSum_ += gain;
-  }
-  featureImportance_.zeros(sumOfNodeImportancesByFeature_.n_elem);
-  if (totalNodeImportanceSum_ > 0.0)
-    featureImportance_ = sumOfNodeImportancesByFeature_ / totalNodeImportanceSum_;
-}

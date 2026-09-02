@@ -38,10 +38,6 @@ const arma::Row<float> &ShapeGeneralizedTaoAdapter::sampleWeights() const {
   return w_;
 }
 
-void ShapeGeneralizedTaoAdapter::refreshFeatureImportances() {
-  tree_.refreshFeatureImportances();
-}
-
 LearningCriterion ShapeGeneralizedTaoAdapter::criterion() const {
   return tree_.criterion();
 }
