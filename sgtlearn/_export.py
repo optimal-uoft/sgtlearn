@@ -779,6 +779,24 @@ def _pair_cell_row(node: dict, x_axis: dict, x_value, y_axis: dict, y_value) -> 
     return row
 
 
+def _pair_switch_boundaries(
+    cells: list[tuple[float, float, object]],
+    partitions: np.ndarray,
+    *,
+    axis: int,
+) -> list[float]:
+    """Return finite cell boundaries where the outer partition changes."""
+    boundaries = []
+    for index in range(1, len(cells)):
+        if cells[index - 1][2] is None or cells[index][2] is None:
+            continue
+        before = np.take(partitions, index - 1, axis=axis)
+        after = np.take(partitions, index, axis=axis)
+        if np.any(before != after):
+            boundaries.append(cells[index][0])
+    return boundaries
+
+
 def _draw_internal_panel_pair(
     host_ax,
     center: tuple[float, float],
@@ -792,6 +810,7 @@ def _draw_internal_panel_pair(
     label: str,
     prefer_logical_name: bool,
     n_hist_bins: int,
+    precision: int,
 ) -> list:
     """Draw exported pair-routing cells, including the two missing margins."""
     cx, cy = center
@@ -840,9 +859,11 @@ def _draw_internal_panel_pair(
                     counts[(xi, yi)] = counts.get((xi, yi), 0) + 1
                     break
                 break
+    partitions = np.empty((len(x_cells), len(y_cells)), dtype=np.intp)
     for xi, (x0, x1, xv) in enumerate(x_cells):
         for yi, (y0, y1, yv) in enumerate(y_cells):
             part = _route_pair_partition(node, _pair_cell_row(node, x_axis, xv, y_axis, yv))
+            partitions[xi, yi] = part
             inset.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, facecolor=palette[part], alpha=0.55, edgecolor="white", linewidth=0.5))
     inset.set_xlim(x_cells[0][0], x_cells[-1][1])
     inset.set_ylim(y_cells[0][0], y_cells[-1][1])
@@ -921,13 +942,35 @@ def _draw_internal_panel_pair(
     if x_axis["kind"] == "categorical":
         inset.set_xticks([(a + b) / 2 for a, b, _ in x_cells])
         inset.set_xticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in x_cells], rotation=30, ha="right", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+    else:
+        x_ticks = _pair_switch_boundaries(x_cells, partitions, axis=0)
+        x_labels = [f"{value:.{precision}f}" for value in x_ticks]
+        if x_cells[-1][2] is None:
+            start, end, _ = x_cells[-1]
+            x_ticks.append((start + end) / 2)
+            x_labels.append("NaN")
+        inset.set_xticks(x_ticks)
+        inset.set_xticklabels(
+            x_labels,
+            rotation=30,
+            ha="right",
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+        )
     if y_axis["kind"] == "categorical":
         inset.set_yticks([(a + b) / 2 for a, b, _ in y_cells])
         inset.set_yticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in y_cells], fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
     else:
-        inset.set_yticks([])
-    if x_axis["kind"] != "categorical":
-        inset.set_xticks([])
+        y_ticks = _pair_switch_boundaries(y_cells, partitions, axis=1)
+        y_labels = [f"{value:.{precision}f}" for value in y_ticks]
+        if y_cells[-1][2] is None:
+            start, end, _ = y_cells[-1]
+            y_ticks.append((start + end) / 2)
+            y_labels.append("NaN")
+        inset.set_yticks(y_ticks)
+        inset.set_yticklabels(
+            y_labels,
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+        )
     if label != "none":
         inset.text(1.0, 1.0, f"n={node['n_samples']}", transform=inset.transAxes, ha="right", va="top", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None, color="#444444")
     return [inset, *histogram_axes]
@@ -1124,6 +1167,7 @@ def plot_tree(
                 label=label,
                 prefer_logical_name=feature_names is None,
                 n_hist_bins=n_hist_bins,
+                precision=precision,
             )
         elif _is_categorical_node(node):
             panel_artists = _draw_internal_panel_categorical(

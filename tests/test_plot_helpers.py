@@ -9,7 +9,7 @@ from matplotlib.patches import FancyArrowPatch
 import numpy as np
 from sklearn.datasets import make_classification
 from sgtlearn import SGTClassifier
-from sgtlearn._export import _merge_routing_regions, _route_samples, _compute_layout_leafcounter, _draw_leaf_text, _draw_internal_panel, _draw_arrow_edge
+from sgtlearn._export import _merge_routing_regions, _pair_switch_boundaries, _route_samples, _compute_layout_leafcounter, _draw_leaf_text, _draw_internal_panel, _draw_arrow_edge
 
 from tests.constants import TEST_TAO_N_RUNS
 
@@ -89,6 +89,20 @@ def test_merge_x_min_greater_than_first_threshold_clamps_left_edge():
     assert regions[0] == (-1.0, 0.0, 1)
     assert regions[1] == (0.0, 1.0, 0)
     assert len(regions) == 2
+
+
+def test_pair_switch_boundaries_only_keeps_partition_changes():
+    cells = [(0.0, 1.0, 0.5), (1.0, 2.0, 1.5), (2.0, 3.0, 2.5)]
+
+    x_partitions = np.array([[0, 0], [1, 1], [1, 1]])
+    assert _pair_switch_boundaries(cells, x_partitions, axis=0) == [1.0]
+
+    y_partitions = np.array([[0, 1, 1], [0, 1, 1]])
+    assert _pair_switch_boundaries(cells, y_partitions, axis=1) == [1.0]
+
+    both_partitions = np.array([[0, 0, 1], [0, 1, 1], [1, 1, 1]])
+    assert _pair_switch_boundaries(cells, both_partitions, axis=0) == [1.0, 2.0]
+    assert _pair_switch_boundaries(cells, both_partitions, axis=1) == [1.0, 2.0]
 
 
 def _fitted_clf():

@@ -236,7 +236,13 @@ def test_plot_tree_pair_heatmap_reuses_exported_router_and_axes():
         random_state=0,
     ).fit(X, y)
     fig, ax = plt.subplots()
-    artists = plot_tree(est, X=X, feature_names=["first", "second"], ax=ax)
+    artists = plot_tree(
+        est,
+        X=X,
+        feature_names=["first", "second"],
+        precision=3,
+        ax=ax,
+    )
     panels = [artist for artist in artists if hasattr(artist, "patches")]
     assert ax in fig.axes
     assert panels and len(panels[0].patches) == 4
@@ -247,6 +253,8 @@ def test_plot_tree_pair_heatmap_reuses_exported_router_and_axes():
     }
     assert panels[0].get_xlabel() == "first"
     assert panels[0].get_ylabel() == "second"
+    assert [tick.get_text() for tick in panels[0].get_xticklabels()] == ["0.000"]
+    assert [tick.get_text() for tick in panels[0].get_yticklabels()] == ["0.000"]
     plt.close(fig)
 
 
@@ -285,6 +293,12 @@ def test_plot_tree_pair_heatmap_renders_categories_and_missing_cells(pair_kind):
     heights = [patch.get_height() for patch in panel.patches]
     assert min(widths) < 0.5 * max(widths)
     assert min(heights) < 0.5 * max(heights)
+    x_labels = [tick.get_text() for tick in panel.get_xticklabels()]
+    y_labels = [tick.get_text() for tick in panel.get_yticklabels()]
+    assert "NaN" in x_labels
+    assert "NaN" in y_labels
+    if pair_kind == "mixed":
+        assert any(label not in {"", "NaN"} for label in x_labels)
     plt.close(fig)
 
 
@@ -307,4 +321,6 @@ def test_plot_tree_pair_heatmap_renders_without_training_data():
     artists = plot_tree(est, ax=ax)
     panel = next(artist for artist in artists if hasattr(artist, "patches"))
     assert panel.patches
+    assert "NaN" in [tick.get_text() for tick in panel.get_xticklabels()]
+    assert "NaN" in [tick.get_text() for tick in panel.get_yticklabels()]
     plt.close(fig)
