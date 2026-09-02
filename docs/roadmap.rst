@@ -29,7 +29,7 @@ v0.3.0
 - ✅ Multioutput support
 - ✅ Opt-in :math:`\mathrm{Shape}^2\mathrm{CART}` for SGT classifiers and
   regressors, including continuous/categorical pairs, joint missing routing,
-  and multiway outer branching
+  and multiway outer branching (see :doc:`tutorials/bivariate-branching`)
 - ✅ :math:`\mathrm{Shape}^2\mathrm{CART}` random forest ensembling
 - ✅ Pair-aware TAO refinement (see
   `issue #48 <https://github.com/optimal-uoft/sgtlearn/issues/48>`_)

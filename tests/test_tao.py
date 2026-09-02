@@ -160,6 +160,22 @@ def _sample_weights(n_samples: int, seed: int) -> np.ndarray:
     return rng.uniform(0.5, 2.0, size=n_samples)
 
 
+def test_feature_importances_are_unavailable_after_tao_and_reset_on_refit() -> None:
+    X, y = load_iris(return_X_y=True)
+    clf = SGTClassifier(tao_n_runs=0, random_state=0).fit(X, y)
+
+    tao.TAO_refine(clf, X, y, n_runs=0)
+    assert clf.feature_importances_.shape == (X.shape[1],)
+
+    tao.TAO_refine(clf, X, y, n_runs=1)
+
+    with pytest.raises(AttributeError, match="unavailable after TAO"):
+        clf.feature_importances_
+
+    clf.fit(X, y)
+    assert clf.feature_importances_.shape == (X.shape[1],)
+
+
 def _classification_training_score(
     tree: SGTClassifier,
     X: np.ndarray,
@@ -567,12 +583,12 @@ def test_tao_reconsiders_retained_classifier_pair() -> None:
     assert len(root["bin_sample_counts"]) == len(root["bin_to_partition"])
     assert len(root["bin_counts"]) == len(root["bin_to_partition"])
     assert sum(root["bin_sample_counts"]) == X.shape[0]
-    with pytest.warns(UserWarning, match="equally"):
-        np.testing.assert_allclose(clf.feature_importances_, [0.5, 0.5])
+    with pytest.raises(AttributeError, match="unavailable after TAO"):
+        clf.feature_importances_
     assert clf.score(X, y) == 1.0
 
 
-def test_tao_pair_importance_refreshes_forest_aggregation() -> None:
+def test_tao_makes_forest_feature_importances_unavailable() -> None:
     X, y = _tao_pair_interaction_data()
     forest = RandomSGForestClassifier(
         n_estimators=1,
@@ -590,8 +606,9 @@ def test_tao_pair_importance_refreshes_forest_aggregation() -> None:
 
     tao.TAO_refine(forest, X, y, n_runs=1, lambda_=0.0)
 
-    with pytest.warns(UserWarning, match="equally"):
-        np.testing.assert_allclose(forest.mean_feature_importances_, [0.5, 0.5])
+    for attr in ("mean_feature_importances_", "std_feature_importance_"):
+        with pytest.raises(AttributeError, match="unavailable after TAO"):
+            getattr(forest, attr)
 
 
 def test_tao_accepts_improving_retained_regression_pair_multioutput() -> None:

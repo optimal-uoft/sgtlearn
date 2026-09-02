@@ -41,7 +41,13 @@ TAO knobs:
     Finite, non-negative multiplier for the TAO complexity penalty of a
     retained bivariate candidate. It applies only to that TAO penalty and
     never reuses ``pairwise_penalty``. TAO only reconsiders pairs retained by
-    the node's initial pair screening; it does not search new pairs.
+    the node's initial pair screening; it does not search new pairs. See
+    :doc:`../tutorials/bivariate-branching` for tuning guidance.
+
+.. warning::
+
+   Impurity-based feature importances are unavailable after any TAO call with
+   ``n_runs > 0``. Use held-out permutation importance instead.
 
 These map directly to ``n_runs``, ``lambda_``, and ``tao_pair_scale`` on
 :func:`~sgtlearn.tao.TAO_refine`.

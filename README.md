@@ -4,7 +4,7 @@
 
 `sgtlearn` is a Python package for learning [Shape Generalized Trees (SGTs)](https://neurips.cc/virtual/2025/loc/san-diego/poster/115950).
 
-- 🌳 **Shape Generalized Trees (SGTs):** A class of decision trees where each node applies a learnable, axis-aligned shape function to a feature for non-linear and interpretable splits.
+- 🌳 **Shape Generalized Trees (SGTs):** A class of decision trees where each node applies a learnable, axis-aligned shape function to one or two logical features for non-linear and interpretable splits.
 - 👁 **Interpretability:** Each node's shape function can be visualized directly.
 - ⚡ **ShapeCART Algorithm:** An efficient induction method for learning SGTs from data.
 - 🔀 **Extensions:**
@@ -12,8 +12,10 @@
   - **SGT<sub>K</sub>:** Multi-way branching generalization.
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
+See the [S²GT bivariate branching tutorial](https://sgtlearn.readthedocs.io/en/latest/tutorials/bivariate-branching.html) for a worked comparison and tuning guidance.
+
 > [!NOTE]
-> This codebase is an efficient, but working implementation of the algorithms in the paper "Empowering Decision Trees via Shape Function Branching". Please refer to the [ROADMAP](ROADMAP.md) for a detailed list of features that are currently implemented and those that are planned for future releases. For the canonical code base for the paper, please refer to https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions. Shape²CART is available as an opt-in feature, with pair-aware TAO and dedicated bivariate routing heatmaps included in the v0.3.0 implementation.
+> This codebase is an efficient implementation of the algorithms in "Empowering Decision Trees via Shape Function Branching." See the [ROADMAP](ROADMAP.md) for implementation status and the [canonical research code](https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions) for the paper's original implementation.
 
 ## Installation
 

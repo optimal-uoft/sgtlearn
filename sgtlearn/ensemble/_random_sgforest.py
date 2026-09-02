@@ -264,6 +264,11 @@ class RandomSGForest(BaseEstimator, ABC):
 
     def _tree_feature_importances_matrix(self) -> np.ndarray:
         check_is_fitted(self, attributes=("estimators_",))
+        if any(getattr(est, "_tao_refined_", False) for est in self.estimators_):
+            raise AttributeError(
+                "feature importances are unavailable after TAO refinement; "
+                "use permutation importance on held-out data instead."
+            )
         has_pair_nodes = any(
             getattr(getattr(est, "_est", None), "has_pair_nodes", False)
             for est in self.estimators_
@@ -288,7 +293,8 @@ class RandomSGForest(BaseEstimator, ABC):
         """Mean per-logical-feature importances across fitted base trees.
 
         Aligned with :attr:`processed_features_` (same order as each tree's
-        ``feature_importances_``). Available only after :meth:`fit`.
+        ``feature_importances_``). Available only after :meth:`fit` without
+        TAO refinement.
         """
         return self._tree_feature_importances_matrix().mean(axis=0)
 
@@ -297,7 +303,8 @@ class RandomSGForest(BaseEstimator, ABC):
         """Per-logical-feature standard deviation of importances across trees.
 
         Population std (``ddof=0``) over base estimators; aligned with
-        :attr:`mean_feature_importances_`. Available only after :meth:`fit`.
+        :attr:`mean_feature_importances_`. Available only after :meth:`fit`
+        without TAO refinement.
         """
         return self._tree_feature_importances_matrix().std(axis=0)
 

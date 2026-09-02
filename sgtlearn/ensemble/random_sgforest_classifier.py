@@ -92,10 +92,11 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         Number of features seen during :meth:`fit`.
     mean_feature_importances_ : ndarray of shape (n_logical_features,)
         Mean of per-tree :attr:`~sgtlearn.SGTClassifier.feature_importances_`,
-        aligned with :attr:`processed_features_`.
+        aligned with :attr:`processed_features_`. Unavailable after TAO.
     std_feature_importance_ : ndarray of shape (n_logical_features,)
         Population standard deviation of per-tree importances across the
         forest (same alignment as :attr:`mean_feature_importances_`).
+        Unavailable after TAO.
     processed_features_ : ProcessedFeatures
         Logical features resolved once and shared by every base tree.
 

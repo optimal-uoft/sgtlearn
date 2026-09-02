@@ -116,18 +116,26 @@ class BaseShapeCART(BaseEstimator):
     Subclasses own the native backend handle (``_est``) and validation rules.
     """
 
+    _tao_refined_: bool = False
+
     @property
     def feature_importances_(self) -> np.ndarray:
         """Normalized per-feature importances from the fitted tree.
 
         Length matches the number of logical features passed to ``fit``
         (one-to-one with :attr:`processed_features_`). Available only after
-        training.
+        training without TAO refinement.
         """
         check_is_fitted(self, attributes=("_est",))
+        if getattr(self, "_tao_refined_", False):
+            raise AttributeError(
+                "feature_importances_ is unavailable after TAO refinement; "
+                "use permutation importance on held-out data instead."
+            )
         if getattr(self._est, "has_pair_nodes", False):
             warnings.warn(
-                "Pair-node impurity gain is attributed equally to both features.",
+                "Pair-node impurity gain is split equally between both features; "
+                "this attribution is only a bookkeeping convention.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -193,12 +201,12 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     """Shape Generalized Tree classifier.
 
     A decision tree where each internal node applies a learnable, axis-aligned
-    *shape function* to a single feature rather than a single threshold. The
-    shape function is itself an inner tree (univariate, depth-limited) that
-    partitions the feature's value range into ``num_partitions`` bins; the
-    outer tree then routes samples through those bins to grow the overall
-    classifier. Training is performed by the native ShapeCART C++ trainer
-    exposed through ``ClassificationShapeGeneralizedTree``.
+    *shape function*. By default the shape function is a depth-limited inner
+    tree over one logical feature; ``pairwise_candidates > 0`` also lets it use
+    an ordinary axis-aligned CART over two logical features. The outer tree
+    routes the resulting bins into ``num_partitions`` children. Training is
+    performed by the native ShapeCART C++ trainer exposed through
+    ``ClassificationShapeGeneralizedTree``.
 
     The estimator follows the ``scikit-learn`` ``ClassifierMixin`` contract and
     is compatible with sklearn pipelines, cross-validators, and metaestimators.
@@ -283,7 +291,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     feature_importances_ : ndarray of shape (n_logical_features,)
         Normalized impurity-based importances from the fitted tree. Index
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
-        order as the logical features passed to the native trainer).
+        order as the logical features passed to the native trainer). Available
+        only when the model has not undergone TAO refinement.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
@@ -548,6 +557,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self._est.fit(
             X32, y_u, sample_weight=sw, features=processed_features.to_native()
         )
+        self._tao_refined_ = False
 
         if self.tao_n_runs > 0:
             from sgtlearn.tao import TAO_refine
@@ -633,8 +643,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     """Shape Generalized Tree regressor.
 
     Regression analogue of :class:`SGTClassifier`. Each internal node applies a
-    learnable shape function (an inner univariate tree) to a single feature,
-    and the outer tree routes samples through the resulting bins. Training is
+    learnable shape function: an inner univariate tree by default, or an
+    ordinary axis-aligned two-feature CART when bivariate branching is enabled.
+    The outer tree routes samples through the resulting bins. Training is
     performed by the native ShapeCART C++ trainer exposed through
     ``RegressionShapeGeneralizedTree``.
 
@@ -701,7 +712,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     feature_importances_ : ndarray of shape (n_logical_features,)
         Normalized impurity-based importances from the fitted tree. Index
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
-        order as the logical features passed to the native trainer).
+        order as the logical features passed to the native trainer). Available
+        only when the model has not undergone TAO refinement.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
@@ -906,6 +918,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             sample_weight=sw,
             features=processed_features.to_native(),
         )
+        self._tao_refined_ = False
 
         if self.tao_n_runs > 0:
             from sgtlearn.tao import TAO_refine

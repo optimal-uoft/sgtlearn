@@ -19,7 +19,7 @@
 ## v0.3.0
 - [x] multioutput support
 - [x] Opt-in Shape$^2$CART for SGT estimators, including continuous/categorical
-  pairs, joint missing routing, and multiway branching
+  pairs, joint missing routing, and multiway branching ([tutorial](https://sgtlearn.readthedocs.io/en/latest/tutorials/bivariate-branching.html))
 - [x] Shape$^2$CART Random Forest Ensembling
 - [x] Pair-aware TAO refinement ([#48](https://github.com/optimal-uoft/sgtlearn/issues/48))
 - [x] Shape$^2$CART routing heatmap visualization ([#28](https://github.com/optimal-uoft/sgtlearn/issues/28))

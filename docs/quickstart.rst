@@ -24,8 +24,9 @@ Train and visualize an SGT classifier on the built-in "Plus Sign" dataset:
 Inner vs. outer depth
 ---------------------
 
-Every SGT node's split is itself a small *inner* tree (the shape function) that
-carves one feature into bins; the *outer* tree routes samples through those bins.
+By default, every SGT node's split is itself a small *inner* tree (the shape
+function) that carves one feature into bins; the *outer* tree routes samples
+through those bins.
 ``num_partitions`` sets the outer branching factor (the :math:`\mathrm{SGT}_K`
 arity), and ``inner_max_depth`` controls how rich each shape function may be:
 
@@ -164,15 +165,7 @@ univariate training path unchanged:
    ).fit(X_train, y_train)
 
 The same options are available on ``SGTRegressor`` and both random-forest
-estimators.  Candidate pairs are sampled from the logical features available
-at that node, after ``max_features`` is applied.  Continuous/categorical pairs
-and per-feature joint missing-value bins are supported, including multiway
-branching.  If a fitted tree contains pair nodes, reading
-``feature_importances_`` emits a warning because each pair's gain is shared
-equally between its two features. Pair-aware TAO uses ``tao_pair_scale=1.1``
-by default; it penalizes only retained screened pairs and never reuses
-``pairwise_penalty``. The existing ``plot_tree`` API renders exact pair
-routing heatmaps, including continuous/categorical layouts, independent
-missing strips/corner, ``X`` overlays/counts, and ``K`` colors. See issues
-`#48 <https://github.com/optimal-uoft/sgtlearn/issues/48>`_ and `#28
-<https://github.com/optimal-uoft/sgtlearn/issues/28>`_.
+estimators. Candidate pairs are screened within the logical-feature subset
+selected by ``max_features``. See the :doc:`tutorials/bivariate-branching`
+tutorial for a univariate comparison, routing heatmaps, tuning guidance,
+categorical and missing-value behaviour, and pair-aware TAO.

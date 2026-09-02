@@ -20,12 +20,14 @@ Forests accept the Shape²CART options ``pairwise_candidates`` and
 are restricted to each node's ``max_features`` logical-feature subset.  See
 :doc:`estimators` for candidate-count semantics, categorical and joint missing
 routing, multiway support, and the feature-importance warning for pair nodes.
+See :doc:`../tutorials/bivariate-branching` for a worked classifier example.
 
 :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`
 and :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.std_feature_importance_`
 (and the regressor counterparts) summarize per-tree
 :attr:`~sgtlearn.SGTClassifier.feature_importances_` across the forest,
 aligned with the shared :attr:`processed_features_`.
+They are unavailable if any base tree has undergone positive-run TAO refinement.
 
 RandomSGForestClassifier
 ------------------------

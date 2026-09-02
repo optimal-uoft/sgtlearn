@@ -9,14 +9,14 @@ Both estimators accept ``tao_n_runs`` and ``tao_lambda``; TAO runs automatically
 at the end of :meth:`~sklearn.base.BaseEstimator.fit` when ``tao_n_runs > 0``.
 See :doc:`tao` for behaviour and post-hoc :func:`~sgtlearn.tao.TAO_refine`.
 
-After fitting, :attr:`~sgtlearn.base.BaseShapeCART.feature_importances_` gives
-normalized importances over logical features, aligned with
+After fitting with TAO disabled, :attr:`~sgtlearn.base.BaseShapeCART.feature_importances_`
+gives normalized impurity importances over logical features, aligned with
 :attr:`~sgtlearn.base.BaseShapeCART.processed_features_`. Forests expose
 :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`
 and :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.std_feature_importance_`
-instead (see :doc:`ensemble`). Prefer built-in importances when TAO is off
-(``tao_n_runs=0``); see :doc:`../tutorials/feature-importance` for permutation
-importance with categoricals.
+instead (see :doc:`ensemble`). After any positive-run TAO refinement these
+attributes are unavailable; see :doc:`../tutorials/feature-importance` for
+permutation importance.
 
 Multi-output targets
 --------------------
@@ -75,6 +75,9 @@ pre-resolve it once with :func:`configure_feature_dict` and pass the result as
 Bivariate branching (Shape²CART)
 ---------------------------------
 
+See :doc:`../tutorials/bivariate-branching` for a worked S²GT classification
+example and tuning guidance.
+
 All four estimators — :class:`SGTClassifier`, :class:`SGTRegressor`,
 :class:`~sgtlearn.RandomSGForestClassifier`, and
 :class:`~sgtlearn.RandomSGForestRegressor` — support opt-in bivariate
@@ -96,24 +99,14 @@ missing value on the other is a distinct bin (as are the converse and both
 missing); a missing branch may continue splitting on the other feature.
 Multiway outer branching uses the same inner pair tree.
 
-Pair gains are divided equally between the two logical features.  Accessing
+Without TAO, pair gains are divided equally between the two logical features. Accessing
 ``feature_importances_`` after a fit containing pair nodes emits a warning,
 because this attribution is intentionally a symmetric convention rather than
-a unique decomposition.  With the defaults (including ``pairwise_candidates=0``)
-existing models, routing, importances, and public APIs remain backward
-compatible.
+a unique or fully trustworthy decomposition.
 
 Pair-aware TAO is available through ``tao_pair_scale`` (default ``1.1``): it
 is finite and non-negative, affects only the TAO complexity penalty, and TAO
-only reconsiders pairs retained during initial screening. The existing
-``plot_tree`` API renders exact Shape²CART routing heatmaps for continuous and
-categorical pairs, including independent missing strips/corner, optional
-``X`` overlays/counts, and ``K`` partition colors.
-
-The implementation is tracked by umbrella issue
-`#27 <https://github.com/optimal-uoft/sgtlearn/issues/27>`_, specification
-`#42 <https://github.com/optimal-uoft/sgtlearn/issues/42>`_, and implementation
-tickets `#43 <https://github.com/optimal-uoft/sgtlearn/issues/43>`_ through
-`#49 <https://github.com/optimal-uoft/sgtlearn/issues/49>`_, including pair-aware
-TAO in `#48 <https://github.com/optimal-uoft/sgtlearn/issues/48>`_ and routing
-heatmaps in `#28 <https://github.com/optimal-uoft/sgtlearn/issues/28>`_.
+only reconsiders pairs retained during initial screening. After TAO,
+``feature_importances_`` is unavailable. The existing ``plot_tree`` API renders
+exact Shape²CART routing heatmaps with marginal histograms, partition-changing
+threshold labels, categorical labels, and missing margins when present in ``X``.

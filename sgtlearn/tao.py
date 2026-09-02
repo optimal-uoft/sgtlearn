@@ -186,6 +186,8 @@ def TAO_refine(
     than ``lambda_ * n_samples`` in weighted reward units (equivalently
     ``lambda_ * n_samples / n_care`` on the mean care reward).
     Pair routers pay ``tao_pair_scale`` times this cost; dummy routers pay zero.
+    After any call with ``n_runs > 0``, impurity feature importances are
+    unavailable; use held-out permutation importance instead.
     """
     tao_pair_scale = _validate_tao_pair_scale(tao_pair_scale)
     targets = _tao_targets(model)
@@ -220,5 +222,9 @@ def TAO_refine(
             )
             for tree in targets
         )
+
+    if n_runs > 0:
+        for tree in targets:
+            tree._tao_refined_ = True
 
     return model

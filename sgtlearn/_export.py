@@ -993,7 +993,50 @@ def plot_tree(
     node_aspect_ratio: float = 2.5,
     n_hist_bins: int = 20,
 ) -> list[Any]:
-    """Render a fitted SGT estimator with matplotlib (see module docstring)."""
+    """Render a fitted SGT estimator with matplotlib.
+
+    Univariate nodes show their one-dimensional shape function. Bivariate
+    nodes show the exact two-dimensional routing heatmap; when ``X`` is
+    supplied, top/right marginal histograms and observed missing-value margins
+    are included. Continuous axes label only thresholds where the final outer
+    partition changes.
+
+    Parameters
+    ----------
+    estimator : SGTClassifier or SGTRegressor
+        Fitted estimator to render.
+    X : array-like of shape (n_samples, n_features), optional
+        Data used for node sample counts and bivariate marginal histograms.
+    max_depth : int, optional
+        Maximum outer-tree depth to display.
+    feature_names : list of str, optional
+        Display names for input columns.
+    class_names : list of str, bool, or None, default=None
+        Class labels shown on classifier leaves.
+    label : str, default="feature"
+        Controls field-name labels in node text.
+    impurity : bool, default=False
+        Whether to display node impurity.
+    proportion : bool, default=False
+        Whether to display sample proportions instead of counts.
+    precision : int, default=2
+        Decimal precision for displayed values and routing thresholds.
+    cmap : colormap or color sequence, optional
+        Colors for classes and routing partitions.
+    ax : matplotlib.axes.Axes, optional
+        Axes on which to draw.
+    fontsize : int, optional
+        Node text size.
+    node_aspect_ratio : float, default=2.5
+        Width-to-height ratio of node boxes.
+    n_hist_bins : int, default=20
+        Number of bins in each bivariate marginal histogram.
+
+    Returns
+    -------
+    list
+        Matplotlib artists created by the tree exporter.
+    """
     if not isinstance(estimator, (SGTClassifier, SGTRegressor)):
         raise TypeError(
             "plot_tree expects an SGTClassifier or SGTRegressor; got "

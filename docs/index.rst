@@ -3,8 +3,8 @@ sgtlearn
 
 ``sgtlearn`` is a Python package for learning **Shape Generalized Trees (SGTs)** —
 a class of decision trees where each internal node applies a learnable,
-axis-aligned *shape function* to a feature, producing non-linear yet
-interpretable splits.
+axis-aligned *shape function* to one or two logical features, producing
+non-linear yet interpretable splits.
 
 It implements the algorithms from the NeurIPS 2025 paper
 `Empowering Decision Trees via Shape Function Branching
@@ -15,13 +15,14 @@ Highlights
 ----------
 
 - 🌳 **Shape Generalized Trees (SGTs):** each node applies a learnable,
-  axis-aligned shape function to a feature for non-linear, interpretable splits.
+  axis-aligned shape function for non-linear, interpretable splits.
 - 👁 **Interpretability:** every node's shape function can be visualized directly
   with :func:`~sgtlearn.plot_tree`.
 - ⚡ **ShapeCART algorithm:** an efficient native (C++/pybind11) induction method
   for learning SGTs from data.
-- 🔀 **Extensions:** multi-way branching (:math:`\mathrm{SGT}_K`) and bootstrap
-  ensembling via :class:`~sgtlearn.RandomSGForestClassifier` /
+- 🔀 **Extensions:** bivariate branching (:math:`\mathrm{S}^2\mathrm{GT}`),
+  multi-way branching (:math:`\mathrm{SGT}_K`), and bootstrap ensembling via
+  :class:`~sgtlearn.RandomSGForestClassifier` /
   :class:`~sgtlearn.RandomSGForestRegressor`.
 
 .. note::
@@ -44,6 +45,7 @@ Highlights
    :caption: Tutorials
 
    tutorials/shape-functions
+   tutorials/bivariate-branching
    tutorials/categorical-features
    tutorials/feature-importance
    tutorials/sgt-k
