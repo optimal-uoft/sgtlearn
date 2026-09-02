@@ -10,10 +10,10 @@ every leaf is drawn as a text box with the predicted class / value.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
-from matplotlib.patches import FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch, Rectangle
 
 __all__ = ["export_graphviz", "export_text", "plot_tree"]
 
@@ -160,6 +160,43 @@ def _finite_routing_bins(
     return bin_to_partition
 
 
+def _is_pair_node(node: dict) -> bool:
+    return node.get("routing_kind") == "pair"
+
+
+def _pair_axis_missing(row: np.ndarray, axis: dict) -> bool:
+    columns = [int(c) for c in axis["columns"]]
+    if axis["kind"] == "continuous":
+        return not np.isfinite(row[columns[0]])
+    return _active_onehot_column(row, columns) is None
+
+
+def _route_pair_bin(node: dict, row: np.ndarray) -> int:
+    """Replay one exported pair router exactly."""
+    inner = {int(n["id"]): n for n in node["pair_inner_tree"]}
+    axes = node["pair_axes"]
+    current = 0
+    while not inner[current]["is_leaf"]:
+        split = inner[current]
+        if _pair_axis_missing(row, axes[int(split["axis"])]):
+            current = int(split["missing"])
+        elif split["kind"] == "categorical":
+            current = int(
+                split["right"] if row[int(split["feature"])] >= 0.5 else split["left"]
+            )
+        else:
+            current = int(
+                split["left"]
+                if row[int(split["feature"])] <= float(split["threshold"])
+                else split["right"]
+            )
+    return int(inner[current]["bin"])
+
+
+def _route_pair_partition(node: dict, row: np.ndarray) -> int:
+    return int(node["bin_to_partition"][_route_pair_bin(node, row)])
+
+
 def _merge_routing_regions(
     thresholds: list[float],
     bin_to_partition: list[int],
@@ -231,8 +268,15 @@ def _route_samples(tree: dict, X) -> dict[int, Any]:
                 reach.setdefault(cid, np.empty(0, dtype=np.int64))
                 queue.append(cid)
             continue
-        feature = node["feature"]
-        if _is_categorical_node(node):
+        feature = node.get("feature")
+        if _is_pair_node(node):
+            part_idx = np.fromiter(
+                (_route_pair_partition(node, X_arr[int(row_i)]) for row_i in rows),
+                dtype=np.int64,
+                count=rows.size,
+            )
+            children = list(node["children"])
+        elif _is_categorical_node(node):
             feature_cols = [int(c) for c in node["features"]]
             bin_categories = _bin_categories_for_node(node)
             b2p = np.asarray(list(node["bin_to_partition"]), dtype=np.int64)
@@ -659,6 +703,279 @@ def _draw_internal_panel(
     return [inset, *extra]
 
 
+def _pair_axis_label(
+    estimator: Any, axis: dict, feat_names: list[str], *, prefer_logical_name: bool = True
+) -> str:
+    processed = getattr(estimator, "processed_features_", None)
+    logical = int(axis["logical_feature"])
+    if prefer_logical_name and processed is not None and processed.logical_names and logical < len(processed.logical_names):
+        return str(processed.logical_names[logical])
+    return _category_label_for_columns(axis["columns"], feat_names)
+
+
+def _pair_axis_cells(
+    node: dict,
+    axis_index: int,
+    axis: dict,
+    values: np.ndarray | None,
+    *,
+    include_missing: bool,
+) -> list[tuple[float, float, object]]:
+    if axis["kind"] == "categorical":
+        categories = [int(c) for c in axis["categories"]]
+        categorical_cells: list[tuple[float, float, object]] = [
+            (float(i), float(i + 1), category)
+            for i, category in enumerate(categories)
+        ]
+        if include_missing:
+            categorical_cells.append(
+                (
+                    float(len(categories)) + 0.08,
+                    float(len(categories)) + 0.38,
+                    None,
+                )
+            )
+        return categorical_cells
+    thresholds = sorted({
+        float(split["threshold"])
+        for split in node["pair_inner_tree"]
+        if not split["is_leaf"]
+        and int(split["axis"]) == axis_index
+        and split["kind"] == "continuous"
+    })
+    finite = values[np.isfinite(values)] if values is not None else np.array([])
+    if finite.size:
+        lo, hi = float(finite.min()), float(finite.max())
+    elif thresholds:
+        delta = max((thresholds[-1] - thresholds[0]) / max(len(thresholds) - 1, 1), 1.0)
+        lo, hi = thresholds[0] - delta, thresholds[-1] + delta
+    else:
+        lo, hi = 0.0, 1.0
+    if hi <= lo:
+        hi = lo + 1.0
+    edges = [lo, *[t for t in thresholds if lo < t < hi], hi]
+    continuous_cells: list[tuple[float, float, object]] = [
+        (edges[i], edges[i + 1], (edges[i] + edges[i + 1]) / 2)
+        for i in range(len(edges) - 1)
+    ]
+    if include_missing:
+        span = hi - lo
+        continuous_cells.append((hi + span * 0.04, hi + span * 0.12, None))
+    return continuous_cells
+
+
+def _pair_cell_row(node: dict, x_axis: dict, x_value, y_axis: dict, y_value) -> np.ndarray:
+    width = max([int(c) for c in node["features"]] + [0]) + 1
+    row = np.zeros(width, dtype=np.float64)
+    for axis, value in ((x_axis, x_value), (y_axis, y_value)):
+        columns = [int(c) for c in axis["columns"]]
+        if value is None:
+            if axis["kind"] == "continuous":
+                row[columns[0]] = np.nan
+        elif axis["kind"] == "continuous":
+            row[columns[0]] = float(value)
+        else:
+            row[int(value)] = 1.0
+    return row
+
+
+def _pair_switch_boundaries(
+    cells: list[tuple[float, float, object]],
+    partitions: np.ndarray,
+    *,
+    axis: int,
+) -> list[float]:
+    """Return finite cell boundaries where the outer partition changes."""
+    boundaries = []
+    for index in range(1, len(cells)):
+        if cells[index - 1][2] is None or cells[index][2] is None:
+            continue
+        before = np.take(partitions, index - 1, axis=axis)
+        after = np.take(partitions, index, axis=axis)
+        if np.any(before != after):
+            boundaries.append(cells[index][0])
+    return boundaries
+
+
+def _draw_internal_panel_pair(
+    host_ax,
+    center: tuple[float, float],
+    size: tuple[float, float],
+    node: dict,
+    palette,
+    estimator: Any,
+    feat_names: list[str],
+    X_rows: np.ndarray | None,
+    fontsize: int | None,
+    label: str,
+    prefer_logical_name: bool,
+    n_hist_bins: int,
+    precision: int,
+) -> list:
+    """Draw exported pair-routing cells, including the two missing margins."""
+    cx, cy = center
+    w, h = size
+    left, bottom = cx - w / 2, cy - h / 2
+    with_histograms = X_rows is not None and len(X_rows) > 0
+    heatmap_width = w * 0.78 if with_histograms else w
+    heatmap_height = h * 0.78 if with_histograms else h
+    inset = host_ax.inset_axes(
+        [left, bottom, heatmap_width, heatmap_height],
+        transform=host_ax.transAxes,
+    )
+    inset.set_label("pair-heatmap")
+    x_axis, y_axis = node["pair_axes"]
+    x_values = X_rows[:, int(x_axis["columns"][0])] if X_rows is not None and x_axis["kind"] == "continuous" else None
+    y_values = X_rows[:, int(y_axis["columns"][0])] if X_rows is not None and y_axis["kind"] == "continuous" else None
+    x_has_missing = X_rows is None or any(
+        _pair_axis_missing(row, x_axis) for row in X_rows
+    )
+    y_has_missing = X_rows is None or any(
+        _pair_axis_missing(row, y_axis) for row in X_rows
+    )
+    x_cells = _pair_axis_cells(
+        node, 0, x_axis, x_values, include_missing=x_has_missing
+    )
+    y_cells = _pair_axis_cells(
+        node, 1, y_axis, y_values, include_missing=y_has_missing
+    )
+    counts: dict[tuple[int, int], int] = {}
+    if X_rows is not None:
+        for row in X_rows:
+            for xi, (x0, x1, xv) in enumerate(x_cells):
+                if _pair_axis_missing(row, x_axis) != (xv is None):
+                    continue
+                if xv is not None and x_axis["kind"] == "continuous" and not (x0 <= row[int(x_axis["columns"][0])] <= x1):
+                    continue
+                if xv is not None and x_axis["kind"] == "categorical" and _active_onehot_column(row, x_axis["columns"]) != xv:
+                    continue
+                for yi, (y0, y1, yv) in enumerate(y_cells):
+                    if _pair_axis_missing(row, y_axis) != (yv is None):
+                        continue
+                    if yv is not None and y_axis["kind"] == "continuous" and not (y0 <= row[int(y_axis["columns"][0])] <= y1):
+                        continue
+                    if yv is not None and y_axis["kind"] == "categorical" and _active_onehot_column(row, y_axis["columns"]) != yv:
+                        continue
+                    counts[(xi, yi)] = counts.get((xi, yi), 0) + 1
+                    break
+                break
+    partitions = np.empty((len(x_cells), len(y_cells)), dtype=np.intp)
+    for xi, (x0, x1, xv) in enumerate(x_cells):
+        for yi, (y0, y1, yv) in enumerate(y_cells):
+            part = _route_pair_partition(node, _pair_cell_row(node, x_axis, xv, y_axis, yv))
+            partitions[xi, yi] = part
+            inset.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, facecolor=palette[part], alpha=0.55, edgecolor="white", linewidth=0.5))
+    inset.set_xlim(x_cells[0][0], x_cells[-1][1])
+    inset.set_ylim(y_cells[0][0], y_cells[-1][1])
+    histogram_axes = []
+    if with_histograms:
+        x_hist = host_ax.inset_axes(
+            [left, bottom + h * 0.82, heatmap_width, h * 0.18],
+            transform=host_ax.transAxes,
+        )
+        y_hist = host_ax.inset_axes(
+            [left + w * 0.82, bottom, w * 0.18, heatmap_height],
+            transform=host_ax.transAxes,
+        )
+        x_hist.set_label("pair-x-histogram")
+        y_hist.set_label("pair-y-histogram")
+        x_counts = [
+            sum(counts.get((xi, yi), 0) for yi in range(len(y_cells)))
+            for xi in range(len(x_cells))
+        ]
+        y_counts = [
+            sum(counts.get((xi, yi), 0) for xi in range(len(x_cells)))
+            for yi in range(len(y_cells))
+        ]
+        if x_axis["kind"] == "continuous":
+            assert x_values is not None
+            finite_cells = [cell for cell in x_cells if cell[2] is not None]
+            finite_values = x_values[np.isfinite(x_values)]
+            x_hist.hist(
+                finite_values,
+                bins=n_hist_bins,
+                range=(finite_cells[0][0], finite_cells[-1][1]),
+                color="#777777",
+                alpha=0.65,
+            )
+            if x_has_missing:
+                start, end, _ = x_cells[-1]
+                x_hist.bar((start + end) / 2, x_counts[-1], width=end - start, color="#777777", alpha=0.65)
+        else:
+            x_hist.bar(
+                [(start + end) / 2 for start, end, _ in x_cells],
+                x_counts,
+                width=[end - start for start, end, _ in x_cells],
+                color="#777777",
+                alpha=0.65,
+            )
+        if y_axis["kind"] == "continuous":
+            assert y_values is not None
+            finite_cells = [cell for cell in y_cells if cell[2] is not None]
+            finite_values = y_values[np.isfinite(y_values)]
+            y_hist.hist(
+                finite_values,
+                bins=n_hist_bins,
+                range=(finite_cells[0][0], finite_cells[-1][1]),
+                orientation="horizontal",
+                color="#777777",
+                alpha=0.65,
+            )
+            if y_has_missing:
+                start, end, _ = y_cells[-1]
+                y_hist.barh((start + end) / 2, y_counts[-1], height=end - start, color="#777777", alpha=0.65)
+        else:
+            y_hist.barh(
+                [(start + end) / 2 for start, end, _ in y_cells],
+                y_counts,
+                height=[end - start for start, end, _ in y_cells],
+                color="#777777",
+                alpha=0.65,
+            )
+        x_hist.set_xlim(x_cells[0][0], x_cells[-1][1])
+        y_hist.set_ylim(y_cells[0][0], y_cells[-1][1])
+        x_hist.set_axis_off()
+        y_hist.set_axis_off()
+        histogram_axes = [x_hist, y_hist]
+    inset.set_xlabel(_pair_axis_label(estimator, x_axis, feat_names, prefer_logical_name=prefer_logical_name), fontsize=(fontsize - 1) if isinstance(fontsize, int) else None)
+    inset.set_ylabel(_pair_axis_label(estimator, y_axis, feat_names, prefer_logical_name=prefer_logical_name), fontsize=(fontsize - 1) if isinstance(fontsize, int) else None)
+    if x_axis["kind"] == "categorical":
+        inset.set_xticks([(a + b) / 2 for a, b, _ in x_cells])
+        inset.set_xticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in x_cells], rotation=30, ha="right", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+    else:
+        x_ticks = _pair_switch_boundaries(x_cells, partitions, axis=0)
+        x_labels = [f"{value:.{precision}f}" for value in x_ticks]
+        if x_cells[-1][2] is None:
+            start, end, _ = x_cells[-1]
+            x_ticks.append((start + end) / 2)
+            x_labels.append("NaN")
+        inset.set_xticks(x_ticks)
+        inset.set_xticklabels(
+            x_labels,
+            rotation=30,
+            ha="right",
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+        )
+    if y_axis["kind"] == "categorical":
+        inset.set_yticks([(a + b) / 2 for a, b, _ in y_cells])
+        inset.set_yticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in y_cells], fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+    else:
+        y_ticks = _pair_switch_boundaries(y_cells, partitions, axis=1)
+        y_labels = [f"{value:.{precision}f}" for value in y_ticks]
+        if y_cells[-1][2] is None:
+            start, end, _ = y_cells[-1]
+            y_ticks.append((start + end) / 2)
+            y_labels.append("NaN")
+        inset.set_yticks(y_ticks)
+        inset.set_yticklabels(
+            y_labels,
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+        )
+    if label != "none":
+        inset.text(1.0, 1.0, f"n={node['n_samples']}", transform=inset.transAxes, ha="right", va="top", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None, color="#444444")
+    return [inset, *histogram_axes]
+
+
 def plot_tree(
     estimator: Any,
     *,
@@ -676,7 +993,50 @@ def plot_tree(
     node_aspect_ratio: float = 2.5,
     n_hist_bins: int = 20,
 ) -> list[Any]:
-    """Render a fitted SGT estimator with matplotlib (see module docstring)."""
+    """Render a fitted SGT estimator with matplotlib.
+
+    Univariate nodes show their one-dimensional shape function. Bivariate
+    nodes show the exact two-dimensional routing heatmap; when ``X`` is
+    supplied, top/right marginal histograms and observed missing-value margins
+    are included. Continuous axes label only thresholds where the final outer
+    partition changes.
+
+    Parameters
+    ----------
+    estimator : SGTClassifier or SGTRegressor
+        Fitted estimator to render.
+    X : array-like of shape (n_samples, n_features), optional
+        Data used for node sample counts and bivariate marginal histograms.
+    max_depth : int, optional
+        Maximum outer-tree depth to display.
+    feature_names : list of str, optional
+        Display names for input columns.
+    class_names : list of str, bool, or None, default=None
+        Class labels shown on classifier leaves.
+    label : str, default="feature"
+        Controls field-name labels in node text.
+    impurity : bool, default=False
+        Whether to display node impurity.
+    proportion : bool, default=False
+        Whether to display sample proportions instead of counts.
+    precision : int, default=2
+        Decimal precision for displayed values and routing thresholds.
+    cmap : colormap or color sequence, optional
+        Colors for classes and routing partitions.
+    ax : matplotlib.axes.Axes, optional
+        Axes on which to draw.
+    fontsize : int, optional
+        Node text size.
+    node_aspect_ratio : float, default=2.5
+        Width-to-height ratio of node boxes.
+    n_hist_bins : int, default=20
+        Number of bins in each bivariate marginal histogram.
+
+    Returns
+    -------
+    list
+        Matplotlib artists created by the tree exporter.
+    """
     if not isinstance(estimator, (SGTClassifier, SGTRegressor)):
         raise TypeError(
             "plot_tree expects an SGTClassifier or SGTRegressor; got "
@@ -734,10 +1094,11 @@ def plot_tree(
         resolved_class_names = list(class_names)  # type: ignore[arg-type]
 
     n_features = estimator.n_features_in_ or 0
+    stored_feature_names = estimator.feature_names_in_
     if feature_names is not None:
         feat_names = list(feature_names)
-    elif getattr(estimator, "feature_names_in_", None) is not None:
-        feat_names = [str(n) for n in estimator.feature_names_in_]
+    elif stored_feature_names is not None:
+        feat_names = [str(n) for n in stored_feature_names]
     else:
         feat_names = [f"X[{i}]" for i in range(n_features)]
 
@@ -836,7 +1197,23 @@ def plot_tree(
         if node_rows is not None and feat_idx is not None:
             feat_vals = node_rows[:, feat_idx]
 
-        if _is_categorical_node(node):
+        if _is_pair_node(node):
+            panel_artists = _draw_internal_panel_pair(
+                host_ax=ax,
+                center=pos,
+                size=(internal_w, internal_h),
+                node=node,
+                palette=palette,
+                estimator=estimator,
+                feat_names=feat_names,
+                X_rows=node_rows,
+                fontsize=fontsize,
+                label=label,
+                prefer_logical_name=feature_names is None,
+                n_hist_bins=n_hist_bins,
+                precision=precision,
+            )
+        elif _is_categorical_node(node):
             panel_artists = _draw_internal_panel_categorical(
                 host_ax=ax,
                 center=pos,
@@ -864,11 +1241,15 @@ def plot_tree(
             )
         artists.extend(panel_artists)
 
-        feat_name = _logical_feature_label(
-            estimator,
-            node,
-            feat_names,
-            prefer_logical_name=feature_names is None,
+        feat_name = (
+            " × ".join(_pair_axis_label(estimator, axis, feat_names, prefer_logical_name=feature_names is None) for axis in node["pair_axes"])
+            if _is_pair_node(node)
+            else _logical_feature_label(
+                estimator,
+                node,
+                feat_names,
+                prefer_logical_name=feature_names is None,
+            )
         )
         feat_text = ax.text(
             pos[0] + internal_w * 0.55,

@@ -19,7 +19,7 @@ class ProcessedFeatures:
     features
         List of ``{"type": "continuous"|"categorical", "indices": [...]}``
         dicts in trainer order. Index ``i`` aligns with
-        ``estimator.feature_importances_[i]`` after :meth:`~sklearn.base.BaseEstimator.fit`.
+        ``estimator.feature_importances_[i]`` after a fit without TAO.
     logical_names
         Parallel names for ``features``. When ``feature_dict`` is supplied,
         these are the stringified keys; omitted columns are filled as

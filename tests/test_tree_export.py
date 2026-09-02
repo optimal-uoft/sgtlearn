@@ -7,6 +7,7 @@ from sklearn.datasets import make_classification, make_regression
 from sklearn.exceptions import NotFittedError
 
 from sgtlearn import SGTClassifier, SGTRegressor
+from sgtlearn._export import _route_samples
 
 from tests.constants import TEST_TAO_N_RUNS
 
@@ -129,3 +130,36 @@ def test_classifier_multiway_partitions():
         assert len(n["children"]) <= 3
         for p in n["bin_to_partition"]:
             assert 0 <= p < 3
+
+
+def test_pair_classifier_export_replays_predictions():
+    states = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
+    X = np.repeat(states, [40, 30, 30, 28], axis=0)
+    y = np.repeat([0, 1, 1, 0], [40, 30, 30, 28])
+    est = SGTClassifier(max_depth=1, inner_max_depth=2, inner_max_leaf_nodes=4,
+                        pairwise_candidates=1, tao_n_runs=0, random_state=0).fit(X, y)
+    tree = est.tree_export()
+    assert tree["nodes"][0]["routing_kind"] == "pair"
+    assert "nan_prediction_partition" not in tree["nodes"][0]
+    reach = _route_samples(tree, X)
+    replay = np.empty(X.shape[0], dtype=int)
+    for leaf in (node for node in tree["nodes"] if node["is_leaf"]):
+        replay[reach[leaf["id"]]] = np.argmax(leaf["class_counts"][0])
+    np.testing.assert_array_equal(replay, est.predict(X))
+
+
+def test_pair_regressor_export_replays_predictions():
+    states = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
+    X = np.tile(states, (32, 1))
+    y = np.tile([0.0, 1.0, 2.0, 0.0], 32)
+    est = SGTRegressor(num_partitions=3, max_depth=1, inner_max_depth=2,
+                       inner_max_leaf_nodes=4, pairwise_candidates=1,
+                       tao_n_runs=0, random_state=0).fit(X, y)
+    tree = est.tree_export()
+    assert tree["nodes"][0]["routing_kind"] == "pair"
+    assert "nan_prediction_partition" not in tree["nodes"][0]
+    reach = _route_samples(tree, X)
+    replay = np.empty(X.shape[0])
+    for leaf in (node for node in tree["nodes"] if node["is_leaf"]):
+        replay[reach[leaf["id"]]] = leaf["value"]
+    np.testing.assert_allclose(replay, est.predict(X), rtol=0, atol=0)

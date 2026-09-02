@@ -46,6 +46,7 @@ struct ShapeBestBranchingState {
   std::shared_ptr<const InnerDiscretizerBase> winningDiscretizer;
   /** Column indices into ``X`` used for routing at inference. */
   arma::uvec routingColumnIndices;
+  std::vector<size_t> logicalFeatureIndices;
 };
 
 void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node);
@@ -87,7 +88,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     std::mt19937_64 &rng, bool useKMeansSeed = false,
     const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1,
     const arma::Mat<float> *ysub = nullptr, const arma::Row<float> *wsub = nullptr,
-    size_t xSubCols = 0);
+    size_t xSubCols = 0, bool hasNanRoutingBin = true);
 
 std::vector<std::vector<size_t>>
 routeSamplesToPartitions(const ShapeFunctionNode &parent, const arma::fmat &X);

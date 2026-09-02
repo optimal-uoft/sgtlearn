@@ -30,22 +30,22 @@
 inline double coordinateDescent(size_t numPartitions,
                                 BranchAssignment &assignmentObjective,
                                 std::mt19937_64 &rng, size_t maxIters = 10,
-                                size_t patience = 5) {
+                                size_t patience = 5,
+                                bool hasNanRoutingBin = true) {
   size_t numBins = assignmentObjective.assignments.size();
   if (numBins <= 1) return assignmentObjective.objective();
 
-  const size_t nanBinIndex = numBins - 1;
+  const size_t finiteBinCount = hasNanRoutingBin ? numBins - 1 : numBins;
 
-  // 1. Omit the NaN bin from the objective state during standard coordinate descent
-  assignmentObjective.removeLeaf(nanBinIndex);
+  if (hasNanRoutingBin)
+    assignmentObjective.removeLeaf(numBins - 1);
 
   size_t consecutiveTrialsWithoutImprovement = 0;
 
   for (size_t i = 0; i < maxIters; ++i) {
     bool improved = false;
 
-    // 2. Shuffle and optimize ONLY the finite numeric bins (0 to numBins - 2)
-    std::vector<size_t> permutation(nanBinIndex);
+    std::vector<size_t> permutation(finiteBinCount);
     std::iota(permutation.begin(), permutation.end(), size_t{0});
     std::shuffle(permutation.begin(), permutation.end(), rng);
 
@@ -84,7 +84,11 @@ inline double coordinateDescent(size_t numPartitions,
   }
 
 
-  // 3. Factor the NaN bin back in by greedily finding its optimal partition
+  if (!hasNanRoutingBin)
+    return assignmentObjective.objective();
+
+  // Factor the NaN bin back in by greedily finding its optimal partition.
+  const size_t nanBinIndex = numBins - 1;
   size_t bestNanPartition = missing_values::partition_with_max_count_min_index_tie(assignmentObjective.partitionSampleCounts()); // Fallback
   assignmentObjective.addLeaf(
     nanBinIndex, 

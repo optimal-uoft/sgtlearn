@@ -9,7 +9,7 @@ from matplotlib.patches import FancyArrowPatch
 import numpy as np
 from sklearn.datasets import make_classification
 from sgtlearn import SGTClassifier
-from sgtlearn._export import _merge_routing_regions, _route_samples, _compute_layout_leafcounter, _draw_leaf_text, _draw_internal_panel, _draw_arrow_edge
+from sgtlearn._export import _merge_routing_regions, _pair_switch_boundaries, _route_samples, _compute_layout_leafcounter, _draw_leaf_text, _draw_internal_panel, _draw_arrow_edge
 
 from tests.constants import TEST_TAO_N_RUNS
 
@@ -91,6 +91,20 @@ def test_merge_x_min_greater_than_first_threshold_clamps_left_edge():
     assert len(regions) == 2
 
 
+def test_pair_switch_boundaries_only_keeps_partition_changes():
+    cells = [(0.0, 1.0, 0.5), (1.0, 2.0, 1.5), (2.0, 3.0, 2.5)]
+
+    x_partitions = np.array([[0, 0], [1, 1], [1, 1]])
+    assert _pair_switch_boundaries(cells, x_partitions, axis=0) == [1.0]
+
+    y_partitions = np.array([[0, 1, 1], [0, 1, 1]])
+    assert _pair_switch_boundaries(cells, y_partitions, axis=1) == [1.0]
+
+    both_partitions = np.array([[0, 0, 1], [0, 1, 1], [1, 1, 1]])
+    assert _pair_switch_boundaries(cells, both_partitions, axis=0) == [1.0, 2.0]
+    assert _pair_switch_boundaries(cells, both_partitions, axis=1) == [1.0, 2.0]
+
+
 def _fitted_clf():
     X, y = make_classification(n_samples=200, n_features=4, random_state=0)
     return SGTClassifier(
@@ -141,6 +155,40 @@ def test_route_samples_dtype_indices_are_int():
     reach = _route_samples(tree, X)
     for arr in reach.values():
         assert arr.dtype.kind in ("i", "u")
+
+
+def test_route_samples_replays_pair_missing_edges() -> None:
+    tree = {
+        "root_index": 0,
+        "nodes": [
+            {
+                "id": 0, "is_leaf": False, "routing_kind": "pair",
+                "features": [0, 1], "children": [1, 2, 3],
+                "bin_to_partition": [0, 1, 2, 2, 2],
+                "pair_axes": [
+                    {"kind": "continuous", "columns": [0]},
+                    {"kind": "continuous", "columns": [1]},
+                ],
+                "pair_inner_tree": [
+                    {"id": 0, "is_leaf": False, "axis": 0, "kind": "continuous", "feature": 0, "threshold": 0.0, "left": 1, "right": 2, "missing": 3},
+                    {"id": 1, "is_leaf": True, "bin": 0},
+                    {"id": 2, "is_leaf": True, "bin": 1},
+                    {"id": 3, "is_leaf": False, "axis": 1, "kind": "continuous", "feature": 1, "threshold": 0.0, "left": 4, "right": 5, "missing": 6},
+                    {"id": 4, "is_leaf": True, "bin": 2},
+                    {"id": 5, "is_leaf": True, "bin": 3},
+                    {"id": 6, "is_leaf": True, "bin": 4},
+                ],
+            },
+            {"id": 1, "is_leaf": True, "children": []},
+            {"id": 2, "is_leaf": True, "children": []},
+            {"id": 3, "is_leaf": True, "children": []},
+        ],
+    }
+    X = np.array([[-1.0, 1.0], [1.0, 1.0], [np.nan, -1.0], [np.nan, 1.0], [np.nan, np.nan]])
+    reach = _route_samples(tree, X)
+    assert reach[1].tolist() == [0]
+    assert reach[2].tolist() == [1]
+    assert reach[3].tolist() == [2, 3, 4]
 
 
 def _toy_tree() -> dict:

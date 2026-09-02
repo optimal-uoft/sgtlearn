@@ -44,6 +44,15 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         Per-split feature subsampling for each base tree. Defaults to
         ``"sqrt"`` to follow ``RandomForestRegressor`` convention. See
         :class:`sgtlearn.SGTRegressor` for the full semantics.
+    pairwise_candidates : int or float, default=0
+        Maximum retained feature pairs fitted per node. An integer is an
+        absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
+        Zero preserves univariate-only training.
+    pairwise_penalty : float, default=0.0
+        Non-negative penalty added when comparing a fitted pair with the best
+        univariate candidate.
+    tao_pair_scale : float, default=1.1
+        Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     bootstrap : bool, default=True
         If ``True``, each tree is fit on a bootstrap resample (with
         replacement) of the training set. If ``False``, every tree is fit on
@@ -70,10 +79,11 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         Number of features seen during :meth:`fit`.
     mean_feature_importances_ : ndarray of shape (n_logical_features,)
         Mean of per-tree :attr:`~sgtlearn.SGTRegressor.feature_importances_`,
-        aligned with :attr:`processed_features_`.
+        aligned with :attr:`processed_features_`. Unavailable after TAO.
     std_feature_importance_ : ndarray of shape (n_logical_features,)
         Population standard deviation of per-tree importances across the
         forest (same alignment as :attr:`mean_feature_importances_`).
+        Unavailable after TAO.
     processed_features_ : ProcessedFeatures
         Logical features resolved once and shared by every base tree.
 
@@ -117,8 +127,11 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         bootstrap: bool = True,
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
+        pairwise_candidates: float = 0,
+        pairwise_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
+        tao_pair_scale: float = 1.1,
         n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
@@ -141,8 +154,11 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             bootstrap=bootstrap,
             max_samples=max_samples,
             random_state=random_state,
+            pairwise_candidates=pairwise_candidates,
+            pairwise_penalty=pairwise_penalty,
             tao_n_runs=tao_n_runs,
             tao_lambda=tao_lambda,
+            tao_pair_scale=tao_pair_scale,
             n_jobs=n_jobs,
             verbose=verbose,
         )

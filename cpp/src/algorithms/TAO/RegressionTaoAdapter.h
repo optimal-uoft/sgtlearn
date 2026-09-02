@@ -52,6 +52,10 @@ public:
   void recomputeLeafStats(
       const std::vector<std::vector<arma::uword>> &nodeSamples) override;
 
+  void refreshNodeBinMetadata(
+      ShapeFunctionNode &node,
+      const std::vector<arma::uword> &samples) override;
+
 private:
   /**
    * Per-child negative loss rewards for one sample under the current leaf

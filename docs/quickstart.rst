@@ -24,8 +24,9 @@ Train and visualize an SGT classifier on the built-in "Plus Sign" dataset:
 Inner vs. outer depth
 ---------------------
 
-Every SGT node's split is itself a small *inner* tree (the shape function) that
-carves one feature into bins; the *outer* tree routes samples through those bins.
+By default, every SGT node's split is itself a small *inner* tree (the shape
+function) that carves one feature into bins; the *outer* tree routes samples
+through those bins.
 ``num_partitions`` sets the outer branching factor (the :math:`\mathrm{SGT}_K`
 arity), and ``inner_max_depth`` controls how rich each shape function may be:
 
@@ -145,3 +146,26 @@ Columns you do not mention stay as individual continuous features. See
 :doc:`tutorials/categorical-features` tutorial for a worked example with
 plots. For permutation importance on raw categoricals, see
 :doc:`tutorials/feature-importance`.
+
+Bivariate branching
+-------------------
+
+To let a node consider interactions between two logical features, enable
+Shape²CART explicitly.  The inner model is a small, ordinary axis-aligned CART
+over the pair; ``pairwise_candidates=0`` (the default) leaves the usual
+univariate training path unchanged:
+
+.. code-block:: python
+
+   model = SGTClassifier(
+       max_depth=3,
+       pairwise_candidates=8,  # or a fraction such as 0.5
+       pairwise_penalty=0.0,
+       random_state=42,
+   ).fit(X_train, y_train)
+
+The same options are available on ``SGTRegressor`` and both random-forest
+estimators. Candidate pairs are screened within the logical-feature subset
+selected by ``max_features``. See the :doc:`tutorials/bivariate-branching`
+tutorial for a univariate comparison, routing heatmaps, tuning guidance,
+categorical and missing-value behaviour, and pair-aware TAO.

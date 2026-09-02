@@ -160,6 +160,22 @@ def _sample_weights(n_samples: int, seed: int) -> np.ndarray:
     return rng.uniform(0.5, 2.0, size=n_samples)
 
 
+def test_feature_importances_are_unavailable_after_tao_and_reset_on_refit() -> None:
+    X, y = load_iris(return_X_y=True)
+    clf = SGTClassifier(tao_n_runs=0, random_state=0).fit(X, y)
+
+    tao.TAO_refine(clf, X, y, n_runs=0)
+    assert clf.feature_importances_.shape == (X.shape[1],)
+
+    tao.TAO_refine(clf, X, y, n_runs=1)
+
+    with pytest.raises(AttributeError, match="unavailable after TAO"):
+        clf.feature_importances_
+
+    clf.fit(X, y)
+    assert clf.feature_importances_.shape == (X.shape[1],)
+
+
 def _classification_training_score(
     tree: SGTClassifier,
     X: np.ndarray,
@@ -534,3 +550,158 @@ def test_tao_forest_refine_mutates_in_place() -> None:
 
     assert result is forest
     assert [est._est for est in forest.estimators_] == handles_before
+
+
+def _tao_pair_interaction_data() -> tuple[np.ndarray, np.ndarray]:
+    quadrants = np.array(
+        [[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]]
+    )
+    counts = [40, 10, 30, 5]
+    return np.repeat(quadrants, counts, axis=0), np.repeat([0, 1, 1, 0], counts)
+
+
+def test_tao_reconsiders_retained_classifier_pair() -> None:
+    X, y = _tao_pair_interaction_data()
+    clf = SGTClassifier(
+        max_depth=1,
+        inner_max_depth=2,
+        inner_max_leaf_nodes=4,
+        pairwise_candidates=1,
+        pairwise_penalty=1.0,
+        tao_n_runs=0,
+        random_state=0,
+    ).fit(X, y)
+
+    assert clf.tree_export()["nodes"][0].get("routing_kind") != "pair"
+    assert clf.score(X, y) == pytest.approx(70 / 85)
+
+    tao.TAO_refine(clf, X, y, n_runs=1, lambda_=0.0, tao_pair_scale=1.1)
+
+    root = clf.tree_export()["nodes"][0]
+    assert root["routing_kind"] == "pair"
+    assert root["pair_features"] == [0, 1]
+    assert len(root["bin_sample_counts"]) == len(root["bin_to_partition"])
+    assert len(root["bin_counts"]) == len(root["bin_to_partition"])
+    assert sum(root["bin_sample_counts"]) == X.shape[0]
+    with pytest.raises(AttributeError, match="unavailable after TAO"):
+        clf.feature_importances_
+    assert clf.score(X, y) == 1.0
+
+
+def test_tao_makes_forest_feature_importances_unavailable() -> None:
+    X, y = _tao_pair_interaction_data()
+    forest = RandomSGForestClassifier(
+        n_estimators=1,
+        bootstrap=False,
+        max_features=None,
+        max_depth=1,
+        inner_max_depth=2,
+        inner_max_leaf_nodes=4,
+        pairwise_candidates=1,
+        pairwise_penalty=1.0,
+        tao_n_runs=0,
+        random_state=0,
+        n_jobs=1,
+    ).fit(X, y)
+
+    tao.TAO_refine(forest, X, y, n_runs=1, lambda_=0.0)
+
+    for attr in ("mean_feature_importances_", "std_feature_importance_"):
+        with pytest.raises(AttributeError, match="unavailable after TAO"):
+            getattr(forest, attr)
+
+
+def test_tao_accepts_improving_retained_regression_pair_multioutput() -> None:
+    X, labels = _tao_pair_interaction_data()
+    y = np.column_stack([labels.astype(float), 10.0 + labels])
+    reg = SGTRegressor(
+        max_depth=1,
+        inner_max_depth=2,
+        inner_max_leaf_nodes=4,
+        pairwise_candidates=1,
+        pairwise_penalty=1.0,
+        tao_n_runs=0,
+        random_state=0,
+    ).fit(X, y)
+
+    assert reg.tree_export()["nodes"][0].get("routing_kind") != "pair"
+    assert not np.array_equal(reg.predict(X), y)
+
+    tao.TAO_refine(reg, X, y, n_runs=1, lambda_=0.0)
+
+    root = reg.tree_export()["nodes"][0]
+    assert root["routing_kind"] == "pair"
+    assert root["pair_features"] == [0, 1]
+    assert len(root["bin_sample_counts"]) == len(root["bin_to_partition"])
+    assert len(root["bin_counts"]) == len(root["bin_to_partition"])
+    assert sum(root["bin_sample_counts"]) == X.shape[0]
+    np.testing.assert_array_equal(reg.predict(X), y)
+
+
+def test_tao_pair_scale_changes_pair_vs_dummy_choice() -> None:
+    X, y = _tao_pair_interaction_data()
+
+    def fit_pair() -> SGTClassifier:
+        return SGTClassifier(
+            max_depth=1,
+            inner_max_depth=2,
+            inner_max_leaf_nodes=4,
+            pairwise_candidates=1,
+            tao_n_runs=0,
+            random_state=0,
+        ).fit(X, y)
+
+    default_scale = fit_pair()
+    high_scale = fit_pair()
+    tao.TAO_refine(
+        default_scale, X, y, n_runs=1, lambda_=0.3, tao_pair_scale=1.1
+    )
+    tao.TAO_refine(
+        high_scale, X, y, n_runs=1, lambda_=0.3, tao_pair_scale=2.0
+    )
+
+    assert default_scale.tree_export()["nodes"][0]["routing_kind"] == "pair"
+    assert default_scale.score(X, y) == 1.0
+    assert high_scale.tree_export()["nodes"][0].get("routing_kind") != "pair"
+    assert high_scale.score(X, y) == pytest.approx(45 / 85)
+
+
+@pytest.mark.parametrize(
+    ("forest_cls", "target"),
+    [
+        (RandomSGForestClassifier, lambda y: y),
+        (RandomSGForestRegressor, lambda y: y.astype(float)),
+    ],
+)
+def test_tao_pair_scale_defaults_and_forwards_through_forests(
+    forest_cls, target
+) -> None:
+    assert SGTClassifier().get_params()["tao_pair_scale"] == 1.1
+    assert SGTRegressor().get_params()["tao_pair_scale"] == 1.1
+    assert forest_cls().get_params()["tao_pair_scale"] == 1.1
+
+    X, y = _tao_pair_interaction_data()
+    forest = forest_cls(
+        n_estimators=2,
+        bootstrap=False,
+        max_features=None,
+        pairwise_candidates=1,
+        tao_n_runs=0,
+        tao_pair_scale=1.7,
+        random_state=0,
+        n_jobs=1,
+    ).fit(X, target(y))
+
+    assert forest.tao_pair_scale == 1.7
+    assert all(tree.tao_pair_scale == 1.7 for tree in forest.estimators_)
+
+
+@pytest.mark.parametrize("bad_scale", [-1.0, np.inf, np.nan])
+def test_tao_pair_scale_rejects_invalid_values(bad_scale: float) -> None:
+    X, y = _tao_pair_interaction_data()
+    with pytest.raises(ValueError, match="tao_pair_scale"):
+        SGTClassifier(tao_n_runs=0, tao_pair_scale=bad_scale).fit(X, y)
+
+    clf = SGTClassifier(tao_n_runs=0).fit(X, y)
+    with pytest.raises(ValueError, match="tao_pair_scale"):
+        tao.TAO_refine(clf, X, y, tao_pair_scale=bad_scale)

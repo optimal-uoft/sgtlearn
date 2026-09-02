@@ -13,11 +13,14 @@
  * 1. Build the care set via ``TaoAdapter::buildCareSet``.
  * 2. Score the current rule and a constant (dummy) rule that sends all care
  *    samples to ``dummyChild``.
- * 3. For each candidate feature, train a classification discretizer over child-
- *    partition pseudolabels and score the induced routing rule.
- * 4. Accept the best non-worsening rule (current, dummy, or single-feature split).
- *    ``lambda`` penalizes non-dummy splits by ``lambda * totalSampleWeight`` in
- *    weighted reward units (cost-complexity style; see ``TaoObjective``).
+ * 3. For each candidate feature or feature pair, train a classification
+ *    discretizer over child-partition pseudolabels and score the induced routing
+ *    rule.
+ * 4. Accept the best non-worsening rule (current, dummy, single-feature, or pair
+ *    split). In weighted reward units, ``lambda`` penalizes single-feature splits
+ *    by ``lambda * nodeSampleCount`` and pair splits by
+ *    ``taoPairScale * lambda * nodeSampleCount``. Dummy rules are unpenalized
+ *    (cost-complexity style; see ``TaoObjective``).
  *
  * **Outer loop** (``optimize``):
  *
@@ -47,14 +50,16 @@ namespace tao {
  * @param adapter      Task adapter (care set, discretizer params, leaf refresh).
  * @param nodeSamples  Current sample partition per node index.
  * @param nodeIdx      Internal node to optimize.
- * @param lambda       Per-sample complexity rate; non-dummy scores pay
- *                     ``lambda * totalSampleWeight`` in weighted reward units.
+ * @param lambda       Per-sample complexity rate; single-feature scores pay
+ *                     ``lambda * nodeSampleCount`` in weighted reward units.
+ * @param taoPairScale Multiplier applied to the complexity penalty for pair
+ *                     routers.
  * @returns ``true`` if the node's routing rule was updated.
  */
 bool optimizeNodeInPlace(
     TaoAdapter &adapter,
     const std::vector<std::vector<arma::uword>> &nodeSamples, size_t nodeIdx,
-    double lambda);
+    double lambda, double taoPairScale);
 
 /**
  * Run TAO refinement on a fitted tree.
@@ -62,7 +67,10 @@ bool optimizeNodeInPlace(
  * @param adapter Concrete adapter bound to the tree and training data.
  * @param nRuns   Maximum number of bottom-up sweeps (early-stops on no change).
  * @param lambda  Cost-complexity rate passed to ``optimizeNodeInPlace``.
+ * @param taoPairScale Multiplier applied to the complexity penalty for pair
+ *                     routers.
  */
-void optimize(TaoAdapter &adapter, size_t nRuns = 10, double lambda = 0.0);
+void optimize(TaoAdapter &adapter, size_t nRuns = 10, double lambda = 0.0,
+              double taoPairScale = 1.1);
 
 } // namespace tao

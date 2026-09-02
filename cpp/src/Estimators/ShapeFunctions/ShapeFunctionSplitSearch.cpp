@@ -28,14 +28,16 @@ void refineShapeBranchAssignmentNested(
     std::vector<std::vector<std::vector<double>>> &stats,
     std::vector<double> &leafWeights,
     const std::vector<size_t> &leafSampleCounts,
-    const std::vector<size_t> &classesPerOutput, size_t nOutputs) {
+    const std::vector<size_t> &classesPerOutput, size_t nOutputs,
+    bool hasNanRoutingBin) {
   if (k >= numRoutingBins ||
       criterion == LearningCriterion::AbsoluteError)
     return;
 
   const std::vector<size_t> snapshot = branchObj->assignments;
   const double objBeforeCd = branchObj->objective();
-  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience);
+  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience,
+                    hasNanRoutingBin);
   const double objAfterCd = branchObj->objective();
   if (std::isfinite(objAfterCd) &&
       objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
@@ -53,13 +55,14 @@ void refineShapeBranchAssignmentAbsoluteError(
     std::vector<std::vector<std::vector<float>>> &maeLeafYs,
     std::vector<std::vector<float>> &maeLeafWs,
     std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts) {
+    const std::vector<size_t> &leafSampleCounts, bool hasNanRoutingBin) {
   if (k >= numRoutingBins || !mae_branch_config::coordinateDescentEnabled())
     return;
 
   const std::vector<size_t> snapshot = branchObj->assignments;
   const double objBeforeCd = branchObj->objective();
-  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience);
+  coordinateDescent(k, *branchObj, rng, cdParams.maxIters, cdParams.patience,
+                    hasNanRoutingBin);
   const double objAfterCd = branchObj->objective();
   if (std::isfinite(objAfterCd) &&
       objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
@@ -117,7 +120,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     std::mt19937_64 &rng, bool useKMeansSeed,
     const std::vector<size_t> &classesPerOutput, size_t nOutputs,
     const arma::Mat<float> *ysub, const arma::Row<float> *wsub,
-    size_t xSubCols) {
+    size_t xSubCols, bool hasNanRoutingBin) {
   auto &stats = disc.leafStats();
   auto &sizes = disc.leafNumSamples();
   auto &leafWeights = disc.leafNodeWeights();
@@ -176,14 +179,14 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
                                        maeLeafYs, maeLeafWs);
       refineShapeBranchAssignmentAbsoluteError(
           branchObj, k, numRoutingBins, cdParams, rng, maeLeafYsStorage,
-          maeLeafWsStorage, leafWeights, sizes);
+          maeLeafWsStorage, leafWeights, sizes, hasNanRoutingBin);
     } else {
       branchObj = makeBranchAssignment(criterion, trialAssignments, k, stats,
                                        leafWeights, sizes, classesPerOutput,
                                        nOutputs);
       refineShapeBranchAssignmentNested(
           branchObj, k, numRoutingBins, criterion, cdParams, rng, stats,
-          leafWeights, sizes, classesPerOutput, nOutputs);
+          leafWeights, sizes, classesPerOutput, nOutputs, hasNanRoutingBin);
     }
 
     if (!branchObj->partitionCountsMeetMinLeaf(outerParams.minLeafSize))
@@ -199,7 +202,10 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     if (score < result.bestFeatureScore - scoreEpsilon) {
       result.bestFeatureScore = score;
       result.chosenK = k;
-      result.assignments = trialAssignments;
+      // Coordinate descent updates the live branch object, not the seed vector.
+      // Persist that refined routing so the objective and eventual child buckets
+      // describe the same split.
+      result.assignments = branchObj->assignments;
       result.partitionSampleCounts = branchObj->partitionSampleCounts();
       if (const auto *leafAgg =
               dynamic_cast<leaf_aggregate::LeafAggregationBranchAssignment<
@@ -223,6 +229,8 @@ void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node) {
   node.isLeaf = true;
   node.informationGain = 0.0;
   node.splitFeatureIndex = 0;
+  node.logicalFeatureIndices.clear();
+  node.retainedPairCandidates.clear();
   node.innerDiscretizer.reset();
   node.sampleBins.clear();
   node.splitLeafStats.clear();
@@ -288,6 +296,7 @@ bool featureHasBetterShapeBranching(
                          disc->leafNodeWeights().end());
   applyTaskFields(best, search, disc->leafStats());
   best.routingColumnIndices = routingColumnIndices;
+  best.logicalFeatureIndices = {featureIndex};
   best.winningDiscretizer =
       std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
   return true;

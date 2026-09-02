@@ -8,8 +8,10 @@
  */
 
 #include "Discretizers/InnerDiscretizerBase.h"
+#include "Domain/FeatureInfo.h"
 
 #include <armadillo>
+#include <array>
 #include <compare>
 #include <cstddef>
 #include <memory>
@@ -17,6 +19,11 @@
 #include <vector>
 
 class ShapeGeneralizedTree;
+
+struct RetainedPairCandidate {
+  std::array<size_t, 2> logicalFeatureIndices{};
+  std::array<FeatureInfo, 2> features;
+};
 
 /**
  * Outer-tree node: routing rule when internal, plus training sample indices
@@ -47,6 +54,12 @@ public:
    * Meaningful on internal nodes after ``findBestSplit`` succeeds.
    */
   size_t splitFeatureIndex = 0;
+
+  /** Logical feature indices used by this router (one normally, two for a pair). */
+  std::vector<size_t> logicalFeatureIndices;
+
+  /** Top-P pairs from initial screening; TAO may refit only these pairs. */
+  std::vector<RetainedPairCandidate> retainedPairCandidates;
 
   /** Row indices into X used for routing; undefined if isLeaf. */
   std::vector<size_t> routingFeatures;

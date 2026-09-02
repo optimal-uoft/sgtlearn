@@ -23,6 +23,7 @@
 #include "algorithms/TAO/TreeAlternatingOptimization.h"
 
 #include <armadillo>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -130,13 +131,17 @@ TaoRunContext TaoRunContext::make(py::object tree, const py::array &X,
 void TreeAlternatingOptimization(py::object tree, const py::array &X,
                                  const py::array &y,
                                  py::object sample_weight = py::none(),
-                                 size_t n_runs = 10, double lambda_ = 0.0) {
+                                 size_t n_runs = 10, double lambda_ = 0.0,
+                                 double tao_pair_scale = 1.1) {
+  if (!std::isfinite(tao_pair_scale) || tao_pair_scale < 0.0)
+    throw std::invalid_argument(
+        "tao_pair_scale must be finite and non-negative");
   TaoRunContext ctx = TaoRunContext::make(tree, X, y, sample_weight);
   if (!ctx.isFitted())
     throw std::logic_error("TreeAlternatingOptimization: model is not fitted");
 
   py::gil_scoped_release release;
-  tao::optimize(ctx.adapter(), n_runs, lambda_);
+  tao::optimize(ctx.adapter(), n_runs, lambda_, tao_pair_scale);
 }
 
 } // namespace
@@ -159,11 +164,13 @@ PYBIND11_MODULE(TreeAlternatingOptimization, m) {
   m.def("TreeAlternatingOptimization", &TreeAlternatingOptimization,
         py::arg("tree"), py::arg("X"), py::arg("y"),
         py::arg("sample_weight") = py::none(), py::arg("n_runs") = 10,
-        py::arg("lambda_") = 0.0,
+        py::arg("lambda_") = 0.0, py::arg("tao_pair_scale") = 1.1,
         "Refine a fitted ClassificationShapeGeneralizedTree or "
         "RegressionShapeGeneralizedTree in place. X is "
         "(n_samples, n_features) float32; y is 1-D class labels (uint) or "
         "float targets matching the tree type. Runs up to n_runs bottom-up "
-        "sweeps; lambda_ penalizes non-constant routing splits by "
-        "lambda_ * totalSampleWeight in weighted reward units.");
+        "sweeps. In weighted reward units, lambda_ penalizes single-feature "
+        "routers by lambda_ * nodeSampleCount and pair routers by "
+        "tao_pair_scale * lambda_ * nodeSampleCount; dummy routers are "
+        "unpenalized.");
 }
