@@ -239,8 +239,12 @@ def test_plot_tree_pair_heatmap_reuses_exported_router_and_axes():
     artists = plot_tree(est, X=X, feature_names=["first", "second"], ax=ax)
     panels = [artist for artist in artists if hasattr(artist, "patches")]
     assert ax in fig.axes
-    assert panels and len(panels[0].patches) >= 4
-    assert panels[0].collections  # low-alpha continuous sample overlay
+    assert panels and len(panels[0].patches) == 4
+    assert not panels[0].collections
+    assert {panel.get_label() for panel in panels} >= {
+        "pair-x-histogram",
+        "pair-y-histogram",
+    }
     assert panels[0].get_xlabel() == "first"
     assert panels[0].get_ylabel() == "second"
     plt.close(fig)
@@ -277,7 +281,10 @@ def test_plot_tree_pair_heatmap_renders_categories_and_missing_cells(pair_kind):
     panel = next(artist for artist in artists if hasattr(artist, "patches"))
     assert len(panel.patches) == 9  # 3 × 3, including both missing margins/corner
     assert len({patch.get_facecolor() for patch in panel.patches}) == 9
-    assert panel.texts  # deterministic categorical cell counts
+    widths = [patch.get_width() for patch in panel.patches]
+    heights = [patch.get_height() for patch in panel.patches]
+    assert min(widths) < 0.5 * max(widths)
+    assert min(heights) < 0.5 * max(heights)
     plt.close(fig)
 
 
