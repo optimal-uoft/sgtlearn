@@ -506,7 +506,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
-        self.feature_names_in_: np.ndarray | None = (
+        self.feature_names_in_ = (
             np.asarray(column_names, dtype=object) if column_names is not None else None
         )
 
@@ -864,7 +864,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
-        self.feature_names_in_: np.ndarray | None = (
+        self.feature_names_in_ = (
             np.asarray(column_names, dtype=object) if column_names is not None else None
         )
 

@@ -1094,10 +1094,11 @@ def plot_tree(
         resolved_class_names = list(class_names)  # type: ignore[arg-type]
 
     n_features = estimator.n_features_in_ or 0
+    stored_feature_names = estimator.feature_names_in_
     if feature_names is not None:
         feat_names = list(feature_names)
-    elif getattr(estimator, "feature_names_in_", None) is not None:
-        feat_names = [str(n) for n in estimator.feature_names_in_]
+    elif stored_feature_names is not None:
+        feat_names = [str(n) for n in stored_feature_names]
     else:
         feat_names = [f"X[{i}]" for i in range(n_features)]
 
