@@ -26,3 +26,7 @@
 
 See the implementation specification in [#42](https://github.com/optimal-uoft/sgtlearn/issues/42)
 and the umbrella issue [#27](https://github.com/optimal-uoft/sgtlearn/issues/27).
+
+
+## v1.0.0
+- [ ] Boosting
