@@ -7,9 +7,9 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from sgtlearn import SGTClassifier, configure_feature_dict
+from sgtlearn import SGTClassifier, configure_feature_dict, plot_tree
 from sgtlearn._export import _is_categorical_node
-from sgtlearn._features import ProcessedFeatures
+from sgtlearn._features import FeatureDict, ProcessedFeatures
 
 
 def test_configure_feature_dict_defaults_to_continuous_columns() -> None:
@@ -18,6 +18,7 @@ def test_configure_feature_dict_defaults_to_continuous_columns() -> None:
     assert all(f["type"] == "continuous" for f in pf.features)
     assert [f["indices"] for f in pf.features] == [[0], [1], [2], [3]]
     assert pf.logical_names == ("0", "1", "2", "3")
+    assert pf.to_native() == pf.features
 
 
 def test_configure_feature_dict_fills_unmentioned_columns() -> None:
@@ -28,22 +29,42 @@ def test_configure_feature_dict_fills_unmentioned_columns() -> None:
             4: [4],
         },
     )
-    types = {tuple(f["indices"]): f["type"] for f in pf.features}
-    assert types[(0, 1, 2)] == "categorical"
-    assert types[(4,)] == "continuous"
-    assert types[(3,)] == "continuous"
-
-
-def test_configure_feature_dict_legacy_layout() -> None:
-    pf = configure_feature_dict(4, feature_dict={0: [0, 1, 2]})
-    by_indices = {tuple(f["indices"]): f["type"] for f in pf.features}
-    assert by_indices[(0, 1, 2)] == "categorical"
-    assert by_indices[(3,)] == "continuous"
+    assert pf.features == [
+        {"type": "categorical", "indices": [0, 1, 2]},
+        {"type": "continuous", "indices": [3]},
+        {"type": "continuous", "indices": [4]},
+    ]
+    assert pf.logical_names == ("0", "3", "4")
 
 
 def test_configure_feature_dict_rejects_duplicate_indices() -> None:
     with pytest.raises(ValueError, match="unique"):
         configure_feature_dict(4, feature_dict={0: [0], 1: [0]})
+
+
+@pytest.mark.parametrize(
+    ("feature_dict", "column_names", "match"),
+    [
+        ({"bad": [-1]}, None, "out of range"),
+        ({"bad": [3]}, None, "out of range"),
+        ({"bad": ["a"]}, None, "column_names"),
+        ({"bad": ["missing"]}, ["a", "b", "c"], "not found"),
+    ],
+)
+def test_configure_feature_dict_rejects_invalid_columns(
+    feature_dict: FeatureDict,
+    column_names: list[str] | None,
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        configure_feature_dict(3, feature_dict, column_names=column_names)
+
+
+def test_configure_feature_dict_classifies_groups_at_two_columns() -> None:
+    pf = configure_feature_dict(3, {"one": [0], "two": [1, 2]})
+    by_name = dict(zip(pf.logical_names, pf.features))
+    assert by_name["one"]["type"] == "continuous"
+    assert by_name["two"]["type"] == "categorical"
 
 
 def test_configure_feature_dict_string_keys_and_column_names() -> None:
@@ -80,15 +101,11 @@ def test_sgt_classifier_categorical_feature_group_routes_onehot() -> None:
     tree = clf.tree_export()
     internal = [n for n in tree["nodes"] if not n["is_leaf"]]
     assert internal, "expected at least one split"
-    has_categorical_split = any(
-        _is_categorical_node(n) for n in internal
-    )
+    has_categorical_split = any(_is_categorical_node(n) for n in internal)
     assert has_categorical_split
 
 
 def test_plot_tree_categorical_node_labels_merged_categories() -> None:
-    from sgtlearn._export import _bin_labels_for_categorical_node
-
     rng = np.random.default_rng(7)
     n_samples = 500
     n_cat = 6
@@ -109,11 +126,13 @@ def test_plot_tree_categorical_node_labels_merged_categories() -> None:
     )
     clf.fit(X, y, feature_dict={"species": list(columns)})
 
-    labels: list[str] = []
-    for node in clf.tree_export()["nodes"]:
-        if node["is_leaf"] or not _is_categorical_node(node):
-            continue
-        labels.extend(_bin_labels_for_categorical_node(node, columns))
+    artists = plot_tree(clf)
+    labels = [
+        tick.get_text()
+        for artist in artists
+        if hasattr(artist, "get_xticklabels")
+        for tick in artist.get_xticklabels()
+    ]
     merged = [t for t in labels if t.startswith("[") and "," in t]
     assert merged, "expected merged-category bucket labels when leaf budget is tight"
     assert any(label == "cat_5" for label in labels)
@@ -200,6 +219,10 @@ def test_ensemble_dataframe_string_valued_feature_dict_routes_onehot() -> None:
     by_indices = {tuple(f["indices"]): f["type"] for f in pf.features}
     assert by_indices[tuple(range(n_cat))] == "categorical"
     assert any(
-        any(_is_categorical_node(n) for n in t.tree_export()["nodes"] if not n["is_leaf"])
+        any(
+            _is_categorical_node(n)
+            for n in t.tree_export()["nodes"]
+            if not n["is_leaf"]
+        )
         for t in forest.estimators_
     ), "expected a categorical split in at least one tree"

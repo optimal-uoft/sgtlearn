@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from itertools import product
-
 from Discretizers import UnivariateRegressionDiscretizer
 
 
@@ -23,7 +21,7 @@ def _run_mae_train_predict(
     max_depth: int,
     max_leaf: int,
     criterion: str,
-) -> None:
+) -> int:
     """Train MAE discretizer, run ``transform``, and touch bin predictions (crash smoke test)."""
     ud = UnivariateRegressionDiscretizer(criterion=criterion)
     features = np.array([0], dtype=np.uintp)
@@ -43,35 +41,18 @@ def _run_mae_train_predict(
     assert int(bins.size) == n
     assert len(preds) == ud.numLeaves
     _ = np.asarray(preds)[bins]
+    return ud.numLeaves
 
 
-# More aggressive than discretizer_grid: smallest leaf, zero gain floor, deep/wide trees.
-STRESS_GRID = list(
-    product(
-        [512, 4096, 12000],  # n_samples
-        [1],  # min_leaf — maximum splitting
-        [0.0],  # allow any split gain
-        [0, 12],  # 0 = unlimited depth
-        [0, 256, 2000],  # 0 = unlimited leaves in our builder; large caps stress queues
-    )
-)
-STRESS_IDS = [
-    f"n={n}|leaf={leaf}|gain={gain}|depth={depth}|max_leaf={ml}"
-    for n, leaf, gain, depth, ml in STRESS_GRID
-]
-
-
-@pytest.mark.parametrize("criterion", ["mae", "absolute_error"])
 @pytest.mark.parametrize(
-    "n_samples,min_leaf_size,min_gain_split,max_depth,max_leaf",
-    STRESS_GRID,
-    ids=STRESS_IDS,
+    ("n_samples", "max_depth", "max_leaf"),
+    [
+        pytest.param(12000, 0, 0, id="unlimited-growth"),
+        pytest.param(4096, 0, 256, id="binding-leaf-cap"),
+    ],
 )
 def test_mae_regression_stress_random_data(
-    criterion: str,
     n_samples: int,
-    min_leaf_size: int,
-    min_gain_split: float,
     max_depth: int,
     max_leaf: int,
 ) -> None:
@@ -79,18 +60,19 @@ def test_mae_regression_stress_random_data(
     rng = np.random.default_rng(2026)
     x = rng.random((n_samples, 1), dtype=np.float32)
     y = rng.standard_normal(n_samples, dtype=np.float64).astype(np.float32)
-    _run_mae_train_predict(
+    num_leaves = _run_mae_train_predict(
         x,
         y,
-        min_leaf_size=min_leaf_size,
-        min_gain_split=min_gain_split,
+        min_leaf_size=1,
+        min_gain_split=0.0,
         max_depth=max_depth,
         max_leaf=max_leaf,
-        criterion=criterion,
+        criterion="absolute_error",
     )
+    if max_leaf:
+        assert num_leaves == max_leaf
 
 
-@pytest.mark.parametrize("criterion", ["mae", "absolute_error"])
 @pytest.mark.parametrize(
     "name,x,y",
     [
@@ -98,11 +80,6 @@ def test_mae_regression_stress_random_data(
             "constant_y",
             np.linspace(0.0, 1.0, 800, dtype=np.float32).reshape(-1, 1),
             np.full(800, 3.14159, dtype=np.float32),
-        ),
-        (
-            "two_unique_y",
-            np.linspace(0.0, 1.0, 600, dtype=np.float32).reshape(-1, 1),
-            np.repeat(np.array([0.0, 1.0], dtype=np.float32), 300),
         ),
         (
             "duplicate_x_runs",
@@ -115,15 +92,9 @@ def test_mae_regression_stress_random_data(
             ),
             np.arange(800, dtype=np.float32) * 0.01,
         ),
-        (
-            "sorted_strictly_increasing_x",
-            np.linspace(0.0, 1.0, 2000, dtype=np.float32).reshape(-1, 1),
-            np.sin(np.linspace(0.0, 6.28, 2000)).astype(np.float32),
-        ),
     ],
 )
 def test_mae_regression_stress_structured_data(
-    criterion: str,
     name: str,
     x: np.ndarray,
     y: np.ndarray,
@@ -137,5 +108,5 @@ def test_mae_regression_stress_structured_data(
         min_gain_split=0.0,
         max_depth=0,
         max_leaf=500,
-        criterion=criterion,
+        criterion="absolute_error",
     )

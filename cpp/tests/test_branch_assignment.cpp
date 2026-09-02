@@ -20,17 +20,23 @@ namespace {
 
 constexpr double kEps = 1e-6;
 
-void assert_coordinate_descent_non_worsening(BranchAssignment &obj,
-                                             size_t numPartitions,
-                                             double tol = kEps) {
+void assert_coordinate_descent_finds_split(BranchAssignment &obj,
+                                           size_t numPartitions,
+                                           size_t samplesPerBin,
+                                           double tol = kEps) {
   std::mt19937_64 rng(42);
   const double initial = obj.objective();
   const double returned =
       coordinateDescent(numPartitions, obj, rng, /*maxIters=*/30,
-                        /*patience=*/8);
+                        /*patience=*/8, /*hasNanRoutingBin=*/false);
   const double from_state = obj.objective();
-  REQUIRE(from_state <= initial + tol);
+  REQUIRE(from_state < initial - tol);
   REQUIRE_THAT(from_state, WithinAbs(returned, tol));
+  const std::vector<size_t> forward = {0, 1};
+  const std::vector<size_t> reverse = {1, 0};
+  REQUIRE((obj.assignments == forward || obj.assignments == reverse));
+  REQUIRE(obj.partitionSampleCounts() ==
+          std::vector<size_t>{samplesPerBin, samplesPerBin});
 }
 
 } // namespace
@@ -45,7 +51,7 @@ TEST_CASE("EntropyBranchAssignment coordinate descent",
   std::vector<size_t> leafSampleCounts = {10, 10};
   EntropyBranchAssignment obj(assignments, kParts, stats, leafWeights,
                                 leafSampleCounts, {kClasses});
-  assert_coordinate_descent_non_worsening(obj, kParts);
+  assert_coordinate_descent_finds_split(obj, kParts, 10);
 }
 
 TEST_CASE("GiniBranchAssignment coordinate descent",
@@ -58,7 +64,7 @@ TEST_CASE("GiniBranchAssignment coordinate descent",
   std::vector<size_t> leafSampleCounts = {10, 10};
   GiniBranchAssignment obj(assignments, kParts, stats, leafWeights,
                            leafSampleCounts, {kClasses});
-  assert_coordinate_descent_non_worsening(obj, kParts);
+  assert_coordinate_descent_finds_split(obj, kParts, 10);
 }
 
 TEST_CASE("SquaredErrorBranchAssignment coordinate descent",
@@ -71,7 +77,7 @@ TEST_CASE("SquaredErrorBranchAssignment coordinate descent",
   std::vector<size_t> leafSampleCounts = {3, 3};
   SquaredErrorBranchAssignment obj(assignments, kParts, stats, leafWeights,
                                    leafSampleCounts);
-  assert_coordinate_descent_non_worsening(obj, kParts);
+  assert_coordinate_descent_finds_split(obj, kParts, 3);
 }
 
 TEST_CASE("GainHessianBranchAssignment coordinate descent",
@@ -83,7 +89,7 @@ TEST_CASE("GainHessianBranchAssignment coordinate descent",
   std::vector<size_t> leafSampleCounts = {3, 3};
   GainHessianBranchAssignment obj(assignments, kParts, stats, leafWeights,
                                   leafSampleCounts, 1.0);
-  assert_coordinate_descent_non_worsening(obj, kParts);
+  assert_coordinate_descent_finds_split(obj, kParts, 3);
 }
 
 TEST_CASE("AbsoluteErrorBranchAssignment coordinate descent",
@@ -102,7 +108,7 @@ TEST_CASE("AbsoluteErrorBranchAssignment coordinate descent",
   std::vector<size_t> leafSampleCounts = {3, 3};
   AbsoluteErrorBranchAssignment obj(assignments, kParts, leafYs, leafWs,
                                     leafWeights, leafSampleCounts);
-  assert_coordinate_descent_non_worsening(obj, kParts);
+  assert_coordinate_descent_finds_split(obj, kParts, 3);
 }
 
 TEST_CASE("BranchAssignment tracks partition sample counts",

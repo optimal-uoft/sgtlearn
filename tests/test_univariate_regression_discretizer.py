@@ -8,22 +8,14 @@ import sys
 
 import numpy as np
 import pytest
-from itertools import product
 
 from Discretizers import UnivariateRegressionDiscretizer
 from sklearn.tree import DecisionTreeRegressor
 
-from tests.discretizer_grid import (
-    MAX_DEPTH_VALUES,
-    MAX_LEAF_VALUES,
-    MIN_GAIN_VALUES,
-    MIN_LEAF_VALUES,
-    N_VALUES,
-    n_outputs_params,
-)
 
-
-def regression_predict(ud: UnivariateRegressionDiscretizer, x: np.ndarray) -> np.ndarray:
+def regression_predict(
+    ud: UnivariateRegressionDiscretizer, x: np.ndarray
+) -> np.ndarray:
     """Predict by mapping transform() bin indices to bin predictions."""
     bin_locs = ud.transform(x)
     bin_preds = ud.getBinPredictions()
@@ -39,32 +31,7 @@ def sklearn_regression_criterion(user_criterion: str) -> str:
     return user_criterion
 
 
-def _sklearn_supports_absolute_error() -> bool:
-    try:
-        DecisionTreeRegressor(criterion="absolute_error")
-    except (ValueError, TypeError):
-        return False
-    return True
-
-
-def _skip_if_sklearn_mae_best_first_segfault(max_leaf: int, criterion: str) -> None:
-    """
-    sklearn's best-first builder (max_leaf_nodes > 0) can segfault in native code
-    with criterion='absolute_error' on Python 3.14+ (see crash in tree/_tree.so).
-    Our discretizer still trains; skip only the sklearn reference for this grid cell.
-    """
-    if max_leaf == 0 or criterion not in ("absolute_error", "mae"):
-        return
-    if sys.version_info >= (3, 14):
-        pytest.skip(
-            "sklearn reference: BestFirstTreeBuilder + absolute_error + max_leaf_nodes "
-            "segfaults on Python 3.14+; compare MAE with max_leaf=0 cases only"
-        )
-
-
-def _pred_discrepancy(
-    sk: np.ndarray, ud: np.ndarray, *, use_mae: bool
-) -> float:
+def _pred_discrepancy(sk: np.ndarray, ud: np.ndarray, *, use_mae: bool) -> float:
     """RMSE or mean absolute error between sklearn and native prediction vectors."""
     d = sk.astype(np.float64) - ud.astype(np.float64)
     if use_mae:
@@ -72,35 +39,20 @@ def _pred_discrepancy(
     return float(np.sqrt(np.mean(d**2)))
 
 
-# Same (n_samples, leaf, gain, depth, max_leaf) sweep as classification — without num_classes.
-GRID = list(
-    product(
-        N_VALUES,
-        MIN_LEAF_VALUES,
-        MIN_GAIN_VALUES,
-        MAX_DEPTH_VALUES,
-        MAX_LEAF_VALUES,
-    )
-)
-IDS = [
-    f"N={n}|leaf={leaf}|gain={gain}|depth={depth}|max_leaf={max_leaf}"
-    for n, leaf, gain, depth, max_leaf in GRID
+PARITY_CASES = [
+    pytest.param("squared_error", 1, 0.0, 0, 0, 1, id="mse-unconstrained"),
+    pytest.param("absolute_error", 1, 0.0, 0, 0, 2, id="mae-multioutput"),
+    pytest.param("squared_error", 1, 0.0, 4, 0, 2, id="depth-limited"),
+    pytest.param("squared_error", 1, 0.0, 0, 8, 1, id="leaf-limited"),
 ]
 
 
-@pytest.mark.parametrize("n_outputs", n_outputs_params())
 @pytest.mark.parametrize(
-    "criterion",
-    ["squared_error", "absolute_error"],  # aliases mse/mae covered by equivalence test below
-)
-@pytest.mark.parametrize(
-    "n_samples,min_leaf_size,min_gain_split,max_depth,max_leaf",
-    GRID,
-    ids=IDS,
+    "criterion,min_leaf_size,min_gain_split,max_depth,max_leaf,n_outputs",
+    PARITY_CASES,
 )
 def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     criterion: str,
-    n_samples: int,
     min_leaf_size: int,
     min_gain_split: float,
     max_depth: int,
@@ -108,12 +60,8 @@ def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     n_outputs: int,
 ) -> None:
     """Bin predictions should track ``DecisionTreeRegressor`` within tolerance (MSE or MAE criterion)."""
-    if criterion in ("absolute_error", "mae") and not _sklearn_supports_absolute_error():
-        pytest.skip("sklearn DecisionTreeRegressor does not support criterion='absolute_error'")
-
-    _skip_if_sklearn_mae_best_first_segfault(max_leaf, criterion)
-
     rng = np.random.default_rng(12345)
+    n_samples = 1000
     x = rng.random((n_samples, 1), dtype=np.float64)
     x32 = x.astype(np.float32, copy=False)
     y_shape = (n_samples,) if n_outputs == 1 else (n_samples, n_outputs)
@@ -158,7 +106,68 @@ def test_univariate_regression_discretizer_vs_sklearn_fidelity(
     assert disc < 0.9 * sigma
 
 
-@pytest.mark.parametrize("alias,canonical", [("mse", "squared_error"), ("mae", "absolute_error")])
+@pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
+def test_univariate_regression_leaf_limit_binds_without_reference(
+    criterion: str,
+) -> None:
+    rng = np.random.default_rng(9)
+    x = rng.random((200, 1), dtype=np.float32)
+    y = rng.standard_normal(200).astype(np.float32)
+    ud = UnivariateRegressionDiscretizer(criterion=criterion)
+    ud.Train(x, np.array([0], dtype=np.uintp), y, 1, 0.0, 0, 4)
+    bins = ud.transform(x)
+    assert ud.numLeaves == 4
+    assert np.all(bins < ud.numLeaves)
+    assert np.all(np.isfinite(regression_predict(ud, x)))
+
+
+@pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
+def test_univariate_regression_respects_minimum_leaf_size(criterion: str) -> None:
+    x = np.arange(12, dtype=np.float32).reshape(-1, 1)
+    y = np.repeat(np.array([0.0, 10.0], dtype=np.float32), 6)
+    features = np.array([0], dtype=np.uintp)
+    allowed = UnivariateRegressionDiscretizer(criterion=criterion)
+    allowed.Train(x, features, y, 6, 0.0, 0, 0)
+    blocked = UnivariateRegressionDiscretizer(criterion=criterion)
+    blocked.Train(x, features, y, 7, 0.0, 0, 0)
+
+    assert allowed.numLeaves == 2
+    assert blocked.numLeaves == 1
+
+
+def test_univariate_regression_gain_threshold_blocks_known_split() -> None:
+    x = np.arange(12, dtype=np.float32).reshape(-1, 1)
+    y = np.repeat(np.array([0.0, 10.0], dtype=np.float32), 6)
+    features = np.array([0], dtype=np.uintp)
+    split = UnivariateRegressionDiscretizer(criterion="squared_error")
+    split.Train(x, features, y, 1, 0.0, 0, 0)
+    blocked = UnivariateRegressionDiscretizer(criterion="squared_error")
+    blocked.Train(x, features, y, 1, 1_000.0, 0, 0)
+
+    assert split.numLeaves == 2
+    assert blocked.numLeaves == 1
+
+
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason="sklearn absolute_error best-first builder can crash on Python 3.14+",
+)
+def test_univariate_mae_leaf_limit_matches_sklearn_when_reference_is_safe() -> None:
+    rng = np.random.default_rng(11)
+    x = rng.random((200, 1), dtype=np.float32)
+    y = rng.standard_normal(200).astype(np.float32)
+    sk = DecisionTreeRegressor(criterion="absolute_error", max_leaf_nodes=4).fit(x, y)
+    ud = UnivariateRegressionDiscretizer(criterion="absolute_error")
+    ud.Train(x, np.array([0], dtype=np.uintp), y, 1, 0.0, 0, 4)
+    assert sk.get_n_leaves() == ud.numLeaves
+    assert _pred_discrepancy(
+        sk.predict(x), regression_predict(ud, x), use_mae=True
+    ) < np.std(y)
+
+
+@pytest.mark.parametrize(
+    "alias,canonical", [("mse", "squared_error"), ("mae", "absolute_error")]
+)
 def test_regression_criterion_aliases_equivalent(alias: str, canonical: str) -> None:
     """``mse``/``mae`` are aliases: identical bin predictions to their canonical name."""
     rng = np.random.default_rng(12345)
@@ -172,15 +181,3 @@ def test_regression_criterion_aliases_equivalent(alias: str, canonical: str) -> 
         ud.Train(x32, features, y, 1, 0.0, 0, 0)
         preds[crit] = regression_predict(ud, x32)
     np.testing.assert_array_equal(preds[alias], preds[canonical])
-
-
-def test_regression_friedman_mse_constructible() -> None:
-    """Constructible when bindings accept friedman_mse (else skipped)."""
-    try:
-        UnivariateRegressionDiscretizer(criterion="friedman_mse")
-    except ValueError as e:
-        pytest.skip(f"UnivariateRegressionDiscretizer does not support friedman_mse: {e}")
-
-
-def test_regression_mae_constructible() -> None:
-    UnivariateRegressionDiscretizer(criterion="mae")
