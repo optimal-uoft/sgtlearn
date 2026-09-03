@@ -32,6 +32,15 @@ def _fitted_regressor(criterion: str = "squared_error",
     ).fit(X, y)
 
 
+def _replay_classifier_export(estimator: SGTClassifier, X: np.ndarray) -> np.ndarray:
+    tree = estimator.tree_export()
+    reach = _route_samples(tree, X)
+    replay = np.empty(X.shape[0], dtype=int)
+    for leaf in (node for node in tree["nodes"] if node["is_leaf"]):
+        replay[reach[leaf["id"]]] = np.argmax(leaf["class_counts"][0])
+    return replay
+
+
 def test_classifier_export_top_level_keys():
     est = _fitted_classifier()
     tr = est.tree_export()
@@ -132,6 +141,25 @@ def test_classifier_multiway_partitions():
             assert 0 <= p < 3
 
 
+def test_univariate_classifier_export_replays_predictions():
+    X = np.arange(20, dtype=np.float32).reshape(-1, 1)
+    y = np.repeat([0, 1], 10)
+    estimator = SGTClassifier(max_depth=2, tao_n_runs=0, random_state=0).fit(X, y)
+
+    np.testing.assert_array_equal(_replay_classifier_export(estimator, X), y)
+
+
+def test_categorical_classifier_export_replays_predictions_and_missing_route():
+    categories = np.eye(3, dtype=np.float32)
+    X = np.vstack([np.repeat(categories, 8, axis=0), np.zeros((3, 3))])
+    y = np.concatenate([np.repeat([0, 1, 0], 8), np.zeros(3, dtype=int)])
+    estimator = SGTClassifier(max_depth=2, tao_n_runs=0, random_state=0).fit(
+        X, y, feature_dict={0: [0, 1, 2]}
+    )
+
+    np.testing.assert_array_equal(_replay_classifier_export(estimator, X), y)
+
+
 def test_pair_classifier_export_replays_predictions():
     states = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
     X = np.repeat(states, [40, 30, 30, 28], axis=0)
@@ -141,11 +169,7 @@ def test_pair_classifier_export_replays_predictions():
     tree = est.tree_export()
     assert tree["nodes"][0]["routing_kind"] == "pair"
     assert "nan_prediction_partition" not in tree["nodes"][0]
-    reach = _route_samples(tree, X)
-    replay = np.empty(X.shape[0], dtype=int)
-    for leaf in (node for node in tree["nodes"] if node["is_leaf"]):
-        replay[reach[leaf["id"]]] = np.argmax(leaf["class_counts"][0])
-    np.testing.assert_array_equal(replay, est.predict(X))
+    np.testing.assert_array_equal(_replay_classifier_export(est, X), est.predict(X))
 
 
 def test_pair_regressor_export_replays_predictions():

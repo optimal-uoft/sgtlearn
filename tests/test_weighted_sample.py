@@ -16,7 +16,10 @@ from sgtlearn import (
     SGTClassifier,
     SGTRegressor,
 )
-from sgtlearn._weights import effective_sample_weight_classification
+from sgtlearn._weights import (
+    effective_sample_weight_classification,
+    normalize_sample_weight,
+)
 
 from tests.constants import TEST_TAO_N_RUNS
 from tests.discretizer_grid import n_outputs_params
@@ -24,13 +27,17 @@ from tests.discretizer_grid import n_outputs_params
 pytest.importorskip("sklearn")
 
 
-def _classification_predict(ud: UnivariateClassificationDiscretizer, x: np.ndarray) -> np.ndarray:
+def _classification_predict(
+    ud: UnivariateClassificationDiscretizer, x: np.ndarray
+) -> np.ndarray:
     bin_locs = ud.transform(x)
     bin_preds = ud.getBinPredictions()
     return np.asarray(bin_preds[bin_locs], dtype=np.uintp)
 
 
-def _regression_predict(ud: UnivariateRegressionDiscretizer, x: np.ndarray) -> np.ndarray:
+def _regression_predict(
+    ud: UnivariateRegressionDiscretizer, x: np.ndarray
+) -> np.ndarray:
     bin_locs = ud.transform(x)
     bin_preds = ud.getBinPredictions()
     return np.asarray(bin_preds[bin_locs], dtype=np.float32)
@@ -322,7 +329,9 @@ def test_random_sg_forest_classifier_applies_class_weight_once() -> None:
         np.testing.assert_array_equal(est.classes_, forest.classes_)
 
 
-def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sklearn() -> None:
+def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sklearn() -> (
+    None
+):
     from sklearn.datasets import load_breast_cancer
 
     X, y = load_breast_cancer(return_X_y=True)
@@ -394,6 +403,8 @@ def test_effective_sample_weight_classification_helper() -> None:
         classes_,
     )
     np.testing.assert_allclose(sw, [2.0, 10.0, 2.0])
+    assert sw.dtype == np.float32
+    assert sw.flags.c_contiguous
 
 
 def test_effective_sample_weight_multioutput_list_of_dicts() -> None:
@@ -408,3 +419,58 @@ def test_effective_sample_weight_multioutput_list_of_dicts() -> None:
     )
     # row0: 2*3=6, row1: 1*1=1, row2: 2*1=2
     np.testing.assert_allclose(sw, [6.0, 1.0, 2.0])
+
+
+def test_normalize_sample_weight_allows_zero_with_positive_weight() -> None:
+    sw = normalize_sample_weight(np.array([0.0, 2.0]), 2)
+    assert sw is not None
+    np.testing.assert_array_equal(sw, [0.0, 2.0])
+    assert sw.dtype == np.float32
+    assert sw.flags.c_contiguous
+
+
+def test_zero_weight_row_has_no_regressor_contribution() -> None:
+    X = np.array([[0.0], [1.0], [2.0], [100.0]])
+    y = np.array([0.0, 0.0, 1.0, 100.0])
+    params = {"max_depth": 2, "tao_n_runs": 0, "random_state": 0}
+
+    weighted = SGTRegressor(**params).fit(X, y, sample_weight=[1.0, 1.0, 1.0, 0.0])
+    omitted = SGTRegressor(**params).fit(X[:3], y[:3])
+
+    np.testing.assert_allclose(weighted.predict(X[:3]), omitted.predict(X[:3]))
+
+
+@pytest.mark.parametrize(
+    ("sample_weight", "n_samples", "match"),
+    [
+        ([1.0], 2, "shape"),
+        ([1.0, -1.0], 2, "non-negative"),
+        ([0.0, 0.0], 2, "positive"),
+    ],
+)
+def test_normalize_sample_weight_rejects_invalid_values(
+    sample_weight: list[float], n_samples: int, match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        normalize_sample_weight(np.asarray(sample_weight), n_samples)
+
+
+@pytest.mark.parametrize(
+    ("class_weight", "classes", "match", "exc_type"),
+    [
+        ({2: 1.0}, np.array([0, 1]), "training classes", ValueError),
+        ({1: -1.0}, np.array([0, 1]), "non-negative", ValueError),
+        (1.0, np.array([0, 1]), "mapping", TypeError),
+        ([{0: 1.0}], [np.array([0, 1]), np.array([0, 1])], "one mapping", ValueError),
+        ({0: 1.0}, [np.array([0, 1])], "one class array", ValueError),
+    ],
+)
+def test_effective_sample_weight_rejects_invalid_class_configuration(
+    class_weight: object,
+    classes: object,
+    match: str,
+    exc_type: type[Exception],
+) -> None:
+    y = np.array([[0, 1], [1, 0]]) if isinstance(classes, list) else np.array([0, 1])
+    with pytest.raises(exc_type, match=match):
+        effective_sample_weight_classification(None, y, class_weight, classes)  # type: ignore[arg-type]

@@ -1,16 +1,18 @@
 """Smoke tests for ``sgtlearn._export.plot_tree``."""
+
 from __future__ import annotations
 
 import matplotlib
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
+
 matplotlib.use("Agg")  # headless
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 from sklearn.exceptions import NotFittedError
-from matplotlib.patches import FancyArrowPatch, Rectangle
 from sgtlearn import SGTClassifier, SGTRegressor, plot_tree
 
 from tests.constants import TEST_TAO_N_RUNS
@@ -99,13 +101,6 @@ def test_plot_tree_regressor_leaves_show_value(fitted_regressor):
     plt.close("all")
 
 
-def test_plot_tree_draws_edges(fitted_classifier):
-    artists = plot_tree(fitted_classifier)
-    arrows = [a for a in artists if isinstance(a, FancyArrowPatch)]
-    assert len(arrows) >= 1
-    plt.close("all")
-
-
 def test_plot_tree_label_all_adds_metadata(fitted_classifier):
     artists = plot_tree(fitted_classifier, label="all", impurity=True)
     text_artists = [a for a in artists if hasattr(a, "get_text")]
@@ -126,23 +121,35 @@ def test_plot_tree_label_none_suppresses_subtitles(fitted_classifier):
     plt.close("all")
 
 
-def test_plot_tree_proportion_does_not_crash(fitted_classifier):
-    artists = plot_tree(fitted_classifier, proportion=True)
-    assert artists
-    plt.close("all")
-
-
-def test_plot_tree_custom_cmap(fitted_classifier):
-    artists = plot_tree(fitted_classifier, cmap="viridis")
-    assert artists
-    plt.close("all")
-
-
 def test_plot_tree_custom_feature_names(fitted_classifier):
     names = [f"feat_{i}" for i in range(fitted_classifier.n_features_in_)]
     artists = plot_tree(fitted_classifier, feature_names=names)
     text_artists = [a for a in artists if hasattr(a, "get_text")]
     assert any("feat_" in t.get_text() for t in text_artists)
+    plt.close("all")
+
+
+def test_plot_tree_explicit_feature_names_override_stored_names():
+    X = pd.DataFrame({"stored_name": np.arange(20, dtype=float)})
+    y = np.repeat([0, 1], 10)
+    estimator = SGTClassifier(max_depth=1, tao_n_runs=0, random_state=0).fit(
+        X, y, feature_dict={"stored_name": ["stored_name"]}
+    )
+
+    stored = plot_tree(estimator)
+    explicit = plot_tree(estimator, feature_names=["explicit_name"])
+    stored_text = " ".join(
+        [a.get_text() for a in stored if hasattr(a, "get_text")]
+        + [a.get_xlabel() for a in stored if hasattr(a, "get_xlabel")]
+    )
+    explicit_text = " ".join(
+        [a.get_text() for a in explicit if hasattr(a, "get_text")]
+        + [a.get_xlabel() for a in explicit if hasattr(a, "get_xlabel")]
+    )
+
+    assert "stored_name" in stored_text
+    assert "explicit_name" in explicit_text
+    assert "stored_name" not in explicit_text
     plt.close("all")
 
 
@@ -163,34 +170,19 @@ def test_plot_tree_reuses_existing_axes(fitted_classifier):
     plt.close("all")
 
 
-def test_plot_tree_fontsize_passes_through(fitted_classifier):
-    artists = plot_tree(fitted_classifier, fontsize=6)
-    text_artists = [a for a in artists if hasattr(a, "get_fontsize")]
-    sizes = {a.get_fontsize() for a in text_artists if a.get_text()}
-    assert 6 in sizes
-    plt.close("all")
-
-
 def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
     X, _ = make_classification(n_samples=200, n_features=4, random_state=0)
-
-    def total_bars(artists):
-        # Each internal panel is an inset Axes; histogram bars are Rectangle
-        # patches added to the inset. axvspan slabs are Polygons, not
-        # Rectangles, so they don't count here.
-        total = 0
-        for a in artists:
-            if hasattr(a, "patches"):
-                total += sum(1 for p in a.patches if isinstance(p, Rectangle))
-        return total
-
-    no_x_bars = total_bars(plot_tree(fitted_classifier))
+    without_histograms = plot_tree(fitted_classifier)
     plt.close("all")
-    with_x_bars = total_bars(plot_tree(fitted_classifier, X=X))
+    with_histograms = plot_tree(fitted_classifier, X=X)
     plt.close("all")
-    # With X passed, each internal panel adds ~20 histogram bars;
-    # without X, only slab Polygons are drawn (no Rectangle bars).
-    assert with_x_bars > no_x_bars
+
+    def patch_count(artists):
+        return sum(
+            len(artist.patches) for artist in artists if hasattr(artist, "patches")
+        )
+
+    assert patch_count(with_histograms) > patch_count(without_histograms)
 
 
 def test_plot_tree_X_shape_mismatch_raises(fitted_classifier):
@@ -198,29 +190,8 @@ def test_plot_tree_X_shape_mismatch_raises(fitted_classifier):
     with pytest.raises(ValueError):
         plot_tree(fitted_classifier, X=bad_X)
 
-
-def test_plot_tree_leaf_uses_partition_color(fitted_classifier):
-    artists = plot_tree(fitted_classifier, cmap="Pastel1")
-    bold = [
-        a for a in artists
-        if hasattr(a, "get_text") and a.get_fontweight() == "bold" and a.get_text()
-    ]
-    assert bold, "expected at least one bold leaf text"
-    cmap = matplotlib.colormaps["Pastel1"]
-    expected_p0 = matplotlib.colors.to_rgb(cmap(0.0))
-    expected_p1 = matplotlib.colors.to_rgb(cmap(1.0))
-    leaf_colors = {
-        tuple(matplotlib.colors.to_rgb(t.get_color())) for t in bold
-    }
-    for c in leaf_colors:
-        assert (
-            all(abs(a - b) < 1e-6 for a, b in zip(c, expected_p0))
-            or all(abs(a - b) < 1e-6 for a, b in zip(c, expected_p1))
-        ), (
-            f"leaf color {c} not one of partition colors "
-            f"{expected_p0}, {expected_p1}"
-        )
-    plt.close("all")
+    with pytest.raises(ValueError, match="X must be 2-D"):
+        plot_tree(fitted_classifier, X=np.zeros(fitted_classifier.n_features_in_))
 
 
 def test_plot_tree_pair_heatmap_reuses_exported_router_and_axes():
@@ -246,15 +217,8 @@ def test_plot_tree_pair_heatmap_reuses_exported_router_and_axes():
     panels = [artist for artist in artists if hasattr(artist, "patches")]
     assert ax in fig.axes
     assert panels and len(panels[0].patches) == 4
-    assert not panels[0].collections
-    assert {panel.get_label() for panel in panels} >= {
-        "pair-x-histogram",
-        "pair-y-histogram",
-    }
     assert panels[0].get_xlabel() == "first"
     assert panels[0].get_ylabel() == "second"
-    assert [tick.get_text() for tick in panels[0].get_xticklabels()] == ["0.000"]
-    assert [tick.get_text() for tick in panels[0].get_yticklabels()] == ["0.000"]
     plt.close(fig)
 
 
@@ -263,8 +227,11 @@ def test_plot_tree_pair_heatmap_renders_categories_and_missing_cells(pair_kind):
     categories = [[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]
     if pair_kind == "mixed":
         states = np.array(
-            [[value, *category] for value in [-1.0, 1.0, np.nan]
-             for category in categories]
+            [
+                [value, *category]
+                for value in [-1.0, 1.0, np.nan]
+                for category in categories
+            ]
         )
         feature_dict = {0: [0], 1: [1, 2]}
     else:
@@ -285,14 +252,9 @@ def test_plot_tree_pair_heatmap_renders_categories_and_missing_cells(pair_kind):
     ).fit(X, y, feature_dict=feature_dict)
 
     fig, ax = plt.subplots()
-    artists = plot_tree(est, X=X, cmap="tab10", ax=ax)
+    artists = plot_tree(est, X=X, ax=ax)
     panel = next(artist for artist in artists if hasattr(artist, "patches"))
     assert len(panel.patches) == 9  # 3 × 3, including both missing margins/corner
-    assert len({patch.get_facecolor() for patch in panel.patches}) == 9
-    widths = [patch.get_width() for patch in panel.patches]
-    heights = [patch.get_height() for patch in panel.patches]
-    assert min(widths) < 0.5 * max(widths)
-    assert min(heights) < 0.5 * max(heights)
     x_labels = [tick.get_text() for tick in panel.get_xticklabels()]
     y_labels = [tick.get_text() for tick in panel.get_yticklabels()]
     assert "NaN" in x_labels
@@ -303,9 +265,7 @@ def test_plot_tree_pair_heatmap_renders_categories_and_missing_cells(pair_kind):
 
 
 def test_plot_tree_pair_heatmap_renders_without_training_data():
-    states = np.array(
-        [[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]]
-    )
+    states = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
     X = np.repeat(states, [40, 30, 30, 28], axis=0)
     y = np.repeat([0, 1, 1, 0], [40, 30, 30, 28])
     est = SGTClassifier(

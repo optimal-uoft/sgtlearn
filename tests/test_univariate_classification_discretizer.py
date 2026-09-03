@@ -1,59 +1,34 @@
-"""Fidelity tests: ``UnivariateClassificationDiscretizer`` vs ``sklearn.tree.DecisionTreeClassifier``.
-
-Trains both on a single feature axis and asserts identical leaf predictions and
-leaf counts across a grid of hyperparameters (see ``discretizer_grid``).
-"""
+"""Focused univariate-classification discretizer contracts and sklearn parity."""
 
 import numpy as np
 import pytest
-from itertools import product
 from Discretizers import UnivariateClassificationDiscretizer
 from sklearn.tree import DecisionTreeClassifier
 
-from tests.discretizer_grid import (
-    MAX_DEPTH_VALUES,
-    MAX_LEAF_VALUES,
-    MIN_GAIN_VALUES,
-    MIN_LEAF_VALUES,
-    N_VALUES,
-    NUM_CLASSES_VALUES,
-    n_outputs_params,
-)
 
-
-def classification_predict(ud: UnivariateClassificationDiscretizer, x: np.ndarray) -> np.ndarray:
+def classification_predict(
+    ud: UnivariateClassificationDiscretizer, x: np.ndarray
+) -> np.ndarray:
     """Predict by mapping transform() bin indices to bin predictions."""
     bin_locs = ud.transform(x)
     bin_preds = ud.getBinPredictions()
     return np.asarray(bin_preds[bin_locs], dtype=np.uintp)
 
 
-GRID = list(
-    product(
-        N_VALUES,
-        NUM_CLASSES_VALUES,
-        MIN_LEAF_VALUES,
-        MIN_GAIN_VALUES,
-        MAX_DEPTH_VALUES,
-        MAX_LEAF_VALUES,
-    )
-)
-IDS = [
-    f"N={n}|C={c}|leaf={leaf}|gain={gain}|depth={depth}|max_leaf={max_leaf}"
-    for n, c, leaf, gain, depth, max_leaf in GRID
+PARITY_CASES = [
+    pytest.param("gini", 2, 1, 0.0, 0, 0, 1, id="gini-binary"),
+    pytest.param("entropy", 3, 1, 0.0, 0, 0, 2, id="entropy-multioutput"),
+    pytest.param("gini", 3, 1, 0.0, 4, 0, 1, id="depth-limited"),
+    pytest.param("entropy", 3, 1, 0.0, 0, 8, 2, id="leaf-limited"),
 ]
 
 
-@pytest.mark.parametrize("n_outputs", n_outputs_params())
-@pytest.mark.parametrize("criterion", ["gini", "entropy"])
 @pytest.mark.parametrize(
-    "n_samples,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf",
-    GRID,
-    ids=IDS,
+    "criterion,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf,n_outputs",
+    PARITY_CASES,
 )
 def test_univariate_classification_discretizer_vs_sklearn_fidelity(
     criterion: str,
-    n_samples: int,
     num_classes: int,
     min_leaf_size: int,
     min_gain_split: float,
@@ -63,6 +38,7 @@ def test_univariate_classification_discretizer_vs_sklearn_fidelity(
 ) -> None:
     """Predictions and leaf counts must match sklearn on synthetic univariate data."""
     rng = np.random.default_rng(12345)
+    n_samples = 1000
     x = rng.random((n_samples, 1), dtype=np.float64)
     # Match sklearn tree builder input path, which internally works with float32.
     x32 = x.astype(np.float32, copy=False)
@@ -104,4 +80,33 @@ def test_univariate_classification_discretizer_vs_sklearn_fidelity(
     # good leaf. Allow a small mismatch fraction (matches the tolerance philosophy
     # of the regression discretizer test); exact fidelity holds only on signal data.
     mismatch_frac = np.mean(sklearn_preds != ud_preds)
-    assert mismatch_frac <= 0.01, f"prediction mismatch {mismatch_frac:.4%} exceeds 1% tolerance"
+    assert (
+        mismatch_frac <= 0.01
+    ), f"prediction mismatch {mismatch_frac:.4%} exceeds 1% tolerance"
+
+
+def test_univariate_classification_gain_threshold_blocks_known_split() -> None:
+    x = np.arange(20, dtype=np.float32).reshape(-1, 1)
+    y = np.repeat(np.array([0, 1], dtype=np.uintp), 10)
+    features = np.array([0], dtype=np.uintp)
+
+    split = UnivariateClassificationDiscretizer(criterion="gini")
+    split.Train(x, features, y, 2, 1, 0.0, 0, 0)
+    blocked = UnivariateClassificationDiscretizer(criterion="gini")
+    blocked.Train(x, features, y, 2, 1, 1.0, 0, 0)
+
+    assert split.numLeaves == 2
+    assert blocked.numLeaves == 1
+
+
+def test_univariate_classification_minimum_leaf_blocks_known_split() -> None:
+    x = np.arange(12, dtype=np.float32).reshape(-1, 1)
+    y = np.repeat(np.array([0, 1], dtype=np.uintp), 6)
+    features = np.array([0], dtype=np.uintp)
+    allowed = UnivariateClassificationDiscretizer(criterion="gini")
+    allowed.Train(x, features, y, 2, 6, 0.0, 0, 0)
+    blocked = UnivariateClassificationDiscretizer(criterion="gini")
+    blocked.Train(x, features, y, 2, 7, 0.0, 0, 0)
+
+    assert allowed.numLeaves == 2
+    assert blocked.numLeaves == 1

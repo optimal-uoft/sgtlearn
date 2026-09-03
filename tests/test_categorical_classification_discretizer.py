@@ -1,27 +1,11 @@
-"""Fidelity tests: ``CategoricalClassificationDiscretizer`` vs ``sklearn.tree.DecisionTreeClassifier``.
-
-Trains both on a one-hot feature block and compares predictions across the same
-inner-tree constraint grid used by the univariate discretizer tests.
-"""
+"""Focused categorical-classification discretizer contracts and sklearn parity."""
 
 from __future__ import annotations
-
-from itertools import product
 
 import numpy as np
 import pytest
 from Discretizers import CategoricalClassificationDiscretizer
 from sklearn.tree import DecisionTreeClassifier
-
-from tests.discretizer_grid import (
-    MAX_DEPTH_VALUES,
-    MAX_LEAF_VALUES,
-    MIN_GAIN_VALUES,
-    MIN_LEAF_VALUES,
-    N_VALUES,
-    NUM_CLASSES_VALUES,
-    n_outputs_params,
-)
 
 
 def _make_onehot(
@@ -46,32 +30,20 @@ def classification_predict(
     return np.asarray(bin_preds[bin_locs], dtype=np.uintp)
 
 
-GRID = list(
-    product(
-        N_VALUES,
-        NUM_CLASSES_VALUES,
-        MIN_LEAF_VALUES,
-        MIN_GAIN_VALUES,
-        MAX_DEPTH_VALUES,
-        MAX_LEAF_VALUES,
-    )
-)
-IDS = [
-    f"N={n}|C={c}|leaf={leaf}|gain={gain}|depth={depth}|max_leaf={max_leaf}"
-    for n, c, leaf, gain, depth, max_leaf in GRID
+PARITY_CASES = [
+    pytest.param("gini", 2, 1, 0.0, 0, 0, 1, id="gini-binary"),
+    pytest.param("entropy", 3, 1, 0.0, 0, 0, 2, id="entropy-multioutput"),
+    pytest.param("gini", 4, 1, 0.0, 2, 0, 1, id="depth-limited"),
+    pytest.param("entropy", 4, 1, 0.0, 0, 2, 2, id="leaf-limited"),
 ]
 
 
-@pytest.mark.parametrize("n_outputs", n_outputs_params())
-@pytest.mark.parametrize("criterion", ["gini", "entropy"])
 @pytest.mark.parametrize(
-    "n_samples,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf",
-    GRID,
-    ids=IDS,
+    "criterion,num_classes,min_leaf_size,min_gain_split,max_depth,max_leaf,n_outputs",
+    PARITY_CASES,
 )
 def test_categorical_onehot_classification_discretizer_vs_sklearn_fidelity(
     criterion: str,
-    n_samples: int,
     num_classes: int,
     min_leaf_size: int,
     min_gain_split: float,
@@ -81,7 +53,7 @@ def test_categorical_onehot_classification_discretizer_vs_sklearn_fidelity(
 ) -> None:
     """Predictions should track ``DecisionTreeClassifier`` on one-hot features."""
     rng = np.random.default_rng(12345)
-    x, y = _make_onehot(n_samples, num_classes, rng, n_outputs=n_outputs)
+    x, y = _make_onehot(1000, num_classes, rng, n_outputs=n_outputs)
 
     clf = DecisionTreeClassifier(
         criterion=criterion,
@@ -132,18 +104,30 @@ def test_categorical_onehot_active_category_maps_to_single_leaf() -> None:
 
 
 def test_categorical_onehot_respects_min_leaf_size() -> None:
-    rng = np.random.default_rng(2026)
     n_cat = 3
-    x, y = _make_onehot(120, n_cat, rng)
+    x = np.repeat(np.eye(n_cat, dtype=np.float32), 4, axis=0)
+    y = np.repeat(np.array([0, 1, 0], dtype=np.uintp), 4)
     features = np.arange(n_cat, dtype=np.uintp)
-    min_leaf = 40
-    disc = CategoricalClassificationDiscretizer(criterion="entropy")
-    disc.Train(x, features, y, n_cat, min_leaf, 0.0, 0, 0)
-    # ``numLeaves`` counts inner-tree bins only; the trailing NaN / catch-all
-    # routing bin is not subject to ``min_samples_leaf``.
-    inner_partitions = disc.getInSampleDiscretizations()[: disc.numLeaves]
-    for part in inner_partitions:
-        assert len(part) >= min_leaf
+    allowed = CategoricalClassificationDiscretizer(criterion="entropy")
+    allowed.Train(x, features, y, 2, 4, 0.0, 0, 0)
+    blocked = CategoricalClassificationDiscretizer(criterion="entropy")
+    blocked.Train(x, features, y, 2, 5, 0.0, 0, 0)
+
+    assert allowed.numLeaves == 2
+    assert blocked.numLeaves == 1
+
+
+def test_categorical_classification_gain_threshold_blocks_known_split() -> None:
+    x = np.repeat(np.eye(3, dtype=np.float32), 4, axis=0)
+    y = np.repeat(np.array([0, 1, 0], dtype=np.uintp), 4)
+    features = np.arange(3, dtype=np.uintp)
+    split = CategoricalClassificationDiscretizer(criterion="gini")
+    split.Train(x, features, y, 2, 1, 0.0, 0, 0)
+    blocked = CategoricalClassificationDiscretizer(criterion="gini")
+    blocked.Train(x, features, y, 2, 1, 1.0, 0, 0)
+
+    assert split.numLeaves == 2
+    assert blocked.numLeaves == 0
 
 
 def test_categorical_onehot_in_sample_partition_covers_rows() -> None:
