@@ -704,11 +704,20 @@ def _draw_internal_panel(
 
 
 def _pair_axis_label(
-    estimator: Any, axis: dict, feat_names: list[str], *, prefer_logical_name: bool = True
+    estimator: Any,
+    axis: dict,
+    feat_names: list[str],
+    *,
+    prefer_logical_name: bool = True,
 ) -> str:
     processed = getattr(estimator, "processed_features_", None)
     logical = int(axis["logical_feature"])
-    if prefer_logical_name and processed is not None and processed.logical_names and logical < len(processed.logical_names):
+    if (
+        prefer_logical_name
+        and processed is not None
+        and processed.logical_names
+        and logical < len(processed.logical_names)
+    ):
         return str(processed.logical_names[logical])
     return _category_label_for_columns(axis["columns"], feat_names)
 
@@ -724,8 +733,7 @@ def _pair_axis_cells(
     if axis["kind"] == "categorical":
         categories = [int(c) for c in axis["categories"]]
         categorical_cells: list[tuple[float, float, object]] = [
-            (float(i), float(i + 1), category)
-            for i, category in enumerate(categories)
+            (float(i), float(i + 1), category) for i, category in enumerate(categories)
         ]
         if include_missing:
             categorical_cells.append(
@@ -736,13 +744,15 @@ def _pair_axis_cells(
                 )
             )
         return categorical_cells
-    thresholds = sorted({
-        float(split["threshold"])
-        for split in node["pair_inner_tree"]
-        if not split["is_leaf"]
-        and int(split["axis"]) == axis_index
-        and split["kind"] == "continuous"
-    })
+    thresholds = sorted(
+        {
+            float(split["threshold"])
+            for split in node["pair_inner_tree"]
+            if not split["is_leaf"]
+            and int(split["axis"]) == axis_index
+            and split["kind"] == "continuous"
+        }
+    )
     finite = values[np.isfinite(values)] if values is not None else np.array([])
     if finite.size:
         lo, hi = float(finite.min()), float(finite.max())
@@ -764,7 +774,9 @@ def _pair_axis_cells(
     return continuous_cells
 
 
-def _pair_cell_row(node: dict, x_axis: dict, x_value, y_axis: dict, y_value) -> np.ndarray:
+def _pair_cell_row(
+    node: dict, x_axis: dict, x_value, y_axis: dict, y_value
+) -> np.ndarray:
     width = max([int(c) for c in node["features"]] + [0]) + 1
     row = np.zeros(width, dtype=np.float64)
     for axis, value in ((x_axis, x_value), (y_axis, y_value)):
@@ -825,36 +837,56 @@ def _draw_internal_panel_pair(
     )
     inset.set_label("pair-heatmap")
     x_axis, y_axis = node["pair_axes"]
-    x_values = X_rows[:, int(x_axis["columns"][0])] if X_rows is not None and x_axis["kind"] == "continuous" else None
-    y_values = X_rows[:, int(y_axis["columns"][0])] if X_rows is not None and y_axis["kind"] == "continuous" else None
+    x_values = (
+        X_rows[:, int(x_axis["columns"][0])]
+        if X_rows is not None and x_axis["kind"] == "continuous"
+        else None
+    )
+    y_values = (
+        X_rows[:, int(y_axis["columns"][0])]
+        if X_rows is not None and y_axis["kind"] == "continuous"
+        else None
+    )
     x_has_missing = X_rows is None or any(
         _pair_axis_missing(row, x_axis) for row in X_rows
     )
     y_has_missing = X_rows is None or any(
         _pair_axis_missing(row, y_axis) for row in X_rows
     )
-    x_cells = _pair_axis_cells(
-        node, 0, x_axis, x_values, include_missing=x_has_missing
-    )
-    y_cells = _pair_axis_cells(
-        node, 1, y_axis, y_values, include_missing=y_has_missing
-    )
+    x_cells = _pair_axis_cells(node, 0, x_axis, x_values, include_missing=x_has_missing)
+    y_cells = _pair_axis_cells(node, 1, y_axis, y_values, include_missing=y_has_missing)
     counts: dict[tuple[int, int], int] = {}
     if X_rows is not None:
         for row in X_rows:
             for xi, (x0, x1, xv) in enumerate(x_cells):
                 if _pair_axis_missing(row, x_axis) != (xv is None):
                     continue
-                if xv is not None and x_axis["kind"] == "continuous" and not (x0 <= row[int(x_axis["columns"][0])] <= x1):
+                if (
+                    xv is not None
+                    and x_axis["kind"] == "continuous"
+                    and not (x0 <= row[int(x_axis["columns"][0])] <= x1)
+                ):
                     continue
-                if xv is not None and x_axis["kind"] == "categorical" and _active_onehot_column(row, x_axis["columns"]) != xv:
+                if (
+                    xv is not None
+                    and x_axis["kind"] == "categorical"
+                    and _active_onehot_column(row, x_axis["columns"]) != xv
+                ):
                     continue
                 for yi, (y0, y1, yv) in enumerate(y_cells):
                     if _pair_axis_missing(row, y_axis) != (yv is None):
                         continue
-                    if yv is not None and y_axis["kind"] == "continuous" and not (y0 <= row[int(y_axis["columns"][0])] <= y1):
+                    if (
+                        yv is not None
+                        and y_axis["kind"] == "continuous"
+                        and not (y0 <= row[int(y_axis["columns"][0])] <= y1)
+                    ):
                         continue
-                    if yv is not None and y_axis["kind"] == "categorical" and _active_onehot_column(row, y_axis["columns"]) != yv:
+                    if (
+                        yv is not None
+                        and y_axis["kind"] == "categorical"
+                        and _active_onehot_column(row, y_axis["columns"]) != yv
+                    ):
                         continue
                     counts[(xi, yi)] = counts.get((xi, yi), 0) + 1
                     break
@@ -862,9 +894,21 @@ def _draw_internal_panel_pair(
     partitions = np.empty((len(x_cells), len(y_cells)), dtype=np.intp)
     for xi, (x0, x1, xv) in enumerate(x_cells):
         for yi, (y0, y1, yv) in enumerate(y_cells):
-            part = _route_pair_partition(node, _pair_cell_row(node, x_axis, xv, y_axis, yv))
+            part = _route_pair_partition(
+                node, _pair_cell_row(node, x_axis, xv, y_axis, yv)
+            )
             partitions[xi, yi] = part
-            inset.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, facecolor=palette[part], alpha=0.55, edgecolor="white", linewidth=0.5))
+            inset.add_patch(
+                Rectangle(
+                    (x0, y0),
+                    x1 - x0,
+                    y1 - y0,
+                    facecolor=palette[part],
+                    alpha=0.55,
+                    edgecolor="white",
+                    linewidth=0.5,
+                )
+            )
     inset.set_xlim(x_cells[0][0], x_cells[-1][1])
     inset.set_ylim(y_cells[0][0], y_cells[-1][1])
     histogram_axes = []
@@ -900,7 +944,13 @@ def _draw_internal_panel_pair(
             )
             if x_has_missing:
                 start, end, _ = x_cells[-1]
-                x_hist.bar((start + end) / 2, x_counts[-1], width=end - start, color="#777777", alpha=0.65)
+                x_hist.bar(
+                    (start + end) / 2,
+                    x_counts[-1],
+                    width=end - start,
+                    color="#777777",
+                    alpha=0.65,
+                )
         else:
             x_hist.bar(
                 [(start + end) / 2 for start, end, _ in x_cells],
@@ -923,7 +973,13 @@ def _draw_internal_panel_pair(
             )
             if y_has_missing:
                 start, end, _ = y_cells[-1]
-                y_hist.barh((start + end) / 2, y_counts[-1], height=end - start, color="#777777", alpha=0.65)
+                y_hist.barh(
+                    (start + end) / 2,
+                    y_counts[-1],
+                    height=end - start,
+                    color="#777777",
+                    alpha=0.65,
+                )
         else:
             y_hist.barh(
                 [(start + end) / 2 for start, end, _ in y_cells],
@@ -937,11 +993,29 @@ def _draw_internal_panel_pair(
         x_hist.set_axis_off()
         y_hist.set_axis_off()
         histogram_axes = [x_hist, y_hist]
-    inset.set_xlabel(_pair_axis_label(estimator, x_axis, feat_names, prefer_logical_name=prefer_logical_name), fontsize=(fontsize - 1) if isinstance(fontsize, int) else None)
-    inset.set_ylabel(_pair_axis_label(estimator, y_axis, feat_names, prefer_logical_name=prefer_logical_name), fontsize=(fontsize - 1) if isinstance(fontsize, int) else None)
+    inset.set_xlabel(
+        _pair_axis_label(
+            estimator, x_axis, feat_names, prefer_logical_name=prefer_logical_name
+        ),
+        fontsize=(fontsize - 1) if isinstance(fontsize, int) else None,
+    )
+    inset.set_ylabel(
+        _pair_axis_label(
+            estimator, y_axis, feat_names, prefer_logical_name=prefer_logical_name
+        ),
+        fontsize=(fontsize - 1) if isinstance(fontsize, int) else None,
+    )
     if x_axis["kind"] == "categorical":
         inset.set_xticks([(a + b) / 2 for a, b, _ in x_cells])
-        inset.set_xticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in x_cells], rotation=30, ha="right", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+        inset.set_xticklabels(
+            [
+                _column_label(cast(int, v), feat_names) if v is not None else "NaN"
+                for _, _, v in x_cells
+            ],
+            rotation=30,
+            ha="right",
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+        )
     else:
         x_ticks = _pair_switch_boundaries(x_cells, partitions, axis=0)
         x_labels = [f"{value:.{precision}f}" for value in x_ticks]
@@ -958,7 +1032,13 @@ def _draw_internal_panel_pair(
         )
     if y_axis["kind"] == "categorical":
         inset.set_yticks([(a + b) / 2 for a, b, _ in y_cells])
-        inset.set_yticklabels([_column_label(cast(int, v), feat_names) if v is not None else "NaN" for _, _, v in y_cells], fontsize=(fontsize - 2) if isinstance(fontsize, int) else None)
+        inset.set_yticklabels(
+            [
+                _column_label(cast(int, v), feat_names) if v is not None else "NaN"
+                for _, _, v in y_cells
+            ],
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+        )
     else:
         y_ticks = _pair_switch_boundaries(y_cells, partitions, axis=1)
         y_labels = [f"{value:.{precision}f}" for value in y_ticks]
@@ -972,7 +1052,16 @@ def _draw_internal_panel_pair(
             fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
         )
     if label != "none":
-        inset.text(1.0, 1.0, f"n={node['n_samples']}", transform=inset.transAxes, ha="right", va="top", fontsize=(fontsize - 2) if isinstance(fontsize, int) else None, color="#444444")
+        inset.text(
+            1.0,
+            1.0,
+            f"n={node['n_samples']}",
+            transform=inset.transAxes,
+            ha="right",
+            va="top",
+            fontsize=(fontsize - 2) if isinstance(fontsize, int) else None,
+            color="#444444",
+        )
     return [inset, *histogram_axes]
 
 
@@ -1242,7 +1331,15 @@ def plot_tree(
         artists.extend(panel_artists)
 
         feat_name = (
-            " × ".join(_pair_axis_label(estimator, axis, feat_names, prefer_logical_name=feature_names is None) for axis in node["pair_axes"])
+            " × ".join(
+                _pair_axis_label(
+                    estimator,
+                    axis,
+                    feat_names,
+                    prefer_logical_name=feature_names is None,
+                )
+                for axis in node["pair_axes"]
+            )
             if _is_pair_node(node)
             else _logical_feature_label(
                 estimator,
