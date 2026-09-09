@@ -29,4 +29,6 @@ and the umbrella issue [#27](https://github.com/optimal-uoft/sgtlearn/issues/27)
 
 
 ## v1.0.0
+- [ ] Cross-Feature Tree Binning (Similar to [DPDT](https://github.com/KohlerHECTOR/DPDTreeEstimator) 
 - [ ] Boosting
+- [ ] Default Optuna Support
