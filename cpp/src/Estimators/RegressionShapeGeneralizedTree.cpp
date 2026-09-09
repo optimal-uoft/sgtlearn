@@ -393,7 +393,7 @@ void RegressionShapeGeneralizedTree::fit(
               searchShapeBranchAssignmentFromDiscretizer(
                   *disc, criterion_, parentImp, numPartitions_, outerParams_,
                   cdParams_, outerTreeBuilder_.eps, rng_,
-                  /*useKMeansSeed=*/false, /*classesPerOutput=*/{}, nOutputs_,
+                  /*classesPerOutput=*/{}, nOutputs_,
                   criterion_ == LearningCriterion::AbsoluteError ? &ysub
                                                                  : nullptr,
                   criterion_ == LearningCriterion::AbsoluteError ? &wsub
@@ -481,7 +481,7 @@ void RegressionShapeGeneralizedTree::fit(
                 searchShapeBranchAssignmentFromDiscretizer(
                     *pairDisc, criterion_, parentImp, numPartitions_, outerParams_,
                     cdParams_, outerTreeBuilder_.eps, rng_,
-                    /*useKMeansSeed=*/false, /*classesPerOutput=*/{}, nOutputs_,
+                    /*classesPerOutput=*/{}, nOutputs_,
                     criterion_ == LearningCriterion::AbsoluteError ? &ysub : nullptr,
                     criterion_ == LearningCriterion::AbsoluteError ? &wsub : nullptr,
                     xSubCols, /*hasNanRoutingBin=*/false);

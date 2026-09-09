@@ -34,6 +34,8 @@ struct ShapeBranchAssignmentSearchResult {
   std::vector<double> partitionWeights;
   double impurityDecrease = 0.0;
   bool found = false;
+  /** Root meets occupied-branch count constraints, regardless of minimum gain. */
+  bool rootFeasible = false;
 };
 
 struct ShapeBestBranchingState {
@@ -79,13 +81,14 @@ bool featureHasBetterShapeBranching(
  * inner discretizer and return the best penalized branch assignment.
  *
  * Leaf stats are nested ``[bin][output][*]`` (class counts or MSE moments).
+ * Gini/entropy use classifier search; regression criteria retain regression search.
  */
 ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
     const CoordinateDescentParams &cdParams, double scoreEpsilon,
-    std::mt19937_64 &rng, bool useKMeansSeed = false,
+    std::mt19937_64 &rng,
     const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1,
     const arma::Mat<float> *ysub = nullptr, const arma::Row<float> *wsub = nullptr,
     size_t xSubCols = 0, bool hasNanRoutingBin = true);

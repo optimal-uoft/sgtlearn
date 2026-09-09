@@ -249,9 +249,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     coordinate_descent_patience : int, default=5
         Number of non-improving iterations tolerated before coordinate descent
         terminates early.
-    coordinate_descent_smart_init : bool, default=True
-        If ``True``, seed coordinate descent with a k-means clustering of the
-        bin statistics; if ``False``, use round-robin assignment.
     random_state : int, optional, default=42
         Seed forwarded to the native trainer. ``None`` is treated as ``42``.
     max_features : int, float, {"sqrt", "log2"} or None, default=None
@@ -305,6 +302,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     Notes
     -----
+    Classification compares weighted k-means with the inner root assignment
+    before coordinate descent for every candidate branch count. The feasible
+    candidate with the lowest penalized impurity is retained across all scored
+    assignments, including trials that coordinate descent does not accept.
+    Only occupied branches count toward the branching penalty and each must
+    satisfy ``min_samples_leaf``. Feasible binary root/fallback cuts are kept.
+
     Internally, single- and multi-output training share one path: ``y`` is
     always handled as ``(n_samples, n_outputs)`` (with ``n_outputs=1`` for a
     vector target). Impurity / gain sums across outputs. ``X`` is cast to
@@ -356,7 +360,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
         pairwise_candidates: float = 0,
@@ -379,7 +382,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
         self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
         self.coordinate_descent_patience = int(coordinate_descent_patience)
-        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
@@ -549,7 +551,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             inner_leaves,
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
-            bool(self.coordinate_descent_smart_init),
             int(42 if self.random_state is None else self.random_state),
             self.max_features,
             resolved_pairwise_candidates,
@@ -688,10 +689,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     coordinate_descent_patience : int, default=5
         Number of non-improving iterations tolerated before coordinate descent
         terminates early.
-    coordinate_descent_smart_init : bool, default=True
-        Accepted for API symmetry with :class:`SGTClassifier` but **ignored**
-        by the regression trainer: regression always seeds inner
-        bin-to-partition assignments round-robin (no k-means initialisation).
     random_state : int, optional, default=42
         Seed forwarded to the native trainer. ``None`` is treated as ``42``.
     max_features : int, float, {"sqrt", "log2"} or None, default=None
@@ -774,7 +771,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
         pairwise_candidates: float = 0,
@@ -795,7 +791,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
         self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
         self.coordinate_descent_patience = int(coordinate_descent_patience)
-        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
@@ -906,7 +901,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             inner_leaves,
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
-            bool(self.coordinate_descent_smart_init),
             int(42 if self.random_state is None else self.random_state),
             self.max_features,
             resolved_pairwise_candidates,

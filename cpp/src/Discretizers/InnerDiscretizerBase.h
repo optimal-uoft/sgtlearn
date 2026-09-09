@@ -26,6 +26,11 @@ public:
                          arma::Row<size_t> &binLoc) const = 0;
   virtual size_t routeToBin(const std::vector<float> &featureValues) const = 0;
 
+  /** Binary root membership; empty if the inner tree has no split. */
+  virtual std::vector<size_t> rootBinAssignments(size_t missingBranch = 0) const {
+    return {};
+  }
+
   virtual const std::vector<std::vector<size_t>> &
   inSampleDiscretizations() const = 0;
   virtual std::vector<std::vector<size_t>> &inSampleDiscretizations() = 0;

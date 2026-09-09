@@ -66,7 +66,6 @@ def test_bootstrap_keeps_samples_targets_and_weights_aligned() -> None:
         max_depth=2,
         inner_max_depth=1,
         max_features=None,
-        coordinate_descent_smart_init=False,
         tao_n_runs=0,
     ).fit(X, y, sample_weight=sample_weight)
 
@@ -77,7 +76,6 @@ def test_bootstrap_keeps_samples_targets_and_weights_aligned() -> None:
         max_depth=2,
         inner_max_depth=1,
         max_features=None,
-        coordinate_descent_smart_init=False,
         tao_n_runs=0,
     ).fit(X[indices], y[indices], sample_weight=sample_weight[indices])
 

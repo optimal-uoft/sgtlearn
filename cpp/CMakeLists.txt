@@ -238,6 +238,7 @@ if (SGTLEARN_BUILD_TESTS)
             tests/test_weighted_mae_tree.cpp
             tests/test_splitters.cpp
             tests/test_branch_assignment.cpp
+            tests/test_shape_assignment_search.cpp
             tests/bench_mae_branch_assignment.cpp
     )
 

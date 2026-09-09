@@ -95,7 +95,6 @@ class RandomSGForest(BaseEstimator, ABC):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         max_features: float | str | None = None,
         bootstrap: bool = True,
         max_samples: float | None = None,
@@ -121,7 +120,6 @@ class RandomSGForest(BaseEstimator, ABC):
         self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
         self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
         self.coordinate_descent_patience = int(coordinate_descent_patience)
-        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.max_features = max_features
         self.bootstrap = bool(bootstrap)
         self.max_samples = max_samples
@@ -148,7 +146,6 @@ class RandomSGForest(BaseEstimator, ABC):
             "inner_min_impurity_decrease": self.inner_min_impurity_decrease,
             "coordinate_descent_max_iters": self.coordinate_descent_max_iters,
             "coordinate_descent_patience": self.coordinate_descent_patience,
-            "coordinate_descent_smart_init": self.coordinate_descent_smart_init,
             "max_features": self.max_features,
             "pairwise_candidates": self.pairwise_candidates,
             "pairwise_penalty": self.pairwise_penalty,

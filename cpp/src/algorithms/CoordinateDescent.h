@@ -6,6 +6,7 @@
  */
 
 #include <cstddef>
+#include <functional>
 #include "BranchAssignmentObjectives/BranchAssignmentVariants.h"
 #include "algorithms/missing_values.h"
 #include <algorithm>
@@ -25,14 +26,20 @@
  * @param rng          non-const generator for shuffling bin order each outer round.
  * @param maxIters     outer shuffle rounds.
  * @param patience     stop after this many rounds without improvement.
+ * @param observe      optional observer of every scored trial, initial and final
+ *                     state; must not mutate it. During finite-bin search the
+ *                     missing bin has the unassigned label ``numPartitions``.
  * @return final ``assignmentObjective.objective()`` after the last accepted move.
  */
 inline double coordinateDescent(size_t numPartitions,
                                 BranchAssignment &assignmentObjective,
                                 std::mt19937_64 &rng, size_t maxIters = 10,
                                 size_t patience = 5,
-                                bool hasNanRoutingBin = true) {
+                                bool hasNanRoutingBin = true,
+                                const std::function<void(BranchAssignment &)> &
+                                    observe = {}) {
   size_t numBins = assignmentObjective.assignments.size();
+  if (observe) observe(assignmentObjective);
   if (numBins <= 1) return assignmentObjective.objective();
 
   const size_t finiteBinCount = hasNanRoutingBin ? numBins - 1 : numBins;
@@ -51,6 +58,7 @@ inline double coordinateDescent(size_t numPartitions,
 
     for (size_t j : permutation) {
       const double objectiveBeforeMovingBinJ = assignmentObjective.objective();
+      if (observe) observe(assignmentObjective);
       size_t currentAssignedPartition = assignmentObjective.assignments[j];
       size_t bestPartition = currentAssignedPartition;
       double bestImpurityForBinJ = objectiveBeforeMovingBinJ;
@@ -63,6 +71,7 @@ inline double coordinateDescent(size_t numPartitions,
 
         assignmentObjective.addLeaf(j, partition);
         double impurity = assignmentObjective.objective();
+        if (observe) observe(assignmentObjective);
 
         if (impurity < bestImpurityForBinJ) {
           bestImpurityForBinJ = impurity;
@@ -72,6 +81,7 @@ inline double coordinateDescent(size_t numPartitions,
         assignmentObjective.removeLeaf(j);
       }
       assignmentObjective.addLeaf(j, bestPartition);
+      if (observe) observe(assignmentObjective);
     }
 
     if (improved)
@@ -84,8 +94,10 @@ inline double coordinateDescent(size_t numPartitions,
   }
 
 
-  if (!hasNanRoutingBin)
+  if (!hasNanRoutingBin) {
+    if (observe) observe(assignmentObjective);
     return assignmentObjective.objective();
+  }
 
   // Factor the NaN bin back in by greedily finding its optimal partition.
   const size_t nanBinIndex = numBins - 1;
@@ -95,12 +107,14 @@ inline double coordinateDescent(size_t numPartitions,
     bestNanPartition
   );
   double bestFinalObjective =assignmentObjective.objective();
+  if (observe) observe(assignmentObjective);
   
   assignmentObjective.removeLeaf(nanBinIndex);
   for (size_t partition = 0; partition < numPartitions; ++partition) {
   
     assignmentObjective.addLeaf(nanBinIndex, partition);
     double currentObjective = assignmentObjective.objective();
+    if (observe) observe(assignmentObjective);
     
     if (currentObjective < bestFinalObjective) {
       bestFinalObjective = currentObjective;
@@ -112,6 +126,7 @@ inline double coordinateDescent(size_t numPartitions,
 
   // Commit the best placement for the NaN bin
   assignmentObjective.addLeaf(nanBinIndex, bestNanPartition);
+  if (observe) observe(assignmentObjective);
 
   return assignmentObjective.objective();
 }

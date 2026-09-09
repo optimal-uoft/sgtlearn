@@ -48,6 +48,7 @@ void UnivariateDiscretizer<StatsT, PredictT>::buildTree(
     Splitter<StatsT, PredictT> &splitter, size_t minLeafSize,
     double minGainSplit, size_t maxDepth, size_t maxLeafNodes) {
   leaves.clear();
+  rootLeftEnd_ = SIZE_MAX;
   TreeBuilder<UnivariateSplitCandidate> treeBuilder(minLeafSize, minGainSplit, maxDepth,
                                           maxLeafNodes);
   UnivariateSplitCandidate rootSplit = splitter.makeRoot();
@@ -62,6 +63,8 @@ void UnivariateDiscretizer<StatsT, PredictT>::buildTree(
         return splitter.makeChildren(split);
       },
       [this](UnivariateSplitCandidate &split, std::vector<UnivariateSplitCandidate> &children) {
+        if (split.height == 0)
+          rootLeftEnd_ = split.leftEnd;
         leaves.erase(std::make_tuple(split.start, split.end));
         for (auto child : children)
           leaves[std::make_tuple(child.start, child.end)] = child;

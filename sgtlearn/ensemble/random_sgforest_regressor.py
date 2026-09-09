@@ -35,11 +35,9 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
     inner_max_depth, inner_max_leaf_nodes, inner_min_samples_leaf, \
     inner_min_impurity_decrease : see :class:`sgtlearn.SGTRegressor`
         Inner-tree (shape function) controls forwarded to each base estimator.
-    coordinate_descent_max_iters, coordinate_descent_patience, \
-    coordinate_descent_smart_init : see :class:`sgtlearn.SGTRegressor`
+    coordinate_descent_max_iters, coordinate_descent_patience : \
+        see :class:`sgtlearn.SGTRegressor`
         Coordinate-descent controls forwarded to each base estimator.
-        Note that ``coordinate_descent_smart_init`` is ignored by the regression
-        trainer.
     max_features : int, float, {"sqrt", "log2"} or None, default="sqrt"
         Per-split feature subsampling for each base tree. Defaults to
         ``"sqrt"`` to follow ``RandomForestRegressor`` convention. See
@@ -122,7 +120,6 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         max_features: float | str | None = "sqrt",
         bootstrap: bool = True,
         max_samples: float | None = None,
@@ -149,7 +146,6 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             inner_min_impurity_decrease=inner_min_impurity_decrease,
             coordinate_descent_max_iters=coordinate_descent_max_iters,
             coordinate_descent_patience=coordinate_descent_patience,
-            coordinate_descent_smart_init=coordinate_descent_smart_init,
             max_features=max_features,
             bootstrap=bootstrap,
             max_samples=max_samples,

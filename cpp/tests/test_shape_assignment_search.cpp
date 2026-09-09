@@ -1,0 +1,192 @@
+#include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
+#include "Discretizers/univariate/UnivariateDiscretizer.h"
+#include "Discretizers/pair/PairClassificationDiscretizer.h"
+#include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
+#include "algorithms/BinPartitionAssignments.h"
+#include "algorithms/CoordinateDescent.h"
+
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <numeric>
+#include <set>
+
+using Catch::Matchers::WithinAbs;
+
+namespace {
+class Bins : public InnerDiscretizer<std::vector<double>>,
+             public UnivariateThresholds {
+public:
+  std::vector<size_t> root;
+  std::vector<double> cuts;
+  bool missing;
+  Bins(const std::vector<std::vector<double>> &histograms,
+       std::vector<size_t> root, bool missing = false, bool numeric = false)
+      : root(std::move(root)), missing(missing) {
+    for (const auto &histogram : histograms) {
+      leafStats_.push_back({histogram});
+      const double weight = std::accumulate(histogram.begin(), histogram.end(), 0.0);
+      leafNodeWeights_.push_back(weight);
+      leafNumSamples_.push_back(static_cast<size_t>(weight));
+    }
+    numLeaves_ = histograms.size() - missing;
+    if (numeric) cuts.assign(numLeaves_, 0.0);
+    markTrained();
+  }
+  const std::vector<double> &thresholds() const override { return cuts; }
+  std::vector<size_t> rootBinAssignments(size_t missingBranch) const override {
+    auto labels = root;
+    if (missing && !labels.empty()) labels.back() = missingBranch;
+    return labels;
+  }
+  void transform(const arma::fmat &, arma::Row<size_t> &) const override {}
+  size_t routeToBin(const std::vector<float> &) const override { return 0; }
+};
+
+double impurity(Bins &bins, std::vector<size_t> labels, size_t k,
+                LearningCriterion criterion) {
+  return makeBranchAssignment(criterion, labels, k, bins.leafStats(),
+      bins.leafNodeWeights(), bins.leafNumSamples(),
+      {bins.leafStats()[0][0].size()})->objective();
+}
+
+ShapeBranchAssignmentSearchResult search(Bins &bins, size_t k, size_t minLeaf,
+    double penalty, size_t iters, LearningCriterion criterion = LearningCriterion::Gini) {
+  TreeBuildingParams outer;
+  outer.minLeafSize = minLeaf;
+  outer.branchingPenalty = penalty;
+  CoordinateDescentParams cd;
+  cd.maxIters = iters;
+  std::mt19937_64 rng(42);
+  const double parent = impurity(bins, std::vector<size_t>(bins.leafStats().size()), 1, criterion);
+  return searchShapeBranchAssignmentFromDiscretizer(bins, criterion, parent, k,
+      outer, cd, 1e-12, rng, {bins.leafStats()[0][0].size()}, 1,
+      nullptr, nullptr, 0, bins.missing);
+}
+} // namespace
+
+TEST_CASE("Weighted k-means preserves fractional and tiny masses and ignores empty bins", "[shape_search]") {
+  for (double scale : {1.0, 1e-16, 1e8}) {
+    std::vector<std::vector<double>> hist = {{.1, 0}, {.72, .18}, {.55, .45}, {0, 1}};
+    std::vector<double> weights = {.1, .9, 1, 1};
+    for (auto &row : hist) for (auto &mass : row) mass *= scale;
+    for (auto &weight : weights) weight *= scale;
+    std::vector<size_t> labels;
+    std::mt19937_64 rng(0);
+    algorithms::seedBinAssignmentsKMeans(2, 4, 2, hist, {1, 1, 1, 1}, weights, rng, labels);
+    REQUIRE(labels == std::vector<size_t>{0, 0, 0, 1});
+    hist.insert(hist.begin(), {0, 0});
+    weights.insert(weights.begin(), 0);
+    rng.seed(0);
+    algorithms::seedBinAssignmentsKMeans(2, 5, 2, hist, {0, 1, 1, 1, 1}, weights, rng, labels);
+    REQUIRE(labels == std::vector<size_t>{0, 0, 0, 0, 1});
+  }
+  arma::mat points = {{0, 1}, {1, 0}, {.5, .5}};
+  arma::vec weights = {0, 0, 0};
+  std::vector<size_t> labels;
+  std::mt19937_64 rng(0);
+  algorithms::initAssignmentsWeightedKMeans(points, weights, 3, rng, labels);
+  REQUIRE(labels == std::vector<size_t>{0, 0, 0});
+}
+
+TEST_CASE("Coordinate descent observes rejected trials as well as initial and final states", "[shape_search]") {
+  Bins bins({{10, 0}, {0, 10}}, {0, 1});
+  auto labels = bins.root;
+  auto objective = makeBranchAssignment(LearningCriterion::Gini, labels, 2,
+      bins.leafStats(), bins.leafNodeWeights(), bins.leafNumSamples(), {2});
+  std::set<std::vector<size_t>> seen;
+  std::mt19937_64 rng(42);
+  coordinateDescent(2, *objective, rng, 1, 1, false,
+      [&](BranchAssignment &state) { seen.insert(state.assignments); });
+  REQUIRE(seen == std::set<std::vector<size_t>>{{0, 1}, {0, 0}, {1, 1}});
+  REQUIRE(labels == bins.root);
+}
+
+TEST_CASE("Selection uses occupied-branch penalty and preserves the binary root bound", "[shape_search]") {
+  for (auto criterion : {LearningCriterion::Gini, LearningCriterion::Entropy}) {
+    Bins bins({{10, 0, 0}, {0, 10, 0}, {0, 0, 10}, {0, 0, 0}}, {0, 1, 1, 0}, true);
+    const auto rootImpurity = impurity(bins, bins.root, 2, criterion);
+    const auto binary = search(bins, 4, 5, 2.0, 5, criterion);
+    REQUIRE(binary.found);
+    REQUIRE(binary.chosenK == 2);
+    REQUIRE(binary.rootFeasible);
+    REQUIRE(impurity(bins, binary.assignments, binary.chosenK, criterion) <= rootImpurity + 1e-12);
+    const auto multiway = search(bins, 4, 5, 0.0, 5, criterion);
+    REQUIRE(multiway.chosenK == 3);
+    REQUIRE_THAT(impurity(bins, multiway.assignments, 3, criterion), WithinAbs(0.0, 1e-12));
+    REQUIRE(binary.partitionSampleCounts.size() == binary.chosenK);
+    REQUIRE(binary.partitionClassCounts.size() == binary.chosenK);
+    REQUIRE(binary.partitionWeights.size() == binary.chosenK);
+    REQUIRE(binary.assignments.back() < binary.chosenK);
+  }
+}
+
+TEST_CASE("Infeasible numeric root falls back to a feasible bin boundary", "[shape_search]") {
+  for (auto criterion : {LearningCriterion::Gini, LearningCriterion::Entropy}) {
+    Bins bins({{0, 1}, {4, 0}, {3, 2}, {0, 0}}, {0, 1, 1, 0}, true, true);
+    const auto result = search(bins, 3, 5, 0.0, 0, criterion);
+    REQUIRE_FALSE(result.rootFeasible);
+    REQUIRE(result.found);
+    REQUIRE(result.partitionSampleCounts == std::vector<size_t>{5, 5});
+    const double fallback = impurity(bins, {0, 0, 1, 0}, 2, criterion);
+    REQUIRE(impurity(bins, result.assignments, 2, criterion) <= fallback + 1e-12);
+    REQUIRE_FALSE(search(bins, 3, 6, 0.0, 5, criterion).found);
+  }
+}
+
+TEST_CASE("Missing-bin snapshots consider feasible placements without changing the live search", "[shape_search]") {
+  Bins bins({{4, 0}, {0, 6}, {0, 2}}, {0, 1, 0}, true);
+  // The lowest-impurity missing placement makes the first branch too small.
+  REQUIRE(impurity(bins, {0, 1, 1}, 2, LearningCriterion::Gini) == 0.0);
+  const auto result = search(bins, 3, 5, 0.0, 5);
+  REQUIRE(result.found);
+  REQUIRE(result.partitionSampleCounts == std::vector<size_t>{6, 6});
+  REQUIRE(result.assignments[0] == result.assignments[2]);
+  REQUIRE(result.assignments[0] != result.assignments[1]);
+}
+
+TEST_CASE("A rejected coordinate trial can be the only feasible split", "[shape_search]") {
+  // Root and k-means isolate one pure minority sample: impurity zero, but
+  // infeasible. Moving either majority bin into it is feasible and is rejected
+  // by the live impurity optimizer. It must nevertheless survive selection.
+  Bins bins({{0, 1}, {5, 0}, {5, 0}}, {0, 1, 1});
+  REQUIRE_FALSE(search(bins, 2, 5, 0.0, 0).found);
+  const auto result = search(bins, 2, 5, 0.0, 1);
+  REQUIRE(result.found);
+  REQUIRE_FALSE(result.rootFeasible);
+  auto counts = result.partitionSampleCounts;
+  std::sort(counts.begin(), counts.end());
+  REQUIRE(counts == std::vector<size_t>{5, 6});
+  REQUIRE_THAT(impurity(bins, result.assignments, 2, LearningCriterion::Gini),
+               WithinAbs(5.0 / 33.0, 1e-12));
+}
+
+TEST_CASE("Zero-weight samples still occupy a utilized branch", "[shape_search]") {
+  Bins bins({{0, 0}, {0, 5}, {5, 0}}, {0, 1, 0});
+  bins.leafNumSamples()[0] = 5;
+  const auto result = search(bins, 3, 5, 0.0, 5);
+  REQUIRE(result.found);
+  REQUIRE(std::accumulate(result.partitionSampleCounts.begin(), result.partitionSampleCounts.end(), size_t{0}) == 15);
+  for (size_t count : result.partitionSampleCounts) REQUIRE(count >= 5);
+}
+
+TEST_CASE("Pair root membership merges the entire missing subtree into either branch", "[shape_search]") {
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  arma::fmat X = {{-2, -2, 2, 2, nan, nan}, {-2, 2, -2, 2, -2, 2}};
+  arma::Mat<size_t> y(1, 6);
+  y.row(0) = arma::Row<size_t>{0, 0, 1, 1, 0, 1};
+  FeatureInfo first, second;
+  first.type = second.type = FeatureType::Continuous;
+  first.indices = arma::uvec{0};
+  second.indices = arma::uvec{1};
+  arma::uvec features = {0, 1};
+  PairClassificationDiscretizer disc(LearningCriterion::Gini, first, second);
+  disc.Train(X, features, y, {2}, 1, 0.0, 2, 0);
+  REQUIRE(disc.routingTree()[0].rawFeature == 0);
+  REQUIRE_FALSE(disc.routingTree()[disc.routingTree()[0].missing].isLeaf);
+  for (size_t missingBranch : {0, 1}) {
+    const auto root = disc.rootBinAssignments(missingBranch);
+    for (size_t bin = 0; bin < root.size(); ++bin)
+      for (size_t sample : disc.inSampleDiscretizations()[bin])
+        REQUIRE(root[bin] == (sample >= 4 ? missingBranch : (sample >= 2 ? 1 : 0)));
+  }
+}

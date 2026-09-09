@@ -36,6 +36,15 @@ public:
   /** For each routing bin, column indices whose one-hot level routes there. */
   std::vector<std::vector<size_t>> categoriesPerBin() const;
 
+  std::vector<size_t> rootBinAssignments(size_t missingBranch = 0) const override {
+    if (routing_.empty() || routing_[0].isLeaf)
+      return {};
+    std::vector<size_t> assignments(this->leafStats_.size(), 0);
+    assignments[routing_[0].activeLeafBin] = 1;
+    assignments.back() = missingBranch;
+    return assignments;
+  }
+
   /** Index of the trailing NaN / catch-all routing bin. */
   size_t nanBinIndex() const {
     this->ensureTrained();

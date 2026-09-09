@@ -42,8 +42,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     inner_max_depth, inner_max_leaf_nodes, inner_min_samples_leaf, \
     inner_min_impurity_decrease : see :class:`sgtlearn.SGTClassifier`
         Inner-tree (shape function) controls forwarded to each base estimator.
-    coordinate_descent_max_iters, coordinate_descent_patience, \
-    coordinate_descent_smart_init : see :class:`sgtlearn.SGTClassifier`
+    coordinate_descent_max_iters, coordinate_descent_patience : \
+        see :class:`sgtlearn.SGTClassifier`
         Coordinate-descent controls forwarded to each base estimator.
     max_features : int, float, {"sqrt", "log2"} or None, default="sqrt"
         Per-split feature subsampling for each base tree. Defaults to
@@ -135,7 +135,6 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         max_features: float | str | None = "sqrt",
         bootstrap: bool = True,
         max_samples: float | None = None,
@@ -164,7 +163,6 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             inner_min_impurity_decrease=inner_min_impurity_decrease,
             coordinate_descent_max_iters=coordinate_descent_max_iters,
             coordinate_descent_patience=coordinate_descent_patience,
-            coordinate_descent_smart_init=coordinate_descent_smart_init,
             max_features=max_features,
             bootstrap=bootstrap,
             max_samples=max_samples,

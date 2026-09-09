@@ -59,7 +59,6 @@ def _forest_tree_defaults() -> dict:
         inner_min_impurity_decrease=0.0,
         coordinate_descent_max_iters=20,
         coordinate_descent_patience=5,
-        coordinate_descent_smart_init=True,
         max_features="sqrt",
         tao_n_runs=TEST_TAO_N_RUNS,
     )

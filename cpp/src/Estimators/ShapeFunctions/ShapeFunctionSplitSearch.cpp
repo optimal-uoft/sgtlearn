@@ -14,6 +14,7 @@
 #include "BranchAssignmentObjectives/MaeBranchConfig.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
+#include "Discretizers/univariate/UnivariateDiscretizer.h"
 
 #include <cmath>
 #include <algorithm>
@@ -43,8 +44,9 @@ void refineShapeBranchAssignmentNested(
       objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
     return;
 
-  std::vector<size_t> rollback = snapshot;
-  branchObj = makeBranchAssignment(criterion, rollback, k, stats, leafWeights,
+  auto &assignments = branchObj->assignments;
+  assignments = snapshot;
+  branchObj = makeBranchAssignment(criterion, assignments, k, stats, leafWeights,
                                    leafSampleCounts, classesPerOutput, nOutputs);
 }
 
@@ -68,29 +70,12 @@ void refineShapeBranchAssignmentAbsoluteError(
       objAfterCd <= objBeforeCd + kShapeFunctionCdImprovementEps)
     return;
 
-  std::vector<size_t> rollback = snapshot;
+  auto &assignments = branchObj->assignments;
+  assignments = snapshot;
   std::vector<std::vector<double>> dummyLeafStats(maeLeafYs.size());
   branchObj = makeBranchAssignment(
-      LearningCriterion::AbsoluteError, rollback, k, dummyLeafStats, leafWeights,
+      LearningCriterion::AbsoluteError, assignments, k, dummyLeafStats, leafWeights,
       leafSampleCounts, &maeLeafYs, &maeLeafWs);
-}
-
-void seedTrialBinAssignments(size_t k, size_t numRoutingBins,
-                             const std::vector<std::vector<double>> &stats,
-                             const std::vector<size_t> &sizes,
-                             std::vector<double> &leafWeights, bool useKMeansSeed,
-                             bool smartInit, size_t kmeansDim,
-                             std::mt19937_64 &rng,
-                             std::vector<size_t> &trialAssignments) {
-  if (k == numRoutingBins) {
-    algorithms::identityBinAssignments(numRoutingBins, trialAssignments);
-  } else if (useKMeansSeed && smartInit && k >= 2 && numRoutingBins >= k) {
-    algorithms::seedBinAssignmentsKMeans(k, numRoutingBins, kmeansDim, stats,
-                                       sizes, leafWeights, rng,
-                                       trialAssignments);
-  } else {
-    algorithms::roundRobinBinAssignments(numRoutingBins, k, trialAssignments);
-  }
 }
 
 std::vector<std::vector<double>>
@@ -110,6 +95,140 @@ flattenNestedBinStats(const std::vector<std::vector<std::vector<double>>> &stats
   return flat;
 }
 
+ShapeBranchAssignmentSearchResult searchClassificationAssignments(
+    InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
+    double parentImp, size_t treeNumPartitions,
+    const TreeBuildingParams &outerParams,
+    const CoordinateDescentParams &cdParams, double scoreEpsilon,
+    std::mt19937_64 &rng, const std::vector<size_t> &classesPerOutput,
+    size_t nOutputs, bool hasNanRoutingBin) {
+  auto &stats = disc.leafStats();
+  auto &weights = disc.leafNodeWeights();
+  const auto &sizes = disc.leafNumSamples();
+  const size_t numBins = stats.size();
+  ShapeBranchAssignmentSearchResult result;
+  const auto makeObjective = [&](std::vector<size_t> &labels, size_t k) {
+    return makeBranchAssignment(criterion, labels, k, stats, weights, sizes,
+                                classesPerOutput, nOutputs);
+  };
+  const auto occupiedCount = [&](const BranchAssignment &objective) {
+    size_t occupied = 0;
+    for (size_t count : objective.partitionSampleCounts()) {
+      if (count == 0)
+        continue;
+      if (count < outerParams.minLeafSize)
+        return size_t{0};
+      ++occupied;
+    }
+    return occupied;
+  };
+  const auto consider = [&](BranchAssignment &objective) {
+    const size_t occupied = occupiedCount(objective);
+    if (occupied < 2)
+      return;
+    const double impurity = objective.objective();
+    const double gain = parentImp - impurity;
+    if (!std::isfinite(impurity) || gain <= scoreEpsilon ||
+        gain < outerParams.minGainSplit - scoreEpsilon)
+      return;
+    const double score = algorithms::penalizedBranchingScore(
+        impurity, occupied, outerParams.branchingPenalty);
+    if (score >= result.bestFeatureScore - scoreEpsilon)
+      return;
+    result.found = true;
+    result.bestFeatureScore = score;
+    result.chosenK = occupied;
+    result.assignments = objective.assignments;
+    result.partitionSampleCounts = objective.partitionSampleCounts();
+    result.impurityDecrease = gain;
+  };
+
+  // Check full-data completions without perturbing the live finite-bin search.
+  const auto observe = [&](BranchAssignment &objective) {
+    if (!hasNanRoutingBin || objective.assignments.back() < objective.numPartitions) {
+      consider(objective);
+      return;
+    }
+    // ponytail: rebuild per trial; reuse a scratch accumulator if large-bin profiling warrants it.
+    auto labels = objective.assignments;
+    labels.back() = 0;
+    auto complete = makeObjective(labels, objective.numPartitions);
+    for (size_t p = 0; p < objective.numPartitions; ++p) {
+      complete->removeLeaf(numBins - 1);
+      complete->addLeaf(numBins - 1, p);
+      consider(*complete);
+    }
+  };
+
+  std::vector<size_t> root;
+  double rootImpurity = std::numeric_limits<double>::infinity();
+  for (size_t missingBranch = 0; missingBranch < 2; ++missingBranch) {
+    auto labels = disc.rootBinAssignments(missingBranch);
+    if (labels.empty())
+      continue;
+    auto objective = makeObjective(labels, 2);
+    const double impurity = objective->objective();
+    if (impurity < rootImpurity) {
+      rootImpurity = impurity;
+      root = labels;
+    }
+    result.rootFeasible |= occupiedCount(*objective) >= 2;
+    consider(*objective);
+  }
+
+  // Only numeric bins have an ordering suitable for a secondary threshold scan.
+  if (!result.rootFeasible && !numericInnerThresholds(disc).empty()) {
+    const size_t finiteBins = numBins - 1;
+    for (size_t cut = 1; cut < finiteBins; ++cut) {
+      std::vector<size_t> labels(numBins, 1);
+      std::fill(labels.begin(), labels.begin() + cut, 0);
+      for (size_t missingBranch = 0; missingBranch < 2; ++missingBranch) {
+        labels.back() = missingBranch;
+        auto objective = makeObjective(labels, 2);
+        consider(*objective);
+      }
+    }
+  }
+
+  size_t dim = 0;
+  const auto flat = flattenNestedBinStats(stats, dim);
+  for (size_t k = 2; k <= std::min(numBins, treeNumPartitions); ++k) {
+    std::vector<size_t> labels;
+    algorithms::seedBinAssignmentsKMeans(k, numBins, dim, flat, sizes,
+                                         weights, rng, labels);
+    auto objective = makeObjective(labels, k);
+    observe(*objective); // Retain the feasible k-means seed even if root initializes CD.
+    if (!root.empty() && rootImpurity <= objective->objective()) {
+      labels = root;
+      objective = makeObjective(labels, k);
+    }
+    coordinateDescent(k, *objective, rng, cdParams.maxIters, cdParams.patience,
+                       hasNanRoutingBin, observe);
+  }
+
+  if (result.found) {
+    // Compact all result metadata together. Empty routing bins still need a label.
+    std::vector<size_t> compact(result.partitionSampleCounts.size(), 0);
+    size_t next = 0;
+    for (size_t p = 0; p < compact.size(); ++p)
+      if (result.partitionSampleCounts[p] > 0)
+        compact[p] = next++;
+    for (auto &label : result.assignments)
+      label = compact[label];
+    auto objective = makeObjective(result.assignments, result.chosenK);
+    result.partitionSampleCounts = objective->partitionSampleCounts();
+    const auto &aggregate = dynamic_cast<const
+        leaf_aggregate::LeafAggregationBranchAssignment<std::vector<double>> &>(
+            *objective);
+    result.partitionClassCounts = aggregate.aggregatedPartitionStats();
+    result.partitionWeights = aggregate.aggregatedPartitionWeights();
+    result.impurityDecrease = parentImp - objective->objective();
+    result.bestFeatureScore = algorithms::penalizedBranchingScore(
+        objective->objective(), result.chosenK, outerParams.branchingPenalty);
+  }
+  return result;
+}
+
 } // namespace
 
 ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
@@ -117,18 +236,19 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
     const CoordinateDescentParams &cdParams, double scoreEpsilon,
-    std::mt19937_64 &rng, bool useKMeansSeed,
+    std::mt19937_64 &rng,
     const std::vector<size_t> &classesPerOutput, size_t nOutputs,
     const arma::Mat<float> *ysub, const arma::Row<float> *wsub,
     size_t xSubCols, bool hasNanRoutingBin) {
+  if (criterion == LearningCriterion::Gini ||
+      criterion == LearningCriterion::Entropy)
+    return searchClassificationAssignments(
+        disc, criterion, parentImp, treeNumPartitions, outerParams, cdParams,
+        scoreEpsilon, rng, classesPerOutput, nOutputs, hasNanRoutingBin);
   auto &stats = disc.leafStats();
   auto &sizes = disc.leafNumSamples();
   auto &leafWeights = disc.leafNodeWeights();
   const size_t numRoutingBins = stats.size();
-
-  size_t kmeansDim = 0;
-  const std::vector<std::vector<double>> flatStats =
-      flattenNestedBinStats(stats, kmeansDim);
 
   std::vector<std::vector<std::vector<float>>> maeLeafYsStorage;
   std::vector<std::vector<float>> maeLeafWsStorage;
@@ -168,9 +288,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
 
   for (size_t k = 2; k <= kMax; ++k) {
     std::vector<size_t> trialAssignments;
-    seedTrialBinAssignments(k, numRoutingBins, flatStats, sizes, leafWeights,
-                            useKMeansSeed, cdParams.smartInit, kmeansDim, rng,
-                            trialAssignments);
+    algorithms::roundRobinBinAssignments(numRoutingBins, k, trialAssignments);
 
     std::unique_ptr<BranchAssignment> branchObj;
     if (criterion == LearningCriterion::AbsoluteError) {

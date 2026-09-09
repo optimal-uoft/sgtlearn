@@ -292,7 +292,7 @@ public:
       size_t outerMaxLeafNodes, size_t innerMinLeafSize,
       double innerMinGainSplit, size_t innerMaxDepth, size_t innerMaxLeafNodes,
       size_t coordinateDescentMaxIters, size_t coordinateDescentPatience,
-      bool coordinateDescentSmartInit, uint64_t random_state,
+      uint64_t random_state,
       py::object max_features = py::none(), size_t pairwiseCandidates = 0,
       double pairwisePenalty = 0.0) {
     criterionStr_ = criterion;
@@ -304,7 +304,6 @@ public:
     CoordinateDescentParams cd;
     cd.maxIters = coordinateDescentMaxIters;
     cd.patience = coordinateDescentPatience;
-    cd.smartInit = coordinateDescentSmartInit;
     impl_ = std::make_unique<ClassificationShapeGeneralizedTree>(
         crit, parseNumClassesPy(numClasses), numPartitions, outer, inner, cd,
         random_state, parseMaxFeaturesPy(max_features), pairwiseCandidates,
@@ -532,7 +531,7 @@ public:
       double outerMinGainSplit, size_t outerMaxDepth, size_t outerMaxLeafNodes,
       size_t innerMinLeafSize, double innerMinGainSplit, size_t innerMaxDepth,
       size_t innerMaxLeafNodes, size_t coordinateDescentMaxIters,
-      size_t coordinateDescentPatience, bool coordinateDescentSmartInit,
+      size_t coordinateDescentPatience,
       uint64_t random_state, py::object max_features = py::none(),
       size_t pairwiseCandidates = 0, double pairwisePenalty = 0.0) {
     criterionStr_ = criterion;
@@ -544,7 +543,6 @@ public:
     CoordinateDescentParams cd;
     cd.maxIters = coordinateDescentMaxIters;
     cd.patience = coordinateDescentPatience;
-    cd.smartInit = coordinateDescentSmartInit;
     impl_ = std::make_unique<RegressionShapeGeneralizedTree>(
         crit, numPartitions, outer, inner, cd, random_state,
         parseMaxFeaturesPy(max_features), pairwiseCandidates, pairwisePenalty);

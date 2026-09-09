@@ -237,12 +237,6 @@ void ClassificationShapeGeneralizedTree::fit(
         std::vector<UnivariateProxy> univariateProxies;
         std::vector<RetainedPairCandidate> retainedPairCandidates;
 
-        const auto addNoSplitProxy = [&univariateProxies, xSubCols,
-                                      parentImp](size_t logicalIdx) {
-          univariateProxies.push_back(
-              {logicalIdx, 1, parentImp, std::vector<size_t>(xSubCols, 0)});
-        };
-
         const auto applyTaskFields =
             [](ShapeBestBranchingState &state,
                const ShapeBranchAssignmentSearchResult &search,
@@ -261,20 +255,32 @@ void ClassificationShapeGeneralizedTree::fit(
               *disc, feature, Xsub, ysub, classesPerOutput_,
               innerParams_.minLeafSize, innerParams_.minGainSplit,
               innerParams_.maxDepth, innerParams_.maxLeafNodes, wsub);
-          if (disc->numLeaves() < 2) {
-            if (pairwiseCandidates_ > 0)
-              addNoSplitProxy(logicalIdx);
-            continue;
-          }
-
-          const ShapeBranchAssignmentSearchResult featureBest =
+          if (!disc->isTrained())
+            continue; // An all-missing numeric feature has no finite inner tree.
+          ShapeBranchAssignmentSearchResult featureBest =
               searchShapeBranchAssignmentFromDiscretizer(
                   *disc, criterion_, parentImp, numPartitions_, outerParams_,
                   cdParams_, outerTreeBuilder_.eps, rng_,
-                  /*useKMeansSeed=*/true, classesPerOutput_, nOutputs_);
+                  classesPerOutput_, nOutputs_);
+          if (feature.type == FeatureType::Categorical && !featureBest.rootFeasible) {
+            // A category may share an inner bin with others. Keep an independent
+            // category-vs-rest stump so the fallback has its own faithful routing.
+            auto fallback = makeClassificationDiscretizer(criterion_, feature);
+            trainClassificationDiscretizer(
+                *fallback, feature, Xsub, ysub, classesPerOutput_,
+                outerParams_.minLeafSize, 0.0, 1, 2, wsub);
+            CoordinateDescentParams noRefinement = cdParams_;
+            noRefinement.maxIters = 0;
+            auto fallbackBest = searchShapeBranchAssignmentFromDiscretizer(
+                *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
+                outerTreeBuilder_.eps, rng_, classesPerOutput_, nOutputs_);
+            if (fallbackBest.found && fallbackBest.bestFeatureScore <
+                                          featureBest.bestFeatureScore - outerTreeBuilder_.eps) {
+              featureBest = std::move(fallbackBest);
+              disc = std::move(fallback);
+            }
+          }
           if (!featureBest.found) {
-            if (pairwiseCandidates_ > 0)
-              addNoSplitProxy(logicalIdx);
             continue;
           }
 
@@ -372,7 +378,7 @@ void ClassificationShapeGeneralizedTree::fit(
                 searchShapeBranchAssignmentFromDiscretizer(
                     *pairDisc, criterion_, parentImp, numPartitions_,
                     outerParams_, cdParams_, outerTreeBuilder_.eps, rng_,
-                    /*useKMeansSeed=*/true, classesPerOutput_, nOutputs_,
+                    classesPerOutput_, nOutputs_,
                     nullptr, nullptr, 0, /*hasNanRoutingBin=*/false);
             pairBest.bestFeatureScore += pairwisePenalty_;
             if (featureHasBetterShapeBranching(
