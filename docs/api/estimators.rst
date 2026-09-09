@@ -39,49 +39,6 @@ Sklearn-compatible return shapes are preserved at the API boundary:
 SGTClassifier
 -------------
 
-Classifier split initialization and feasibility
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For each candidate branch capacity from 2 through ``num_partitions`` (limited
-by the available bins), classification compares weighted k-means with the inner
-tree's root assignment using the selected Gini or entropy impurity. The root
-wins ties. Coordinate descent refines that initialization, retaining the best
-feasible candidate from every assignment scored, including rejected moves,
-initializations, and the final state.
-
-Selection minimizes impurity plus the branching penalty for the **actual
-occupied branches**. Each occupied branch must meet ``min_samples_leaf``, and
-at least two branches must be occupied. Unused labels are removed before
-creating children; ``num_partitions`` is a capacity, not a required child count.
-Sample counts determine occupancy, even when some samples have zero weight.
-K-means uses actual positive effective weights, including fractional weights;
-zero-mass bins do not influence its centers.
-
-A feasible binary root is retained independently. If the root is infeasible,
-numeric features search the existing finite-bin boundaries for a feasible
-threshold fallback. Categorical features test each category against the rest
-and retain the best feasible binary fallback with its own routing. Missing-bin
-placements are evaluated for feasibility on full-data snapshots while the live
-univariate refinement continues to optimize finite bins separately.
-
-Within a feature's assignment search, retaining an admissible binary root with
-nonnegative branching penalties ensures the selected split's raw impurity is
-no worse than that root's, within
-numerical tolerance. If the root is infeasible, the same bound applies to a
-retained admissible binary fallback. Selection does not promise lower raw
-impurity than every initialization, nor higher training accuracy. These are
-node-level split-search guarantees, before optional TAO refinement.
-At node selection, retaining the univariate winner and using a nonnegative
-pairwise penalty preserves the bound relative to retained univariate baselines.
-
-API migration
-~~~~~~~~~~~~~
-
-``coordinate_descent_smart_init`` has been removed from both tree estimators,
-both forests, and the native constructors. Remove it from constructor calls
-and parameter grids; there is no replacement flag. Classification always uses
-the root/k-means comparison. Regression retains its non-clustering initialization.
-
 .. autoclass:: SGTClassifier
    :members:
    :inherited-members:
@@ -134,13 +91,6 @@ number, rounded up).  Candidate pairs are formed only from the logical feature
 subset selected for the node by ``max_features``.  ``pairwise_penalty``
 (default ``0``) is applied only while selecting between univariate and
 bivariate candidates; raw gain and minimum-leaf checks remain unchanged.
-
-For classification, both features must first produce admissible univariate
-splits to enter pair screening. The best univariate split remains the default
-while eligible pairs are tested, with no pairwise penalty applied to that
-default. A failed feature or pair is skipped; the node becomes a leaf only
-when no candidate in the configured search yields an admissible split (or an
-outer stopping rule applies).
 
 A retained pair is fit with an ordinary axis-aligned CART over the two logical
 features.  Continuous and grouped categorical features are supported.  Missing

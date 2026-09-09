@@ -302,13 +302,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     Notes
     -----
-    Classification compares weighted k-means with the inner root assignment
-    before coordinate descent for every candidate branch count. The feasible
-    candidate with the lowest penalized impurity is retained across all scored
-    assignments, including trials that coordinate descent does not accept.
-    Only occupied branches count toward the branching penalty and each must
-    satisfy ``min_samples_leaf``. Feasible binary root/fallback cuts are kept.
-
     Internally, single- and multi-output training share one path: ``y`` is
     always handled as ``(n_samples, n_outputs)`` (with ``n_outputs=1`` for a
     vector target). Impurity / gain sums across outputs. ``X`` is cast to
