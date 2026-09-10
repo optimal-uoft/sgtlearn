@@ -22,8 +22,11 @@ Multi-output targets
 --------------------
 
 ``y`` may be 1-D ``(n_samples,)`` or 2-D ``(n_samples, n_outputs)``. Internally
-both use the same training path (a single target is ``n_outputs=1``). Split
-impurity / loss is the **sum** across outputs.
+both use the same training path (a single target is ``n_outputs=1``). Outer
+split impurity / loss is the arithmetic **mean** across outputs. Each output
+has equal weight, so uniformly duplicating target columns does not scale the
+outer data term. Inner CART scoring and stopping retain their existing
+semantics.
 
 Sklearn-compatible return shapes are preserved at the API boundary:
 
@@ -35,6 +38,32 @@ Sklearn-compatible return shapes are preserved at the API boundary:
   :meth:`~SGTClassifier.predict_proba` returns an array or a list of arrays.
 * **``class_weight``** — a dict applies to every output, or pass a list of
   dicts (one per output). Weights multiply into one ``sample_weight`` vector.
+
+Regularized outer growth
+------------------------
+
+Outer growth ranks candidates by total sample-mass-weighted, output-averaged
+impurity improvement. If ``W`` is the sum of sample weights reaching a node,
+the score for an actual ``k``-child split is
+
+.. math::
+
+   W_p H_p - \sum_c W_c H_c - \alpha - \lambda(k-2) - \gamma I_{pair}.
+
+Here ``alpha`` is ``min_impurity_decrease``, ``lambda`` is
+``branching_penalty``, and ``gamma`` is ``pairwise_penalty``. These costs are
+constant and applied once; they are not scaled by sample mass, and scores are
+not divided by leaf cost. Only finite scores strictly greater than double
+machine epsilon are eligible. Outer growth is always best-first, including
+without a finite ``max_leaf_nodes``.
+
+``branching_penalty`` defaults to ``0.0`` and is available on both tree
+estimators and forests. ``max_leaf_nodes`` is a strict structural leaf budget:
+an actual ``k``-child split consumes ``k - 1`` additional leaves. Candidates
+are retained by actual occupied arity so a budget reduction can select a
+different feasible feature or pair without repeating discovery. These rules
+define greedy induction; TAO remains a separate post-induction phase with its
+existing objective and defaults.
 
 SGTClassifier
 -------------
@@ -90,7 +119,11 @@ pairs) or a float (the fraction of logical features used to determine that
 number, rounded up).  Candidate pairs are formed only from the logical feature
 subset selected for the node by ``max_features``.  ``pairwise_penalty``
 (default ``0``) is applied only while selecting between univariate and
-bivariate candidates; raw gain and minimum-leaf checks remain unchanged.
+bivariate growth candidates. Pair screening is independent of regularization:
+a feature is eligible when a searched, minimum-leaf-feasible assignment has
+finite raw weighted impurity decrease greater than double machine epsilon. One
+lowest-raw-impurity proxy per eligible feature is used for the existing pair
+ranking; regularized winners do not choose the proxy.
 
 A retained pair is fit with an ordinary axis-aligned CART over the two logical
 features.  Continuous and grouped categorical features are supported.  Missing

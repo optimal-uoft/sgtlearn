@@ -5,6 +5,7 @@
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
+#include "Criterion.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -22,13 +23,14 @@ public:
   std::vector<double> cuts;
   bool missing;
   Bins(const std::vector<std::vector<double>> &histograms,
-       std::vector<size_t> root, bool missing = false, bool numeric = false)
+       std::vector<size_t> root, bool missing = false, bool numeric = false,
+       size_t samplesPerBin = 0)
       : root(std::move(root)), missing(missing) {
     for (const auto &histogram : histograms) {
       leafStats_.push_back({histogram});
       const double weight = std::accumulate(histogram.begin(), histogram.end(), 0.0);
       leafNodeWeights_.push_back(weight);
-      leafNumSamples_.push_back(static_cast<size_t>(weight));
+      leafNumSamples_.push_back(samplesPerBin ? samplesPerBin : static_cast<size_t>(weight));
     }
     numLeaves_ = histograms.size() - missing;
     if (numeric) cuts.assign(numLeaves_, 0.0);
@@ -142,6 +144,56 @@ TEST_CASE("Search retains independently replayable candidates at each occupied a
     REQUIRE_THAT(30 * (2.0 / 3.0 - impurity(bins, candidate.assignments, k,
         LearningCriterion::Gini)), WithinAbs(candidate.impurityDecrease, 1e-12));
   }
+}
+
+TEST_CASE("Raw screening proxy ignores costs and can differ from growth winner", "[shape_search]") {
+  Bins bins({{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, {0, 1, 1});
+  TreeBuildingParams outer;
+  outer.branchingPenalty = 11.0;
+  CoordinateDescentParams cd;
+  cd.maxIters = 0;
+  for (double alpha : {0.0, 100.0}) {
+    outer.minGainSplit = alpha;
+    std::mt19937_64 rng(42);
+    const auto result = searchShapeBranchAssignmentFromDiscretizer(
+        bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
+        nullptr, nullptr, 0, false);
+    REQUIRE(result.rawBest.found);
+    REQUIRE(result.rawBest.chosenK == 3);
+    REQUIRE_THAT(result.rawBest.childImpurity, WithinAbs(0.0, 1e-12));
+    REQUIRE_THAT(result.rawBest.impurityDecrease, WithinAbs(20.0, 1e-12));
+    if (alpha == 0.0) {
+      REQUIRE(result.best.chosenK == 2);
+      REQUIRE_THAT(result.best.impurityDecrease, WithinAbs(10.0, 1e-12));
+    } else {
+      REQUIRE_FALSE(result.best.found);
+    }
+  }
+}
+
+TEST_CASE("Compacted raw proxies must still have finite positive final gain", "[shape_search]") {
+  std::mt19937_64 rng(0);
+  std::vector<std::vector<double>> histograms;
+  std::vector<std::vector<double>> parentCounts(1, std::vector<double>(2));
+  for (size_t i = 0; i < 6; ++i) {
+    const double weight = 1 + (rng() % 10000) / 10.0;
+    histograms.push_back({weight, 2 * weight});
+    parentCounts[0][0] += weight;
+    parentCounts[0][1] += 2 * weight;
+  }
+  Bins bins(histograms, {0, 1, 0, 1, 0, 1}, false, false, 3);
+  const auto result = searchShapeBranchAssignmentFromDiscretizer(
+      bins, LearningCriterion::Gini, Criterion::gini(parentCounts), 3,
+      TreeBuildingParams{}, CoordinateDescentParams{}, rng, {2}, 1,
+      nullptr, nullptr, 0, false);
+  // Identical class proportions expose roundoff between trial scoring and the
+  // compacted snapshot. Eligibility must use the final score, without tolerance.
+  const auto hasValidGain = [](const auto &candidate) {
+    return !candidate.found || (std::isfinite(candidate.impurityDecrease) &&
+        candidate.impurityDecrease > std::numeric_limits<double>::epsilon());
+  };
+  REQUIRE(std::all_of(result.byArity.begin(), result.byArity.end(), hasValidGain));
+  REQUIRE(hasValidGain(result.rawBest));
 }
 
 TEST_CASE("Weighted k-means preserves fractional and tiny masses and ignores empty bins", "[shape_search]") {

@@ -119,10 +119,9 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
     const double gain = totalWeight * (parentImp - impurity);
     const double score = gain - outerParams.minGainSplit -
         outerParams.branchingPenalty * static_cast<double>(occupied - 2);
-    if (!std::isfinite(score) || score <= eps)
+    if (!std::isfinite(gain) || gain <= eps)
       return;
-    if (score < result.regularizedGain ||
-        (score == result.regularizedGain && occupied >= result.chosenK))
+    if (result.found && impurity >= result.childImpurity)
       return;
     result.found = true;
     result.regularizedGain = score;
@@ -249,10 +248,18 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
     result.impurityDecrease = totalWeight * (parentImp - result.childImpurity);
     result.regularizedGain = result.impurityDecrease - outerParams.minGainSplit -
         outerParams.branchingPenalty * static_cast<double>(result.chosenK - 2);
+    result.found = std::isfinite(result.impurityDecrease) && result.impurityDecrease > eps;
   }
-  for (const auto &result : search.byArity)
-    if (result.found && result.regularizedGain > search.best.regularizedGain)
+  search.rawBest.rootFeasible = rootFeasible;
+  for (const auto &result : search.byArity) {
+    if (!result.found)
+      continue;
+    if (!search.rawBest.found || result.childImpurity < search.rawBest.childImpurity)
+      search.rawBest = result;
+    if (std::isfinite(result.regularizedGain) && result.regularizedGain > eps &&
+        result.regularizedGain > search.best.regularizedGain)
       search.best = result;
+  }
   return search;
 }
 

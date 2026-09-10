@@ -263,7 +263,7 @@ void ClassificationShapeGeneralizedTree::fit(
                   classesPerOutput_, nOutputs_);
           retainShapeBranchingCandidates(featureSearch, candidates, {logicalIdx},
               xSubCols, feature.indices, disc, 0.0, applyTaskFields);
-          auto featureBest = featureSearch.best;
+          auto featureBest = featureSearch.rawBest;
           auto proxyDisc = disc;
           if (feature.type == FeatureType::Categorical && !featureBest.rootFeasible) {
             // A category may share an inner bin with others. Keep an independent
@@ -279,10 +279,10 @@ void ClassificationShapeGeneralizedTree::fit(
                 rng_, classesPerOutput_, nOutputs_);
             retainShapeBranchingCandidates(fallbackSearch, candidates, {logicalIdx},
                 xSubCols, feature.indices, fallback, 0.0, applyTaskFields);
-            const auto &fallbackBest = fallbackSearch.best;
+            const auto &fallbackBest = fallbackSearch.rawBest;
             if (fallbackBest.found &&
-                (fallbackBest.regularizedGain > featureBest.regularizedGain ||
-                 (fallbackBest.regularizedGain == featureBest.regularizedGain &&
+                (!featureBest.found || fallbackBest.childImpurity < featureBest.childImpurity ||
+                 (fallbackBest.childImpurity == featureBest.childImpurity &&
                   fallbackBest.chosenK < featureBest.chosenK))) {
               featureBest = fallbackBest;
               proxyDisc = fallback;
