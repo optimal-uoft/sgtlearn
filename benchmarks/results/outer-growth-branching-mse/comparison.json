@@ -1,0 +1,415 @@
+{
+  "mse_uncapped_multioutput": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.010908756709028,
+        "investigate": false
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.004338552640177,
+        "investigate": false
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.0,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.07528360397554934,
+        "mad": 0.0005064380529802293,
+        "min": 0.07420175001607276,
+        "max": 0.07589858351275325
+      },
+      "predict_seconds_per_row": {
+        "median": 1.1620707655965141e-07,
+        "mad": 7.950949906234267e-10,
+        "min": 1.1541198156902798e-07,
+        "max": 1.2587954371526426e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 198606848.0,
+        "mad": 49152.0,
+        "min": 198393856.0,
+        "max": 199196672.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.4376202593443138,
+            "per_output": [
+              0.5715059848017909,
+              0.3037345338868367
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 155,
+              "depth": 5,
+              "structural_leaves": 100,
+              "occupied_leaves": 100
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.905710939149982,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190953
+            ]
+          },
+          "worse_than_cart": false
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.4369049452163754,
+            "per_output": [
+              0.5750989229405403,
+              0.2987109674922105
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 157,
+              "depth": 5,
+              "structural_leaves": 101,
+              "occupied_leaves": 101
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499819,
+            "per_output": [
+              1.1240261454808682,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.43875291060204014,
+            "per_output": [
+              0.5711869611412292,
+              0.30631886006285103
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 155,
+              "depth": 5,
+              "structural_leaves": 100,
+              "occupied_leaves": 100
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499821,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.07610485449549742,
+        "mad": 0.0011376045003999025,
+        "min": 0.07496724999509752,
+        "max": 0.0808680625341367
+      },
+      "predict_seconds_per_row": {
+        "median": 1.1671124707846653e-07,
+        "mad": 1.7043310828192912e-10,
+        "min": 1.165408139701846e-07,
+        "max": 1.1705991028150909e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 198606848.0,
+        "mad": 114688.0,
+        "min": 198492160.0,
+        "max": 199376896.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.4454377292144339,
+            "per_output": [
+              0.5833526946020999,
+              0.3075227638267679
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 144,
+              "depth": 5,
+              "structural_leaves": 87,
+              "occupied_leaves": 87
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.905710939149982,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190953
+            ]
+          },
+          "worse_than_cart": false
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.445831955281453,
+            "per_output": [
+              0.5808422538106457,
+              0.31082165675226026
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 142,
+              "depth": 5,
+              "structural_leaves": 85,
+              "occupied_leaves": 85
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499819,
+            "per_output": [
+              1.1240261454808682,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.44391260770422614,
+            "per_output": [
+              0.5852678759313487,
+              0.30255733947710356
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 142,
+              "depth": 5,
+              "structural_leaves": 86,
+              "occupied_leaves": 86
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499821,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.4376202593443138,
+            "per_output": [
+              0.5715059848017909,
+              0.3037345338868367
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 155,
+              "depth": 5,
+              "structural_leaves": 100,
+              "occupied_leaves": 100
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.905710939149982,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190953
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.4454377292144339,
+            "per_output": [
+              0.5833526946020999,
+              0.3075227638267679
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 144,
+              "depth": 5,
+              "structural_leaves": 87,
+              "occupied_leaves": 87
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.905710939149982,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190953
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.007817469870120108,
+        "training_quality_decreased": true
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.4369049452163754,
+            "per_output": [
+              0.5750989229405403,
+              0.2987109674922105
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 157,
+              "depth": 5,
+              "structural_leaves": 101,
+              "occupied_leaves": 101
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499819,
+            "per_output": [
+              1.1240261454808682,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.445831955281453,
+            "per_output": [
+              0.5808422538106457,
+              0.31082165675226026
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 142,
+              "depth": 5,
+              "structural_leaves": 85,
+              "occupied_leaves": 85
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499819,
+            "per_output": [
+              1.1240261454808682,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.008927010065077567,
+        "training_quality_decreased": true
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.43875291060204014,
+            "per_output": [
+              0.5711869611412292,
+              0.30631886006285103
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 155,
+              "depth": 5,
+              "structural_leaves": 100,
+              "occupied_leaves": 100
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499821,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "mse",
+            "mean": 0.44391260770422614,
+            "per_output": [
+              0.5852678759313487,
+              0.30255733947710356
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 142,
+              "depth": 5,
+              "structural_leaves": 86,
+              "occupied_leaves": 86
+            }
+          ],
+          "cart": {
+            "metric": "mse",
+            "mean": 0.9057109391499821,
+            "per_output": [
+              1.1240261454808687,
+              0.6873957328190956
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.0051596971021860005,
+        "training_quality_decreased": true
+      }
+    ]
+  }
+}

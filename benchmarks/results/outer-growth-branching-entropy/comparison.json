@@ -1,0 +1,391 @@
+{
+  "entropy_multiway_pair_budget": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.0800573895988135,
+        "investigate": false
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.158586470790363,
+        "investigate": false
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.0026470344941683,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.07396881247404963,
+        "mad": 6.085453787818551e-05,
+        "min": 0.07364187500206754,
+        "max": 0.07462377098272555
+      },
+      "predict_seconds_per_row": {
+        "median": 8.642344559833974e-08,
+        "mad": 1.004644370835412e-09,
+        "min": 8.541880122750433e-08,
+        "max": 8.862429153137213e-08
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 198066176.0,
+        "mad": 81920.0,
+        "min": 197984256.0,
+        "max": 198705152.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6874888024472428,
+            "per_output": [
+              0.6874888024472428
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 4,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6874966464760641,
+            "per_output": [
+              0.6874966464760641
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 4,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6892436682075285,
+            "per_output": [
+              0.6892436682075285
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 4,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.0798905625124462,
+        "mad": 0.0024314374895766377,
+        "min": 0.07662770850583911,
+        "max": 0.08232200000202283
+      },
+      "predict_seconds_per_row": {
+        "median": 1.0012903482932337e-07,
+        "mad": 3.0996580994192595e-09,
+        "min": 9.702937672990411e-08,
+        "max": 1.09948566833203e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 198590464.0,
+        "mad": 163840.0,
+        "min": 198393856.0,
+        "max": 198901760.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7027140203990159,
+            "per_output": [
+              0.7027140203990159
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 2,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7027140203990159,
+            "per_output": [
+              0.7027140203990159
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 2,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7027140203990159,
+            "per_output": [
+              0.7027140203990159
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 2,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6874888024472428,
+            "per_output": [
+              0.6874888024472428
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 4,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7027140203990159,
+            "per_output": [
+              0.7027140203990159
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 2,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.015225217951773118,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6874966464760641,
+            "per_output": [
+              0.6874966464760641
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 4,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7027140203990159,
+            "per_output": [
+              0.7027140203990159
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 2,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.015217373922951749,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6892436682075285,
+            "per_output": [
+              0.6892436682075285
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 4,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7027140203990159,
+            "per_output": [
+              0.7027140203990159
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 16,
+              "depth": 2,
+              "structural_leaves": 12,
+              "occupied_leaves": 12
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.713233262328148,
+            "per_output": [
+              0.713233262328148
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.0134703521914874,
+        "training_quality_decreased": false
+      }
+    ]
+  }
+}
