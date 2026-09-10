@@ -16,6 +16,7 @@
 #include "Discretizers/ClassificationDiscretizer.h"
 #include "Discretizers/pair/PairClassificationDiscretizer.h"
 #include "Discretizers/factories/DiscretizerFactories.h"
+#include "Discretizers/univariate/NumericFallbackDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 
 #include <algorithm>
@@ -264,19 +265,35 @@ void ClassificationShapeGeneralizedTree::fit(
           retainShapeBranchingCandidates(featureSearch, candidates, {logicalIdx},
               xSubCols, feature.indices, disc, 0.0, applyTaskFields);
           auto featureBest = featureSearch.rawBest;
-          auto proxyDisc = disc;
-          if (feature.type == FeatureType::Categorical && !featureBest.rootFeasible) {
-            // A category may share an inner bin with others. Keep an independent
-            // category-vs-rest stump so the fallback has its own faithful routing.
-            std::shared_ptr<ClassificationDiscretizer> fallback = makeClassificationDiscretizer(criterion_, feature);
-            trainClassificationDiscretizer(
-                *fallback, feature, Xsub, ysub, classesPerOutput_,
-                outerParams_.minLeafSize, 0.0, 1, 2, wsub);
+          std::shared_ptr<InnerDiscretizer<std::vector<double>>> proxyDisc = disc;
+          const bool numericMissing = feature.type == FeatureType::Continuous &&
+              !Xsub.row(feature.indices(0)).is_finite();
+          if (!featureBest.rootFeasible ||
+              (feature.type == FeatureType::Continuous &&
+               (innerParams_.minLeafSize != outerParams_.minLeafSize ||
+                numericMissing))) {
+            // Only a finite numeric root with the same minimum leaf size is
+            // already the outer CART optimum. Other bins can hide its threshold;
+            // keep the outer-constrained stump and its own faithful router.
+            std::shared_ptr<InnerDiscretizer<std::vector<double>>> fallback;
+            if (numericMissing) {
+              fallback = makeNumericFallbackDiscretizer(criterion_, Xsub,
+                  feature.indices(0), ysub, wsub, outerParams_.minLeafSize,
+                  classesPerOutput_);
+            } else {
+              auto stump = makeClassificationDiscretizer(criterion_, feature);
+              trainClassificationDiscretizer(
+                  *stump, feature, Xsub, ysub, classesPerOutput_,
+                  outerParams_.minLeafSize, 0.0, 1, 2, wsub);
+              fallback = std::move(stump);
+            }
             CoordinateDescentParams noRefinement = cdParams_;
             noRefinement.maxIters = 0;
+            auto fallbackRng = rng_;
             auto fallbackSearch = searchShapeBranchAssignmentFromDiscretizer(
                 *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
-                rng_, classesPerOutput_, nOutputs_);
+                feature.type == FeatureType::Continuous ? fallbackRng : rng_,
+                classesPerOutput_, nOutputs_);
             retainShapeBranchingCandidates(fallbackSearch, candidates, {logicalIdx},
                 xSubCols, feature.indices, fallback, 0.0, applyTaskFields);
             const auto &fallbackBest = fallbackSearch.rawBest;

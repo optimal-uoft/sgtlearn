@@ -15,6 +15,7 @@
 #include "Criterion.h"
 #include "Discretizers/pair/PairRegressionDiscretizer.h"
 #include "Discretizers/factories/DiscretizerFactories.h"
+#include "Discretizers/univariate/NumericFallbackDiscretizer.h"
 #include "Discretizers/RegressionDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 #include <algorithm>
@@ -392,18 +393,34 @@ void RegressionShapeGeneralizedTree::fit(
           retainShapeBranchingCandidates(featureSearch, candidates, {logicalIdx},
               xSubCols, feature.indices, disc, 0.0, applyTaskFields);
           auto featureBest = featureSearch.rawBest;
-          auto proxyDisc = disc;
-          if (feature.type == FeatureType::Categorical && !featureBest.rootFeasible) {
-            // Preserve independent routing when the fallback divides an inner bin.
-            std::shared_ptr<RegressionDiscretizer> fallback = makeRegressionDiscretizer(criterion_, feature);
-            trainRegressionDiscretizer(
-                *fallback, feature, Xsub, ysub, outerParams_.minLeafSize,
-                0.0, 1, 2, wsub);
+          std::shared_ptr<InnerDiscretizer<std::vector<double>>> proxyDisc = disc;
+          const bool numericMissing = feature.type == FeatureType::Continuous &&
+              !Xsub.row(feature.indices(0)).is_finite();
+          if (!featureBest.rootFeasible ||
+              (feature.type == FeatureType::Continuous &&
+               (innerParams_.minLeafSize != outerParams_.minLeafSize ||
+                numericMissing))) {
+            // Only a finite numeric root with the same minimum leaf size is
+            // already the outer CART optimum. Other bins can hide its threshold;
+            // keep the outer-constrained stump and its own faithful router.
+            std::shared_ptr<InnerDiscretizer<std::vector<double>>> fallback;
+            if (numericMissing) {
+              fallback = makeNumericFallbackDiscretizer(criterion_, Xsub,
+                  feature.indices(0), ysub, wsub, outerParams_.minLeafSize);
+            } else {
+              auto stump = makeRegressionDiscretizer(criterion_, feature);
+              trainRegressionDiscretizer(
+                  *stump, feature, Xsub, ysub, outerParams_.minLeafSize,
+                  0.0, 1, 2, wsub);
+              fallback = std::move(stump);
+            }
             CoordinateDescentParams noRefinement = cdParams_;
             noRefinement.maxIters = 0;
+            auto fallbackRng = rng_;
             auto fallbackSearch = searchShapeBranchAssignmentFromDiscretizer(
                 *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
-                rng_, {}, nOutputs_,
+                feature.type == FeatureType::Continuous ? fallbackRng : rng_,
+                {}, nOutputs_,
                 criterion_ == LearningCriterion::AbsoluteError ? &ysub : nullptr,
                 criterion_ == LearningCriterion::AbsoluteError ? &wsub : nullptr,
                 xSubCols);
