@@ -47,8 +47,10 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
     pairwise_penalty : float, default=0.0
-        Non-negative penalty added when comparing a fitted pair with the best
-        univariate candidate.
+        Constant nonnegative cost subtracted from a fitted pair's total
+        sample-weighted, output-averaged impurity improvement.
+    branching_penalty : float, default=0.0
+        Constant cost per additional occupied child beyond two.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     bootstrap : bool, default=True
@@ -126,6 +128,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         random_state: int | np.random.RandomState | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
         tao_pair_scale: float = 1.1,
@@ -152,6 +155,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             random_state=random_state,
             pairwise_candidates=pairwise_candidates,
             pairwise_penalty=pairwise_penalty,
+            branching_penalty=branching_penalty,
             tao_n_runs=tao_n_runs,
             tao_lambda=tao_lambda,
             tao_pair_scale=tao_pair_scale,

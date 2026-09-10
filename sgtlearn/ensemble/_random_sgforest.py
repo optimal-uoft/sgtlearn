@@ -110,6 +110,7 @@ class RandomSGForest(BaseEstimator, ABC):
         random_state: int | np.random.RandomState | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
         tao_pair_scale: float = 1.1,
@@ -135,6 +136,7 @@ class RandomSGForest(BaseEstimator, ABC):
         self.random_state = random_state
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
+        self.branching_penalty = branching_penalty
         self.tao_n_runs = int(tao_n_runs)
         self.tao_lambda = float(tao_lambda)
         self.tao_pair_scale = tao_pair_scale
@@ -158,6 +160,7 @@ class RandomSGForest(BaseEstimator, ABC):
             "max_features": self.max_features,
             "pairwise_candidates": self.pairwise_candidates,
             "pairwise_penalty": self.pairwise_penalty,
+            "branching_penalty": self.branching_penalty,
             "tao_n_runs": self.tao_n_runs,
             "tao_lambda": self.tao_lambda,
             "tao_pair_scale": self.tao_pair_scale,

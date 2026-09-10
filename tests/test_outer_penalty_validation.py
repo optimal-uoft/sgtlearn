@@ -20,7 +20,9 @@ from sgtlearn import (
         RandomSGForestRegressor,
     ],
 )
-@pytest.mark.parametrize("parameter", ["min_impurity_decrease", "pairwise_penalty"])
+@pytest.mark.parametrize(
+    "parameter", ["min_impurity_decrease", "pairwise_penalty", "branching_penalty"]
+)
 @pytest.mark.parametrize("value", [-1.0, np.nan, np.inf, -np.inf])
 def test_invalid_outer_cost_rejected(estimator, parameter, value):
     kwargs = {parameter: value, "tao_n_runs": 0}

@@ -42,7 +42,7 @@ flattenNestedBinStats(const std::vector<std::vector<std::vector<double>>> &stats
 
 } // namespace
 
-ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
+ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
     InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
@@ -90,7 +90,8 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     dummyLeafStats.resize(numBins);
   }
 
-  ShapeBranchAssignmentSearchResult result;
+  ShapeBranchAssignmentSearch search;
+  search.byArity.resize(std::min(numBins, treeNumPartitions) + 1);
   const auto makeObjective = [&](std::vector<size_t> &labels, size_t k) {
     if (criterion == LearningCriterion::AbsoluteError)
       return makeBranchAssignment(criterion, labels, k, dummyLeafStats, weights,
@@ -113,6 +114,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     const size_t occupied = occupiedCount(objective);
     if (occupied < 2)
       return;
+    auto &result = search.byArity[occupied];
     const double impurity = objective.objective() / nOutputs;
     const double gain = totalWeight * (parentImp - impurity);
     const double score = gain - outerParams.minGainSplit -
@@ -160,12 +162,12 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
       rootImpurity = impurity;
       root = labels;
     }
-    result.rootFeasible |= occupiedCount(*objective) >= 2;
+    search.best.rootFeasible |= occupiedCount(*objective) >= 2;
     consider(*objective);
   }
 
   // Only numeric bins have an ordering suitable for a secondary threshold scan.
-  if (!result.rootFeasible && !numericInnerThresholds(disc).empty()) {
+  if (!search.best.rootFeasible && !numericInnerThresholds(disc).empty()) {
     const size_t finiteBins = numBins - 1;
     for (size_t cut = 1; cut < finiteBins; ++cut) {
       std::vector<size_t> labels(numBins, 1);
@@ -215,7 +217,11 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
                          hasNanRoutingBin, observe);
   }
 
-  if (result.found) {
+  const bool rootFeasible = search.best.rootFeasible;
+  for (auto &result : search.byArity) {
+    if (!result.found)
+      continue;
+    result.rootFeasible = rootFeasible;
     // An unseen missing value follows the largest branch, as in finite-bin CD.
     if (hasNanRoutingBin && sizes.back() == 0)
       result.assignments.back() =
@@ -244,7 +250,10 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     result.regularizedGain = result.impurityDecrease - outerParams.minGainSplit -
         outerParams.branchingPenalty * static_cast<double>(result.chosenK - 2);
   }
-  return result;
+  for (const auto &result : search.byArity)
+    if (result.found && result.regularizedGain > search.best.regularizedGain)
+      search.best = result;
+  return search;
 }
 
 void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node) {
@@ -301,7 +310,7 @@ bool featureHasBetterShapeBranching(
     const ShapeBranchAssignmentSearchResult &search,
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
     const arma::uvec &routingColumnIndices,
-    std::unique_ptr<InnerDiscretizer<std::vector<double>>> disc,
+    const std::shared_ptr<InnerDiscretizer<std::vector<double>>> &disc,
     const std::function<void(
         ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
         const std::vector<std::vector<std::vector<double>>> &)> &
@@ -324,9 +333,29 @@ bool featureHasBetterShapeBranching(
   applyTaskFields(best, search, disc->leafStats());
   best.routingColumnIndices = routingColumnIndices;
   best.logicalFeatureIndices = {featureIndex};
-  best.winningDiscretizer =
-      std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
+  best.winningDiscretizer = disc;
   return true;
+}
+
+void retainShapeBranchingCandidates(
+    const ShapeBranchAssignmentSearch &search,
+    std::vector<ShapeBestBranchingState> &candidates,
+    const std::vector<size_t> &logicalFeatures, size_t xSubCols,
+    const arma::uvec &routingColumnIndices,
+    const std::shared_ptr<InnerDiscretizer<std::vector<double>>> &disc,
+    double pairwisePenalty,
+    const std::function<void(
+        ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
+        const std::vector<std::vector<std::vector<double>>> &)> &applyTaskFields) {
+  for (auto result : search.byArity) {
+    if (!result.found)
+      continue;
+    result.regularizedGain -= pairwisePenalty;
+    auto &best = candidates[result.chosenK];
+    if (featureHasBetterShapeBranching(result, best, logicalFeatures.front(),
+          xSubCols, routingColumnIndices, disc, applyTaskFields))
+      best.logicalFeatureIndices = logicalFeatures;
+  }
 }
 
 std::vector<std::vector<size_t>>

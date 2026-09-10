@@ -62,7 +62,7 @@ ShapeBranchAssignmentSearchResult search(Bins &bins, size_t k, size_t minLeaf,
   const double parent = impurity(bins, std::vector<size_t>(bins.leafStats().size()), 1, criterion);
   return searchShapeBranchAssignmentFromDiscretizer(bins, criterion, parent, k,
       outer, cd, rng, {bins.leafStats()[0][0].size()}, 1,
-      nullptr, nullptr, 0, bins.missing);
+      nullptr, nullptr, 0, bins.missing).best;
 }
 } // namespace
 
@@ -78,7 +78,7 @@ TEST_CASE("Regularized acceptance is strictly above fixed double epsilon", "[sha
     std::mt19937_64 rng(42);
     const auto result = searchShapeBranchAssignmentFromDiscretizer(
         bins, LearningCriterion::Gini, 0.5, 2, outer, cd, rng, {2}, 1,
-        nullptr, nullptr, 0, false);
+        nullptr, nullptr, 0, false).best;
     REQUIRE(result.found == (alpha < 1.0 - eps));
   }
   outer.minGainSplit = 0.0;
@@ -88,7 +88,7 @@ TEST_CASE("Regularized acceptance is strictly above fixed double epsilon", "[sha
     std::mt19937_64 rng(42);
     REQUIRE_FALSE(searchShapeBranchAssignmentFromDiscretizer(
         bins, LearningCriterion::Gini, parent, 2, outer, cd, rng, {2}, 1,
-        nullptr, nullptr, 0, false).found);
+        nullptr, nullptr, 0, false).best.found);
   }
 }
 
@@ -102,22 +102,46 @@ TEST_CASE("Branch costs charge only children beyond binary and do not reduce raw
   std::mt19937_64 rng(42);
   auto result = searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
-      nullptr, nullptr, 0, false);
+      nullptr, nullptr, 0, false).best;
   REQUIRE(result.chosenK == 3);
   REQUIRE_THAT(result.impurityDecrease, WithinAbs(20.0, 1e-12));
   REQUIRE_THAT(result.regularizedGain, WithinAbs(15.0, 1e-12));
   outer.branchingPenalty = 11.0;
   result = searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
-      nullptr, nullptr, 0, false);
+      nullptr, nullptr, 0, false).best;
   REQUIRE(result.chosenK == 2);
   REQUIRE_THAT(result.impurityDecrease, WithinAbs(10.0, 1e-12));
   REQUIRE_THAT(result.regularizedGain, WithinAbs(8.0, 1e-12));
   outer.branchingPenalty = 10.0;
   result = searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
-      nullptr, nullptr, 0, false);
+      nullptr, nullptr, 0, false).best;
   REQUIRE(result.chosenK == 2); // Equal score conserves children.
+}
+
+TEST_CASE("Search retains independently replayable candidates at each occupied arity", "[shape_search]") {
+  Bins bins({{10, 0, 0}, {0, 10, 0}, {0, 0, 10}, {0, 0, 0}},
+            {0, 1, 1, 0}, true);
+  TreeBuildingParams outer;
+  CoordinateDescentParams cd;
+  std::mt19937_64 rng(42);
+  const auto result = searchShapeBranchAssignmentFromDiscretizer(
+      bins, LearningCriterion::Gini, 2.0 / 3.0, 4, outer, cd, rng, {3}, 1,
+      nullptr, nullptr, 0, true);
+  REQUIRE(result.best.chosenK == 3);
+  REQUIRE_FALSE(result.byArity[4].found); // An empty missing bin is not a child.
+  for (size_t k : {2, 3}) {
+    const auto &candidate = result.byArity[k];
+    REQUIRE(candidate.found);
+    REQUIRE(candidate.chosenK == k);
+    REQUIRE(candidate.partitionSampleCounts.size() == k);
+    REQUIRE(candidate.partitionWeights.size() == k);
+    REQUIRE(candidate.partitionClassCounts.size() == k);
+    REQUIRE(*std::max_element(candidate.assignments.begin(), candidate.assignments.end()) < k);
+    REQUIRE_THAT(30 * (2.0 / 3.0 - impurity(bins, candidate.assignments, k,
+        LearningCriterion::Gini)), WithinAbs(candidate.impurityDecrease, 1e-12));
+  }
 }
 
 TEST_CASE("Weighted k-means preserves fractional and tiny masses and ignores empty bins", "[shape_search]") {

@@ -37,6 +37,12 @@ struct ShapeBranchAssignmentSearchResult {
   bool rootFeasible = false;
 };
 
+struct ShapeBranchAssignmentSearch {
+  ShapeBranchAssignmentSearchResult best;
+  /** Indexed by actual occupied arity; unobserved slots have found=false. */
+  std::vector<ShapeBranchAssignmentSearchResult> byArity;
+};
+
 struct ShapeBestBranchingState {
   double regularizedGain = -std::numeric_limits<double>::infinity();
   ShapeBranchingResult<std::vector<double>> branching;
@@ -68,21 +74,33 @@ bool featureHasBetterShapeBranching(
     const ShapeBranchAssignmentSearchResult &search,
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
     const arma::uvec &routingColumnIndices,
-    std::unique_ptr<InnerDiscretizer<std::vector<double>>> disc,
+    const std::shared_ptr<InnerDiscretizer<std::vector<double>>> &disc,
     const std::function<void(
         ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
         const std::vector<std::vector<std::vector<double>>> &)> &
         applyTaskFields);
 
+void retainShapeBranchingCandidates(
+    const ShapeBranchAssignmentSearch &search,
+    std::vector<ShapeBestBranchingState> &candidates,
+    const std::vector<size_t> &logicalFeatures, size_t xSubCols,
+    const arma::uvec &routingColumnIndices,
+    const std::shared_ptr<InnerDiscretizer<std::vector<double>>> &disc,
+    double pairwisePenalty,
+    const std::function<void(
+        ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
+        const std::vector<std::vector<std::vector<double>>> &)> &applyTaskFields);
+
 /**
  * Search partition counts k in [2, min(numBins, treeNumPartitions)] on a trained
- * inner discretizer and return the greatest positive regularized improvement.
+ * inner discretizer and retain the greatest positive regularized improvement
+ * at each actual occupied arity, together with the overall best candidate.
  * parentImp and childImpurity average outputs; CD's objective remains unchanged.
  *
  * Leaf stats are nested ``[bin][output][*]`` (class counts or MSE moments).
  * Gini/entropy use classifier search; regression criteria retain regression search.
  */
-ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
+ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
     InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,

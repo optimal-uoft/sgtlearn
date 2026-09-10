@@ -169,7 +169,8 @@ def test_pairwise_penalty_switches_selection_without_blocking_univariate() -> No
     )
 
     pair = SGTClassifier(pairwise_penalty=0.0, **common).fit(X, y)
-    univariate = SGTClassifier(pairwise_penalty=0.5, **common).fit(X, y)
+    # The former normalized penalty .5 becomes .5 * 85 in total-loss units.
+    univariate = SGTClassifier(pairwise_penalty=42.5, **common).fit(X, y)
 
     assert pair.tree_export()["nodes"][0]["routing_kind"] == "pair"
     assert univariate.tree_export()["nodes"][0].get("routing_kind") != "pair"

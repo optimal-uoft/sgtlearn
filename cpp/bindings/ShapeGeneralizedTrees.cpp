@@ -53,7 +53,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
                        size_t coordinate_descent_patience,
                        uint64_t random_state,
                        py::object max_features, size_t pairwise_candidates,
-                       double pairwise_penalty) {
+                       double pairwise_penalty, double branching_penalty) {
              return ClassificationShapeGeneralizedTreePy(
                  std::move(criterion), std::move(num_classes), num_partitions,
                  outer_min_leaf_size, outer_min_gain_split, outer_max_depth,
@@ -62,7 +62,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
                  coordinate_descent_max_iters, coordinate_descent_patience,
                  random_state,
                  std::move(max_features), pairwise_candidates,
-                 pairwise_penalty);
+                 pairwise_penalty, branching_penalty);
            }),
            py::arg("criterion") = "gini", py::arg("num_classes"),
            py::arg("num_partitions") = 2,
@@ -79,7 +79,8 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("random_state") = 42,
            py::arg("max_features") = py::none(),
            py::arg("pairwise_candidates") = 0,
-           py::arg("pairwise_penalty") = 0.0)
+           py::arg("pairwise_penalty") = 0.0,
+           py::arg("branching_penalty") = 0.0)
       .def("fit", &ClassificationShapeGeneralizedTreePy::fit, py::arg("X"),
            py::arg("y"), py::arg("sample_weight") = py::none(),
            py::arg("features"),
@@ -128,7 +129,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
                        size_t coordinate_descent_patience,
                        uint64_t random_state,
                        py::object max_features, size_t pairwise_candidates,
-                       double pairwise_penalty) {
+                       double pairwise_penalty, double branching_penalty) {
              return RegressionShapeGeneralizedTreePy(
                  std::move(criterion), num_partitions, outer_min_leaf_size,
                  outer_min_gain_split, outer_max_depth, outer_max_leaf_nodes,
@@ -136,7 +137,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
                  inner_max_leaf_nodes, coordinate_descent_max_iters,
                  coordinate_descent_patience,
                  random_state, std::move(max_features), pairwise_candidates,
-                 pairwise_penalty);
+                 pairwise_penalty, branching_penalty);
            }),
            py::arg("criterion") = "squared_error",
            py::arg("num_partitions") = 2, py::arg("outer_min_leaf_size") = 1,
@@ -150,6 +151,7 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("random_state") = 42, py::arg("max_features") = py::none(),
            py::arg("pairwise_candidates") = 0,
            py::arg("pairwise_penalty") = 0.0,
+           py::arg("branching_penalty") = 0.0,
            R"(Regression tree: inner bins are round-robin seeded. ``squared_error`` runs
 coordinate descent and keeps the map only if branch MSE improves clearly vs the seed;
 otherwise the snapshot is restored and the branch objective is rebuilt.

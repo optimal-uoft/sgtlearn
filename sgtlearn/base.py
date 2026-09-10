@@ -291,6 +291,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     pairwise_penalty : float, default=0.0
         Constant nonnegative cost subtracted from a fitted pair's total
         sample-weighted, output-averaged impurity improvement.
+    branching_penalty : float, default=0.0
+        Constant nonnegative cost per additional occupied child beyond two.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     class_weight : dict, list of dict, or None, default=None
@@ -379,6 +381,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         max_features: float | str | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
@@ -401,6 +404,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
+        self.branching_penalty = branching_penalty
         self.class_weight = class_weight
 
         self.tao_n_runs = tao_n_runs
@@ -537,7 +541,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
-        for name in ("min_impurity_decrease", "pairwise_penalty"):
+        for name in ("min_impurity_decrease", "pairwise_penalty", "branching_penalty"):
             value = getattr(self, name)
             if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
                 raise ValueError(f"{name} must be finite and non-negative")
@@ -568,6 +572,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             self.max_features,
             resolved_pairwise_candidates,
             float(self.pairwise_penalty),
+            float(self.branching_penalty),
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
@@ -716,6 +721,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     pairwise_penalty : float, default=0.0
         Constant nonnegative cost subtracted from a fitted pair's total
         sample-weighted, output-averaged impurity improvement.
+    branching_penalty : float, default=0.0
+        Constant nonnegative cost per additional occupied child beyond two.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
 
@@ -790,6 +797,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         max_features: float | str | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
         tao_pair_scale: float = 1.1,
@@ -810,6 +818,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
+        self.branching_penalty = branching_penalty
         self.tao_n_runs = tao_n_runs
         self.tao_lambda = tao_lambda
         self.tao_pair_scale = tao_pair_scale
@@ -888,7 +897,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
-        for name in ("min_impurity_decrease", "pairwise_penalty"):
+        for name in ("min_impurity_decrease", "pairwise_penalty", "branching_penalty"):
             value = getattr(self, name)
             if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
                 raise ValueError(f"{name} must be finite and non-negative")
@@ -918,6 +927,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             self.max_features,
             resolved_pairwise_candidates,
             float(self.pairwise_penalty),
+            float(self.branching_penalty),
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)

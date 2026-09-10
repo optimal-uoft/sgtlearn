@@ -294,11 +294,11 @@ public:
       size_t coordinateDescentMaxIters, size_t coordinateDescentPatience,
       uint64_t random_state,
       py::object max_features = py::none(), size_t pairwiseCandidates = 0,
-      double pairwisePenalty = 0.0) {
+      double pairwisePenalty = 0.0, double branchingPenalty = 0.0) {
     criterionStr_ = criterion;
     const LearningCriterion crit = parseClassificationCriterion(criterion);
     const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
-                                   outerMaxDepth, outerMaxLeafNodes};
+                                   outerMaxDepth, outerMaxLeafNodes, branchingPenalty};
     const TreeBuildingParams inner{innerMinLeafSize, innerMinGainSplit,
                                    innerMaxDepth, innerMaxLeafNodes};
     CoordinateDescentParams cd;
@@ -533,11 +533,11 @@ public:
       size_t innerMaxLeafNodes, size_t coordinateDescentMaxIters,
       size_t coordinateDescentPatience,
       uint64_t random_state, py::object max_features = py::none(),
-      size_t pairwiseCandidates = 0, double pairwisePenalty = 0.0) {
+      size_t pairwiseCandidates = 0, double pairwisePenalty = 0.0, double branchingPenalty = 0.0) {
     criterionStr_ = criterion;
     const LearningCriterion crit = parseRegressionCriterion(criterion);
     const TreeBuildingParams outer{outerMinLeafSize, outerMinGainSplit,
-                                   outerMaxDepth, outerMaxLeafNodes};
+                                   outerMaxDepth, outerMaxLeafNodes, branchingPenalty};
     const TreeBuildingParams inner{innerMinLeafSize, innerMinGainSplit,
                                    innerMaxDepth, innerMaxLeafNodes};
     CoordinateDescentParams cd;
