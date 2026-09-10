@@ -279,13 +279,16 @@ def test_numeric_fallback_pays_growth_cost_and_respects_binary_budget(
 
 
 @pytest.mark.parametrize("estimator", [SGTClassifier, SGTRegressor])
-def test_numeric_fallback_keeps_a_better_rich_shape_candidate(estimator):
+@pytest.mark.parametrize("inner_minimum", [1, 2])
+def test_numeric_fallback_keeps_a_better_rich_shape_candidate(estimator, inner_minimum):
     X = np.arange(6, dtype=np.float32).reshape(-1, 1)
     y = [0, 0, 1, 1, 0, 0]
+    # With either minimum, the inner root at 1.5 is outer-feasible (2 + 4).
+    # Its richer bins must still win by grouping the two outer intervals.
     model = estimator(
         max_leaf_nodes=2,
         min_samples_leaf=2,
-        inner_min_samples_leaf=1,
+        inner_min_samples_leaf=inner_minimum,
         inner_max_depth=3,
         inner_max_leaf_nodes=8,
         tao_n_runs=0,

@@ -398,11 +398,11 @@ void RegressionShapeGeneralizedTree::fit(
               !Xsub.row(feature.indices(0)).is_finite();
           if (!featureBest.rootFeasible ||
               (feature.type == FeatureType::Continuous &&
-               (innerParams_.minLeafSize != outerParams_.minLeafSize ||
+               (innerParams_.minLeafSize > outerParams_.minLeafSize ||
                 numericMissing))) {
-            // Only a finite numeric root with the same minimum leaf size is
-            // already the outer CART optimum. Other bins can hide its threshold;
-            // keep the outer-constrained stump and its own faithful router.
+            // A finite inner optimum under an equal or looser minimum is also
+            // outer-optimal when outer-feasible: it minimizes over a superset.
+            // Otherwise retain an independent stump with faithful routing.
             std::shared_ptr<InnerDiscretizer<std::vector<double>>> fallback;
             if (numericMissing) {
               fallback = makeNumericFallbackDiscretizer(criterion_, Xsub,
