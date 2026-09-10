@@ -19,9 +19,6 @@
 #include <random>
 #include <vector>
 
-/** Minimum objective improvement required to keep a coordinate-descent result. */
-inline constexpr double kShapeFunctionCdImprovementEps = 1e-10;
-
 struct ShapeBranchAssignmentSearchResult {
   double bestFeatureScore = std::numeric_limits<double>::infinity();
   size_t chosenK = 0;

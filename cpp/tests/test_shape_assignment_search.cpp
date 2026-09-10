@@ -1,6 +1,7 @@
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 #include "Discretizers/univariate/UnivariateDiscretizer.h"
 #include "Discretizers/pair/PairClassificationDiscretizer.h"
+#include "Discretizers/pair/PairRegressionDiscretizer.h"
 #include "BranchAssignmentObjectives/BranchAssignmentFactory.h"
 #include "algorithms/BinPartitionAssignments.h"
 #include "algorithms/CoordinateDescent.h"
@@ -169,6 +170,33 @@ TEST_CASE("Zero-weight samples still occupy a utilized branch", "[shape_search]"
   for (size_t count : result.partitionSampleCounts) REQUIRE(count >= 5);
 }
 
+TEST_CASE("Regression retains rejected feasible trials and compacts occupied metadata", "[shape_search]") {
+  Bins bins({{0, 1}, {5, 0}, {5, 0}}, {0, 1, 1});
+  bins.leafStats() = {{{1, 1}}, {{0, 0}}, {{0, 0}}};
+  const auto criterion = LearningCriterion::SquaredError;
+  REQUIRE_FALSE(search(bins, 2, 5, 0.0, 0, criterion).found);
+  const auto result = search(bins, 2, 5, 0.0, 1, criterion);
+  REQUIRE(result.found);
+  REQUIRE_FALSE(result.rootFeasible);
+  auto counts = result.partitionSampleCounts;
+  std::sort(counts.begin(), counts.end());
+  REQUIRE(counts == std::vector<size_t>{5, 6});
+  REQUIRE(result.partitionAggStats.size() == result.chosenK);
+  REQUIRE(result.partitionWeights.size() == result.chosenK);
+  REQUIRE_THAT(impurity(bins, result.assignments, 2, criterion),
+               WithinAbs(5.0 / 66.0, 1e-12));
+
+  bins.leafStats() = {{{0, 0}}, {{5, 5}}, {{10, 20}}};
+  bins.leafNodeWeights() = {5, 5, 5};
+  bins.leafNumSamples() = {5, 5, 5};
+  const auto binary = search(bins, 3, 5, 2.0, 5, criterion);
+  REQUIRE(binary.chosenK == 2);
+  REQUIRE(binary.partitionAggStats.size() == 2);
+  REQUIRE(binary.partitionSampleCounts.size() == 2);
+  REQUIRE(impurity(bins, binary.assignments, 2, criterion) <=
+          impurity(bins, bins.root, 2, criterion) + 1e-12);
+}
+
 TEST_CASE("Pair root membership merges the entire missing subtree into either branch", "[shape_search]") {
   const float nan = std::numeric_limits<float>::quiet_NaN();
   arma::fmat X = {{-2, -2, 2, 2, nan, nan}, {-2, 2, -2, 2, -2, 2}};
@@ -188,5 +216,19 @@ TEST_CASE("Pair root membership merges the entire missing subtree into either br
     for (size_t bin = 0; bin < root.size(); ++bin)
       for (size_t sample : disc.inSampleDiscretizations()[bin])
         REQUIRE(root[bin] == (sample >= 4 ? missingBranch : (sample >= 2 ? 1 : 0)));
+  }
+  for (auto criterion : {LearningCriterion::SquaredError, LearningCriterion::AbsoluteError}) {
+    PairRegressionDiscretizer regression(criterion, first, second);
+    const arma::fmat targets = arma::conv_to<arma::fmat>::from(y);
+    regression.Train(X, features, targets, 1, 0.0, 2, 0);
+    REQUIRE(regression.routingTree()[0].rawFeature == 0);
+    REQUIRE_FALSE(regression.routingTree()[regression.routingTree()[0].missing].isLeaf);
+    for (size_t missingBranch : {0, 1}) {
+      const auto root = regression.rootBinAssignments(missingBranch);
+      REQUIRE(root.size() == regression.numLeaves());
+      for (size_t bin = 0; bin < root.size(); ++bin)
+        for (size_t sample : regression.inSampleDiscretizations()[bin])
+          REQUIRE(root[bin] == (sample >= 4 ? missingBranch : (sample >= 2 ? 1 : 0)));
+    }
   }
 }

@@ -76,9 +76,11 @@ protected:
                  size_t minLeafSize, double minGainSplit, size_t maxDepth,
                  size_t maxLeafNodes);
 
-  void processLeaves(CategoricalSplitter<StatsT, PredictT> &splitter);
+  void processLeaves(const arma::fmat &X,
+                     CategoricalSplitter<StatsT, PredictT> &splitter);
 
-  void appendNanRoutingBin();
+  void appendNanRoutingBin(CategoricalSplitter<StatsT, PredictT> &splitter,
+                           const std::vector<size_t> &samples);
 
   size_t routeOne(const arma::fmat &X, arma::uword col) const;
 

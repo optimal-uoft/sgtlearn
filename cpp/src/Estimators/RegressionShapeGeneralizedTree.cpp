@@ -357,12 +357,6 @@ void RegressionShapeGeneralizedTree::fit(
         std::vector<UnivariateProxy> univariateProxies;
         std::vector<RetainedPairCandidate> retainedPairCandidates;
 
-        const auto addNoSplitProxy = [&univariateProxies, xSubCols,
-                                      parentImp](size_t logicalIdx) {
-          univariateProxies.push_back(
-              {logicalIdx, 1, parentImp, std::vector<size_t>(xSubCols, 0)});
-        };
-
         const auto applyTaskFields =
             [this](ShapeBestBranchingState &state,
                    const ShapeBranchAssignmentSearchResult &search,
@@ -383,13 +377,10 @@ void RegressionShapeGeneralizedTree::fit(
               *disc, feature, Xsub, ysub, innerParams_.minLeafSize,
               innerParams_.minGainSplit, innerParams_.maxDepth,
               innerParams_.maxLeafNodes, wsub);
-          if (disc->numLeaves() < 2) {
-            if (pairwiseCandidates_ > 0)
-              addNoSplitProxy(logicalIdx);
+          if (!disc->isTrained())
             continue;
-          }
 
-          const ShapeBranchAssignmentSearchResult featureBest =
+          ShapeBranchAssignmentSearchResult featureBest =
               searchShapeBranchAssignmentFromDiscretizer(
                   *disc, criterion_, parentImp, numPartitions_, outerParams_,
                   cdParams_, outerTreeBuilder_.eps, rng_,
@@ -399,11 +390,28 @@ void RegressionShapeGeneralizedTree::fit(
                   criterion_ == LearningCriterion::AbsoluteError ? &wsub
                                                                    : nullptr,
                   xSubCols);
-          if (!featureBest.found) {
-            if (pairwiseCandidates_ > 0)
-              addNoSplitProxy(logicalIdx);
-            continue;
+          if (feature.type == FeatureType::Categorical && !featureBest.rootFeasible) {
+            // Preserve independent routing when the fallback divides an inner bin.
+            auto fallback = makeRegressionDiscretizer(criterion_, feature);
+            trainRegressionDiscretizer(
+                *fallback, feature, Xsub, ysub, outerParams_.minLeafSize,
+                0.0, 1, 2, wsub);
+            CoordinateDescentParams noRefinement = cdParams_;
+            noRefinement.maxIters = 0;
+            auto fallbackBest = searchShapeBranchAssignmentFromDiscretizer(
+                *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
+                outerTreeBuilder_.eps, rng_, {}, nOutputs_,
+                criterion_ == LearningCriterion::AbsoluteError ? &ysub : nullptr,
+                criterion_ == LearningCriterion::AbsoluteError ? &wsub : nullptr,
+                xSubCols);
+            if (fallbackBest.found && fallbackBest.bestFeatureScore <
+                                          featureBest.bestFeatureScore - outerTreeBuilder_.eps) {
+              featureBest = std::move(fallbackBest);
+              disc = std::move(fallback);
+            }
           }
+          if (!featureBest.found)
+            continue;
 
           if (pairwiseCandidates_ > 0) {
             std::vector<size_t> partitions(xSubCols, 0);

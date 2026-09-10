@@ -1,8 +1,9 @@
-# Coordinate descent bugfixes for SGTClassifier
+# Coordinate descent bugfixes for SGTClassifier and SGTRegressor
 
 Specification settled in the September 9 grilling session for issue #52.
 This branch corrects weighted k-means initialization, feasible-split retention,
-and classifier pair eligibility. It does not implement the separate
+and classifier pair eligibility, then extends shared search to regression
+in section 7. It does not implement the separate
 KL clustering upgrade.
 
 ## 1. Initialization and fallback candidates
@@ -96,7 +97,8 @@ Remove `coordinate_descent_smart_init` from classifier/regressor estimators,
 forests, native bindings, and forwarding. Remove native `smartInit`. Update
 callers and documentation: callers must remove the argument and parameter-grid
 entry, with no replacement flag or compatibility period. Classification always
-compares k-means with the root. Preserve non-clustering regression behavior.
+compares k-means with the root. The initial change preserved non-clustering
+regression behavior; section 7 records the subsequent regression extension.
 
 Repair the existing shared rollback lifetime bug: `BranchAssignment` stores its
 assignment vector by reference, so rebuilding it from a helper-local rollback
@@ -125,6 +127,62 @@ errors (notebook execution disabled). Targeted Ruff and `git diff --check`
 passed. The 12 matched smoke runs showed no training-accuracy decreases;
 Breast Cancer / Gini / seed 0 improved from 0.996485 to 0.998243, and the other
 11 runs were unchanged. These smoke results are diagnostic, not a release gate.
+
+## 7. Regression extension
+
+The follow-up request requires the same root-relative protection and search
+machinery for regression. Classification and regression now use one assignment
+search, including root retention, numeric fallback, scored-trial observation,
+missing-bin completions, occupied-branch penalties, and metadata compaction.
+Regression categorical fallback and pair eligibility follow the classifier
+rules. Pair regression exposes both root missing-subtree assignments, and the
+univariate incumbent remains available while pairs are evaluated.
+
+For squared error, cluster each bin's vector of weighted output means with its
+effective bin weight. For any assignment, total SSE is the sum of constant
+within-bin SSE and `sum_b weight_b * ||mean_b - branch_mean||^2`. Thus the existing
+weighted k-means routine applies directly to means, not to concatenated first
+and second moments or histogram normalization. Compare this seed with the root
+using full weighted squared-error loss; root wins ties, and both feasible seeds
+remain candidates. Refine at every capacity, including full capacity.
+
+For absolute error, initialize refinement from the root when available. Retain
+the old round-robin maps as additional candidates (and a seed when no root
+exists). Score every map using the existing raw targets, effective weights,
+and sum of per-output weighted median losses. Bin medians alone are not
+sufficient statistics for merged MAE. Preserve `SGTLEARN_MAE_CD` default-off
+behavior; enabling it uses the same observation/refinement path at every
+capacity. Root/fallback retention works with CD disabled.
+
+The section 3 inequality applies to both regression losses relative to a
+retained feasible, gain-admissible binary root or fallback, before TAO. It is
+a node-level loss bound, not a claim of identical trees or universal accuracy
+dominance over an independently trained CART model. With no training samples
+in the missing bin, route it to the largest occupied branch (lowest label on
+ties), preserving the existing finite-bin CD fallback.
+
+The original failure reproduces with numeric values or one-hot categories
+having counts `[1,4,5]` and targets `[10,0,0,0,0,1,1,1,1,1]`, outer minimum
+leaf size 5. Before the extension all six numeric/categorical and MSE/MAE-CD
+cases returned a leaf despite a valid 5/5 split: MSE decreases from 8.25 to 8,
+and MAE from 1.3 to 1. Tests now cover these fallbacks, weighted multi-output
+CART stump comparisons, missing-bin feasibility, regression rejected trials,
+occupied metadata, and pair root missing-subtree membership.
+
+Regression-extension validation: **316 Python tests passed, 2 skipped;
+39 C++ tests passed**. Targeted Ruff and `git diff --check` passed. The complete
+Python suite also verifies existing classifier behavior and predict-time
+missing-value routing against CART.
+
+The subsequent P1 review found that categorical rows with no active category
+were counted in ordinary training leaves but routed through an empty missing
+sentinel at prediction. Categorical leaf processing now moves those rows into
+the trailing missing bin before computing sample counts, effective weights,
+statistics, and predictions. The shared change covers all four criteria and
+keeps scored root assignments consistent with native and exported routing.
+P1 validation: **332 Python tests passed, 2 skipped; 39 C++ tests passed**.
+The new cases cover all-zero and NaN categorical rows, all four criteria,
+single/multiple outputs, fractional weights, and zero-weight missing rows.
 
 ## Sources
 
