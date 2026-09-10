@@ -76,3 +76,27 @@ and large reproducible drops need investigation without an invented numeric
 cutoff. Lower regression loss is better. Every worse-than-CART quality result is
 flagged without automatically failing the change. Default TAO and future positive
 regularization comparisons stay separate from induction-only zero-cost results.
+
+For the final common-configuration comparison, build the candidate in another
+isolated checkout/venv with the same dependency pins and Release settings, then
+interleave matching fresh-process runs:
+
+```sh
+.venv/bin/python benchmarks/compare_outer_growth.py \
+  --baseline-python /tmp/sgtlearn-baseline-90fb148/.venv/bin/python \
+  --baseline-checkout /tmp/sgtlearn-baseline-90fb148 \
+  --candidate-python /tmp/sgtlearn-candidate/.venv/bin/python \
+  --candidate-checkout /tmp/sgtlearn-candidate \
+  --output benchmarks/results/outer-growth-comparison
+```
+
+The driver alternates old/new order each round, verifies matching data hashes,
+Python/NumPy/sklearn versions, environment and native thread pools, and writes
+`raw.jsonl`, `comparison.json`, `comparison.md` and settings with revision/runner
+hashes. The Markdown report lists performance review gates and every quality seed
+with old/new/CART scores and leaf counts. Use `--workload ID` and a fresh output
+directory to confirm a suspected breach. Optional
+`--candidate-branching-penalty VALUE` produces a clearly labeled separate
+regularization experiment; use another output directory. Do not change/rebuild
+either environment during a run. Resume support skips completed rows; if a run
+is interrupted mid-pair, use a fresh directory for strict temporal matching.
