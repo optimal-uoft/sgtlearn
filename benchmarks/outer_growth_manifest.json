@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "baseline_revision": "90fb148e8b9b4181534dd2a19a5837aa85fba506",
+  "repetitions": 5,
+  "timing_seed": 17,
+  "quality_seeds": [
+    17,
+    29,
+    43
+  ],
+  "predict_min_seconds": 0.25,
+  "environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "PYTHONHASHSEED": "0",
+    "SGTLEARN_MAE_CD": "0"
+  },
+  "review_gates": {
+    "median_fit_or_predict_slowdown": 0.25,
+    "peak_memory_increase": 0.5,
+    "quality": "Training accuracy is primary; similar or improved expected, slight degradation acceptable, large reproducible drops investigated without a numeric cutoff. Regression loss lower is better. Flag every worse-than-CART result. Confirm timing/memory breaches beyond noise with matched reruns."
+  },
+  "workloads": [
+    {
+      "id": "gini_binary_queue",
+      "data_seed": 2026,
+      "n": 6000,
+      "features": 10,
+      "fit_batch": 8,
+      "params": {
+        "criterion": "gini",
+        "num_partitions": 2,
+        "max_depth": 8,
+        "max_leaf_nodes": 31,
+        "min_samples_leaf": 8,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "entropy_multiway_pair_budget",
+      "data_seed": 2026,
+      "n": 3000,
+      "features": 8,
+      "fit_batch": 2,
+      "weighted": true,
+      "params": {
+        "criterion": "entropy",
+        "num_partitions": 4,
+        "max_depth": 6,
+        "max_leaf_nodes": 12,
+        "min_samples_leaf": 8,
+        "pairwise_candidates": 4,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "gini_categorical_missing_multioutput",
+      "data_seed": 2026,
+      "n": 3000,
+      "features": 8,
+      "fit_batch": 3,
+      "weighted": true,
+      "outputs": 2,
+      "categorical_missing": true,
+      "params": {
+        "criterion": "gini",
+        "num_partitions": 3,
+        "max_depth": 5,
+        "max_leaf_nodes": 10,
+        "min_samples_leaf": 8,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "mse_uncapped_multioutput",
+      "data_seed": 2026,
+      "n": 5000,
+      "features": 8,
+      "fit_batch": 2,
+      "weighted": true,
+      "outputs": 2,
+      "params": {
+        "criterion": "squared_error",
+        "num_partitions": 3,
+        "max_depth": 5,
+        "max_leaf_nodes": null,
+        "min_samples_leaf": 12,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "mae_cd_off",
+      "data_seed": 2026,
+      "n": 1200,
+      "features": 6,
+      "fit_batch": 2,
+      "weighted": true,
+      "outputs": 2,
+      "duplicate_x": true,
+      "mae_cd": 0,
+      "params": {
+        "criterion": "absolute_error",
+        "num_partitions": 3,
+        "max_depth": 4,
+        "max_leaf_nodes": 11,
+        "min_samples_leaf": 10,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "mae_cd_on",
+      "data_seed": 2026,
+      "n": 1200,
+      "features": 6,
+      "fit_batch": 2,
+      "weighted": true,
+      "outputs": 2,
+      "duplicate_x": true,
+      "mae_cd": 1,
+      "params": {
+        "criterion": "absolute_error",
+        "num_partitions": 3,
+        "max_depth": 4,
+        "max_leaf_nodes": 11,
+        "min_samples_leaf": 10,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "gini_forest_serial",
+      "data_seed": 2026,
+      "n": 4000,
+      "features": 8,
+      "forest": true,
+      "params": {
+        "criterion": "gini",
+        "num_partitions": 3,
+        "max_depth": 5,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 8,
+        "n_estimators": 8,
+        "n_jobs": 1,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "gini_forest_parallel",
+      "data_seed": 2026,
+      "n": 4000,
+      "features": 8,
+      "forest": true,
+      "params": {
+        "criterion": "gini",
+        "num_partitions": 3,
+        "max_depth": 5,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 8,
+        "n_estimators": 8,
+        "n_jobs": 2,
+        "tao_n_runs": 0,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    },
+    {
+      "id": "gini_default_tao",
+      "data_seed": 2026,
+      "n": 1500,
+      "features": 6,
+      "fit_batch": 2,
+      "params": {
+        "criterion": "gini",
+        "num_partitions": 3,
+        "max_depth": 4,
+        "max_leaf_nodes": 10,
+        "min_samples_leaf": 8,
+        "min_impurity_decrease": 0,
+        "pairwise_penalty": 0
+      }
+    }
+  ]
+}
