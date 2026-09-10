@@ -20,17 +20,17 @@
  * and the inner per-feature univariate discretizer.
  *
  * - minLeafSize:  minimum samples in a node for it to remain split-eligible.
- * - minGainSplit: minimum impurity reduction required to commit a split.
+ * - minGainSplit: constant outer growth cost; inner CART retains its threshold.
  * - maxDepth:     0 = unlimited; otherwise expansion stops at this depth.
- * - maxLeafNodes: 0 = depth-first / unlimited; otherwise best-first growth up
- *                 to this many leaves (Heap frontier in TreeBuilder).
+ * - maxLeafNodes: 0 = unlimited (outer growth remains best-first); inner CART
+ *                 uses depth-first without a finite leaf bound.
  */
 struct TreeBuildingParams {
   size_t minLeafSize = 1;
   double minGainSplit = 1e-7;
   size_t maxDepth = 0;
   size_t maxLeafNodes = 0;
-  /** Added to effective child impurity when ranking splits (Python branching_penalty * (k-1)). */
+  /** Constant outer cost for each occupied child beyond binary: lambda*(k-2). */
   double branchingPenalty = 0.0;
 };
 

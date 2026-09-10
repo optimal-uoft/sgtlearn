@@ -62,11 +62,4 @@ inline void seedBinAssignmentsKMeans(
   initAssignmentsWeightedKMeans(Xk, wk, k, rng, assignments);
 }
 
-/** score: ``impurity + branchingPenalty * (k - 1)``. */
-inline double penalizedBranchingScore(double childImpurity, size_t k,
-                                      double branchingPenalty) {
-  return childImpurity +
-         branchingPenalty * static_cast<double>(k > 0 ? k - 1 : 0);
-}
-
 } // namespace algorithms

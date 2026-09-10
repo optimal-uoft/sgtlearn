@@ -243,7 +243,7 @@ def test_tao_reconsiders_retained_classifier_pair() -> None:
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
-        pairwise_penalty=1.0,
+        pairwise_penalty=85.0,  # Former normalized cost 1.0 × 85 samples.
         tao_n_runs=0,
         random_state=0,
     ).fit(X, y)
@@ -328,7 +328,7 @@ def test_tao_accepts_improving_retained_regression_pair_multioutput() -> None:
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
-        pairwise_penalty=1.0,
+        pairwise_penalty=42.5,  # Former cost 1.0 × 85 samples / 2 outputs.
         tao_n_runs=0,
         random_state=0,
     ).fit(X, y)

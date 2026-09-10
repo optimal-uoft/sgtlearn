@@ -2,7 +2,7 @@
 
 /**
  * @file Estimators/ClassificationShapeGeneralizedTree.h
- * @brief Multivariate shape-generalized classification tree (outer ``TreeBuilder`` + inner branching fits).
+ * @brief Multivariate shape-generalized classification tree (outer ``OuterTreeBuilder`` + inner branching fits).
  */
 
 #include <stdexcept>
@@ -13,7 +13,7 @@
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
-#include "algorithms/TreeBuilder.h"
+#include "algorithms/OuterTreeBuilder.h"
 
 #include <armadillo>
 #include <cstddef>
@@ -25,7 +25,7 @@
  * Shape-Generalized Tree, classification variant.
  *
  * Responsibilities (by phase):
- * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
+ * - **Outer growth** (`OuterTreeBuilder`): best-first regularized expansion;
  *   per-node split search and child creation via lambdas in ``fit``; commit
  *   step remains a local lambda in ``fit``.
  * - **Per-node split search** (``fit`` lambdas): compare root and weighted
@@ -43,13 +43,13 @@
  *      ``k`` in ``[2, min(numBins, numPartitions)]``, seed assignments
  *      with the lower-impurity root/k-means map and run coordinate descent.
  *   3. **Selection**: retain feasible binary roots/fallbacks and every feasible
- *      scored trial. Score ``impurity + branchingPenalty * (occupied - 1)``;
+ *      scored trial. Rank total weighted impurity decrease minus constant complexity costs;
  *      compact occupied labels and require ``minLeafSize`` per utilized branch.
  *      Only features with admissible univariate splits enter pair screening.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, with ``k`` children (``k``
- * may be less than ``numPartitions``). The outer loop uses `TreeBuilder`
+ * may be less than ``numPartitions``). The outer loop uses `OuterTreeBuilder`
  * like Python's heap over impurity decrease.
  *
  * Inputs use Armadillo's column-major convention: X has shape
@@ -172,7 +172,7 @@ private:
   std::vector<FeatureInfo> features_;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
-  TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
+  OuterTreeBuilder outerTreeBuilder_;
 
   /** Resolve ``classesPerOutput_`` from config and ``y``. */
   void resolveOutputLayout(size_t nOutputs);

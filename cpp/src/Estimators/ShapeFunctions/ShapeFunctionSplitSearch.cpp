@@ -19,6 +19,7 @@
 #include <cmath>
 #include <algorithm>
 #include <stdexcept>
+#include <numeric>
 
 namespace {
 
@@ -45,7 +46,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
-    const CoordinateDescentParams &cdParams, double scoreEpsilon,
+    const CoordinateDescentParams &cdParams,
     std::mt19937_64 &rng,
     const std::vector<size_t> &classesPerOutput, size_t nOutputs,
     const arma::Mat<float> *ysub, const arma::Row<float> *wsub,
@@ -54,6 +55,8 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
   auto &weights = disc.leafNodeWeights();
   const auto &sizes = disc.leafNumSamples();
   const size_t numBins = stats.size();
+  const double totalWeight = std::accumulate(weights.begin(), weights.end(), 0.0);
+  constexpr double eps = std::numeric_limits<double>::epsilon();
   std::vector<std::vector<std::vector<float>>> maeLeafYsStorage;
   std::vector<std::vector<float>> maeLeafWsStorage;
   std::vector<std::vector<std::vector<float>>> *maeLeafYs = nullptr;
@@ -110,21 +113,22 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
     const size_t occupied = occupiedCount(objective);
     if (occupied < 2)
       return;
-    const double impurity = objective.objective();
-    const double gain = parentImp - impurity;
-    if (!std::isfinite(impurity) || gain <= scoreEpsilon ||
-        gain < outerParams.minGainSplit - scoreEpsilon)
+    const double impurity = objective.objective() / nOutputs;
+    const double gain = totalWeight * (parentImp - impurity);
+    const double score = gain - outerParams.minGainSplit -
+        outerParams.branchingPenalty * static_cast<double>(occupied - 2);
+    if (!std::isfinite(score) || score <= eps)
       return;
-    const double score = algorithms::penalizedBranchingScore(
-        impurity, occupied, outerParams.branchingPenalty);
-    if (score >= result.bestFeatureScore - scoreEpsilon)
+    if (score < result.regularizedGain ||
+        (score == result.regularizedGain && occupied >= result.chosenK))
       return;
     result.found = true;
-    result.bestFeatureScore = score;
+    result.regularizedGain = score;
     result.chosenK = occupied;
     result.assignments = objective.assignments;
     result.partitionSampleCounts = objective.partitionSampleCounts();
     result.impurityDecrease = gain;
+    result.childImpurity = impurity;
   };
 
   // Check full-data completions without perturbing the live finite-bin search.
@@ -235,9 +239,10 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
         result.partitionClassCounts = aggregate->aggregatedPartitionStats();
       result.partitionWeights = aggregate->aggregatedPartitionWeights();
     }
-    result.impurityDecrease = parentImp - objective->objective();
-    result.bestFeatureScore = algorithms::penalizedBranchingScore(
-        objective->objective(), result.chosenK, outerParams.branchingPenalty);
+    result.childImpurity = objective->objective() / nOutputs;
+    result.impurityDecrease = totalWeight * (parentImp - result.childImpurity);
+    result.regularizedGain = result.impurityDecrease - outerParams.minGainSplit -
+        outerParams.branchingPenalty * static_cast<double>(result.chosenK - 2);
   }
   return result;
 }
@@ -245,6 +250,7 @@ ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
 void markShapeFunctionNodeAsLeaf(ShapeFunctionNode &node) {
   node.isLeaf = true;
   node.informationGain = 0.0;
+  node.regularizedGain = 0.0;
   node.splitFeatureIndex = 0;
   node.logicalFeatureIndices.clear();
   node.retainedPairCandidates.clear();
@@ -282,7 +288,7 @@ void applySharedShapeBranchingFields(
     ShapeBestBranchingState &best, const ShapeBranchAssignmentSearchResult &search,
     size_t featureIndex, size_t xSubCols,
     const std::vector<std::vector<size_t>> &perBinCols) {
-  best.penalizedChildScore = search.bestFeatureScore;
+  best.regularizedGain = search.regularizedGain;
   best.branching.featureIndex = featureIndex;
   best.branching.binToPartition = search.assignments;
   best.branching.impurityDecrease = search.impurityDecrease;
@@ -296,14 +302,18 @@ bool featureHasBetterShapeBranching(
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
     const arma::uvec &routingColumnIndices,
     std::unique_ptr<InnerDiscretizer<std::vector<double>>> disc,
-    double scoreEpsilon,
     const std::function<void(
         ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
         const std::vector<std::vector<std::vector<double>>> &)> &
         applyTaskFields) {
   if (!search.found || search.assignments.empty())
     return false;
-  if (search.bestFeatureScore >= best.penalizedChildScore - scoreEpsilon)
+  if (!std::isfinite(search.regularizedGain) ||
+      search.regularizedGain <= std::numeric_limits<double>::epsilon())
+    return false;
+  if (search.regularizedGain < best.regularizedGain ||
+      (search.regularizedGain == best.regularizedGain &&
+       search.chosenK >= best.branching.numPartitionsUsed))
     return false;
 
   applySharedShapeBranchingFields(best, search, featureIndex, xSubCols,

@@ -57,8 +57,7 @@ ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
                           ? std::move(featureBagging)
                           : FeatureBaggingPickFn(pickAllFeatureIndices)),
       pairwiseCandidates_(pairwiseCandidates), pairwisePenalty_(pairwisePenalty),
-      outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
-                        outerParams_.maxDepth, outerParams_.maxLeafNodes) {
+      outerTreeBuilder_(outerParams_) {
   if (criterion != LearningCriterion::Entropy &&
       criterion != LearningCriterion::Gini)
     throw std::invalid_argument(
@@ -108,9 +107,9 @@ ClassificationShapeGeneralizedTree::makeEmptyHistogram() const {
 double ClassificationShapeGeneralizedTree::impurityForClassCounts(
     const std::vector<std::vector<double>> &classCounts) const {
   if (criterion_ == LearningCriterion::Gini)
-    return Criterion::gini(classCounts);
+    return Criterion::gini(classCounts) / nOutputs_;
   if (criterion_ == LearningCriterion::Entropy)
-    return Criterion::entropy(classCounts);
+    return Criterion::entropy(classCounts) / nOutputs_;
   throw std::runtime_error("ClassificationShapeGeneralizedTree::"
                            "impurityForClassCounts: invalid criterion");
 }
@@ -208,7 +207,7 @@ void ClassificationShapeGeneralizedTree::fit(
         }
 
         const double parentImp = node.score;
-        if (parentImp <= outerTreeBuilder_.eps) {
+        if (parentImp <= 0.0) {
           markShapeFunctionNodeAsLeaf(node);
           return false;
         }
@@ -260,7 +259,7 @@ void ClassificationShapeGeneralizedTree::fit(
           ShapeBranchAssignmentSearchResult featureBest =
               searchShapeBranchAssignmentFromDiscretizer(
                   *disc, criterion_, parentImp, numPartitions_, outerParams_,
-                  cdParams_, outerTreeBuilder_.eps, rng_,
+                  cdParams_, rng_,
                   classesPerOutput_, nOutputs_);
           if (feature.type == FeatureType::Categorical && !featureBest.rootFeasible) {
             // A category may share an inner bin with others. Keep an independent
@@ -273,9 +272,11 @@ void ClassificationShapeGeneralizedTree::fit(
             noRefinement.maxIters = 0;
             auto fallbackBest = searchShapeBranchAssignmentFromDiscretizer(
                 *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
-                outerTreeBuilder_.eps, rng_, classesPerOutput_, nOutputs_);
-            if (fallbackBest.found && fallbackBest.bestFeatureScore <
-                                          featureBest.bestFeatureScore - outerTreeBuilder_.eps) {
+                rng_, classesPerOutput_, nOutputs_);
+            if (fallbackBest.found &&
+                (fallbackBest.regularizedGain > featureBest.regularizedGain ||
+                 (fallbackBest.regularizedGain == featureBest.regularizedGain &&
+                  fallbackBest.chosenK < featureBest.chosenK))) {
               featureBest = std::move(fallbackBest);
               disc = std::move(fallback);
             }
@@ -292,7 +293,7 @@ void ClassificationShapeGeneralizedTree::fit(
                 partitions[sample] = featureBest.assignments[bin];
             univariateProxies.push_back(
                 {logicalIdx, featureBest.chosenK,
-                 parentImp - featureBest.impurityDecrease,
+                 featureBest.childImpurity,
                  std::move(partitions)});
           }
 
@@ -300,7 +301,7 @@ void ClassificationShapeGeneralizedTree::fit(
               featureBest, best, logicalIdx, xSubCols, feature.indices,
               std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
                   std::move(disc)),
-              outerTreeBuilder_.eps, applyTaskFields);
+              applyTaskFields);
         }
 
         if (pairwiseCandidates_ > 0 && univariateProxies.size() >= 2) {
@@ -377,22 +378,21 @@ void ClassificationShapeGeneralizedTree::fit(
             ShapeBranchAssignmentSearchResult pairBest =
                 searchShapeBranchAssignmentFromDiscretizer(
                     *pairDisc, criterion_, parentImp, numPartitions_,
-                    outerParams_, cdParams_, outerTreeBuilder_.eps, rng_,
+                    outerParams_, cdParams_, rng_,
                     classesPerOutput_, nOutputs_,
                     nullptr, nullptr, 0, /*hasNanRoutingBin=*/false);
-            pairBest.bestFeatureScore += pairwisePenalty_;
+            pairBest.regularizedGain -= pairwisePenalty_;
             if (featureHasBetterShapeBranching(
                     pairBest, best, pair.first, xSubCols, rawFeatures,
                     std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
                         std::move(pairDisc)),
-                    outerTreeBuilder_.eps, applyTaskFields))
+                    applyTaskFields))
               best.logicalFeatureIndices = {pair.first, pair.second};
           }
         }
 
-        if (!std::isfinite(best.penalizedChildScore) ||
-            best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
-            best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
+        if (!std::isfinite(best.regularizedGain) ||
+            best.regularizedGain <= outerTreeBuilder_.eps) {
           markShapeFunctionNodeAsLeaf(node);
           return false;
         }
@@ -412,6 +412,7 @@ void ClassificationShapeGeneralizedTree::fit(
         node.binSampleCounts = std::move(best.branching.leafNumSamples);
         node.numPartitions = best.branching.numPartitionsUsed;
         node.informationGain = best.branching.impurityDecrease;
+        node.regularizedGain = best.regularizedGain;
 
         return true;
       };

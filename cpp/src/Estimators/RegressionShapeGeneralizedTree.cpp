@@ -100,7 +100,7 @@ double crossedRegressionImpurity(
     for (size_t cell = 0; cell < numCells; ++cell)
       result += cellWeights[cell] / totalWeight *
                 Criterion::squaredError(stats[cell], cellWeights[cell]);
-    return result;
+    return result / nOutputs;
   }
 
   std::vector<std::vector<std::vector<float>>> cellYs(
@@ -119,7 +119,7 @@ double crossedRegressionImpurity(
       cellImpurity += Criterion::absoluteError(cellYs[cell][o], cellWs[cell]).mae;
     result += cellWeights[cell] / totalWeight * cellImpurity;
   }
-  return result;
+  return result / nOutputs;
 }
 
 } // namespace
@@ -137,8 +137,7 @@ RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
                           ? std::move(featureBagging)
                           : FeatureBaggingPickFn(pickAllFeatureIndices)),
       pairwiseCandidates_(pairwiseCandidates), pairwisePenalty_(pairwisePenalty),
-      outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
-                        outerParams_.maxDepth, outerParams_.maxLeafNodes) {
+      outerTreeBuilder_(outerParams_) {
   if (criterion != LearningCriterion::SquaredError &&
       criterion != LearningCriterion::AbsoluteError)
     throw std::invalid_argument(
@@ -168,13 +167,13 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
       const size_t si = static_cast<size_t>(node.sampleIndices(i));
       totalWeight += static_cast<double>(fitSampleWeights_(si));
     }
-    return Criterion::squaredError(st, totalWeight);
+    return Criterion::squaredError(st, totalWeight) / nOutputs_;
   }
   if (criterion_ != LearningCriterion::AbsoluteError)
     throw std::invalid_argument(
         "RegressionShapeGeneralizedTree::impurityAtNode: invalid criterion");
 
-  // Absolute error: sum per-output MAE about each output's weighted median.
+  // Outer MAE averages per-output errors about each weighted median.
   double total = 0.0;
   for (size_t o = 0; o < nOutputs_; ++o) {
     std::vector<float> ys;
@@ -205,7 +204,7 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
       total += meanAbsoluteDeviationFromMedian(ys, ws);
     }
   }
-  return total;
+  return total / nOutputs_;
 }
 
 std::vector<std::vector<double>> RegressionShapeGeneralizedTree::aggregateYSquaredStats(
@@ -290,7 +289,7 @@ void RegressionShapeGeneralizedTree::fit(
     leafRegressionStats.push_back(std::move(statsF));
     leafNumSamples.push_back(n);
     leafPredictions_.push_back(std::move(preds));
-    root.score = Criterion::squaredError(st, rootWeight);
+    root.score = Criterion::squaredError(st, rootWeight) / nOutputs_;
   } else {
     leafRegressionStats.push_back({});
     leafNumSamples.push_back(n);
@@ -329,7 +328,7 @@ void RegressionShapeGeneralizedTree::fit(
         }
 
         const double parentImp = node.score;
-        if (parentImp <= outerTreeBuilder_.eps) {
+        if (parentImp <= 0.0) {
           markShapeFunctionNodeAsLeaf(node);
           return false;
         }
@@ -383,7 +382,7 @@ void RegressionShapeGeneralizedTree::fit(
           ShapeBranchAssignmentSearchResult featureBest =
               searchShapeBranchAssignmentFromDiscretizer(
                   *disc, criterion_, parentImp, numPartitions_, outerParams_,
-                  cdParams_, outerTreeBuilder_.eps, rng_,
+                  cdParams_, rng_,
                   /*classesPerOutput=*/{}, nOutputs_,
                   criterion_ == LearningCriterion::AbsoluteError ? &ysub
                                                                  : nullptr,
@@ -400,12 +399,14 @@ void RegressionShapeGeneralizedTree::fit(
             noRefinement.maxIters = 0;
             auto fallbackBest = searchShapeBranchAssignmentFromDiscretizer(
                 *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
-                outerTreeBuilder_.eps, rng_, {}, nOutputs_,
+                rng_, {}, nOutputs_,
                 criterion_ == LearningCriterion::AbsoluteError ? &ysub : nullptr,
                 criterion_ == LearningCriterion::AbsoluteError ? &wsub : nullptr,
                 xSubCols);
-            if (fallbackBest.found && fallbackBest.bestFeatureScore <
-                                          featureBest.bestFeatureScore - outerTreeBuilder_.eps) {
+            if (fallbackBest.found &&
+                (fallbackBest.regularizedGain > featureBest.regularizedGain ||
+                 (fallbackBest.regularizedGain == featureBest.regularizedGain &&
+                  fallbackBest.chosenK < featureBest.chosenK))) {
               featureBest = std::move(fallbackBest);
               disc = std::move(fallback);
             }
@@ -421,7 +422,7 @@ void RegressionShapeGeneralizedTree::fit(
                 partitions[sample] = featureBest.assignments[bin];
             univariateProxies.push_back(
                 {logicalIdx, featureBest.chosenK,
-                 parentImp - featureBest.impurityDecrease,
+                 featureBest.childImpurity,
                  std::move(partitions)});
           }
 
@@ -429,7 +430,7 @@ void RegressionShapeGeneralizedTree::fit(
               featureBest, best, logicalIdx, xSubCols, feature.indices,
               std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
                   std::move(disc)),
-              outerTreeBuilder_.eps, applyTaskFields);
+              applyTaskFields);
         }
 
         if (pairwiseCandidates_ > 0 && univariateProxies.size() >= 2) {
@@ -488,24 +489,23 @@ void RegressionShapeGeneralizedTree::fit(
             ShapeBranchAssignmentSearchResult pairBest =
                 searchShapeBranchAssignmentFromDiscretizer(
                     *pairDisc, criterion_, parentImp, numPartitions_, outerParams_,
-                    cdParams_, outerTreeBuilder_.eps, rng_,
+                    cdParams_, rng_,
                     /*classesPerOutput=*/{}, nOutputs_,
                     criterion_ == LearningCriterion::AbsoluteError ? &ysub : nullptr,
                     criterion_ == LearningCriterion::AbsoluteError ? &wsub : nullptr,
                     xSubCols, /*hasNanRoutingBin=*/false);
-            pairBest.bestFeatureScore += pairwisePenalty_;
+            pairBest.regularizedGain -= pairwisePenalty_;
             if (featureHasBetterShapeBranching(
                     pairBest, best, pair.first, xSubCols, rawFeatures,
                     std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
                         std::move(pairDisc)),
-                    outerTreeBuilder_.eps, applyTaskFields))
+                    applyTaskFields))
               best.logicalFeatureIndices = {pair.first, pair.second};
           }
         }
 
-        if (!std::isfinite(best.penalizedChildScore) ||
-            best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
-            best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
+        if (!std::isfinite(best.regularizedGain) ||
+            best.regularizedGain <= outerTreeBuilder_.eps) {
           markShapeFunctionNodeAsLeaf(node);
           return false;
         }
@@ -521,6 +521,7 @@ void RegressionShapeGeneralizedTree::fit(
         node.sampleBins = std::move(best.branching.sampleBins);
         node.numPartitions = best.branching.numPartitionsUsed;
         node.informationGain = best.branching.impurityDecrease;
+        node.regularizedGain = best.regularizedGain;
 
         if (criterion_ == LearningCriterion::SquaredError)
           node.splitLeafStats = std::move(best.nestedLeafStats);
@@ -560,7 +561,7 @@ void RegressionShapeGeneralizedTree::fit(
                                                     moments.sumW);
             }
             children[p].score =
-                Criterion::squaredError(aggMoments, moments.sumW);
+                Criterion::squaredError(aggMoments, moments.sumW) / nOutputs_;
             children[p].isLeaf = true;
             leafRegressionStats.push_back(std::move(aggF));
             leafNumSamples.push_back(children[p].sampleIndices.n_elem);
@@ -587,7 +588,7 @@ void RegressionShapeGeneralizedTree::fit(
               scoreSum += ae.mae;
               preds[o] = ae.median;
             }
-            children[p].score = scoreSum;
+            children[p].score = scoreSum / nOutputs_;
             children[p].isLeaf = true;
             leafRegressionStats.push_back({});
             leafNumSamples.push_back(children[p].sampleIndices.n_elem);

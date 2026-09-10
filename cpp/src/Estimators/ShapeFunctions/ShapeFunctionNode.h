@@ -33,7 +33,7 @@ struct RetainedPairCandidate {
  * ``innerDiscretizer`` + ``binToPartition`` (including a trailing NaN bin for
  * univariate numeric discretizers).
  *
- * `TreeBuilder` orders nodes by `informationGain` for the best-first heap.
+ * Outer growth orders nodes by regularized gain; informationGain remains raw.
  */
 class ShapeFunctionNode {
 public:
@@ -42,6 +42,7 @@ public:
   size_t height = 0;
   double score = 0.0;
   double informationGain = 0.0;
+  double regularizedGain = 0.0;
 
   /** Node id in `nodes_` while building; cleared after training. */
   size_t nodeIndex = 0;
@@ -105,11 +106,17 @@ public:
   std::vector<size_t> binSampleCounts;
 
   std::weak_ordering operator<=>(const ShapeFunctionNode &o) const {
-    return std::compare_weak_order_fallback(informationGain, o.informationGain);
+    if (const auto c = std::compare_weak_order_fallback(regularizedGain, o.regularizedGain); c != 0)
+      return c;
+    if (numPartitions != o.numPartitions)
+      return o.numPartitions <=> numPartitions;
+    if (logicalFeatureIndices.size() != o.logicalFeatureIndices.size())
+      return o.logicalFeatureIndices.size() <=> logicalFeatureIndices.size();
+    return o.nodeIndex <=> nodeIndex;
   }
 
   bool operator==(const ShapeFunctionNode &o) const {
-    return informationGain == o.informationGain;
+    return (*this <=> o) == 0;
   }
 
   /** Map routing feature value(s) to an outer child partition index. */

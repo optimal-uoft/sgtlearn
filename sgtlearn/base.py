@@ -252,7 +252,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     min_samples_leaf : int, default=1
         Minimum number of training samples required at an outer leaf.
     min_impurity_decrease : float, default=0.0
-        Minimum impurity decrease required to accept an outer split.
+        Constant nonnegative cost subtracted from total sample-weighted,
+        output-averaged impurity improvement. An outer split must have finite
+        improvement after all costs strictly greater than double epsilon.
     inner_max_depth : int, default=3
         Maximum depth of the *inner* tree that defines the shape function on
         each feature. ``1`` corresponds to a standard CART threshold split;
@@ -287,8 +289,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
     pairwise_penalty : float, default=0.0
-        Non-negative penalty added when comparing a fitted pair with the best
-        univariate candidate.
+        Constant nonnegative cost subtracted from a fitted pair's total
+        sample-weighted, output-averaged impurity improvement.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     class_weight : dict, list of dict, or None, default=None
@@ -324,7 +326,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     -----
     Internally, single- and multi-output training share one path: ``y`` is
     always handled as ``(n_samples, n_outputs)`` (with ``n_outputs=1`` for a
-    vector target). Impurity / gain sums across outputs. ``X`` is cast to
+    vector target). Outer impurity averages across outputs. ``X`` is cast to
     C-contiguous ``float32`` and ``y`` to ``uint64`` before the native trainer.
     Sparse input is not supported. NaN in ``X`` is handled by the native
     trainer (non-finite values are sorted to the feature tail and routed to
@@ -430,7 +432,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             Training features.
         y : array-like of shape (n_samples,) or (n_samples, n_outputs)
             Target class labels. Multi-output ``y`` trains one joint tree;
-            impurity is summed across outputs.
+            outer impurity is averaged across outputs.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
         feature_dict : mapping, optional
@@ -535,12 +537,10 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
-        if (
-            not isinstance(self.pairwise_penalty, Real)
-            or not isfinite(float(self.pairwise_penalty))
-            or self.pairwise_penalty < 0
-        ):
-            raise ValueError("pairwise_penalty must be finite and non-negative")
+        for name in ("min_impurity_decrease", "pairwise_penalty"):
+            value = getattr(self, name)
+            if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
+                raise ValueError(f"{name} must be finite and non-negative")
         tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
@@ -686,7 +686,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     min_samples_leaf : int, default=1
         Minimum number of samples required at an outer leaf.
     min_impurity_decrease : float, default=0.0
-        Minimum impurity decrease required to accept an outer split.
+        Constant nonnegative cost subtracted from total sample-weighted,
+        output-averaged impurity improvement. An outer split must have finite
+        improvement after all costs strictly greater than double epsilon.
     inner_max_depth : int, default=3
         Maximum depth of the inner tree defining the shape function on each
         feature. ``1`` reduces to a standard threshold split.
@@ -712,8 +714,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
     pairwise_penalty : float, default=0.0
-        Non-negative penalty applied only when comparing fitted pair and
-        univariate candidates.
+        Constant nonnegative cost subtracted from a fitted pair's total
+        sample-weighted, output-averaged impurity improvement.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
 
@@ -833,8 +835,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         X : array-like of shape (n_samples, n_features)
             Training features.
         y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            Target values. Multi-output ``y`` trains one joint tree; loss is
-            summed across outputs.
+            Target values. Multi-output ``y`` trains one joint tree; outer loss
+            is averaged across outputs.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
         feature_dict : mapping, optional
@@ -886,12 +888,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
-        if (
-            not isinstance(self.pairwise_penalty, Real)
-            or not isfinite(float(self.pairwise_penalty))
-            or self.pairwise_penalty < 0
-        ):
-            raise ValueError("pairwise_penalty must be finite and non-negative")
+        for name in ("min_impurity_decrease", "pairwise_penalty"):
+            value = getattr(self, name)
+            if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
+                raise ValueError(f"{name} must be finite and non-negative")
         tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)

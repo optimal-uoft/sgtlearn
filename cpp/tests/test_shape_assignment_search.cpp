@@ -10,6 +10,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
 #include <set>
+#include <cmath>
 
 using Catch::Matchers::WithinAbs;
 
@@ -60,10 +61,64 @@ ShapeBranchAssignmentSearchResult search(Bins &bins, size_t k, size_t minLeaf,
   std::mt19937_64 rng(42);
   const double parent = impurity(bins, std::vector<size_t>(bins.leafStats().size()), 1, criterion);
   return searchShapeBranchAssignmentFromDiscretizer(bins, criterion, parent, k,
-      outer, cd, 1e-12, rng, {bins.leafStats()[0][0].size()}, 1,
+      outer, cd, rng, {bins.leafStats()[0][0].size()}, 1,
       nullptr, nullptr, 0, bins.missing);
 }
 } // namespace
+
+TEST_CASE("Regularized acceptance is strictly above fixed double epsilon", "[shape_search][outer_score]") {
+  Bins bins({{1, 0}, {0, 1}}, {0, 1});
+  TreeBuildingParams outer;
+  CoordinateDescentParams cd;
+  cd.maxIters = 0;
+  const double eps = std::numeric_limits<double>::epsilon();
+  for (double alpha : {1.0, 1.0 + eps, std::nextafter(1.0, 0.0), 1.0 - eps,
+                       std::nextafter(1.0 - eps, 0.0)}) {
+    outer.minGainSplit = alpha;
+    std::mt19937_64 rng(42);
+    const auto result = searchShapeBranchAssignmentFromDiscretizer(
+        bins, LearningCriterion::Gini, 0.5, 2, outer, cd, rng, {2}, 1,
+        nullptr, nullptr, 0, false);
+    REQUIRE(result.found == (alpha < 1.0 - eps));
+  }
+  outer.minGainSplit = 0.0;
+  for (double parent : {std::numeric_limits<double>::quiet_NaN(),
+                        std::numeric_limits<double>::infinity(),
+                        -std::numeric_limits<double>::infinity()}) {
+    std::mt19937_64 rng(42);
+    REQUIRE_FALSE(searchShapeBranchAssignmentFromDiscretizer(
+        bins, LearningCriterion::Gini, parent, 2, outer, cd, rng, {2}, 1,
+        nullptr, nullptr, 0, false).found);
+  }
+}
+
+TEST_CASE("Branch costs charge only children beyond binary and do not reduce raw importance", "[shape_search][outer_score]") {
+  Bins bins({{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, {0, 1, 1});
+  TreeBuildingParams outer;
+  outer.minGainSplit = 2.0;
+  outer.branchingPenalty = 3.0;
+  CoordinateDescentParams cd;
+  cd.maxIters = 0;
+  std::mt19937_64 rng(42);
+  auto result = searchShapeBranchAssignmentFromDiscretizer(
+      bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
+      nullptr, nullptr, 0, false);
+  REQUIRE(result.chosenK == 3);
+  REQUIRE_THAT(result.impurityDecrease, WithinAbs(20.0, 1e-12));
+  REQUIRE_THAT(result.regularizedGain, WithinAbs(15.0, 1e-12));
+  outer.branchingPenalty = 11.0;
+  result = searchShapeBranchAssignmentFromDiscretizer(
+      bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
+      nullptr, nullptr, 0, false);
+  REQUIRE(result.chosenK == 2);
+  REQUIRE_THAT(result.impurityDecrease, WithinAbs(10.0, 1e-12));
+  REQUIRE_THAT(result.regularizedGain, WithinAbs(8.0, 1e-12));
+  outer.branchingPenalty = 10.0;
+  result = searchShapeBranchAssignmentFromDiscretizer(
+      bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
+      nullptr, nullptr, 0, false);
+  REQUIRE(result.chosenK == 2); // Equal score conserves children.
+}
 
 TEST_CASE("Weighted k-means preserves fractional and tiny masses and ignores empty bins", "[shape_search]") {
   for (double scale : {1.0, 1e-16, 1e8}) {
@@ -106,7 +161,8 @@ TEST_CASE("Selection uses occupied-branch penalty and preserves the binary root 
   for (auto criterion : {LearningCriterion::Gini, LearningCriterion::Entropy}) {
     Bins bins({{10, 0, 0}, {0, 10, 0}, {0, 0, 10}, {0, 0, 0}}, {0, 1, 1, 0}, true);
     const auto rootImpurity = impurity(bins, bins.root, 2, criterion);
-    const auto binary = search(bins, 4, 5, 2.0, 5, criterion);
+    // Penalties now use total mass (30 here), rather than normalized impurity.
+    const auto binary = search(bins, 4, 5, 60.0, 5, criterion);
     REQUIRE(binary.found);
     REQUIRE(binary.chosenK == 2);
     REQUIRE(binary.rootFeasible);
@@ -189,7 +245,7 @@ TEST_CASE("Regression retains rejected feasible trials and compacts occupied met
   bins.leafStats() = {{{0, 0}}, {{5, 5}}, {{10, 20}}};
   bins.leafNodeWeights() = {5, 5, 5};
   bins.leafNumSamples() = {5, 5, 5};
-  const auto binary = search(bins, 3, 5, 2.0, 5, criterion);
+  const auto binary = search(bins, 3, 5, 30.0, 5, criterion);
   REQUIRE(binary.chosenK == 2);
   REQUIRE(binary.partitionAggStats.size() == 2);
   REQUIRE(binary.partitionSampleCounts.size() == 2);
