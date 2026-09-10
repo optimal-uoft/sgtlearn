@@ -16,7 +16,12 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
-from sgtlearn.base import _column_names_from_X, _configure_processed_features
+from sgtlearn.base import (
+    _column_names_from_X,
+    _configure_processed_features,
+    _suppress_mae_cd_warning,
+    _warn_if_mae_cd_disabled,
+)
 
 
 def _n_samples_bootstrap(n_samples: int, max_samples: float | None) -> int:
@@ -59,13 +64,17 @@ def _parallel_fit_tree(
         sw_b = sample_weight
 
     est = tree_factory(tree_seed, tree_kw)
-    est.fit(
-        X_b,
-        y_b,
-        sample_weight=sw_b,
-        processed_features=processed_features,
-        check_input=False,
-    )
+    token = _suppress_mae_cd_warning.set(True)
+    try:
+        est.fit(
+            X_b,
+            y_b,
+            sample_weight=sw_b,
+            processed_features=processed_features,
+            check_input=False,
+        )
+    finally:
+        _suppress_mae_cd_warning.reset(token)
     return est
 
 
@@ -227,6 +236,7 @@ class RandomSGForest(BaseEstimator, ABC):
         rng = check_random_state(self.random_state)
 
         tree_kw = self._tree_kwargs()
+        _warn_if_mae_cd_disabled(self.criterion)
         tree_seeds = [
             int(rng.randint(np.iinfo(np.int32).max)) for _ in range(self.n_estimators)
         ]

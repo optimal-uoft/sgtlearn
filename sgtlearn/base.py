@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 from math import ceil, isfinite
 from numbers import Integral, Real
 from typing import Any
@@ -39,6 +41,24 @@ __all__ = [
     "SGTRegressor",
     "configure_feature_dict",
 ]
+
+
+_MAE_CD_WARNING = (
+    "Coordinate descent is disabled for the MAE objective. "
+    "Set SGTLEARN_MAE_CD=1 to enable it."
+)
+_suppress_mae_cd_warning: ContextVar[bool] = ContextVar(
+    "suppress_mae_cd_warning", default=False
+)
+
+
+def _warn_if_mae_cd_disabled(criterion: str) -> None:
+    if (
+        not _suppress_mae_cd_warning.get()
+        and str(criterion).strip().lower() in {"absolute_error", "mae"}
+        and os.environ.get("SGTLEARN_MAE_CD") not in {"1", "true", "TRUE", "yes"}
+    ):
+        warnings.warn(_MAE_CD_WARNING, UserWarning, stacklevel=3)
 
 
 def _column_names_from_X(X: Any) -> list[str] | None:
@@ -903,6 +923,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         y32 = native_y_array(y2, dtype=np.float32)
         sw = normalize_sample_weight(sample_weight, X.shape[0])
+        _warn_if_mae_cd_disabled(self.criterion)
         self._est.fit(
             X32,
             y32,
