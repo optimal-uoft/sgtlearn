@@ -51,5 +51,5 @@ void CategoricalClassificationDiscretizer::Train(
   CategoricalClassificationSplitter splitter(X, w, y, nClassesPerOutput,
                                              featureIndices_, criterion_);
   buildTree(X, splitter, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
-  processLeaves(splitter);
+  processLeaves(X, splitter);
 }

@@ -312,6 +312,11 @@ void PairClassificationDiscretizer::Train(
   this->markTrained();
 }
 
+std::vector<size_t> PairClassificationDiscretizer::rootBinAssignments(
+    size_t missingBranch) const {
+  return pairRootBinAssignments(tree_, numLeaves_, missingBranch);
+}
+
 size_t PairClassificationDiscretizer::routeValues(
     const std::vector<float> &values) const {
   if (values.size() != routingFeatures_.n_elem)

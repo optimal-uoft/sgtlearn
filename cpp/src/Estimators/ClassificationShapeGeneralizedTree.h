@@ -2,7 +2,7 @@
 
 /**
  * @file Estimators/ClassificationShapeGeneralizedTree.h
- * @brief Multivariate shape-generalized classification tree (outer ``TreeBuilder`` + inner branching fits).
+ * @brief Multivariate shape-generalized classification tree (outer ``OuterTreeBuilder`` + inner branching fits).
  */
 
 #include <stdexcept>
@@ -13,7 +13,7 @@
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
-#include "algorithms/TreeBuilder.h"
+#include "algorithms/OuterTreeBuilder.h"
 
 #include <armadillo>
 #include <cstddef>
@@ -25,16 +25,12 @@
  * Shape-Generalized Tree, classification variant.
  *
  * Responsibilities (by phase):
- * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
+ * - **Outer growth** (`OuterTreeBuilder`): best-first regularized expansion;
  *   per-node split search and child creation via lambdas in ``fit``; commit
  *   step remains a local lambda in ``fit``.
- * - **Per-node split search** (``fit`` lambdas): for each
- *   discretize -> k-means-style bin init -> `coordinateDescent` on bin-to-
- *   partition map; if the post-CD objective is **clearly worse** than the seed
- *   (absolute margin ``kShapeFunctionCdImprovementEps``),
- *   restore the
- *   assignment snapshot and rebuild the ``BranchAssignment``; keep the best branch
- *   by penalized child impurity.
+ * - **Per-node split search** (``fit`` lambdas): compare root and weighted
+ *   k-means initialization, then retain the lowest-penalized-impurity feasible
+ *   assignment encountered, including rejected coordinate-descent moves.
  * - **Leaf state**: `fillLeafHistogram` or aggregated discretizer stats after a
  *   committed split.
  * - **Inference**: `predict` / `predictProba` walk childIndices_ using
@@ -45,15 +41,15 @@
  *      node's samples (per-bin class counts and training column indices).
  *   2. **Partition search** : for each
  *      ``k`` in ``[2, min(numBins, numPartitions)]``, seed assignments
- *      (identity when ``k == numBins``, else k-means or round-robin), run
- *      coordinate descent when ``k < numBins``, score
- *      ``impurity + branchingPenalty * (k - 1)``, keep the best ``k``.
- *   3. **Coordinate descent**: if the objective clearly worsens vs the seed,
- *      restore the snapshot. Enforce ``minLeafSize`` per child partition.
+ *      with the lower-impurity root/k-means map and run coordinate descent.
+ *   3. **Selection**: retain feasible binary roots/fallbacks and every feasible
+ *      scored trial. Rank total weighted impurity decrease minus constant complexity costs;
+ *      compact occupied labels and require ``minLeafSize`` per utilized branch.
+ *      Only features with admissible univariate splits enter pair screening.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, with ``k`` children (``k``
- * may be less than ``numPartitions``). The outer loop uses `TreeBuilder`
+ * may be less than ``numPartitions``). The outer loop uses `OuterTreeBuilder`
  * like Python's heap over impurity decrease.
  *
  * Inputs use Armadillo's column-major convention: X has shape
@@ -176,7 +172,7 @@ private:
   std::vector<FeatureInfo> features_;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
-  TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
+  OuterTreeBuilder outerTreeBuilder_;
 
   /** Resolve ``classesPerOutput_`` from config and ``y``. */
   void resolveOutputLayout(size_t nOutputs);

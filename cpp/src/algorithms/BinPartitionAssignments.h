@@ -47,26 +47,19 @@ inline void seedBinAssignmentsKMeans(
   arma::vec wk(numBins);
   for (size_t b = 0; b < numBins; ++b) {
     wk(b) = b < binWeights.size()
-                ? std::max(1.0, binWeights[b])
-                : std::max(1.0, static_cast<double>(binSizes[b]));
+                ? binWeights[b]
+                : static_cast<double>(binSizes[b]);
     double sum = 0.0;
     for (size_t c = 0; c < numClasses; ++c)
       sum += binClassCounts[b][c];
     if (sum <= 0.0) {
-      Xk.row(b).fill(1.0 / static_cast<double>(numClasses));
+      Xk.row(b).zeros();
     } else {
       for (size_t c = 0; c < numClasses; ++c)
         Xk(b, c) = static_cast<double>(binClassCounts[b][c]) / sum;
     }
   }
   initAssignmentsWeightedKMeans(Xk, wk, k, rng, assignments);
-}
-
-/** score: ``impurity + branchingPenalty * (k - 1)``. */
-inline double penalizedBranchingScore(double childImpurity, size_t k,
-                                      double branchingPenalty) {
-  return childImpurity +
-         branchingPenalty * static_cast<double>(k > 0 ? k - 1 : 0);
 }
 
 } // namespace algorithms

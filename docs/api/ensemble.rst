@@ -5,8 +5,8 @@ Ensembles
 
 Bootstrap-aggregated random forests over Shape Generalized Trees.
 
-Both forest estimators accept ``tao_n_runs``, ``tao_lambda``, and
-``tao_pair_scale``; these are
+Both forest estimators accept ``branching_penalty``, ``tao_n_runs``,
+``tao_lambda``, and ``tao_pair_scale``; these are
 forwarded to each base tree and TAO runs on that tree's bootstrap sample (or
 the full training set when ``bootstrap=False``) at the end of each tree's
 ``fit``. See :doc:`tao` for post-hoc refinement on the full ``(X, y)``.
@@ -15,11 +15,15 @@ Multi-output ``y`` is supported the same way as for single trees
 (see :doc:`estimators`): one joint forest over all outputs, with sklearn-shaped
 ``predict`` / ``predict_proba`` returns.
 
-Forests accept the Shape²CART options ``pairwise_candidates`` and
-``pairwise_penalty`` and forward them to every base estimator.  Pair candidates
-are restricted to each node's ``max_features`` logical-feature subset.  See
-:doc:`estimators` for candidate-count semantics, categorical and joint missing
-routing, multiway support, and the feature-importance warning for pair nodes.
+Forests accept ``branching_penalty`` (default ``0.0``) and the Shape²CART
+options ``pairwise_candidates`` and ``pairwise_penalty`` and forward them to
+every base estimator. Outer growth uses the same total sample-mass-weighted,
+output-averaged score, constant ``alpha``/``lambda``/``gamma`` costs, strict
+actual-arity leaf budget, fixed-epsilon acceptance, and always-best-first order
+as single trees. Pair candidates are restricted to each node's
+``max_features`` logical-feature subset. See :doc:`estimators` for the full
+scoring, candidate-count, pair-screening, categorical and joint missing-routing
+semantics, and the feature-importance warning for pair nodes.
 See :doc:`../tutorials/bivariate-branching` for a worked classifier example.
 
 :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`

@@ -1,0 +1,49 @@
+{
+  "python": "3.14.5 (main, May 10 2026, 19:20:57) [Clang 22.1.3 ]",
+  "executable": "/tmp/sgtlearn-candidate-env/bin/python",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "cpu_count": 15,
+  "numpy": "2.5.2",
+  "sklearn": "1.9.0",
+  "modules": {
+    "sgtlearn": {
+      "path": "/private/tmp/sgtlearn-candidate-env/lib/python3.14/site-packages/sgtlearn/__init__.py",
+      "sha256": "13984db86446d4019d9a11089eace64c24b7694a864af68dcc5bfd50df5b2b74"
+    },
+    "ShapeGeneralizedTrees": {
+      "path": "/private/tmp/sgtlearn-candidate-env/lib/python3.14/site-packages/ShapeGeneralizedTrees.cpython-314-darwin.so",
+      "sha256": "d579d5986161cc002a4a956379dac2456a274bf863ba688e08bfa55a3010e12a"
+    },
+    "Discretizers": {
+      "path": "/private/tmp/sgtlearn-candidate-env/lib/python3.14/site-packages/Discretizers.cpython-314-darwin.so",
+      "sha256": "b51048586af06ce41f669584952b422e8c09d1cc998562dcd498952e28cb9ece"
+    },
+    "TreeAlternatingOptimization": {
+      "path": "/private/tmp/sgtlearn-candidate-env/lib/python3.14/site-packages/TreeAlternatingOptimization.cpython-314-darwin.so",
+      "sha256": "55ebc1f0f0fad08d002917a7b493393825724b5f865e09448642bacd7b6c5294"
+    }
+  },
+  "threadpools": [
+    {
+      "user_api": "openmp",
+      "internal_api": "openmp",
+      "num_threads": 1,
+      "prefix": "libomp",
+      "filepath": "/private/tmp/sgtlearn-candidate-env/lib/python3.14/site-packages/sklearn/.dylibs/libomp.dylib",
+      "version": null
+    }
+  ],
+  "revision": "0d7d8f6d35859e4958564e65a3ac3592592e047f",
+  "environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "PYTHONHASHSEED": "0",
+    "SGTLEARN_MAE_CD": "0"
+  },
+  "cmake_tests": "ON",
+  "cpp_tests_sha256": "f3127af12556d468f1754e8f221c5f4b2dd198cf324a6597f6b80b2342d5145b"
+}

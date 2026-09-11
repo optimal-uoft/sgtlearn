@@ -42,5 +42,5 @@ void CategoricalRegressionDiscretizer::Train(
 
   CategoricalRegressionSplitter splitter(X, w, y, featureIndices_, criterion_);
   buildTree(X, splitter, minLeafSize, minGainSplit, maxDepth, maxLeafNodes);
-  processLeaves(splitter);
+  processLeaves(X, splitter);
 }

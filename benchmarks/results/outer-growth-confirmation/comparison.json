@@ -1,0 +1,2979 @@
+{
+  "gini_binary_queue": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.3297569760737549,
+        "investigate": true
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.2055095126012745,
+        "investigate": false
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.002634178465591,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.03986389060446527,
+        "mad": 0.0007201927728601731,
+        "min": 0.03774654150038259,
+        "max": 0.04058408337732544
+      },
+      "predict_seconds_per_row": {
+        "median": 1.3027430519893338e-07,
+        "mad": 1.1903372822007568e-09,
+        "min": 1.259171072459777e-07,
+        "max": 1.327304713363263e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 199032832.0,
+        "mad": 81920.0,
+        "min": 198590464.0,
+        "max": 199278592.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7601666666666667,
+            "per_output": [
+              0.7601666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 8,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7601666666666667,
+            "per_output": [
+              0.7601666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 8,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7601666666666667,
+            "per_output": [
+              0.7601666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 8,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.0530092866247287,
+        "mad": 0.0008443385231657885,
+        "min": 0.05153622376383282,
+        "max": 0.055353833362460136
+      },
+      "predict_seconds_per_row": {
+        "median": 1.5704691416483586e-07,
+        "mad": 7.667128707847672e-10,
+        "min": 1.5551868222499804e-07,
+        "max": 1.5781362703562063e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 199557120.0,
+        "mad": 294912.0,
+        "min": 198934528.0,
+        "max": 199884800.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7651666666666667,
+            "per_output": [
+              0.7651666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 6,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7651666666666667,
+            "per_output": [
+              0.7651666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 6,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7651666666666667,
+            "per_output": [
+              0.7651666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 6,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7601666666666667,
+            "per_output": [
+              0.7601666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 8,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7651666666666667,
+            "per_output": [
+              0.7651666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 6,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.0050000000000000044,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7601666666666667,
+            "per_output": [
+              0.7601666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 8,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7651666666666667,
+            "per_output": [
+              0.7651666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 6,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.0050000000000000044,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7601666666666667,
+            "per_output": [
+              0.7601666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 8,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7651666666666667,
+            "per_output": [
+              0.7651666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 61,
+              "depth": 6,
+              "structural_leaves": 31,
+              "occupied_leaves": 31
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.7811666666666667,
+            "per_output": [
+              0.7811666666666667
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.0050000000000000044,
+        "training_quality_decreased": false
+      }
+    ]
+  },
+  "gini_default_tao": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.669058822469543,
+        "investigate": true
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.1217577082484218,
+        "investigate": false
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.0021567814184986,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.017981353972572833,
+        "mad": 0.00011210452066734433,
+        "min": 0.017755187524016947,
+        "max": 0.018252395995659754
+      },
+      "predict_seconds_per_row": {
+        "median": 1.0885924369472041e-07,
+        "mad": 1.5366543311243148e-09,
+        "min": 1.0721797085120587e-07,
+        "max": 1.117404673803661e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 197509120.0,
+        "mad": 196608.0,
+        "min": 197312512.0,
+        "max": 198459392.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6666666666666666,
+            "per_output": [
+              0.6666666666666666
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 3,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6666666666666666,
+            "per_output": [
+              0.6666666666666666
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 3,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6666666666666666,
+            "per_output": [
+              0.6666666666666666
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 3,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.030011937487870455,
+        "mad": 0.0001610209874343127,
+        "min": 0.029651313001522794,
+        "max": 0.030857312493026257
+      },
+      "predict_seconds_per_row": {
+        "median": 1.2211369572864602e-07,
+        "mad": 1.0524514552460333e-09,
+        "min": 1.210612442734e-07,
+        "max": 1.2420506308075473e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 197935104.0,
+        "mad": 180224.0,
+        "min": 197509120.0,
+        "max": 198115328.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6946666666666667,
+            "per_output": [
+              0.6946666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 15,
+              "depth": 3,
+              "structural_leaves": 10,
+              "occupied_leaves": 8
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": false
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6946666666666667,
+            "per_output": [
+              0.6946666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 15,
+              "depth": 3,
+              "structural_leaves": 10,
+              "occupied_leaves": 8
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": false
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6946666666666667,
+            "per_output": [
+              0.6946666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 15,
+              "depth": 3,
+              "structural_leaves": 10,
+              "occupied_leaves": 9
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6666666666666666,
+            "per_output": [
+              0.6666666666666666
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 3,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6946666666666667,
+            "per_output": [
+              0.6946666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 15,
+              "depth": 3,
+              "structural_leaves": 10,
+              "occupied_leaves": 8
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.028000000000000025,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6666666666666666,
+            "per_output": [
+              0.6666666666666666
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 3,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6946666666666667,
+            "per_output": [
+              0.6946666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 15,
+              "depth": 3,
+              "structural_leaves": 10,
+              "occupied_leaves": 8
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.028000000000000025,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6666666666666666,
+            "per_output": [
+              0.6666666666666666
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 17,
+              "depth": 3,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.6946666666666667,
+            "per_output": [
+              0.6946666666666667
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 15,
+              "depth": 3,
+              "structural_leaves": 10,
+              "occupied_leaves": 9
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.6913333333333334,
+            "per_output": [
+              0.6913333333333334
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.028000000000000025,
+        "training_quality_decreased": false
+      }
+    ]
+  },
+  "gini_forest_parallel": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.005335939337491,
+        "investigate": false
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.4041245622416976,
+        "investigate": true
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.0060192321808705,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.09106474998407066,
+        "mad": 0.006297375017311424,
+        "min": 0.07541937497444451,
+        "max": 0.09736212500138208
+      },
+      "predict_seconds_per_row": {
+        "median": 4.6059122242321097e-07,
+        "mad": 6.762267792693091e-09,
+        "min": 4.5318093295951467e-07,
+        "max": 4.7483499050334405e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 223199232.0,
+        "mad": 98304.0,
+        "min": 223100928.0,
+        "max": 225378304.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70725,
+            "per_output": [
+              0.70725
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.71175,
+            "per_output": [
+              0.71175
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.09155066596576944,
+        "mad": 0.0012402500142343342,
+        "min": 0.07623570901341736,
+        "max": 0.09279091598000377
+      },
+      "predict_seconds_per_row": {
+        "median": 6.467274485573595e-07,
+        "mad": 1.3780057202043355e-08,
+        "min": 6.245865322601069e-07,
+        "max": 6.622114053339158e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 224542720.0,
+        "mad": 163840.0,
+        "min": 223985664.0,
+        "max": 224706560.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70075,
+            "per_output": [
+              0.70075
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7195,
+            "per_output": [
+              0.7195
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.74875,
+            "per_output": [
+              0.74875
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70725,
+            "per_output": [
+              0.70725
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70075,
+            "per_output": [
+              0.70075
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": -0.006500000000000061,
+        "training_quality_decreased": true
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.71175,
+            "per_output": [
+              0.71175
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7195,
+            "per_output": [
+              0.7195
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.007750000000000035,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.74875,
+            "per_output": [
+              0.74875
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.018750000000000044,
+        "training_quality_decreased": false
+      }
+    ]
+  },
+  "gini_forest_serial": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.3209252661424231,
+        "investigate": true
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.3742417919394903,
+        "investigate": true
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.005877071259489,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.0664284999947995,
+        "mad": 0.0019164169789291918,
+        "min": 0.06405720801558346,
+        "max": 0.0816100420197472
+      },
+      "predict_seconds_per_row": {
+        "median": 4.6464915191151064e-07,
+        "mad": 7.939350016016256e-09,
+        "min": 4.492957589848499e-07,
+        "max": 4.7663076133396705e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 200720384.0,
+        "mad": 65536.0,
+        "min": 200294400.0,
+        "max": 200998912.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70725,
+            "per_output": [
+              0.70725
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.71175,
+            "per_output": [
+              0.71175
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.08774708403507248,
+        "mad": 0.0008025420247577131,
+        "min": 0.08694454201031476,
+        "max": 0.10508929198840633
+      },
+      "predict_seconds_per_row": {
+        "median": 6.385402831460388e-07,
+        "mad": 9.793049367314653e-09,
+        "min": 6.283767700369935e-07,
+        "max": 6.699941249222475e-07
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 201900032.0,
+        "mad": 196608.0,
+        "min": 201523200.0,
+        "max": 202309632.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70075,
+            "per_output": [
+              0.70075
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7195,
+            "per_output": [
+              0.7195
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.74875,
+            "per_output": [
+              0.74875
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70725,
+            "per_output": [
+              0.70725
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 4,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.70075,
+            "per_output": [
+              0.70075
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": -0.006500000000000061,
+        "training_quality_decreased": true
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.71175,
+            "per_output": [
+              0.71175
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 23,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.7195,
+            "per_output": [
+              0.7195
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 3,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": 0.007750000000000035,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 23,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 24,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            },
+            {
+              "nodes": 24,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 25,
+              "depth": 5,
+              "structural_leaves": 16,
+              "occupied_leaves": 16
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "accuracy",
+            "mean": 0.74875,
+            "per_output": [
+              0.74875
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 5,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            },
+            {
+              "nodes": 22,
+              "depth": 4,
+              "structural_leaves": 15,
+              "occupied_leaves": 15
+            }
+          ],
+          "cart": {
+            "metric": "accuracy",
+            "mean": 0.73,
+            "per_output": [
+              0.73
+            ]
+          },
+          "worse_than_cart": false
+        },
+        "candidate_minus_baseline": 0.018750000000000044,
+        "training_quality_decreased": false
+      }
+    ]
+  },
+  "mae_cd_off": {
+    "performance": {
+      "fit_seconds": {
+        "ratio": 1.1840163270762958,
+        "investigate": false
+      },
+      "predict_seconds_per_row": {
+        "ratio": 1.425847908627993,
+        "investigate": true
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "ratio": 1.0032794949577766,
+        "investigate": false
+      }
+    },
+    "baseline": {
+      "fit_seconds": {
+        "median": 0.08905708399834111,
+        "mad": 0.00012529152445495129,
+        "min": 0.0884980630071368,
+        "max": 0.09256489598192275
+      },
+      "predict_seconds_per_row": {
+        "median": 6.427441059888282e-08,
+        "mad": 6.24356383869403e-10,
+        "min": 6.331568215604373e-08,
+        "max": 6.525904113966989e-08
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 199835648.0,
+        "mad": 81920.0,
+        "min": 199753728.0,
+        "max": 200212480.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.9869150770814045,
+            "per_output": [
+              1.2202110300911373,
+              0.7536191240716716
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.9869150770814045,
+            "per_output": [
+              1.2202110300911373,
+              0.7536191240716716
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.9869150770814045,
+            "per_output": [
+              1.2202110300911373,
+              0.7536191240716716
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "candidate": {
+      "fit_seconds": {
+        "median": 0.105445041495841,
+        "mad": 0.0004303960013203323,
+        "min": 0.10238910448970273,
+        "max": 0.1074836044863332
+      },
+      "predict_seconds_per_row": {
+        "median": 9.164553393071396e-08,
+        "mad": 4.0164527170894106e-10,
+        "min": 9.124388865900502e-08,
+        "max": 9.351247682154345e-08
+      },
+      "peak_fit_process_tree_rss_bytes": {
+        "median": 200491008.0,
+        "mad": 327680.0,
+        "min": 199573504.0,
+        "max": 201064448.0
+      },
+      "quality": [
+        {
+          "seed": 17,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.8882822030011353,
+            "per_output": [
+              1.1923110877353054,
+              0.584253318266965
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 29,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.8882822030011353,
+            "per_output": [
+              1.1923110877353054,
+              0.584253318266965
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        {
+          "seed": 43,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.8882822030011353,
+            "per_output": [
+              1.1923110877353054,
+              0.584253318266965
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        }
+      ]
+    },
+    "quality": [
+      {
+        "seed": 17,
+        "baseline": {
+          "seed": 17,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.9869150770814045,
+            "per_output": [
+              1.2202110300911373,
+              0.7536191240716716
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 17,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.8882822030011353,
+            "per_output": [
+              1.1923110877353054,
+              0.584253318266965
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": -0.09863287408026922,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 29,
+        "baseline": {
+          "seed": 29,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.9869150770814045,
+            "per_output": [
+              1.2202110300911373,
+              0.7536191240716716
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 29,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.8882822030011353,
+            "per_output": [
+              1.1923110877353054,
+              0.584253318266965
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": -0.09863287408026922,
+        "training_quality_decreased": false
+      },
+      {
+        "seed": 43,
+        "baseline": {
+          "seed": 43,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.9869150770814045,
+            "per_output": [
+              1.2202110300911373,
+              0.7536191240716716
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate": {
+          "seed": 43,
+          "sgt": {
+            "metric": "mae",
+            "mean": 0.8882822030011353,
+            "per_output": [
+              1.1923110877353054,
+              0.584253318266965
+            ]
+          },
+          "structure": [
+            {
+              "nodes": 19,
+              "depth": 4,
+              "structural_leaves": 11,
+              "occupied_leaves": 11
+            }
+          ],
+          "cart": {
+            "metric": "mae",
+            "mean": 0.8667906344777603,
+            "per_output": [
+              1.2246566576028426,
+              0.5089246113526779
+            ]
+          },
+          "worse_than_cart": true
+        },
+        "candidate_minus_baseline": -0.09863287408026922,
+        "training_quality_decreased": false
+      }
+    ]
+  }
+}

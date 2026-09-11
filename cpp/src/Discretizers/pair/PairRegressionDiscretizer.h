@@ -22,6 +22,7 @@ public:
 
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override;
   size_t routeToBin(const std::vector<float> &featureValues) const override;
+  std::vector<size_t> rootBinAssignments(size_t missingBranch = 0) const override;
 
   const std::vector<PairRoutingTreeNode> &routingTree() const { return tree_; }
   const std::array<FeatureInfo, 2> &axes() const { return axes_; }

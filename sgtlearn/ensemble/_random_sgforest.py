@@ -16,7 +16,12 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
-from sgtlearn.base import _column_names_from_X, _configure_processed_features
+from sgtlearn.base import (
+    _column_names_from_X,
+    _configure_processed_features,
+    _suppress_mae_cd_warning,
+    _warn_if_mae_cd_disabled,
+)
 
 
 def _n_samples_bootstrap(n_samples: int, max_samples: float | None) -> int:
@@ -59,13 +64,17 @@ def _parallel_fit_tree(
         sw_b = sample_weight
 
     est = tree_factory(tree_seed, tree_kw)
-    est.fit(
-        X_b,
-        y_b,
-        sample_weight=sw_b,
-        processed_features=processed_features,
-        check_input=False,
-    )
+    token = _suppress_mae_cd_warning.set(True)
+    try:
+        est.fit(
+            X_b,
+            y_b,
+            sample_weight=sw_b,
+            processed_features=processed_features,
+            check_input=False,
+        )
+    finally:
+        _suppress_mae_cd_warning.reset(token)
     return est
 
 
@@ -95,13 +104,13 @@ class RandomSGForest(BaseEstimator, ABC):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         max_features: float | str | None = None,
         bootstrap: bool = True,
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
         tao_pair_scale: float = 1.1,
@@ -121,13 +130,13 @@ class RandomSGForest(BaseEstimator, ABC):
         self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
         self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
         self.coordinate_descent_patience = int(coordinate_descent_patience)
-        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.max_features = max_features
         self.bootstrap = bool(bootstrap)
         self.max_samples = max_samples
         self.random_state = random_state
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
+        self.branching_penalty = branching_penalty
         self.tao_n_runs = int(tao_n_runs)
         self.tao_lambda = float(tao_lambda)
         self.tao_pair_scale = tao_pair_scale
@@ -148,10 +157,10 @@ class RandomSGForest(BaseEstimator, ABC):
             "inner_min_impurity_decrease": self.inner_min_impurity_decrease,
             "coordinate_descent_max_iters": self.coordinate_descent_max_iters,
             "coordinate_descent_patience": self.coordinate_descent_patience,
-            "coordinate_descent_smart_init": self.coordinate_descent_smart_init,
             "max_features": self.max_features,
             "pairwise_candidates": self.pairwise_candidates,
             "pairwise_penalty": self.pairwise_penalty,
+            "branching_penalty": self.branching_penalty,
             "tao_n_runs": self.tao_n_runs,
             "tao_lambda": self.tao_lambda,
             "tao_pair_scale": self.tao_pair_scale,
@@ -230,6 +239,7 @@ class RandomSGForest(BaseEstimator, ABC):
         rng = check_random_state(self.random_state)
 
         tree_kw = self._tree_kwargs()
+        _warn_if_mae_cd_disabled(self.criterion)
         tree_seeds = [
             int(rng.randint(np.iinfo(np.int32).max)) for _ in range(self.n_estimators)
         ]

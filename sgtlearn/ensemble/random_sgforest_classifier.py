@@ -42,8 +42,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     inner_max_depth, inner_max_leaf_nodes, inner_min_samples_leaf, \
     inner_min_impurity_decrease : see :class:`sgtlearn.SGTClassifier`
         Inner-tree (shape function) controls forwarded to each base estimator.
-    coordinate_descent_max_iters, coordinate_descent_patience, \
-    coordinate_descent_smart_init : see :class:`sgtlearn.SGTClassifier`
+    coordinate_descent_max_iters, coordinate_descent_patience : \
+        see :class:`sgtlearn.SGTClassifier`
         Coordinate-descent controls forwarded to each base estimator.
     max_features : int, float, {"sqrt", "log2"} or None, default="sqrt"
         Per-split feature subsampling for each base tree. Defaults to
@@ -54,8 +54,10 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
     pairwise_penalty : float, default=0.0
-        Non-negative penalty added when comparing a fitted pair with the best
-        univariate candidate.
+        Constant nonnegative cost subtracted from a fitted pair's total
+        sample-weighted, output-averaged impurity improvement.
+    branching_penalty : float, default=0.0
+        Constant cost per additional occupied child beyond two.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     bootstrap : bool, default=True
@@ -135,7 +137,6 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         max_features: float | str | None = "sqrt",
         bootstrap: bool = True,
         max_samples: float | None = None,
@@ -143,6 +144,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
         tao_pair_scale: float = 1.1,
@@ -164,13 +166,13 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             inner_min_impurity_decrease=inner_min_impurity_decrease,
             coordinate_descent_max_iters=coordinate_descent_max_iters,
             coordinate_descent_patience=coordinate_descent_patience,
-            coordinate_descent_smart_init=coordinate_descent_smart_init,
             max_features=max_features,
             bootstrap=bootstrap,
             max_samples=max_samples,
             random_state=random_state,
             pairwise_candidates=pairwise_candidates,
             pairwise_penalty=pairwise_penalty,
+            branching_penalty=branching_penalty,
             tao_n_runs=tao_n_runs,
             tao_lambda=tao_lambda,
             tao_pair_scale=tao_pair_scale,

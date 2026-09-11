@@ -45,6 +45,22 @@ plt.show()
 ```
 
 Read the full docs here: https://sgtlearn.readthedocs.io/en/latest/index.html 
+
+Outer growth now always selects the best available regularized split and
+strictly respects `max_leaf_nodes`, including multiway splits. Its impurity
+improvement uses total sample weight and the mean across target outputs.
+`min_impurity_decrease`, `branching_penalty` (new, default `0.0`), and
+`pairwise_penalty` subtract constant costs in these units; existing positive
+penalties may need retuning. Inner CART and TAO retain their separate settings.
+See [outer-growth semantics](docs/api/estimators.rst) for the scoring formula.
+
+For `SGTRegressor` and `RandomSGForestRegressor`, MAE (`criterion="absolute_error"`
+or `"mae"`) leaves coordinate descent disabled by default. Each top-level fit
+emits one `UserWarning`, including parallel forest fits. Set the environment
+variable `SGTLEARN_MAE_CD=1` before fitting to enable it and omit the warning.
+The native flag also accepts exactly `true`, `TRUE`, or `yes`; other values keep
+CD disabled. This does not change TAO settings or affect classification/MSE.
+
 ## Developer Setup
 
 Use a **project-local virtual environment** (`.venv`) so Python, pytest, and

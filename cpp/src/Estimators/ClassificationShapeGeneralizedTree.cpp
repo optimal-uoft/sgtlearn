@@ -14,8 +14,10 @@
 
 #include "Criterion.h"
 #include "Discretizers/ClassificationDiscretizer.h"
+#include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"
 #include "Discretizers/pair/PairClassificationDiscretizer.h"
 #include "Discretizers/factories/DiscretizerFactories.h"
+#include "Discretizers/univariate/NumericFallbackDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 
 #include <algorithm>
@@ -57,8 +59,7 @@ ClassificationShapeGeneralizedTree::ClassificationShapeGeneralizedTree(
                           ? std::move(featureBagging)
                           : FeatureBaggingPickFn(pickAllFeatureIndices)),
       pairwiseCandidates_(pairwiseCandidates), pairwisePenalty_(pairwisePenalty),
-      outerTreeBuilder_(outerParams_.minLeafSize, outerParams_.minGainSplit,
-                        outerParams_.maxDepth, outerParams_.maxLeafNodes) {
+      outerTreeBuilder_(outerParams_) {
   if (criterion != LearningCriterion::Entropy &&
       criterion != LearningCriterion::Gini)
     throw std::invalid_argument(
@@ -108,9 +109,9 @@ ClassificationShapeGeneralizedTree::makeEmptyHistogram() const {
 double ClassificationShapeGeneralizedTree::impurityForClassCounts(
     const std::vector<std::vector<double>> &classCounts) const {
   if (criterion_ == LearningCriterion::Gini)
-    return Criterion::gini(classCounts);
+    return Criterion::gini(classCounts) / nOutputs_;
   if (criterion_ == LearningCriterion::Entropy)
-    return Criterion::entropy(classCounts);
+    return Criterion::entropy(classCounts) / nOutputs_;
   throw std::runtime_error("ClassificationShapeGeneralizedTree::"
                            "impurityForClassCounts: invalid criterion");
 }
@@ -198,19 +199,19 @@ void ClassificationShapeGeneralizedTree::fit(
 
   const auto findBestSplit =
       [this, &X, &y, numLogicalFeatures](ShapeFunctionNode &node,
-                                         size_t minLeaf) -> bool {
+                                         size_t minLeaf, size_t maxPartitions) -> std::vector<ShapeFunctionNode> {
         const size_t ns = node.sampleIndices.n_elem;
         node.score = impurityForClassCounts(classCounts[node.nodeIndex]);
 
         if (ns < 2 * minLeaf) {
           markShapeFunctionNodeAsLeaf(node);
-          return false;
+          return {};
         }
 
         const double parentImp = node.score;
-        if (parentImp <= outerTreeBuilder_.eps) {
+        if (parentImp <= 0.0) {
           markShapeFunctionNodeAsLeaf(node);
-          return false;
+          return {};
         }
 
         const arma::uvec &subIdx = node.sampleIndices;
@@ -224,7 +225,7 @@ void ClassificationShapeGeneralizedTree::fit(
             rng_);
 
         const size_t xSubCols = static_cast<size_t>(Xsub.n_cols);
-        ShapeBestBranchingState best{};
+        std::vector<ShapeBestBranchingState> candidates(maxPartitions + 1);
         const arma::Row<float> wsub =
             subSampleWeights(fitSampleWeights_, subIdx);
 
@@ -236,12 +237,6 @@ void ClassificationShapeGeneralizedTree::fit(
         };
         std::vector<UnivariateProxy> univariateProxies;
         std::vector<RetainedPairCandidate> retainedPairCandidates;
-
-        const auto addNoSplitProxy = [&univariateProxies, xSubCols,
-                                      parentImp](size_t logicalIdx) {
-          univariateProxies.push_back(
-              {logicalIdx, 1, parentImp, std::vector<size_t>(xSubCols, 0)});
-        };
 
         const auto applyTaskFields =
             [](ShapeBestBranchingState &state,
@@ -256,45 +251,78 @@ void ClassificationShapeGeneralizedTree::fit(
           const size_t logicalIdx = featureSubset[fi];
           const FeatureInfo &feature = features_[logicalIdx];
 
-          auto disc = makeClassificationDiscretizer(criterion_, feature);
+          std::shared_ptr<ClassificationDiscretizer> disc = makeClassificationDiscretizer(criterion_, feature);
           trainClassificationDiscretizer(
               *disc, feature, Xsub, ysub, classesPerOutput_,
               innerParams_.minLeafSize, innerParams_.minGainSplit,
               innerParams_.maxDepth, innerParams_.maxLeafNodes, wsub);
-          if (disc->numLeaves() < 2) {
-            if (pairwiseCandidates_ > 0)
-              addNoSplitProxy(logicalIdx);
-            continue;
-          }
-
-          const ShapeBranchAssignmentSearchResult featureBest =
+          if (!disc->isTrained())
+            continue; // An all-missing numeric feature has no finite inner tree.
+          auto featureSearch =
               searchShapeBranchAssignmentFromDiscretizer(
-                  *disc, criterion_, parentImp, numPartitions_, outerParams_,
-                  cdParams_, outerTreeBuilder_.eps, rng_,
-                  /*useKMeansSeed=*/true, classesPerOutput_, nOutputs_);
+                  *disc, criterion_, parentImp, maxPartitions, outerParams_,
+                  cdParams_, rng_,
+                  classesPerOutput_, nOutputs_);
+          retainShapeBranchingCandidates(featureSearch, candidates, {logicalIdx},
+              xSubCols, feature.indices, disc, 0.0, applyTaskFields);
+          auto featureBest = featureSearch.rawBest;
+          std::shared_ptr<InnerDiscretizer<std::vector<double>>> proxyDisc = disc;
+          const bool numericMissing = feature.type == FeatureType::Continuous &&
+              !Xsub.row(feature.indices(0)).is_finite();
+          if (!featureBest.rootFeasible ||
+              (feature.type == FeatureType::Continuous &&
+               (innerParams_.minLeafSize > outerParams_.minLeafSize ||
+                numericMissing))) {
+            // A finite inner optimum under an equal or looser minimum is also
+            // outer-optimal when outer-feasible: it minimizes over a superset.
+            // Otherwise retain an independent stump with faithful routing.
+            std::shared_ptr<InnerDiscretizer<std::vector<double>>> fallback;
+            if (feature.type == FeatureType::Continuous) {
+              fallback = makeNumericFallbackDiscretizer(criterion_, Xsub,
+                  feature.indices(0), ysub, wsub, outerParams_.minLeafSize,
+                  classesPerOutput_);
+            } else {
+              auto stump = std::make_shared<CategoricalClassificationDiscretizer>(criterion_);
+              const std::vector<size_t> categories(feature.indices.begin(), feature.indices.end());
+              CategoricalClassificationSplitter splitter(
+                  Xsub, wsub, ysub, classesPerOutput_, categories, criterion_);
+              stump->trainFallback(Xsub, categories, splitter, outerParams_.minLeafSize);
+              fallback = std::move(stump);
+            }
+            CoordinateDescentParams noRefinement = cdParams_;
+            noRefinement.maxIters = 0;
+            auto fallbackRng = rng_;
+            auto fallbackSearch = searchShapeBranchAssignmentFromDiscretizer(
+                *fallback, criterion_, parentImp, 2, outerParams_, noRefinement,
+                feature.type == FeatureType::Continuous ? fallbackRng : rng_,
+                classesPerOutput_, nOutputs_);
+            retainShapeBranchingCandidates(fallbackSearch, candidates, {logicalIdx},
+                xSubCols, feature.indices, fallback, 0.0, applyTaskFields);
+            const auto &fallbackBest = fallbackSearch.rawBest;
+            if (fallbackBest.found &&
+                (!featureBest.found || fallbackBest.childImpurity < featureBest.childImpurity ||
+                 (fallbackBest.childImpurity == featureBest.childImpurity &&
+                  fallbackBest.chosenK < featureBest.chosenK))) {
+              featureBest = fallbackBest;
+              proxyDisc = fallback;
+            }
+          }
           if (!featureBest.found) {
-            if (pairwiseCandidates_ > 0)
-              addNoSplitProxy(logicalIdx);
             continue;
           }
 
           if (pairwiseCandidates_ > 0) {
             std::vector<size_t> partitions(xSubCols, 0);
-            const auto &perBin = disc->inSampleDiscretizations();
+            const auto &perBin = proxyDisc->inSampleDiscretizations();
             for (size_t bin = 0; bin < perBin.size(); ++bin)
               for (size_t sample : perBin[bin])
                 partitions[sample] = featureBest.assignments[bin];
             univariateProxies.push_back(
                 {logicalIdx, featureBest.chosenK,
-                 parentImp - featureBest.impurityDecrease,
+                 featureBest.childImpurity,
                  std::move(partitions)});
           }
 
-          featureHasBetterShapeBranching(
-              featureBest, best, logicalIdx, xSubCols, feature.indices,
-              std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
-                  std::move(disc)),
-              outerTreeBuilder_.eps, applyTaskFields);
         }
 
         if (pairwiseCandidates_ > 0 && univariateProxies.size() >= 2) {
@@ -360,7 +388,7 @@ void ClassificationShapeGeneralizedTree::fit(
             const FeatureInfo &first = features_[pair.first];
             const FeatureInfo &second = features_[pair.second];
             arma::uvec rawFeatures = arma::join_cols(first.indices, second.indices);
-            auto pairDisc = std::make_unique<PairClassificationDiscretizer>(
+            auto pairDisc = std::make_shared<PairClassificationDiscretizer>(
                 criterion_, first, second);
             pairDisc->Train(
                 Xsub, rawFeatures, ysub, classesPerOutput_,
@@ -368,46 +396,44 @@ void ClassificationShapeGeneralizedTree::fit(
                 innerParams_.maxDepth, innerParams_.maxLeafNodes, wsub);
             if (pairDisc->numLeaves() < 2)
               continue;
-            ShapeBranchAssignmentSearchResult pairBest =
+            auto pairSearch =
                 searchShapeBranchAssignmentFromDiscretizer(
-                    *pairDisc, criterion_, parentImp, numPartitions_,
-                    outerParams_, cdParams_, outerTreeBuilder_.eps, rng_,
-                    /*useKMeansSeed=*/true, classesPerOutput_, nOutputs_,
+                    *pairDisc, criterion_, parentImp, maxPartitions,
+                    outerParams_, cdParams_, rng_,
+                    classesPerOutput_, nOutputs_,
                     nullptr, nullptr, 0, /*hasNanRoutingBin=*/false);
-            pairBest.bestFeatureScore += pairwisePenalty_;
-            if (featureHasBetterShapeBranching(
-                    pairBest, best, pair.first, xSubCols, rawFeatures,
-                    std::unique_ptr<InnerDiscretizer<std::vector<double>>>(
-                        std::move(pairDisc)),
-                    outerTreeBuilder_.eps, applyTaskFields))
-              best.logicalFeatureIndices = {pair.first, pair.second};
+            retainShapeBranchingCandidates(pairSearch, candidates,
+                {pair.first, pair.second}, xSubCols, rawFeatures, pairDisc,
+                pairwisePenalty_, applyTaskFields);
           }
         }
 
-        if (!std::isfinite(best.penalizedChildScore) ||
-            best.penalizedChildScore >= std::numeric_limits<double>::infinity() ||
-            best.branching.impurityDecrease <= outerTreeBuilder_.eps) {
-          markShapeFunctionNodeAsLeaf(node);
-          return false;
+        std::vector<ShapeFunctionNode> splits;
+        for (auto &best : candidates) {
+          if (!std::isfinite(best.regularizedGain) ||
+              best.regularizedGain <= outerTreeBuilder_.eps)
+            continue;
+          auto candidate = node;
+          candidate.isLeaf = false;
+          candidate.splitFeatureIndex = best.branching.featureIndex;
+          candidate.logicalFeatureIndices = best.logicalFeatureIndices;
+          candidate.retainedPairCandidates = retainedPairCandidates;
+          candidate.routingFeatures.assign(best.routingColumnIndices.begin(),
+                                      best.routingColumnIndices.end());
+          candidate.innerDiscretizer = best.winningDiscretizer;
+          candidate.binToPartition = std::move(best.branching.binToPartition);
+          candidate.sampleBins = std::move(best.branching.sampleBins);
+          candidate.splitClassCounts = std::move(best.nestedLeafStats);
+          candidate.splitLeafStats.clear();
+          candidate.splitBinWeights = std::move(best.binWeights);
+          candidate.binSampleCounts = std::move(best.branching.leafNumSamples);
+          candidate.numPartitions = best.branching.numPartitionsUsed;
+          candidate.informationGain = best.branching.impurityDecrease;
+          candidate.regularizedGain = best.regularizedGain;
+
+          splits.push_back(std::move(candidate));
         }
-
-        node.isLeaf = false;
-        node.splitFeatureIndex = best.branching.featureIndex;
-        node.logicalFeatureIndices = best.logicalFeatureIndices;
-        node.retainedPairCandidates = std::move(retainedPairCandidates);
-        node.routingFeatures.assign(best.routingColumnIndices.begin(),
-                                    best.routingColumnIndices.end());
-        node.innerDiscretizer = best.winningDiscretizer;
-        node.binToPartition = std::move(best.branching.binToPartition);
-        node.sampleBins = std::move(best.branching.sampleBins);
-        node.splitClassCounts = std::move(best.nestedLeafStats);
-        node.splitLeafStats.clear();
-        node.splitBinWeights = std::move(best.binWeights);
-        node.binSampleCounts = std::move(best.branching.leafNumSamples);
-        node.numPartitions = best.branching.numPartitionsUsed;
-        node.informationGain = best.branching.impurityDecrease;
-
-        return true;
+        return splits;
       };
 
   const auto makeChildren =

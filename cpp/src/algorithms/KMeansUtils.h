@@ -23,26 +23,28 @@ inline void initAssignmentsWeightedKMeans(const arma::mat &X, const arma::vec &w
                                           std::vector<size_t> &assignments) {
   const size_t B = X.n_rows;
   const size_t C = X.n_cols;
-  assignments.resize(B);
+  assignments.assign(B, 0);
   if (B == 0 || k == 0)
     return;
-  if (B < k) {
-    for (size_t b = 0; b < B; ++b)
-      assignments[b] = b % k;
+  std::vector<size_t> positive;
+  for (size_t b = 0; b < B; ++b)
+    if (w(b) > 0.0)
+      positive.push_back(b);
+  if (positive.empty())
     return;
-  }
+  k = std::min(k, positive.size());
 
   arma::mat centroids(k, C);
   for (size_t j = 0; j < k; ++j) {
-    const size_t idx = (j * B) / k;
+    const size_t idx = positive[(j * positive.size()) / k];
     centroids.row(j) = X.row(idx);
   }
 
-  std::uniform_int_distribution<size_t> pickBin(0, B - 1);
+  std::uniform_int_distribution<size_t> pickBin(0, positive.size() - 1);
 
   for (size_t iter = 0; iter < 50; ++iter) {
     bool changed = false;
-    for (size_t b = 0; b < B; ++b) {
+    for (size_t b : positive) {
       double bestD = std::numeric_limits<double>::infinity();
       size_t bestJ = 0;
       for (size_t j = 0; j < k; ++j) {
@@ -64,17 +66,17 @@ inline void initAssignmentsWeightedKMeans(const arma::mat &X, const arma::vec &w
 
     centroids.zeros();
     arma::vec sumW(k, arma::fill::zeros);
-    for (size_t b = 0; b < B; ++b) {
+    for (size_t b : positive) {
       const size_t j = assignments[b];
       for (size_t c = 0; c < C; ++c)
         centroids(j, c) += w(b) * X(b, c);
       sumW(j) += w(b);
     }
     for (size_t j = 0; j < k; ++j) {
-      if (sumW(j) > 1e-12)
+      if (sumW(j) > 0.0)
         centroids.row(j) /= sumW(j);
       else
-        centroids.row(j) = X.row(pickBin(rng));
+        centroids.row(j) = X.row(positive[pickBin(rng)]);
     }
 
     if (!changed && iter > 0)

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 from math import ceil, isfinite
 from numbers import Integral, Real
 from typing import Any
@@ -39,6 +41,24 @@ __all__ = [
     "SGTRegressor",
     "configure_feature_dict",
 ]
+
+
+_MAE_CD_WARNING = (
+    "Coordinate descent is disabled for the MAE objective. "
+    "Set SGTLEARN_MAE_CD=1 to enable it."
+)
+_suppress_mae_cd_warning: ContextVar[bool] = ContextVar(
+    "suppress_mae_cd_warning", default=False
+)
+
+
+def _warn_if_mae_cd_disabled(criterion: str) -> None:
+    if (
+        not _suppress_mae_cd_warning.get()
+        and str(criterion).strip().lower() in {"absolute_error", "mae"}
+        and os.environ.get("SGTLEARN_MAE_CD") not in {"1", "true", "TRUE", "yes"}
+    ):
+        warnings.warn(_MAE_CD_WARNING, UserWarning, stacklevel=3)
 
 
 def _column_names_from_X(X: Any) -> list[str] | None:
@@ -232,7 +252,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     min_samples_leaf : int, default=1
         Minimum number of training samples required at an outer leaf.
     min_impurity_decrease : float, default=0.0
-        Minimum impurity decrease required to accept an outer split.
+        Constant nonnegative cost subtracted from total sample-weighted,
+        output-averaged impurity improvement. An outer split must have finite
+        improvement after all costs strictly greater than double epsilon.
     inner_max_depth : int, default=3
         Maximum depth of the *inner* tree that defines the shape function on
         each feature. ``1`` corresponds to a standard CART threshold split;
@@ -249,9 +271,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     coordinate_descent_patience : int, default=5
         Number of non-improving iterations tolerated before coordinate descent
         terminates early.
-    coordinate_descent_smart_init : bool, default=True
-        If ``True``, seed coordinate descent with a k-means clustering of the
-        bin statistics; if ``False``, use round-robin assignment.
     random_state : int, optional, default=42
         Seed forwarded to the native trainer. ``None`` is treated as ``42``.
     max_features : int, float, {"sqrt", "log2"} or None, default=None
@@ -270,8 +289,10 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
     pairwise_penalty : float, default=0.0
-        Non-negative penalty added when comparing a fitted pair with the best
-        univariate candidate.
+        Constant nonnegative cost subtracted from a fitted pair's total
+        sample-weighted, output-averaged impurity improvement.
+    branching_penalty : float, default=0.0
+        Constant nonnegative cost per additional occupied child beyond two.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     class_weight : dict, list of dict, or None, default=None
@@ -307,7 +328,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     -----
     Internally, single- and multi-output training share one path: ``y`` is
     always handled as ``(n_samples, n_outputs)`` (with ``n_outputs=1`` for a
-    vector target). Impurity / gain sums across outputs. ``X`` is cast to
+    vector target). Outer impurity averages across outputs. ``X`` is cast to
     C-contiguous ``float32`` and ``y`` to ``uint64`` before the native trainer.
     Sparse input is not supported. NaN in ``X`` is handled by the native
     trainer (non-finite values are sorted to the feature tail and routed to
@@ -356,11 +377,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
@@ -379,11 +400,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
         self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
         self.coordinate_descent_patience = int(coordinate_descent_patience)
-        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
+        self.branching_penalty = branching_penalty
         self.class_weight = class_weight
 
         self.tao_n_runs = tao_n_runs
@@ -415,7 +436,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             Training features.
         y : array-like of shape (n_samples,) or (n_samples, n_outputs)
             Target class labels. Multi-output ``y`` trains one joint tree;
-            impurity is summed across outputs.
+            outer impurity is averaged across outputs.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
         feature_dict : mapping, optional
@@ -520,12 +541,10 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
-        if (
-            not isinstance(self.pairwise_penalty, Real)
-            or not isfinite(float(self.pairwise_penalty))
-            or self.pairwise_penalty < 0
-        ):
-            raise ValueError("pairwise_penalty must be finite and non-negative")
+        for name in ("min_impurity_decrease", "pairwise_penalty", "branching_penalty"):
+            value = getattr(self, name)
+            if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
+                raise ValueError(f"{name} must be finite and non-negative")
         tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
@@ -549,11 +568,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             inner_leaves,
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
-            bool(self.coordinate_descent_smart_init),
             int(42 if self.random_state is None else self.random_state),
             self.max_features,
             resolved_pairwise_candidates,
             float(self.pairwise_penalty),
+            float(self.branching_penalty),
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
@@ -672,7 +691,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     min_samples_leaf : int, default=1
         Minimum number of samples required at an outer leaf.
     min_impurity_decrease : float, default=0.0
-        Minimum impurity decrease required to accept an outer split.
+        Constant nonnegative cost subtracted from total sample-weighted,
+        output-averaged impurity improvement. An outer split must have finite
+        improvement after all costs strictly greater than double epsilon.
     inner_max_depth : int, default=3
         Maximum depth of the inner tree defining the shape function on each
         feature. ``1`` reduces to a standard threshold split.
@@ -688,10 +709,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     coordinate_descent_patience : int, default=5
         Number of non-improving iterations tolerated before coordinate descent
         terminates early.
-    coordinate_descent_smart_init : bool, default=True
-        Accepted for API symmetry with :class:`SGTClassifier` but **ignored**
-        by the regression trainer: regression always seeds inner
-        bin-to-partition assignments round-robin (no k-means initialisation).
     random_state : int, optional, default=42
         Seed forwarded to the native trainer. ``None`` is treated as ``42``.
     max_features : int, float, {"sqrt", "log2"} or None, default=None
@@ -702,8 +719,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
     pairwise_penalty : float, default=0.0
-        Non-negative penalty applied only when comparing fitted pair and
-        univariate candidates.
+        Constant nonnegative cost subtracted from a fitted pair's total
+        sample-weighted, output-averaged impurity improvement.
+    branching_penalty : float, default=0.0
+        Constant nonnegative cost per additional occupied child beyond two.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
 
@@ -774,11 +793,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         inner_min_impurity_decrease: float = 0.0,
         coordinate_descent_max_iters: int = 20,
         coordinate_descent_patience: int = 5,
-        coordinate_descent_smart_init: bool = True,
         random_state: int | None = 42,
         max_features: float | str | None = None,
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
+        branching_penalty: float = 0.0,
         tao_n_runs: int = 10,
         tao_lambda: float = 0.0,
         tao_pair_scale: float = 1.1,
@@ -795,11 +814,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
         self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
         self.coordinate_descent_patience = int(coordinate_descent_patience)
-        self.coordinate_descent_smart_init = bool(coordinate_descent_smart_init)
         self.random_state = random_state
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
+        self.branching_penalty = branching_penalty
         self.tao_n_runs = tao_n_runs
         self.tao_lambda = tao_lambda
         self.tao_pair_scale = tao_pair_scale
@@ -825,8 +844,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         X : array-like of shape (n_samples, n_features)
             Training features.
         y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            Target values. Multi-output ``y`` trains one joint tree; loss is
-            summed across outputs.
+            Target values. Multi-output ``y`` trains one joint tree; outer loss
+            is averaged across outputs.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
         feature_dict : mapping, optional
@@ -878,12 +897,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
-        if (
-            not isinstance(self.pairwise_penalty, Real)
-            or not isfinite(float(self.pairwise_penalty))
-            or self.pairwise_penalty < 0
-        ):
-            raise ValueError("pairwise_penalty must be finite and non-negative")
+        for name in ("min_impurity_decrease", "pairwise_penalty", "branching_penalty"):
+            value = getattr(self, name)
+            if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
+                raise ValueError(f"{name} must be finite and non-negative")
         tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
@@ -906,16 +923,17 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             inner_leaves,
             int(self.coordinate_descent_max_iters),
             int(self.coordinate_descent_patience),
-            bool(self.coordinate_descent_smart_init),
             int(42 if self.random_state is None else self.random_state),
             self.max_features,
             resolved_pairwise_candidates,
             float(self.pairwise_penalty),
+            float(self.branching_penalty),
         )
 
         X32 = np.ascontiguousarray(X, dtype=np.float32)
         y32 = native_y_array(y2, dtype=np.float32)
         sw = normalize_sample_weight(sample_weight, X.shape[0])
+        _warn_if_mae_cd_disabled(self.criterion)
         self._est.fit(
             X32,
             y32,

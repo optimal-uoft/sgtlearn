@@ -19,11 +19,8 @@
 #include <random>
 #include <vector>
 
-/** Minimum objective improvement required to keep a coordinate-descent result. */
-inline constexpr double kShapeFunctionCdImprovementEps = 1e-10;
-
 struct ShapeBranchAssignmentSearchResult {
-  double bestFeatureScore = std::numeric_limits<double>::infinity();
+  double regularizedGain = -std::numeric_limits<double>::infinity();
   size_t chosenK = 0;
   std::vector<size_t> assignments;
   std::vector<size_t> partitionSampleCounts;
@@ -32,12 +29,23 @@ struct ShapeBranchAssignmentSearchResult {
   /** Regression MSE: nested ``[partition][output][Σw·y, Σw·y²]``. */
   std::vector<std::vector<std::vector<double>>> partitionAggStats;
   std::vector<double> partitionWeights;
+  /** Total sample-mass-weighted, output-averaged raw impurity decrease. */
   double impurityDecrease = 0.0;
+  double childImpurity = 0.0;
   bool found = false;
+  /** Root meets occupied-branch count constraints, regardless of minimum gain. */
+  bool rootFeasible = false;
+};
+
+struct ShapeBranchAssignmentSearch {
+  /** Raw-impurity proxy, independent of whether growth can pay its costs. */
+  ShapeBranchAssignmentSearchResult rawBest;
+  /** Raw-positive candidates by actual occupied arity; costs may prevent growth. */
+  std::vector<ShapeBranchAssignmentSearchResult> byArity;
 };
 
 struct ShapeBestBranchingState {
-  double penalizedChildScore = std::numeric_limits<double>::infinity();
+  double regularizedGain = -std::numeric_limits<double>::infinity();
   ShapeBranchingResult<std::vector<double>> branching;
   std::vector<double> binWeights;
   std::vector<std::vector<std::vector<double>>> partitionClassCounts;
@@ -67,25 +75,38 @@ bool featureHasBetterShapeBranching(
     const ShapeBranchAssignmentSearchResult &search,
     ShapeBestBranchingState &best, size_t featureIndex, size_t xSubCols,
     const arma::uvec &routingColumnIndices,
-    std::unique_ptr<InnerDiscretizer<std::vector<double>>> disc,
-    double scoreEpsilon,
+    const std::shared_ptr<InnerDiscretizer<std::vector<double>>> &disc,
     const std::function<void(
         ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
         const std::vector<std::vector<std::vector<double>>> &)> &
         applyTaskFields);
 
+void retainShapeBranchingCandidates(
+    const ShapeBranchAssignmentSearch &search,
+    std::vector<ShapeBestBranchingState> &candidates,
+    const std::vector<size_t> &logicalFeatures, size_t xSubCols,
+    const arma::uvec &routingColumnIndices,
+    const std::shared_ptr<InnerDiscretizer<std::vector<double>>> &disc,
+    double pairwisePenalty,
+    const std::function<void(
+        ShapeBestBranchingState &, const ShapeBranchAssignmentSearchResult &,
+        const std::vector<std::vector<std::vector<double>>> &)> &applyTaskFields);
+
 /**
  * Search partition counts k in [2, min(numBins, treeNumPartitions)] on a trained
- * inner discretizer and return the best penalized branch assignment.
+ * inner discretizer and retain the lowest raw child impurity at each actual
+ * occupied arity. Return a raw-impurity proxy independently of growth costs.
+ * parentImp and childImpurity average outputs; CD's objective remains unchanged.
  *
  * Leaf stats are nested ``[bin][output][*]`` (class counts or MSE moments).
+ * Gini/entropy use classifier search; regression criteria retain regression search.
  */
-ShapeBranchAssignmentSearchResult searchShapeBranchAssignmentFromDiscretizer(
+ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
     InnerDiscretizer<std::vector<double>> &disc, LearningCriterion criterion,
     double parentImp, size_t treeNumPartitions,
     const TreeBuildingParams &outerParams,
-    const CoordinateDescentParams &cdParams, double scoreEpsilon,
-    std::mt19937_64 &rng, bool useKMeansSeed = false,
+    const CoordinateDescentParams &cdParams,
+    std::mt19937_64 &rng,
     const std::vector<size_t> &classesPerOutput = {}, size_t nOutputs = 1,
     const arma::Mat<float> *ysub = nullptr, const arma::Row<float> *wsub = nullptr,
     size_t xSubCols = 0, bool hasNanRoutingBin = true);

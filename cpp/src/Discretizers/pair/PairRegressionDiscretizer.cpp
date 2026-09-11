@@ -305,6 +305,11 @@ void PairRegressionDiscretizer::Train(
   this->markTrained();
 }
 
+std::vector<size_t> PairRegressionDiscretizer::rootBinAssignments(
+    size_t missingBranch) const {
+  return pairRootBinAssignments(tree_, numLeaves_, missingBranch);
+}
+
 size_t PairRegressionDiscretizer::routeValues(
     const std::vector<float> &values) const {
   if (values.size() != routingFeatures_.n_elem)

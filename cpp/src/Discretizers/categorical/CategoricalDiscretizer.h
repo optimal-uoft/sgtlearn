@@ -24,6 +24,11 @@ class CategoricalDiscretizer : public virtual InnerDiscretizer<StatsT> {
   Step step = Step::Untrained;
 
 public:
+  /** Outer binary fallback; consider missing placement before leaf feasibility. */
+  void trainFallback(const arma::fmat &X, const std::vector<size_t> &features,
+                     CategoricalSplitter<StatsT, PredictT> &splitter,
+                     size_t minLeafSize);
+
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override;
 
   size_t routeToBin(const std::vector<float> &featureValues) const override;
@@ -35,6 +40,15 @@ public:
 
   /** For each routing bin, column indices whose one-hot level routes there. */
   std::vector<std::vector<size_t>> categoriesPerBin() const;
+
+  std::vector<size_t> rootBinAssignments(size_t missingBranch = 0) const override {
+    if (routing_.empty() || routing_[0].isLeaf)
+      return {};
+    std::vector<size_t> assignments(this->leafStats_.size(), 0);
+    assignments[routing_[0].activeLeafBin] = 1;
+    assignments.back() = missingBranch;
+    return assignments;
+  }
 
   /** Index of the trailing NaN / catch-all routing bin. */
   size_t nanBinIndex() const {
@@ -67,9 +81,11 @@ protected:
                  size_t minLeafSize, double minGainSplit, size_t maxDepth,
                  size_t maxLeafNodes);
 
-  void processLeaves(CategoricalSplitter<StatsT, PredictT> &splitter);
+  void processLeaves(const arma::fmat &X,
+                     CategoricalSplitter<StatsT, PredictT> &splitter);
 
-  void appendNanRoutingBin();
+  void appendNanRoutingBin(CategoricalSplitter<StatsT, PredictT> &splitter,
+                           const std::vector<size_t> &samples);
 
   size_t routeOne(const arma::fmat &X, arma::uword col) const;
 

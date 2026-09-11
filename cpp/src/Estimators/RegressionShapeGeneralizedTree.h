@@ -2,7 +2,7 @@
 
 /**
  * @file Estimators/RegressionShapeGeneralizedTree.h
- * @brief Multivariate shape-generalized regression tree (outer ``TreeBuilder`` +
+ * @brief Multivariate shape-generalized regression tree (outer ``OuterTreeBuilder`` +
  *        inner branching fits).
  */
 
@@ -14,7 +14,7 @@
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
 #include "algorithms/FeatureBagging.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
-#include "algorithms/TreeBuilder.h"
+#include "algorithms/OuterTreeBuilder.h"
 
 #include <armadillo>
 #include <cstddef>
@@ -26,7 +26,7 @@
  * Shape-Generalized Tree, regression variant.
  *
  * Responsibilities (by phase):
- * - **Outer growth** (`TreeBuilder`): best-first or depth-first expansion;
+ * - **Outer growth** (`OuterTreeBuilder`): best-first regularized expansion;
  *   per-node split search and child creation via lambdas in ``fit``; commit
  *   step remains a local lambda in ``fit``.
  * - **Per-node split search** (``fit`` lambdas): for each
@@ -50,7 +50,7 @@
  * The best-scoring feature wins; its inner discretizer + bin->partition
  * mapping become the routing rule for that node, producing `numPartitions`
  * children. Inner-node fitting matches the Python `BranchingTree` pattern;
- * the outer loop uses `TreeBuilder` like Python's heap over
+ * the outer loop uses `OuterTreeBuilder` like Python's heap over
  * `best_impurity_decrease`.
  *
  * Inputs use Armadillo's column-major convention: X has shape
@@ -150,7 +150,7 @@ private:
   std::vector<FeatureInfo> features_;
 
   /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
-  TreeBuilder<ShapeFunctionNode> outerTreeBuilder_;
+  OuterTreeBuilder outerTreeBuilder_;
 
   /** Number of outputs (``y.n_rows``), set at ``fit``. */
   size_t nOutputs_ = 1;

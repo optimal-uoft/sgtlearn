@@ -87,7 +87,7 @@ def test_continuous_pair_captures_xor_and_exports_native_router() -> None:
 
 
 @pytest.mark.parametrize("criterion", ["gini", "entropy"])
-def test_pair_search_keeps_zero_gain_marginals_for_balanced_xor(
+def test_pair_search_excludes_features_without_valid_univariate_splits(
     criterion: str,
 ) -> None:
     states = np.array(
@@ -106,8 +106,8 @@ def test_pair_search_keeps_zero_gain_marginals_for_balanced_xor(
         random_state=0,
     ).fit(X, y)
 
-    assert model.tree_export()["nodes"][0]["routing_kind"] == "pair"
-    assert model.score(X, y) == 1.0
+    assert model.tree_export()["nodes"][0]["is_leaf"]
+    assert model.score(X, y) == 0.5
 
 
 @pytest.mark.parametrize("budget", [0.3, 99])
@@ -118,8 +118,9 @@ def test_float_and_excess_pair_budgets_fit_available_interaction(
         [[-1.0, -1.0, 0.0], [-1.0, 1.0, 0.0],
          [1.0, -1.0, 0.0], [1.0, 1.0, 0.0]]
     )
-    X = np.repeat(states, 40, axis=0)
-    y = np.repeat([0, 1, 1, 0], 40)
+    counts = [40, 30, 30, 28]  # Both nonconstant features have valid marginal splits.
+    X = np.repeat(states, counts, axis=0)
+    y = np.repeat([0, 1, 1, 0], counts)
     model = SGTClassifier(
         max_depth=1,
         inner_max_depth=2,
@@ -137,8 +138,9 @@ def test_pair_ranking_tie_uses_logical_feature_indices() -> None:
     base = np.array(
         [[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]]
     )
-    X = np.repeat(np.column_stack([base, base[:, 1]]), 40, axis=0)
-    y = np.repeat([0, 1, 1, 0], 40)
+    counts = [40, 30, 30, 28]
+    X = np.repeat(np.column_stack([base, base[:, 1]]), counts, axis=0)
+    y = np.repeat([0, 1, 1, 0], counts)
     model = SGTClassifier(
         max_depth=1,
         inner_max_depth=2,
@@ -167,7 +169,8 @@ def test_pairwise_penalty_switches_selection_without_blocking_univariate() -> No
     )
 
     pair = SGTClassifier(pairwise_penalty=0.0, **common).fit(X, y)
-    univariate = SGTClassifier(pairwise_penalty=0.5, **common).fit(X, y)
+    # The former normalized penalty .5 becomes .5 * 85 in total-loss units.
+    univariate = SGTClassifier(pairwise_penalty=42.5, **common).fit(X, y)
 
     assert pair.tree_export()["nodes"][0]["routing_kind"] == "pair"
     assert univariate.tree_export()["nodes"][0].get("routing_kind") != "pair"

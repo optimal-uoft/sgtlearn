@@ -41,6 +41,7 @@ protected:
   std::vector<PredictT> binPredictions;
   std::vector<double> thresholds_;
   std::map<std::tuple<size_t, size_t>, UnivariateSplitCandidate> leaves;
+  size_t rootLeftEnd_ = SIZE_MAX;
 
   /**
    * NaN bucket: conceptually the trailing bin (index ``numLeaves``) past the
@@ -89,6 +90,16 @@ public:
   size_t routeToBin(const std::vector<float> &featureValues) const override;
 
   const std::vector<double> &thresholds() const override { return thresholds_; }
+
+  std::vector<size_t> rootBinAssignments(size_t missingBranch = 0) const override {
+    if (rootLeftEnd_ == SIZE_MAX)
+      return {};
+    std::vector<size_t> assignments;
+    for (const auto &[range, leaf] : leaves)
+      assignments.push_back(leaf.end <= rootLeftEnd_ ? 0 : 1);
+    assignments.push_back(missingBranch);
+    return assignments;
+  }
 
   std::vector<std::vector<size_t>> &getInSampleDiscretizations() {
     return this->inSampleDiscretizations();

@@ -61,6 +61,7 @@ add_library(sgtlearn_core STATIC
         src/Discretizers/factories/DiscretizerFactories.h
         src/Discretizers/factories/DiscretizerFactories.cpp
         src/Discretizers/univariate/UnivariateDiscretizer.h
+        src/Discretizers/univariate/NumericFallbackDiscretizer.cpp
         src/Discretizers/univariate/UnivariateDiscretizer.tpp
         src/Discretizers/ClassificationDiscretizer.h
         src/Discretizers/RegressionDiscretizer.h
@@ -238,6 +239,7 @@ if (SGTLEARN_BUILD_TESTS)
             tests/test_weighted_mae_tree.cpp
             tests/test_splitters.cpp
             tests/test_branch_assignment.cpp
+            tests/test_shape_assignment_search.cpp
             tests/bench_mae_branch_assignment.cpp
     )
 

@@ -132,40 +132,71 @@ void CategoricalDiscretizer<StatsT, PredictT>::buildTree(
   this->numLeaves_ = leaves_.size();
 }
 
-namespace categorical_discretizer_detail {
+template <typename StatsT, typename PredictT>
+void CategoricalDiscretizer<StatsT, PredictT>::trainFallback(
+    const arma::fmat &X, const std::vector<size_t> &features,
+    CategoricalSplitter<StatsT, PredictT> &splitter, size_t minLeafSize) {
+  this->resetTrainedOutputs();
+  featureIndices_ = features;
+  routing_.assign(1, RoutingNode{});
+  leaves_.clear();
+  const auto root = splitter.makeRoot();
+  std::vector<bool> missing(X.n_cols, true);
+  for (size_t sample : root.samples)
+    for (size_t feature : features)
+      if (isActive(X(feature, sample)))
+        missing[sample] = false;
 
-template <typename T>
-T zeroStatLike(const T &) {
-  return T{};
+  size_t bestFeature = SIZE_MAX;
+  double bestLoss = std::numeric_limits<double>::infinity();
+  std::vector<size_t> bestActive, bestInactive;
+  for (size_t feature : features) {
+    for (bool missingActive : {false, true}) {
+      std::vector<size_t> active, inactive;
+      for (size_t sample : root.samples)
+        (isActive(X(feature, sample)) || (missingActive && missing[sample])
+             ? active : inactive).push_back(sample);
+      if (active.size() < minLeafSize || inactive.size() < minLeafSize)
+        continue;
+      const double loss = splitter.totalWeight(active) * splitter.score(active) +
+                          splitter.totalWeight(inactive) * splitter.score(inactive);
+      if (std::isfinite(loss) && loss < bestLoss) {
+        bestLoss = loss;
+        bestFeature = feature;
+        bestActive = std::move(active);
+        bestInactive = std::move(inactive);
+      }
+    }
+  }
+  if (bestFeature == SIZE_MAX) {
+    finalizeNodeAsLeaf(X, 0, root.samples, features);
+  } else {
+    routing_.resize(2);
+    routing_[0].isLeaf = false;
+    routing_[0].splitFeature = bestFeature;
+    routing_[0].activeLeafBin = appendLeaf(bestActive, bestFeature);
+    routing_[0].inactiveChild = 1;
+    routing_[1].leafBin = appendLeaf(bestInactive, SIZE_MAX);
+  }
+  this->numLeaves_ = leaves_.size();
+  step = Step::FitTree;
+  processLeaves(X, splitter);
 }
-
-inline double zeroStatLike(const double &) { return 0.0; }
-
-inline std::vector<double> zeroStatLike(const std::vector<double> &v) {
-  return std::vector<double>(v.size(), 0.0);
-}
-
-} // namespace categorical_discretizer_detail
 
 template <typename StatsT, typename PredictT>
-void CategoricalDiscretizer<StatsT, PredictT>::appendNanRoutingBin() {
-  this->inSampleDiscretizations_.push_back({});
-  std::vector<StatsT> emptyRow;
-  if (!this->leafStats_.empty()) {
-    const auto &proto = this->leafStats_.front();
-    emptyRow.resize(proto.size());
-    for (size_t i = 0; i < proto.size(); ++i)
-      emptyRow[i] = categorical_discretizer_detail::zeroStatLike(proto[i]);
-  }
-  this->leafStats_.push_back(std::move(emptyRow));
-  this->leafNumSamples_.push_back(0);
-  this->leafNodeWeights_.push_back(0.0);
-  binPredictions_.push_back(PredictT{});
+void CategoricalDiscretizer<StatsT, PredictT>::appendNanRoutingBin(
+    CategoricalSplitter<StatsT, PredictT> &splitter,
+    const std::vector<size_t> &samples) {
+  this->inSampleDiscretizations_.push_back(samples);
+  this->leafStats_.push_back(splitter.statsForSamples(samples));
+  this->leafNumSamples_.push_back(samples.size());
+  this->leafNodeWeights_.push_back(splitter.totalWeight(samples));
+  binPredictions_.push_back(splitter.predict(samples));
 }
 
 template <typename StatsT, typename PredictT>
 void CategoricalDiscretizer<StatsT, PredictT>::processLeaves(
-    CategoricalSplitter<StatsT, PredictT> &splitter) {
+    const arma::fmat &X, CategoricalSplitter<StatsT, PredictT> &splitter) {
   if (step != Step::FitTree)
     throw std::runtime_error("tree must be fit before leaves are processed");
 
@@ -175,7 +206,16 @@ void CategoricalDiscretizer<StatsT, PredictT>::processLeaves(
   this->leafNumSamples_.clear();
   this->leafNodeWeights_.clear();
 
-  for (const auto &leaf : leaves_) {
+  std::vector<size_t> missingSamples;
+  for (auto &leaf : leaves_) {
+    // Match transform/routeToBin: no active category belongs to the missing bin.
+    std::erase_if(leaf.samples, [&](size_t sample) {
+      if (std::any_of(featureIndices_.begin(), featureIndices_.end(),
+                      [&](size_t feature) { return isActive(X(feature, sample)); }))
+        return false;
+      missingSamples.push_back(sample);
+      return true;
+    });
     this->inSampleDiscretizations_.push_back(leaf.samples);
     binPredictions_.push_back(splitter.predict(leaf.samples));
     this->leafStats_.push_back(splitter.statsForSamples(leaf.samples));
@@ -184,7 +224,7 @@ void CategoricalDiscretizer<StatsT, PredictT>::processLeaves(
   }
 
   step = Step::LeavesProcessed;
-  appendNanRoutingBin();
+  appendNanRoutingBin(splitter, missingSamples);
   this->markTrained();
 }
 
