@@ -4,7 +4,6 @@
 #include "Discretizers/univariate/UnivariateDiscretizer.h"
 #include "algorithms/missing_values.h"
 
-#include <array>
 #include <limits>
 #include <type_traits>
 
@@ -116,46 +115,90 @@ std::shared_ptr<InnerDiscretizer<std::vector<double>>> makeFallback(
   auto disc = std::make_shared<NumericFallbackDiscretizer>(
       X, feature, y, weights, classesPerOutput);
   const size_t finiteBins = disc->numLeaves();
-  std::vector<std::vector<std::vector<float>>> maeYs;
-  std::vector<std::vector<float>> maeWeights;
-  std::vector<std::vector<double>> unusedStats;
-  if (criterion == LearningCriterion::AbsoluteError) {
-    maeYs.assign(finiteBins + 1, std::vector<std::vector<float>>(y.n_rows));
-    maeWeights.resize(finiteBins + 1);
-    for (size_t b = 0; b <= finiteBins; ++b)
-      for (size_t sample : disc->inSampleDiscretizations()[b]) {
-        maeWeights[b].push_back(weights(sample));
-        for (size_t o = 0; o < y.n_rows; ++o)
-          maeYs[b][o].push_back(y(o, sample));
+  if (criterion != LearningCriterion::AbsoluteError) {
+    const auto &stats = disc->leafStats();
+    const auto &weightsByBin = disc->leafNodeWeights();
+    const auto &counts = disc->leafNumSamples();
+    auto leftStats = stats.front();
+    for (auto &output : leftStats)
+      std::fill(output.begin(), output.end(), 0.0);
+    const auto addStats = [](auto &destination, const auto &source) {
+      for (size_t o = 0; o < source.size(); ++o)
+        for (size_t j = 0; j < source[o].size(); ++j)
+          destination[o][j] += source[o][j];
+    };
+    // Accumulate each side independently: total-minus-prefix can erase small
+    // remaining weights and moments when one bin dominates the total.
+    std::vector suffixStats(finiteBins + 1, leftStats);
+    std::vector<double> suffixWeights(finiteBins + 1, 0.0);
+    std::vector<size_t> suffixCounts(finiteBins + 1, 0);
+    for (size_t b = finiteBins; b > 0; --b) {
+      suffixStats[b - 1] = suffixStats[b];
+      addStats(suffixStats[b - 1], stats[b - 1]);
+      suffixWeights[b - 1] = suffixWeights[b] + weightsByBin[b - 1];
+      suffixCounts[b - 1] = suffixCounts[b] + counts[b - 1];
+    }
+    double leftWeight = 0.0;
+    size_t leftCount = 0;
+    size_t bestCut = 0;
+    double bestImpurity = std::numeric_limits<double>::infinity();
+    for (size_t cut = 0; cut <= finiteBins; ++cut) {
+      std::vector compactStats{leftStats, suffixStats[cut], stats.back()};
+      std::vector<double> compactWeights{
+          leftWeight, suffixWeights[cut], weightsByBin.back()};
+      std::vector<size_t> compactCounts{
+          leftCount, suffixCounts[cut], counts.back()};
+      for (size_t missingBranch = 0; missingBranch < 2; ++missingBranch) {
+        std::vector<size_t> labels{0, 1, missingBranch};
+        auto objective = makeBranchAssignment(
+            criterion, labels, 2, compactStats, compactWeights, compactCounts,
+            classesPerOutput, y.n_rows);
+        if (!objective->partitionCountsMeetMinLeaf(minLeafSize))
+          continue;
+        const double impurity = objective->objective();
+        if (std::isfinite(impurity) && impurity < bestImpurity) {
+          bestImpurity = impurity;
+          bestCut = cut;
+        }
       }
+      if (cut < finiteBins) {
+        addStats(leftStats, stats[cut]);
+        leftWeight += weightsByBin[cut];
+        leftCount += counts[cut];
+      }
+    }
+    disc->keepThreshold(bestCut);
+    return disc;
   }
-
-  std::array<std::vector<size_t>, 2> labels;
-  std::array<std::unique_ptr<BranchAssignment>, 2> objectives;
-  for (size_t missingBranch = 0; missingBranch < 2; ++missingBranch) {
-    labels[missingBranch].assign(finiteBins + 1, 1);
-    labels[missingBranch].back() = missingBranch;
-    if (criterion == LearningCriterion::AbsoluteError)
-      objectives[missingBranch] = makeBranchAssignment(
-          criterion, labels[missingBranch], 2, unusedStats,
-          disc->leafNodeWeights(), disc->leafNumSamples(), &maeYs, &maeWeights);
-    else
-      objectives[missingBranch] = makeBranchAssignment(
-          criterion, labels[missingBranch], 2, disc->leafStats(),
-          disc->leafNodeWeights(), disc->leafNumSamples(), classesPerOutput,
-          y.n_rows);
-  }
+  std::vector<std::vector<double>> unusedStats;
   size_t bestCut = 0;
   double bestImpurity = std::numeric_limits<double>::infinity();
   // Include finite-vs-missing alone; then test every legal finite threshold.
   for (size_t cut = 0; cut <= finiteBins; ++cut) {
-    for (auto &objective : objectives) {
-      if (cut > 0) {
-        // ponytail: the default MAE merge backend makes this sweep O(n²);
-        // use range-median queries if missing-data MAE profiling warrants it.
-        objective->removeLeaf(cut - 1);
-        objective->addLeaf(cut - 1, 0);
+    std::vector maeYs(3, std::vector<std::vector<float>>(y.n_rows));
+    std::vector<std::vector<float>> maeWeights(3);
+    std::vector<double> compactWeights(3, 0.0);
+    std::vector<size_t> compactCounts(3, 0);
+    for (size_t b = 0; b <= finiteBins; ++b) {
+      const size_t destination = b == finiteBins ? 2 : (b >= cut);
+      for (size_t sample : disc->inSampleDiscretizations()[b]) {
+        maeWeights[destination].push_back(weights(sample));
+        compactWeights[destination] += weights(sample);
+        ++compactCounts[destination];
+        for (size_t o = 0; o < y.n_rows; ++o)
+          maeYs[destination][o].push_back(y(o, sample));
       }
+    }
+    std::vector<size_t> labels{0, 1, 0};
+    for (size_t missingBranch = 0; missingBranch < 2; ++missingBranch) {
+      labels.back() = missingBranch;
+      // Rebuild from bins: subtracting a dominant bin can erase the remaining
+      // partition mass even though its sorted target samples remain intact.
+      // ponytail: sorting three compact bins per trial costs O(n² log n);
+      // use range-median queries if missing-data MAE profiling warrants it.
+      auto objective = makeBranchAssignment(
+          criterion, labels, 2, unusedStats,
+          compactWeights, compactCounts, &maeYs, &maeWeights);
       if (!objective->partitionCountsMeetMinLeaf(minLeafSize))
         continue;
       const double impurity = objective->objective();

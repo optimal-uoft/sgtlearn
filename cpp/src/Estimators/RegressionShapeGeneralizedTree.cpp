@@ -404,7 +404,7 @@ void RegressionShapeGeneralizedTree::fit(
             // outer-optimal when outer-feasible: it minimizes over a superset.
             // Otherwise retain an independent stump with faithful routing.
             std::shared_ptr<InnerDiscretizer<std::vector<double>>> fallback;
-            if (numericMissing) {
+            if (feature.type == FeatureType::Continuous) {
               fallback = makeNumericFallbackDiscretizer(criterion_, Xsub,
                   feature.indices(0), ysub, wsub, outerParams_.minLeafSize);
             } else {

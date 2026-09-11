@@ -8,6 +8,108 @@ from sgtlearn import SGTClassifier, SGTRegressor
 from sgtlearn._export import _route_samples
 
 
+@pytest.mark.parametrize("dominant_weight", [1e6, 1e20])
+@pytest.mark.parametrize("direction", [1, -1])
+@pytest.mark.parametrize(
+    "criterion,mae_cd",
+    [("squared_error", "0"), ("absolute_error", "0"), ("absolute_error", "1")],
+)
+def test_numeric_fallback_preserves_small_remaining_weights(
+    dominant_weight, direction, criterion, mae_cd, monkeypatch
+):
+    monkeypatch.setenv("SGTLEARN_MAE_CD", mae_cd)
+    X = (direction * np.array([0.0, 1.0, 2.0, np.nan]))[:, None]
+    y = np.array([0.0, 0.0, 1.0, 1.0])
+    weights = np.array([dominant_weight, 1.0, 1.0, 1.0])
+    model = SGTRegressor(
+        criterion=criterion,
+        inner_min_impurity_decrease=1000,
+        max_leaf_nodes=2,
+        tao_n_runs=0,
+        random_state=0,
+    ).fit(X, y, sample_weight=weights)
+    tree = model.tree_export()
+    assert tree["nodes"][0]["thresholds"] == [direction * 1.5]
+    reached = _route_samples(tree, X)
+    leaves = [node for node in tree["nodes"] if node["is_leaf"]]
+    assert sorted(tuple(reached[node["id"]]) for node in leaves) == [(0, 1), (2, 3)]
+    np.testing.assert_array_equal(model.predict(X), y)
+    assert np.sum(weights * (model.predict(X) - y) ** 2) == 0
+
+
+@pytest.mark.parametrize(
+    "weight,penalty,split", [(1000, 0, True), (1, 0, False), (1000, 1e-13, False)]
+)
+def test_numeric_fallback_uses_total_gain_epsilon(weight, penalty, split):
+    X = np.array([[0.0], [1.0]])
+    y = np.array([0.0, 1e-8], dtype=np.float32)
+    model = SGTRegressor(
+        max_leaf_nodes=2,
+        min_impurity_decrease=penalty,
+        tao_n_runs=0,
+        random_state=0,
+    ).fit(X, y, sample_weight=np.full(2, weight))
+    tree = model.tree_export()
+    assert sum(node["is_leaf"] for node in tree["nodes"]) == (2 if split else 1)
+    if split:
+        assert tree["nodes"][0]["thresholds"] == [0.5]
+        np.testing.assert_array_equal(model.predict(X), y)
+
+
+@pytest.mark.parametrize("criterion", ["gini", "entropy", "squared_error"])
+@pytest.mark.parametrize("multioutput", [False, True])
+@pytest.mark.parametrize("minimum", [1, 2])
+def test_numeric_fallback_matches_direct_partition_loss(
+    criterion, multioutput, minimum
+):
+    X = np.array([0.0, 1.0, 2.0, 3.0, 4.0, np.nan])[:, None]
+    y = np.array([0, 1, 0, 1, 2, 2])[:, None]
+    weights = np.array([2.0, 0.0, 1.0, 3.0, 2.0, 1.0])
+    classification = criterion != "squared_error"
+    if multioutput:
+        y = np.column_stack([y, 2 - y[:, 0] if classification else 2 * y[:, 0] + 0.25])
+
+    def loss(rows):
+        w = weights[rows]
+        if w.sum() == 0:
+            return 0.0
+        target = y[rows]
+        if not classification:
+            mean = np.average(target, axis=0, weights=w)
+            return np.sum(w[:, None] * (target - mean) ** 2) / y.shape[1]
+        total = 0.0
+        for output in target.T:
+            mass = np.bincount(output, weights=w)
+            p = mass[mass > 0] / w.sum()
+            total += w.sum() * (
+                1 - np.sum(p**2) if criterion == "gini" else -np.sum(p * np.log2(p))
+            )
+        return total / y.shape[1]
+
+    expected = []
+    for cut in range(6):
+        for missing_left in [False, True]:
+            left = np.r_[np.arange(5) < cut, missing_left]
+            if min(left.sum(), (~left).sum()) >= minimum:
+                expected.append(loss(left) + loss(~left))
+    estimator = SGTClassifier if classification else SGTRegressor
+    model = estimator(
+        criterion=criterion,
+        min_samples_leaf=minimum,
+        inner_min_impurity_decrease=1000,
+        max_leaf_nodes=2,
+        tao_n_runs=0,
+        random_state=0,
+    ).fit(X, y if multioutput else y[:, 0], sample_weight=weights)
+    tree = model.tree_export()
+    reached = _route_samples(tree, X)
+    leaves = [node for node in tree["nodes"] if node["is_leaf"]]
+    assert len(leaves) == 2
+    assert all(len(reached[node["id"]]) >= minimum for node in leaves)
+    actual = sum(loss(reached[node["id"]]) for node in leaves)
+    assert actual == pytest.approx(min(expected), rel=1e-12, abs=1e-12)
+
+
 @pytest.mark.parametrize(
     "criterion,mae_cd",
     [
