@@ -269,6 +269,28 @@ def test_regression_missing_root_respects_sample_counts(
         )
 
 
+@pytest.mark.parametrize(
+    "criterion", ["gini", "entropy", "squared_error", "absolute_error"]
+)
+@pytest.mark.parametrize("missing", [0.0, np.nan])
+def test_categorical_fallback_counts_missing_before_rejecting_category(criterion, missing):
+    X = np.vstack([np.eye(3)[[0, 1, 1, 2, 2]], np.full((3, 3), missing)])
+    y = np.array([1, 0, 0, 0, 0, 1, 1, 1])
+    estimator = SGTClassifier if criterion in ("gini", "entropy") else SGTRegressor
+    model = estimator(
+        criterion=criterion, min_samples_leaf=4, max_depth=1,
+        inner_max_depth=1, num_partitions=4, tao_n_runs=0, random_state=0,
+    ).fit(X, y, feature_dict={"category": [0, 1, 2]})
+    np.testing.assert_allclose(model.predict(X), y)
+    tree = model.tree_export()
+    reached = _route_samples(tree, X)
+    children = tree["nodes"][0]["children"]
+    assert sorted(len(reached[child]) for child in children) == [4, 4]
+    for child in children:
+        assert tree["nodes"][child]["n_samples"] == len(reached[child])
+        assert np.unique(y[reached[child]]).size == 1
+
+
 def test_weighted_missing_multioutput_forest_predictions_are_normalized():
     rng = np.random.default_rng(4)
     X = rng.normal(size=(50, 3))

@@ -133,6 +133,57 @@ void CategoricalDiscretizer<StatsT, PredictT>::buildTree(
 }
 
 template <typename StatsT, typename PredictT>
+void CategoricalDiscretizer<StatsT, PredictT>::trainFallback(
+    const arma::fmat &X, const std::vector<size_t> &features,
+    CategoricalSplitter<StatsT, PredictT> &splitter, size_t minLeafSize) {
+  this->resetTrainedOutputs();
+  featureIndices_ = features;
+  routing_.assign(1, RoutingNode{});
+  leaves_.clear();
+  const auto root = splitter.makeRoot();
+  std::vector<bool> missing(X.n_cols, true);
+  for (size_t sample : root.samples)
+    for (size_t feature : features)
+      if (isActive(X(feature, sample)))
+        missing[sample] = false;
+
+  size_t bestFeature = SIZE_MAX;
+  double bestLoss = std::numeric_limits<double>::infinity();
+  std::vector<size_t> bestActive, bestInactive;
+  for (size_t feature : features) {
+    for (bool missingActive : {false, true}) {
+      std::vector<size_t> active, inactive;
+      for (size_t sample : root.samples)
+        (isActive(X(feature, sample)) || (missingActive && missing[sample])
+             ? active : inactive).push_back(sample);
+      if (active.size() < minLeafSize || inactive.size() < minLeafSize)
+        continue;
+      const double loss = splitter.totalWeight(active) * splitter.score(active) +
+                          splitter.totalWeight(inactive) * splitter.score(inactive);
+      if (std::isfinite(loss) && loss < bestLoss) {
+        bestLoss = loss;
+        bestFeature = feature;
+        bestActive = std::move(active);
+        bestInactive = std::move(inactive);
+      }
+    }
+  }
+  if (bestFeature == SIZE_MAX) {
+    finalizeNodeAsLeaf(X, 0, root.samples, features);
+  } else {
+    routing_.resize(2);
+    routing_[0].isLeaf = false;
+    routing_[0].splitFeature = bestFeature;
+    routing_[0].activeLeafBin = appendLeaf(bestActive, bestFeature);
+    routing_[0].inactiveChild = 1;
+    routing_[1].leafBin = appendLeaf(bestInactive, SIZE_MAX);
+  }
+  this->numLeaves_ = leaves_.size();
+  step = Step::FitTree;
+  processLeaves(X, splitter);
+}
+
+template <typename StatsT, typename PredictT>
 void CategoricalDiscretizer<StatsT, PredictT>::appendNanRoutingBin(
     CategoricalSplitter<StatsT, PredictT> &splitter,
     const std::vector<size_t> &samples) {

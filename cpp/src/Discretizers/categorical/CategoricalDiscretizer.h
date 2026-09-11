@@ -24,6 +24,11 @@ class CategoricalDiscretizer : public virtual InnerDiscretizer<StatsT> {
   Step step = Step::Untrained;
 
 public:
+  /** Outer binary fallback; consider missing placement before leaf feasibility. */
+  void trainFallback(const arma::fmat &X, const std::vector<size_t> &features,
+                     CategoricalSplitter<StatsT, PredictT> &splitter,
+                     size_t minLeafSize);
+
   void transform(const arma::fmat &X, arma::Row<size_t> &binLoc) const override;
 
   size_t routeToBin(const std::vector<float> &featureValues) const override;

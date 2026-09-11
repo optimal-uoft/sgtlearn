@@ -14,6 +14,7 @@
 
 #include "Criterion.h"
 #include "Discretizers/ClassificationDiscretizer.h"
+#include "Discretizers/categorical/CategoricalClassificationDiscretizer.h"
 #include "Discretizers/pair/PairClassificationDiscretizer.h"
 #include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/univariate/NumericFallbackDiscretizer.h"
@@ -281,10 +282,11 @@ void ClassificationShapeGeneralizedTree::fit(
                   feature.indices(0), ysub, wsub, outerParams_.minLeafSize,
                   classesPerOutput_);
             } else {
-              auto stump = makeClassificationDiscretizer(criterion_, feature);
-              trainClassificationDiscretizer(
-                  *stump, feature, Xsub, ysub, classesPerOutput_,
-                  outerParams_.minLeafSize, 0.0, 1, 2, wsub);
+              auto stump = std::make_shared<CategoricalClassificationDiscretizer>(criterion_);
+              const std::vector<size_t> categories(feature.indices.begin(), feature.indices.end());
+              CategoricalClassificationSplitter splitter(
+                  Xsub, wsub, ysub, classesPerOutput_, categories, criterion_);
+              stump->trainFallback(Xsub, categories, splitter, outerParams_.minLeafSize);
               fallback = std::move(stump);
             }
             CoordinateDescentParams noRefinement = cdParams_;

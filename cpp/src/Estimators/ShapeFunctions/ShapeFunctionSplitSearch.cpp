@@ -150,6 +150,7 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
   };
 
   std::vector<size_t> root;
+  bool rootFeasible = false;
   double rootImpurity = std::numeric_limits<double>::infinity();
   for (size_t missingBranch = 0; missingBranch < 2; ++missingBranch) {
     auto labels = disc.rootBinAssignments(missingBranch);
@@ -161,12 +162,12 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
       rootImpurity = impurity;
       root = labels;
     }
-    search.best.rootFeasible |= occupiedCount(*objective) >= 2;
+    rootFeasible |= occupiedCount(*objective) >= 2;
     consider(*objective);
   }
 
   // Only numeric bins have an ordering suitable for a secondary threshold scan.
-  if (!search.best.rootFeasible && !numericInnerThresholds(disc).empty()) {
+  if (!rootFeasible && !numericInnerThresholds(disc).empty()) {
     const size_t finiteBins = numBins - 1;
     for (size_t cut = 1; cut < finiteBins; ++cut) {
       std::vector<size_t> labels(numBins, 1);
@@ -216,7 +217,6 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
                          hasNanRoutingBin, observe);
   }
 
-  const bool rootFeasible = search.best.rootFeasible;
   for (auto &result : search.byArity) {
     if (!result.found)
       continue;
@@ -256,9 +256,6 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
       continue;
     if (!search.rawBest.found || result.childImpurity < search.rawBest.childImpurity)
       search.rawBest = result;
-    if (std::isfinite(result.regularizedGain) && result.regularizedGain > eps &&
-        result.regularizedGain > search.best.regularizedGain)
-      search.best = result;
   }
   return search;
 }

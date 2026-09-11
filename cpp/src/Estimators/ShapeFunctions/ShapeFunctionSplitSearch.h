@@ -38,7 +38,6 @@ struct ShapeBranchAssignmentSearchResult {
 };
 
 struct ShapeBranchAssignmentSearch {
-  ShapeBranchAssignmentSearchResult best;
   /** Raw-impurity proxy, independent of whether growth can pay its costs. */
   ShapeBranchAssignmentSearchResult rawBest;
   /** Raw-positive candidates by actual occupied arity; costs may prevent growth. */
@@ -96,7 +95,7 @@ void retainShapeBranchingCandidates(
 /**
  * Search partition counts k in [2, min(numBins, treeNumPartitions)] on a trained
  * inner discretizer and retain the lowest raw child impurity at each actual
- * occupied arity. Return separate raw-proxy and positive regularized winners.
+ * occupied arity. Return a raw-impurity proxy independently of growth costs.
  * parentImp and childImpurity average outputs; CD's objective remains unchanged.
  *
  * Leaf stats are nested ``[bin][output][*]`` (class counts or MSE moments).

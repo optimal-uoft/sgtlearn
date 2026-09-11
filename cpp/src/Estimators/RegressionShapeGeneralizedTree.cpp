@@ -17,6 +17,7 @@
 #include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/univariate/NumericFallbackDiscretizer.h"
 #include "Discretizers/RegressionDiscretizer.h"
+#include "Discretizers/categorical/CategoricalRegressionDiscretizer.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionSplitSearch.h"
 #include <algorithm>
 #include <armadillo>
@@ -408,10 +409,10 @@ void RegressionShapeGeneralizedTree::fit(
               fallback = makeNumericFallbackDiscretizer(criterion_, Xsub,
                   feature.indices(0), ysub, wsub, outerParams_.minLeafSize);
             } else {
-              auto stump = makeRegressionDiscretizer(criterion_, feature);
-              trainRegressionDiscretizer(
-                  *stump, feature, Xsub, ysub, outerParams_.minLeafSize,
-                  0.0, 1, 2, wsub);
+              auto stump = std::make_shared<CategoricalRegressionDiscretizer>(criterion_);
+              const std::vector<size_t> categories(feature.indices.begin(), feature.indices.end());
+              CategoricalRegressionSplitter splitter(Xsub, wsub, ysub, categories, criterion_);
+              stump->trainFallback(Xsub, categories, splitter, outerParams_.minLeafSize);
               fallback = std::move(stump);
             }
             CoordinateDescentParams noRefinement = cdParams_;

@@ -53,6 +53,20 @@ double impurity(Bins &bins, std::vector<size_t> labels, size_t k,
       {bins.leafStats()[0][0].size()})->objective();
 }
 
+ShapeBranchAssignmentSearchResult growthWinner(
+    const ShapeBranchAssignmentSearch &search, const Bins &bins) {
+  auto disc = std::make_shared<Bins>(bins);
+  ShapeBestBranchingState best;
+  for (const auto &candidate : search.byArity)
+    featureHasBetterShapeBranching(candidate, best, 0, 0, arma::uvec{0}, disc,
+        [](auto &, const auto &, const auto &) {});
+  if (best.winningDiscretizer)
+    return search.byArity[best.branching.numPartitionsUsed];
+  ShapeBranchAssignmentSearchResult empty;
+  empty.rootFeasible = search.rawBest.rootFeasible;
+  return empty;
+}
+
 ShapeBranchAssignmentSearchResult search(Bins &bins, size_t k, size_t minLeaf,
     double penalty, size_t iters, LearningCriterion criterion = LearningCriterion::Gini) {
   TreeBuildingParams outer;
@@ -62,9 +76,9 @@ ShapeBranchAssignmentSearchResult search(Bins &bins, size_t k, size_t minLeaf,
   cd.maxIters = iters;
   std::mt19937_64 rng(42);
   const double parent = impurity(bins, std::vector<size_t>(bins.leafStats().size()), 1, criterion);
-  return searchShapeBranchAssignmentFromDiscretizer(bins, criterion, parent, k,
+  return growthWinner(searchShapeBranchAssignmentFromDiscretizer(bins, criterion, parent, k,
       outer, cd, rng, {bins.leafStats()[0][0].size()}, 1,
-      nullptr, nullptr, 0, bins.missing).best;
+      nullptr, nullptr, 0, bins.missing), bins);
 }
 } // namespace
 
@@ -78,9 +92,9 @@ TEST_CASE("Regularized acceptance is strictly above fixed double epsilon", "[sha
                        std::nextafter(1.0 - eps, 0.0)}) {
     outer.minGainSplit = alpha;
     std::mt19937_64 rng(42);
-    const auto result = searchShapeBranchAssignmentFromDiscretizer(
+    const auto result = growthWinner(searchShapeBranchAssignmentFromDiscretizer(
         bins, LearningCriterion::Gini, 0.5, 2, outer, cd, rng, {2}, 1,
-        nullptr, nullptr, 0, false).best;
+        nullptr, nullptr, 0, false), bins);
     REQUIRE(result.found == (alpha < 1.0 - eps));
   }
   outer.minGainSplit = 0.0;
@@ -88,9 +102,9 @@ TEST_CASE("Regularized acceptance is strictly above fixed double epsilon", "[sha
                         std::numeric_limits<double>::infinity(),
                         -std::numeric_limits<double>::infinity()}) {
     std::mt19937_64 rng(42);
-    REQUIRE_FALSE(searchShapeBranchAssignmentFromDiscretizer(
+    REQUIRE_FALSE(growthWinner(searchShapeBranchAssignmentFromDiscretizer(
         bins, LearningCriterion::Gini, parent, 2, outer, cd, rng, {2}, 1,
-        nullptr, nullptr, 0, false).best.found);
+        nullptr, nullptr, 0, false), bins).found);
   }
 }
 
@@ -102,23 +116,23 @@ TEST_CASE("Branch costs charge only children beyond binary and do not reduce raw
   CoordinateDescentParams cd;
   cd.maxIters = 0;
   std::mt19937_64 rng(42);
-  auto result = searchShapeBranchAssignmentFromDiscretizer(
+  auto result = growthWinner(searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
-      nullptr, nullptr, 0, false).best;
+      nullptr, nullptr, 0, false), bins);
   REQUIRE(result.chosenK == 3);
   REQUIRE_THAT(result.impurityDecrease, WithinAbs(20.0, 1e-12));
   REQUIRE_THAT(result.regularizedGain, WithinAbs(15.0, 1e-12));
   outer.branchingPenalty = 11.0;
-  result = searchShapeBranchAssignmentFromDiscretizer(
+  result = growthWinner(searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
-      nullptr, nullptr, 0, false).best;
+      nullptr, nullptr, 0, false), bins);
   REQUIRE(result.chosenK == 2);
   REQUIRE_THAT(result.impurityDecrease, WithinAbs(10.0, 1e-12));
   REQUIRE_THAT(result.regularizedGain, WithinAbs(8.0, 1e-12));
   outer.branchingPenalty = 10.0;
-  result = searchShapeBranchAssignmentFromDiscretizer(
+  result = growthWinner(searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 3, outer, cd, rng, {3}, 1,
-      nullptr, nullptr, 0, false).best;
+      nullptr, nullptr, 0, false), bins);
   REQUIRE(result.chosenK == 2); // Equal score conserves children.
 }
 
@@ -131,7 +145,7 @@ TEST_CASE("Search retains independently replayable candidates at each occupied a
   const auto result = searchShapeBranchAssignmentFromDiscretizer(
       bins, LearningCriterion::Gini, 2.0 / 3.0, 4, outer, cd, rng, {3}, 1,
       nullptr, nullptr, 0, true);
-  REQUIRE(result.best.chosenK == 3);
+  REQUIRE(growthWinner(result, bins).chosenK == 3);
   REQUIRE_FALSE(result.byArity[4].found); // An empty missing bin is not a child.
   for (size_t k : {2, 3}) {
     const auto &candidate = result.byArity[k];
@@ -162,11 +176,12 @@ TEST_CASE("Raw screening proxy ignores costs and can differ from growth winner",
     REQUIRE(result.rawBest.chosenK == 3);
     REQUIRE_THAT(result.rawBest.childImpurity, WithinAbs(0.0, 1e-12));
     REQUIRE_THAT(result.rawBest.impurityDecrease, WithinAbs(20.0, 1e-12));
+    const auto winner = growthWinner(result, bins);
     if (alpha == 0.0) {
-      REQUIRE(result.best.chosenK == 2);
-      REQUIRE_THAT(result.best.impurityDecrease, WithinAbs(10.0, 1e-12));
+      REQUIRE(winner.chosenK == 2);
+      REQUIRE_THAT(winner.impurityDecrease, WithinAbs(10.0, 1e-12));
     } else {
-      REQUIRE_FALSE(result.best.found);
+      REQUIRE_FALSE(winner.found);
     }
   }
 }
