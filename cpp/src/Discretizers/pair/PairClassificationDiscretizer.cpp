@@ -314,25 +314,7 @@ void PairClassificationDiscretizer::Train(
 
 std::vector<size_t> PairClassificationDiscretizer::rootBinAssignments(
     size_t missingBranch) const {
-  if (tree_.empty() || tree_[0].isLeaf)
-    return {};
-  std::vector<size_t> assignments(numLeaves_, 0);
-  const auto assign = [&](auto &&self, size_t index, size_t branch) -> void {
-    const auto &node = tree_[index];
-    if (node.isLeaf) {
-      assignments[node.bin] = branch;
-      return;
-    }
-    self(self, node.left, branch);
-    self(self, node.right, branch);
-    if (node.missing != node.left && node.missing != node.right)
-      self(self, node.missing, branch);
-  };
-  assign(assign, tree_[0].left, 0);
-  assign(assign, tree_[0].right, 1);
-  if (tree_[0].missing != tree_[0].left && tree_[0].missing != tree_[0].right)
-    assign(assign, tree_[0].missing, missingBranch);
-  return assignments;
+  return pairRootBinAssignments(tree_, numLeaves_, missingBranch);
 }
 
 size_t PairClassificationDiscretizer::routeValues(

@@ -21,6 +21,30 @@ struct PairRoutingTreeNode {
   size_t bin = 0;
 };
 
+inline std::vector<size_t> pairRootBinAssignments(
+    const std::vector<PairRoutingTreeNode> &tree, size_t numLeaves,
+    size_t missingBranch) {
+  if (tree.empty() || tree[0].isLeaf)
+    return {};
+  std::vector<size_t> assignments(numLeaves, 0);
+  const auto assign = [&](auto &&self, size_t index, size_t branch) -> void {
+    const auto &node = tree[index];
+    if (node.isLeaf) {
+      assignments[node.bin] = branch;
+      return;
+    }
+    self(self, node.left, branch);
+    self(self, node.right, branch);
+    if (node.missing != node.left && node.missing != node.right)
+      self(self, node.missing, branch);
+  };
+  assign(assign, tree[0].left, 0);
+  assign(assign, tree[0].right, 1);
+  if (tree[0].missing != tree[0].left && tree[0].missing != tree[0].right)
+    assign(assign, tree[0].missing, missingBranch);
+  return assignments;
+}
+
 /** Ordinary axis-aligned CART over exactly two logical features. */
 class PairClassificationDiscretizer final : public ClassificationDiscretizer {
 public:
