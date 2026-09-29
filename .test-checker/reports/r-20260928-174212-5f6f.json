@@ -1,0 +1,85 @@
+{
+  "run": "r-20260928-174212-5f6f",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "49ca70e2e258d17e423c717b26432d037608b6cc"
+    }
+  },
+  "date": "2026-09-29T00:33:54.351Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-multioutput-py--squeeze-outputs",
+      "accepted": 20,
+      "disputed": 9,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-multioutput-py--squeeze-outputs",
+      "analysis": "Logical mistakes: none found on the happy path. When n_outputs == 1 and the input is a column vector of shape (n_samples, 1) or already 1-D (n_samples,), the result is the expected 1-D vector of length n_samples, in row order. When n_outputs > 1 the array is returned as-is.\nRobustness omissions:\n- The single-output branch flattens every element instead of removing just the output axis. If the input has shape (n_samples, k) with k != 1 (for example a caller passes the wrong n_outputs, or passes per-class probabilities), it quietly returns a vector of length n_samples*k with rows and columns mixed together, instead of rejecting the shape mismatch.\n- Nothing checks that n_outputs is a positive integer (0 or negative values are accepted and silently treated as \"multi-output\").\n- Nothing checks that, for n_outputs > 1, the array is actually 2-D with n_outputs columns.\n- A 0-d (scalar) input with n_outputs == 1 is silently turned into a length-1 vector."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_single_output_rejects_two_columns",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_single_output_rejects_single_row_with_multiple_columns",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_single_output_rejects_zero_columns",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_multi_output_rejects_wrong_column_count",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_multi_output_rejects_single_column",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_multi_output_rejects_1d_input",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_multi_output_rejects_3d_input",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_zero_n_outputs_raises",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-multioutput-py--squeeze-outputs::tests.tcheck.test_sgtlearn_multioutput_py__squeeze_outputs_1::test_negative_n_outputs_raises",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_multioutput_py__squeeze_outputs_1.py",
+      "reason": "contains non-accepted tests: test_single_output_rejects_two_columns (disputed), test_single_output_rejects_single_row_with_multiple_columns (disputed), test_single_output_rejects_zero_columns (disputed), test_multi_output_rejects_wrong_column_count (disputed), test_multi_output_rejects_single_column (disputed), test_multi_output_rejects_1d_input (disputed), test_multi_output_rejects_3d_input (disputed), test_zero_n_outputs_raises (disputed), test_negative_n_outputs_raises (disputed)"
+    }
+  ]
+}

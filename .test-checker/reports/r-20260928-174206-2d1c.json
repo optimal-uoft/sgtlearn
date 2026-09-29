@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174206-2d1c",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "dd3784e75e2870b87d41c84db826e8a8ccca30c6"
+    }
+  },
+  "date": "2026-09-29T00:33:53.139Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--sgtregressor-init",
+      "accepted": 105,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--sgtregressor-init",
+      "analysis": "Logical mistakes: none found for the apparent intent, which is to record the hyperparameters and set up an unfitted state. Two points are worth flagging.\n(1) Some parameters are coerced with int()/float() at construction time (num_partitions, min_samples_leaf, min_impurity_decrease, the inner_* limits, the coordinate_descent_* counts). This departs from the scikit-learn rule that __init__ stores arguments unchanged. As a result, get_params()/clone() return the coerced value, not the original (for example, 2.9 becomes 2). Every other parameter (criterion, max_depth, max_leaf_nodes, random_state, max_features, pairwise_candidates, pairwise_penalty, branching_penalty, tao_*) is stored exactly as given, so the treatment is inconsistent.\n(2) Fitted-style attributes (n_outputs_, n_features_in_, feature_names_in_) are created in __init__. Scikit-learn's check_is_fitted uses the presence of trailing-underscore attributes to decide whether an estimator is fitted, so an unfitted estimator may be reported as fitted.\nRobustness omissions: int() truncates non-integral floats silently (num_partitions=2.7 becomes 2), and it converts bools without complaint (True becomes 1). If a coerced parameter gets None or a non-numeric string, the constructor raises a raw TypeError/ValueError; there is no validation or clear message. Nothing is range-checked here (num_partitions >= 2, min_samples_leaf >= 1, non-negative penalties, the criterion value). That checking is expected to happen at fit time (for example via _resolve_pairwise_candidates and _validate_tao_pair_scale). This is acceptable under scikit-learn convention, but it means an invalid configuration can be built without error."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__sgtregressor_init_1.py",
+      "dest": "tests/regression/test_sgtlearn_base_py__sgtregressor_init_1.py",
+      "tests": 105
+    }
+  ],
+  "not_promotable": []
+}

@@ -1,0 +1,45 @@
+{
+  "run": "r-20260928-174219-e5d0",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "ac0d436ad4ad800a5548a1cea294779987e809df"
+    }
+  },
+  "date": "2026-09-29T00:33:55.909Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-make-tree",
+      "accepted": 14,
+      "disputed": 1,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-make-tree",
+      "analysis": "Logical mistakes: none found. The method is a factory hook for the base RandomSGForest ensemble. It builds one regressor tree (an SGTRegressor) from the shared tree hyperparameters and gives it its own per-tree seed, which is what the method name and the regressor subclass suggest.\nRobustness omissions: (1) If `tree_kw` already contains a `random_state` key, the call fails with a Python \"multiple values for keyword argument\" TypeError. There is no clear rule for this case, such as the per-tree seed always winning. The base class probably never passes `random_state` in `tree_kw`, but the contract should say so. (2) Nothing checks that `tree_seed` is a valid seed, meaning a non-negative integer that numpy's RandomState accepts. An invalid seed is only rejected later, when the tree is fitted or uses its RNG. (3) Keys in `tree_kw` that SGTRegressor does not accept cause a TypeError. That is acceptable, but it should be documented. (4) The method must not change the caller's `tree_kw` dict, and different trees must not share a mutable estimator. The current behaviour is fine on both counts: it makes a fresh instance and does not mutate the dict."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-make-tree::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_make_tree_1::test_returned_tree_is_unfitted",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_make_tree_1.py",
+      "reason": "contains non-accepted tests: test_returned_tree_is_unfitted (disputed)"
+    }
+  ]
+}

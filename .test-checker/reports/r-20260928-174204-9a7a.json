@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174204-9a7a",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "93de7fff32b3622d6cf4d0e6669c7659c53ae043"
+    }
+  },
+  "date": "2026-09-29T00:33:52.845Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--sgtclassifier-init",
+      "accepted": 29,
+      "disputed": 3,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--sgtclassifier-init",
+      "analysis": "Logical mistakes:\n- The constructor coerces some hyperparameters (num_partitions, min_samples_leaf, the inner_* counts and thresholds, coordinate_descent_*) with int()/float() but leaves others as given (max_depth, max_leaf_nodes, pairwise_*, branching_penalty, tao_*). This is inconsistent. It also goes against the scikit-learn convention that __init__ stores parameters exactly as passed. With int(), a non-integral value such as 2.7 is silently cut down to 2. Numpy scalars or strings are converted to a different object, so get_params() no longer returns what the user passed, which can break clone().\n- Fitted attributes (classes_, n_classes_, n_outputs_, n_features_in_, feature_names_in_) are created at construction time. n_outputs_ is even set to 1. Scikit-learn's check_is_fitted looks for attributes ending in an underscore, so an unfitted estimator can be reported as fitted, and the \"not fitted\" error is never raised before fit.\n- Because only some parameters are coerced, a bad value for a coerced parameter (for example num_partitions=\"abc\" or None) raises TypeError/ValueError at construction. The same bad value for an uncoerced parameter only fails later in fit.\n\nRobustness omissions:\n- There is no clear rule for when validation happens. Under the scikit-learn contract, range and type checks (criterion in the supported set, num_partitions >= 2, min_samples_leaf >= 1, min_impurity_decrease >= 0, a valid max_features spec, pairwise_candidates in range, tao_pair_scale validity, tao_n_runs >= 1, and so on) should all be done in fit, not scattered between the constructor and fit.\n- Nothing guards against bool being accepted as an int, or against a float that is not a whole number being truncated without warning."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-init::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_init_1::test_predict_before_fit_raises_not_fitted",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-init::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_init_1::test_predict_proba_before_fit_raises_not_fitted",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-init::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_init_1::test_invalid_values_rejected_at_fit[kwargs2]",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__sgtclassifier_init_1.py",
+      "reason": "contains non-accepted tests: test_predict_before_fit_raises_not_fitted (disputed), test_predict_proba_before_fit_raises_not_fitted (disputed), test_invalid_values_rejected_at_fit[kwargs2] (disputed)"
+    }
+  ]
+}

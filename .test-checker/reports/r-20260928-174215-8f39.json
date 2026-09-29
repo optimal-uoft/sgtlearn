@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174215-8f39",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "93989b76e515da16f764ab307bd603770285b6a1"
+    }
+  },
+  "date": "2026-09-29T00:51:51.473Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-tao-py--prepare-tao-arrays",
+      "accepted": 25,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-tao-py--prepare-tao-arrays",
+      "analysis": "Logical mistakes: No definite happy-path error. The classification branch encodes targets with the model's fitted label encoder(s): the single-tree `_le`, or for a forest `_label_encoders_`, falling back to `_label_encoder_`. It returns uint64 class indices, and weights that fold class_weight into sample_weight. The regression branch returns a float32 output matrix with normalized or unit weights. There are two consistency risks. First, when class_weight is set, the helper that builds the effective weights may not return the float32 contiguous 1-D vector that the other branches produce, so the dtype of the returned weights can differ between paths. Second, labels in y that the fitted encoders have never seen should raise a clear error, not be silently mis-encoded.\nRobustness omissions: (1) The not-fitted check reads `model.classes_` directly. On a sklearn-style estimator that has never been fitted, that attribute may not exist, so the caller gets an AttributeError instead of NotFittedError. The encoders are read the same way (`_le` / `_label_encoder_`), with the same problem. (2) The regression path never checks that the model is fitted. (3) Nothing here checks that X is 2-D or that X and y have the same number of samples. The code assumes an earlier validation step has done it. (4) Nothing here checks that sample_weight has length n_samples, is finite, and is non-negative. When class_weight is set, the weights skip the normalizer used in the other branches, so they may not be validated at all. (5) Converting y to float32 on the regression path fails with an unclear error if y is non-numeric. (6) There is no handling for empty input (0 samples)."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_tao_py__prepare_tao_arrays_1.py",
+      "dest": "tests/regression/test_sgtlearn_tao_py__prepare_tao_arrays_1.py",
+      "tests": 25
+    }
+  ],
+  "not_promotable": []
+}

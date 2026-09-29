@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174214-5680",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "1e59d32341e3cd5dabed23a4f907b0e14d39bf2a"
+    }
+  },
+  "date": "2026-09-29T00:57:06.317Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-tao-py--tao-targets",
+      "accepted": 23,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-tao-py--tao-targets",
+      "analysis": "Logical mistakes: None found on the happy path. A fitted forest yields its member trees, in order, as the same objects (not copies), so refining them updates the forest in place. A fitted single tree yields a one-element list holding that same object. One small inconsistency: the TypeError message names \"BaseShapeCART\", but the types actually accepted are SGTClassifier and SGTRegressor (plus RandomSGForest). The message should name the types that are really accepted.\nRobustness omissions: (1) When the forest is fitted but `estimators_` is empty, the function returns an empty list without complaint. That leaves TAO with nothing to refine and fails silently. It should raise NotFittedError (or ValueError) instead. (2) The individual trees inside a forest are never checked for being fitted. A forest member with no fitted internal structure would get past this check and fail later with an unclear error. (3) The `n_features_in_` check assumes the attribute always exists. If it is absent (not just None), the caller gets an AttributeError instead of NotFittedError. Absent and None should both be treated as \"not fitted\". (4) Subclasses are handled through isinstance, which is correct, but the forest check has to run before the tree check. It does. This is noted only so that order is kept."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_tao_py__tao_targets_1.py",
+      "dest": "tests/regression/test_sgtlearn_tao_py__tao_targets_1.py",
+      "tests": 23
+    }
+  ],
+  "not_promotable": []
+}

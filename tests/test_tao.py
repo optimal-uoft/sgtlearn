@@ -410,3 +410,10 @@ def test_tao_pair_scale_rejects_invalid_values(bad_scale: float) -> None:
     clf = SGTClassifier(tao_n_runs=0).fit(X, y)
     with pytest.raises(ValueError, match="tao_pair_scale"):
         tao.TAO_refine(clf, X, y, tao_pair_scale=bad_scale)
+
+
+def test_fit_with_tao_accepts_string_labels() -> None:
+    X, y = load_iris(return_X_y=True)
+    labels = np.array(["setosa", "versicolor", "virginica"])[y]
+    clf = SGTClassifier(tao_n_runs=1, max_depth=2).fit(X, labels)
+    assert set(clf.predict(X)) <= set(labels)

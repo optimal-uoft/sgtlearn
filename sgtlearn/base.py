@@ -56,7 +56,8 @@ def _warn_if_mae_cd_disabled(criterion: str) -> None:
     if (
         not _suppress_mae_cd_warning.get()
         and str(criterion).strip().lower() in {"absolute_error", "mae"}
-        and os.environ.get("SGTLEARN_MAE_CD") not in {"1", "true", "TRUE", "yes"}
+        and os.environ.get("SGTLEARN_MAE_CD", "").strip().lower()
+        not in {"1", "true", "yes"}
     ):
         warnings.warn(_MAE_CD_WARNING, UserWarning, stacklevel=3)
 
@@ -101,7 +102,10 @@ def _validate_tao_pair_scale(value: float) -> float:
         raise ValueError(  # noqa: TRY004 - sklearn parameters use ValueError
             "tao_pair_scale must be finite and non-negative"
         )
-    scale = float(value)
+    try:
+        scale = float(value)
+    except OverflowError:
+        scale = float("inf")
     if not isfinite(scale) or scale < 0:
         raise ValueError("tao_pair_scale must be finite and non-negative")
     return scale
@@ -206,7 +210,7 @@ def _normalize_tree_export(tree: dict) -> dict:
             continue
         thresholds = node.get("thresholds")
         if thresholds is not None:
-            while thresholds and np.isinf(thresholds[-1]):
+            while thresholds and thresholds[-1] == np.inf:
                 thresholds.pop()
         b2p = node.get("bin_to_partition")
         th = thresholds or []
@@ -588,7 +592,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             TAO_refine(
                 self,
                 X32,
-                y_u,
+                y,
                 sample_weight=sw,
                 check_input=check_input,
                 n_runs=self.tao_n_runs,

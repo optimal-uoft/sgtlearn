@@ -1,0 +1,65 @@
+{
+  "run": "r-20260928-174209-eccd",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "6032421357d3018200b69aa6f914538e531176dc"
+    }
+  },
+  "date": "2026-09-29T00:33:53.762Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--identitylabelencoder",
+      "accepted": 20,
+      "disputed": 5,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--identitylabelencoder",
+      "analysis": "Logical mistakes:\n- `transform` is meant to be the identity map onto integer class indices, but it never checks that the values are valid indices into `classes_`. A fitted sklearn `LabelEncoder.transform` raises `ValueError` for labels it has not seen. Here, negative values, values >= n_classes, and non-integral floats (1.7 is truncated to 1 by the int64 cast) all pass through silently as wrong codes. That breaks the \"same sklearn contract\" the class docstring promises.\n- The identity mapping is only consistent with `inverse_transform` when `classes_` is exactly `0 .. K-1`. The constructor accepts any array, so a caller could pass, for example, `[\"a\", \"b\"]`. Then `transform` would try to cast strings to int (or return codes that do not match), while `inverse_transform` would return strings. Nothing enforces or checks the documented precondition that `classes_ == arange(K)`.\n- `fit_transform`, inherited from `LabelEncoder`, does not go through `fit`. It recomputes and overwrites `classes_` from `y`, so it gets around the \"preset classes, do not fit\" guard that `fit` enforces.\n\nRobustness omissions:\n- No validation of `classes_` at construction: it should be 1-D and should equal `arange(K)`, or at least contain integer values.\n- No shape validation in `transform`: sklearn accepts 1-D or column-vector input and rejects multi-column 2-D input. Here, flattening accepts any shape.\n- No range or integrality check in `transform`. Non-numeric input only fails through a raw cast error, not a clear `ValueError`.\n- Empty input should return an empty int64 array. This works today, but nothing states it."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-base-py--identitylabelencoder::tests.tcheck.test_sgtlearn_base_py__identitylabelencoder_1::test_fit_transform_does_not_overwrite_classes",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--identitylabelencoder::tests.tcheck.test_sgtlearn_base_py__identitylabelencoder_1::test_transform_rejects_negative",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--identitylabelencoder::tests.tcheck.test_sgtlearn_base_py__identitylabelencoder_1::test_transform_rejects_code_equal_n_classes",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--identitylabelencoder::tests.tcheck.test_sgtlearn_base_py__identitylabelencoder_1::test_transform_rejects_large_code",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--identitylabelencoder::tests.tcheck.test_sgtlearn_base_py__identitylabelencoder_1::test_transform_rejects_non_integral",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__identitylabelencoder_1.py",
+      "reason": "contains non-accepted tests: test_fit_transform_does_not_overwrite_classes (disputed), test_transform_rejects_negative (disputed), test_transform_rejects_code_equal_n_classes (disputed), test_transform_rejects_large_code (disputed), test_transform_rejects_non_integral (disputed)"
+    }
+  ]
+}

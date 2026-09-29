@@ -1,0 +1,50 @@
+{
+  "run": "r-20260928-174215-fb3a",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "d999e60e58751e6af6fb550d70eaebe372b65731"
+    }
+  },
+  "date": "2026-09-29T00:33:54.937Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-init",
+      "accepted": 25,
+      "disputed": 2,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-init",
+      "analysis": "Logical mistakes: The class is a scikit-learn BaseEstimator, and that convention says `__init__` should store each constructor argument under the attribute of the same name, unchanged. This implementation instead runs many arguments through int()/float()/bool() before storing them. The consequences:\n- Non-integral values are silently truncated. For example, n_estimators=2.7 is stored as 2 and min_samples_leaf=1.9 as 1. Bad input is changed without any error.\n- Values of other numeric types (e.g. numpy.int64, numpy.float32, numpy.bool_) are stored as new Python objects that are no longer the same object as the value passed in. sklearn.base.clone checks for exactly this and raises a RuntimeError, so clone, GridSearchCV and similar tools can break.\n- Truthy non-bool values for bootstrap (e.g. the string \"no\") are turned into True, which hides the mistake.\n- Conversion errors (e.g. int(\"abc\"), or int(None) for an int parameter) happen when the object is built, not in fit as sklearn expects.\n- The casting is inconsistent. pairwise_candidates, pairwise_penalty, branching_penalty, tao_pair_scale, max_samples and max_features are stored unchanged, while similar numeric parameters are converted. So the stored types depend on which parameter it is.\nRobustness omissions: No range checks are done here, e.g. n_estimators >= 1, num_partitions >= 2, min_samples_leaf >= 1, non-negative penalties and impurity decreases, max_samples in (0, 1]. Under sklearn convention that is correct, because such checks belong in fit. The spec therefore expects them in fit, not in the constructor. `criterion` is a required keyword-only argument with no default. Because the class is an abstract base, concrete subclasses must supply `criterion` and implement `_check_X_y` and `_make_tree`, so this constructor can only be exercised through a concrete subclass."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-init::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_init_1::test_non_integral_float_not_truncated",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-init::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_init_1::test_non_bool_bootstrap_not_coerced",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_init_1.py",
+      "reason": "contains non-accepted tests: test_non_integral_float_not_truncated (disputed), test_non_bool_bootstrap_not_coerced (disputed)"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174222-02ee",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "9f9b7be0eecc66c93d007bc42148891a4b865996"
+    }
+  },
+  "date": "2026-09-29T00:33:56.380Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-export-py--draw-internal-panel-categorical",
+      "accepted": 28,
+      "disputed": 3,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-export-py--draw-internal-panel-categorical",
+      "analysis": "Logical mistakes:\n- Each bin's background band is drawn with a height equal to that bin's normalised count. The band is supposed to show which partition a bin routes to, whatever the data says, so it should fill the full height of the panel. The fallback value of 1.0 for the height points the same way. As written, the band is redundant with the bar drawn on top of it. Worse, bins with no samples get no colour at all, and when X_rows is None or empty every band is zero-height, so the panel shows no partition colouring.\n- Bins are counted from bin_to_partition, but tick labels come from the category-label list. If that list is shorter than the number of bins, there are fewer labels than ticks and some bins go unlabelled. Current matplotlib raises an error when the label count does not match the tick count.\n\nRobustness omissions:\n- The bin index returned for a sample's active one-hot column is used without a range check. A category that is unknown or missing, or that maps outside the known bins, can raise IndexError, or silently add to the wrong bin through negative indexing.\n- Partition indices are used to index the palette without checking they are within its length.\n- The node must contain \"n_samples\" when a label is requested, or a KeyError is raised. It is never checked.\n- The smaller font size (fontsize - 2) can be zero or negative when fontsize is very small. Also, bool counts as an int in the type check.\n- An inset axes is created and returned even when the node has no bins. This is acceptable, but it should be documented."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-export-py--draw-internal-panel-categorical::tests.tcheck.test_sgtlearn_export_py__draw_internal_panel_categorical_1::test_bands_fill_full_panel_height",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--draw-internal-panel-categorical::tests.tcheck.test_sgtlearn_export_py__draw_internal_panel_categorical_1::test_missing_labels_filled_with_fallback",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--draw-internal-panel-categorical::tests.tcheck.test_sgtlearn_export_py__draw_internal_panel_categorical_1::test_empty_bins_returns_inset_alone_with_nothing_drawn",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_export_py__draw_internal_panel_categorical_1.py",
+      "reason": "contains non-accepted tests: test_bands_fill_full_panel_height (disputed), test_missing_labels_filled_with_fallback (disputed), test_empty_bins_returns_inset_alone_with_nothing_drawn (disputed)"
+    }
+  ]
+}

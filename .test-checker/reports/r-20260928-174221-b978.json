@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174221-b978",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "53a23a1739563c1c54012c5a95ec93ef9613bc5f"
+    }
+  },
+  "date": "2026-09-29T00:33:56.264Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-export-py--is-categorical-node",
+      "accepted": 20,
+      "disputed": 3,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-export-py--is-categorical-node",
+      "analysis": "Logical mistakes: No definite errors on the happy path. When the node has an explicit \"is_categorical\" flag, the function uses it. When it doesn't, it falls back to a heuristic: a split that reads more than one feature column is treated as a one-hot-encoded categorical split. One caveat is that the heuristic is a guess. A node that reads several columns for another reason, such as a pair split if that node type lists both axes under \"features\", would be reported as categorical unless it also carries an explicit flag. A categorical split that lists only one column would be reported as numeric. With only the explicit flag and the column count to go on, I don't treat either case as a bug. The module has a separate _is_pair_node check, which suggests pair nodes are told apart some other way.\nRobustness omissions: (1) If \"features\" is a NumPy array with more than one element, the empty-list fallback asks the array for its truthiness, and NumPy raises ValueError (\"truth value of an array is ambiguous\"). A sequence-like of any kind (list, tuple or 1-D array) should be accepted and measured by length. (2) The flag is converted with plain truthiness, so a non-boolean value such as the string \"False\" counts as True. Real booleans, NumPy booleans and 0/1 integers should be interpreted normally. (3) The input is never checked to be a mapping. That is acceptable for a private helper, but a non-mapping input will fail with an attribute or type error rather than a clear message."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-export-py--is-categorical-node::tests.tcheck.test_sgtlearn_export_py__is_categorical_node_1::test_features_numpy_array_multiple_is_categorical",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--is-categorical-node::tests.tcheck.test_sgtlearn_export_py__is_categorical_node_1::test_features_numpy_array_empty_is_not_categorical",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--is-categorical-node::tests.tcheck.test_sgtlearn_export_py__is_categorical_node_1::test_node_with_numpy_features_is_not_mutated",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_export_py__is_categorical_node_1.py",
+      "reason": "contains non-accepted tests: test_features_numpy_array_multiple_is_categorical (disputed), test_features_numpy_array_empty_is_not_categorical (disputed), test_node_with_numpy_features_is_not_mutated (disputed)"
+    }
+  ]
+}

@@ -6,6 +6,8 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+
 FeatureInfoDict = dict[str, Any]
 FeatureDict = Mapping[int | str, Sequence[int | str]]
 
@@ -40,18 +42,24 @@ def _resolve_column_index(
     n_features: int,
     column_names: Sequence[str] | None,
 ) -> int:
-    if isinstance(col, int):
+    if isinstance(col, (bool, np.bool_)) or not isinstance(col, (int, np.integer, str)):
+        raise ValueError(f"feature reference {col!r} must be an int or str")
+    if not isinstance(col, str):
         if col < 0 or col >= n_features:
             raise ValueError(f"feature index {col} out of range for X")
-        return col
+        return int(col)
     if column_names is None:
         raise ValueError(
             f"column name {col!r} requires a pandas DataFrame or column_names"
         )
-    name_to_idx = {str(name): i for i, name in enumerate(column_names)}
-    if col not in name_to_idx:
+    matches = [i for i, name in enumerate(column_names) if str(name) == col]
+    if not matches:
         raise ValueError(f"column name {col!r} not found in training data columns")
-    return name_to_idx[col]
+    if len(matches) > 1:
+        raise ValueError(f"column name {col!r} is ambiguous; matches {matches}")
+    if matches[0] >= n_features:
+        raise ValueError(f"column name {col!r} out of range for X")
+    return matches[0]
 
 
 def _feature_dict_to_features(

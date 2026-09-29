@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174217-ebae",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "42ba97dea9e893818c16478591fa0a9d0f1bd8af"
+    }
+  },
+  "date": "2026-09-29T00:33:55.463Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-init",
+      "accepted": 14,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-init",
+      "analysis": "Logical mistakes: none found. This is a scikit-learn-style estimator constructor. It stores `class_weight` on the instance (the classifier-specific parameter the base forest does not take) and passes every other hyperparameter, unchanged, to the `RandomSGForest` base constructor. Every constructor argument keeps its name, so `get_params`/`set_params`/`clone` can round-trip them. One ordering risk: `class_weight` is set before the base constructor runs. If the base constructor ever assigned `class_weight` itself, it would overwrite this value. Nothing shown suggests it does, so the intended contract is that `self.class_weight` ends up as exactly the value passed in.\nRobustness omissions: none found. By scikit-learn convention, `__init__` must not validate, coerce or copy its arguments. Checks of values (for example `n_estimators >= 1`, a valid `criterion`, `max_features` in range, `class_weight` shape) belong in `fit`. Leaving them out here is correct. Adding them would break `clone`/`set_params`."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_init_1.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_init_1.py",
+      "tests": 14
+    }
+  ],
+  "not_promotable": []
+}

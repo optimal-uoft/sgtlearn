@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174217-b4af",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "52ad99bbe70edccb337bd8a6b78c338d7c0cc532"
+    }
+  },
+  "date": "2026-09-29T00:57:06.580Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-std-feature-importance",
+      "accepted": 13,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-std-feature-importance",
+      "analysis": "Logical mistakes: none found. The property takes the population standard deviation (ddof=0) across base estimators, one value per logical feature, using the same per-tree importance matrix as mean_feature_importances_. That matches the documented intent. One small inconsistency: the name is singular (\"std_feature_importance_\") while its companion is plural (\"mean_feature_importances_\"). This is a naming issue only and has no effect on behaviour.\nRobustness omissions: the property does no checks of its own. It relies entirely on the shared per-tree importance matrix helper to (a) raise when the forest is not fitted, (b) raise when TAO refinement was used, since importances are then undefined, and (c) return a 2-D (n_estimators, n_logical_features) matrix. If that helper ever returned an empty matrix (zero estimators), the std would come back as NaN with a runtime warning instead of an error. A correct version must make sure these cases raise clear errors and never return silent NaNs. When there is a single estimator, the population std is exactly zero for every feature, which is correct and not an error."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_std_feature_importance_1.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_std_feature_importance_1.py",
+      "tests": 13
+    }
+  ],
+  "not_promotable": []
+}

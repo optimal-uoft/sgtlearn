@@ -18,11 +18,13 @@ __all__ = [
 
 
 def _validate_sample_weight_array(sw: np.ndarray, n_samples: int) -> None:
-    if sw.shape[0] != n_samples:
+    if sw.ndim != 1 or sw.shape[0] != n_samples:
         raise ValueError(
-            f"sample_weight must have shape (n_samples,); got {sw.shape[0]} "
+            f"sample_weight must have shape (n_samples,); got {sw.shape} "
             f"for n_samples={n_samples}"
         )
+    if not np.all(np.isfinite(sw)):
+        raise ValueError("sample_weight must be finite")
     if np.any(sw < 0):
         raise ValueError("sample_weight must be non-negative")
     if not np.any(sw > 0):
@@ -55,10 +57,16 @@ def _per_class_multiplier(
                 f"{list(classes_o)}"
             )
         w_f = float(w)
-        if w_f < 0:
-            raise ValueError("class_weight values must be non-negative")
+        if not np.isfinite(w_f) or w_f < 0:
+            raise ValueError("class_weight values must be finite and non-negative")
         per_class[label_to_idx[label]] = w_f
-    return per_class[y_enc_col]
+    codes = np.asarray(y_enc_col)
+    if codes.size and (codes.min() < 0 or codes.max() >= len(classes_o)):
+        raise ValueError(
+            f"encoded labels must be in [0, {len(classes_o)}); "
+            f"got range [{codes.min()}, {codes.max()}]"
+        )
+    return per_class[codes]
 
 
 def effective_sample_weight_classification(

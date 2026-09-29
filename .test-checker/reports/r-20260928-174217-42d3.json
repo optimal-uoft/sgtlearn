@@ -1,0 +1,50 @@
+{
+  "run": "r-20260928-174217-42d3",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "e86c501b6be99991b669cecc15062260c79a867e"
+    }
+  },
+  "date": "2026-09-29T00:33:55.404Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-check-predict-x",
+      "accepted": 20,
+      "disputed": 2,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-check-predict-x",
+      "analysis": "Logical mistakes: none found on the happy path. The method checks that the forest is fitted, converts X to a 2-D float64 array (NaN allowed, +/-inf rejected), checks the column count against the count seen during fit, and returns a C-contiguous float32 copy for the trees. Some things to note:\n- The feature-count check is skipped when `n_features_in_` is None. If fit always sets `n_features_in_`, this branch never runs. But if the attribute is missing altogether (for example a partly restored object), accessing it raises AttributeError instead of a clear error.\n- The error message uses `self._estimator_name`. If a subclass does not define it, building the message raises AttributeError, which hides the intended ValueError. The class name is the likely intended fallback.\n- Casting float64 to float32 can silently turn very large finite values (above about 3.4e38) into +/-inf, which slips past the finiteness check. This matches the usual float32 tree convention, so it may be intended, but it is unguarded.\nRobustness omissions:\n- Feature names are not checked. If the forest was fitted on a DataFrame with column names, sklearn convention is to check `feature_names_in_` (warn or error on a mismatch or missing names). That does not happen here.\n- Empty input: zero rows or zero columns are rejected by the array validation (sklearn's default minimum of one sample and one feature). That is acceptable, but it should be stated as part of the contract.\n- Sparse input is rejected with an error rather than converted. That is intentional and should be documented."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-check-predict-x::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_check_predict_x_1::test_feature_count_mismatch_rejected_with_message",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-check-predict-x::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_check_predict_x_1::test_too_many_features_rejected",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_check_predict_x_1.py",
+      "reason": "contains non-accepted tests: test_feature_count_mismatch_rejected_with_message (disputed), test_too_many_features_rejected (disputed)"
+    }
+  ]
+}

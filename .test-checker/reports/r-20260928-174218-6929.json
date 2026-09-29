@@ -1,0 +1,60 @@
+{
+  "run": "r-20260928-174218-6929",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "e81e18a6541775eaaa605adfa48e39dca1ac5d9f"
+    }
+  },
+  "date": "2026-09-29T00:33:55.686Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-predict-proba",
+      "accepted": 16,
+      "disputed": 4,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-predict-proba",
+      "analysis": "Logical mistakes: The output buffers are sized from the raw input `X` (`X.shape[0]`) rather than from the validated/converted array. Array-likes that are valid for prediction but have no `.shape` (for example nested Python lists) will fail with AttributeError even though validation succeeded. The row count should come from the validated input. Apart from that, the soft-voting logic (sum each tree's class-probability matrix, then divide by the number of trees) is the correct intent. It does assume that every tree reports probabilities over the full forest-level class set, in the forest's `classes_` order. If a tree trained on a bootstrap sample that was missing some class returned fewer columns, the addition would fail or the columns would be misaligned.\nRobustness omissions: (1) Division by the number of estimators has no guard for an empty ensemble (0 trees gives NaN/inf, or a ZeroDivision-like result). An unfitted or empty forest should raise a NotFittedError-style error instead. (2) There is no explicit check that each tree's probability output has shape (n_samples, n_classes) for each output before accumulating, so a mismatch shows up as an opaque broadcasting error or silently wrong columns. (3) The code relies on `_check_predict_X` for the fitted-state check, feature-count check, 2-D check and finite-value check; those guarantees must hold. (4) Zero-row input should return an empty (0, n_classes) array (or a list of them) rather than erroring."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-predict-proba::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_predict_proba_1::test_accepts_nested_list_input",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-predict-proba::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_predict_proba_1::test_zero_rows_returns_empty_with_class_columns",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-predict-proba::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_predict_proba_1::test_multi_output_zero_rows_returns_list_of_empty_arrays",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-classifier-py--randomsgforestclassifier-predict-proba::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_predict_proba_1::test_forest_with_no_estimators_raises",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_classifier_py__randomsgforestclassifier_predict_proba_1.py",
+      "reason": "contains non-accepted tests: test_accepts_nested_list_input (disputed), test_zero_rows_returns_empty_with_class_columns (disputed), test_multi_output_zero_rows_returns_list_of_empty_arrays (disputed), test_forest_with_no_estimators_raises (disputed)"
+    }
+  ]
+}

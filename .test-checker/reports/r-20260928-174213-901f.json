@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174213-901f",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "cc9a34b4fff865ae37905bc75e0befbb3a19e035"
+    }
+  },
+  "date": "2026-09-29T00:33:54.585Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-weights-py--per-class-multiplier",
+      "accepted": 19,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [
+    {
+      "test": "sgtlearn-weights-py--per-class-multiplier::tests.tcheck.test_sgtlearn_weights_py__per_class_multiplier_1::test_invalid_weight_value_raises[nan]",
+      "target": "sgtlearn-weights-py--per-class-multiplier",
+      "spec_basis": "\"If any weight value is negative, NaN, or infinite (message says class_weight values must be non-negative / valid).\"",
+      "failure": "",
+      "reason": "The spec says a NaN weight must raise ValueError. The implementation's only value check is `w_f < 0`, which is False for NaN, so NaN is accepted and passed into the per-sample weights. The test asserts exactly what the spec requires; +inf is also accepted by the same flawed check."
+    },
+    {
+      "test": "sgtlearn-weights-py--per-class-multiplier::tests.tcheck.test_sgtlearn_weights_py__per_class_multiplier_1::test_negative_code_raises",
+      "target": "sgtlearn-weights-py--per-class-multiplier",
+      "spec_basis": "\"If ``y_enc_col`` contains codes outside [0, len(classes_o)). Out-of-range or negative codes must not wrap around silently.\" (listed under Raises: ValueError)",
+      "failure": "",
+      "reason": "The spec requires a ValueError when y_enc_col holds a code outside [0, len(classes_o)), and it names negative codes explicitly as something that must not wrap around. The implementation returns `per_class[y_enc_col]` without checking the codes, so -1 wraps to the last class and the test sees no error. The test asserts exactly what the spec requires."
+    }
+  ],
+  "suspicions": [
+    {
+      "target": "sgtlearn-weights-py--per-class-multiplier",
+      "analysis": "Logical mistakes: none found on the happy path. The method builds a weight per class, where classes missing from the mapping default to 1.0 (as in scikit-learn). It checks that each key is a known training class and that each weight is non-negative, then gathers one weight per sample using the encoded labels.\nRobustness omissions:\n- Non-finite weights are not rejected. NaN passes the \"< 0\" check because comparisons with NaN are False, and +inf also passes. Either value then silently corrupts every downstream sample weight. The intended contract \"class weights must be valid non-negative numbers\" should reject NaN and infinity with ValueError.\n- Encoded labels are not validated. A negative code silently wraps around to a class counted from the end. A code >= n_classes raises a raw IndexError. A non-integer array fails with an unclear error. Codes should be integers in [0, len(classes_o)); anything else should raise ValueError.\n- Weight values that cannot be converted to float (for example None or a non-numeric string) produce a raw TypeError or ValueError from the conversion, not a clear class_weight error.\n- Duplicate entries in classes_o would silently map a label to its last position. This is a precondition, not something the method must check."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_weights_py__per_class_multiplier_1.py",
+      "dest": "tests/regression/test_sgtlearn_weights_py__per_class_multiplier_1.py",
+      "tests": 19
+    }
+  ],
+  "not_promotable": []
+}

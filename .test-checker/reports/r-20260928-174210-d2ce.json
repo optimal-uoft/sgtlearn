@@ -1,0 +1,76 @@
+{
+  "run": "r-20260928-174210-d2ce",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "f09d8481ad20d10ecee8dbd7bcb1bb6f91cc3eb3"
+    }
+  },
+  "date": "2026-09-29T00:33:53.935Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "accepted": 40,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [
+    {
+      "test": "sgtlearn-features-py--resolve-column-index::tests.tcheck.test_sgtlearn_features_py__resolve_column_index_1::test_numpy_integer_reference_returns_plain_int",
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "spec_basis": "\"An integer, meaning a Python int or a NumPy integer scalar, is read as a column position.\" and \"For an integer reference, the same value as a plain int.\"",
+      "failure": "",
+      "reason": "The spec says a NumPy integer scalar such as np.int64(3) is a valid positional reference and must come back as a plain Python int. The implementation only checks isinstance(col, int). np.int64 is not a subclass of int, so the value falls through to the name branch and raises \"requires a pandas DataFrame or column_names\". The test asserts exactly what the spec requires."
+    },
+    {
+      "test": "sgtlearn-features-py--resolve-column-index::tests.tcheck.test_sgtlearn_features_py__resolve_column_index_1::test_bool_reference_raises[True]",
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "spec_basis": "\"Booleans are not valid references.\" and, under Raises ValueError: \"col is a bool, or is neither an integer nor a string.\"",
+      "failure": "",
+      "reason": "The spec says a bool reference must raise ValueError. The implementation checks `isinstance(col, int)`, and since bool is a subclass of int, True gets through the range check and is returned as position 1. The test asserts exactly what the spec requires."
+    },
+    {
+      "test": "sgtlearn-features-py--resolve-column-index::tests.tcheck.test_sgtlearn_features_py__resolve_column_index_1::test_duplicate_name_match_raises",
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "spec_basis": "\"col matches more than one column (duplicate names). The ambiguity is reported, not resolved silently.\"",
+      "failure": "",
+      "reason": "With column_names [\"a\", \"b\", \"a\"], the reference \"a\" matches two columns, so the spec requires a ValueError. The implementation builds a dict from name to position, which keeps only the last occurrence, and returns 2 without raising. The test asserts exactly what the spec requires."
+    },
+    {
+      "test": "sgtlearn-features-py--resolve-column-index::tests.tcheck.test_sgtlearn_features_py__resolve_column_index_1::test_non_int_non_str_reference_raises[col2]",
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "spec_basis": "\"Raises ValueError ... col is a bool, or is neither an integer nor a string.\"",
+      "failure": "",
+      "reason": "The list [0] is neither an integer nor a string, so the spec says the call must raise ValueError. The implementation has no type check. It sends the list to the name lookup, where `col not in name_to_idx` raises TypeError (unhashable type) instead of ValueError. The test asserts exactly what the spec requires."
+    },
+    {
+      "test": "sgtlearn-features-py--resolve-column-index::tests.tcheck.test_sgtlearn_features_py__resolve_column_index_1::test_name_resolving_beyond_n_features_raises",
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "spec_basis": "Raises ValueError: \"The name resolves to a position that is not a valid index for n_features columns.\" Also Returns: \"A Python int p with 0 <= p < n_features\".",
+      "failure": "",
+      "reason": "The test looks up \"d\" with n_features=2 and column_names [\"a\", \"b\", \"c\", \"d\"]. The name maps to position 3, which is not a valid index for 2 columns, so the spec requires a ValueError. The implementation checks the range only on the integer path and returns 3 from the name lookup, which breaks both the Raises clause and the 0 <= p < n_features guarantee in Returns."
+    }
+  ],
+  "suspicions": [
+    {
+      "target": "sgtlearn-features-py--resolve-column-index",
+      "analysis": "Logical mistakes:\n- Integer detection relies on the built-in int type alone. NumPy integer scalars (e.g. np.int64(2), which you get when iterating over a NumPy array of indices) are not Python ints, so they fall through to the column-name branch. They then fail with a misleading \"requires a pandas DataFrame\" or \"column name ... not found\" error, even though they are valid positional indices.\n- bool is a subclass of int, so True and False are silently accepted as positions 1 and 0. A boolean is almost certainly a user error, not a column reference.\n- Duplicate column names: the name-to-position lookup keeps the last occurrence, so a duplicated name silently resolves to one arbitrary position instead of being reported as ambiguous.\n- A name can resolve to a position >= n_features when column_names is longer than the number of features. The name path never checks the result against n_features, while the integer path does.\n\nRobustness omissions:\n- No type check. Values that are neither integers nor strings (floats, None, lists) are treated as column names and give a confusing \"not found\" or \"requires DataFrame\" message instead of a clear invalid-type error.\n- No check that column_names is consistent with n_features.\n- Negative indices are rejected (no Python-style wrap-around). This looks deliberate and should be kept, with a clear out-of-range error."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_features_py__resolve_column_index_1.py",
+      "dest": "tests/regression/test_sgtlearn_features_py__resolve_column_index_1.py",
+      "tests": 40
+    }
+  ],
+  "not_promotable": []
+}

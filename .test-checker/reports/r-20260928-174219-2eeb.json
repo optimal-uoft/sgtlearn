@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174219-2eeb",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "a24ec673bc501673b00fbfe6d0e4eee6b60af8ac"
+    }
+  },
+  "date": "2026-09-29T00:33:55.801Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-init",
+      "accepted": 30,
+      "disputed": 3,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-init",
+      "analysis": "Logical mistakes: none found. The constructor passes all 26 hyperparameters to the base-class constructor, each under its own name, so every one is stored unchanged. The regressor-specific defaults (criterion=\"squared_error\") make sense. The default max_features=\"sqrt\" differs from scikit-learn's regressor default of 1.0, but it looks like a deliberate design choice, not a bug.\nRobustness omissions: none found. This is a scikit-learn-style estimator, and the convention there is that __init__ only stores its arguments and does not validate or change them; validation happens at fit time. Adding validation or type coercion here would break get_params/set_params/clone round-tripping, so leaving it out is correct."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-init::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_init_1::test_get_params_has_exactly_26_keys_with_defaults",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-init::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_init_1::test_int_n_estimators_not_coerced_from_float",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-init::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_init_1::test_is_regressor",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_init_1.py",
+      "reason": "contains non-accepted tests: test_get_params_has_exactly_26_keys_with_defaults (disputed), test_int_n_estimators_not_coerced_from_float (disputed), test_is_regressor (disputed)"
+    }
+  ]
+}
