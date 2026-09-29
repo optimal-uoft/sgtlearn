@@ -1,0 +1,10 @@
+version: 1
+language: python
+framework: "pytest"
+source_globs: ["sgtlearn/**/*.py"]
+test_dir: tests/tcheck
+test_file_pattern: "test_{target_slug}_{n}.py"
+promote_dir: tests/regression
+commands:
+  run: "uv run --exclude-newer 2026-09-28T00:00:00Z --extra dev python -m pytest {files} --junitxml={junit} -q -p no:cacheprovider"
+gate: warn

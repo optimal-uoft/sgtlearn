@@ -1,0 +1,70 @@
+{
+  "run": "r-20260928-174205-8741",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "9d2125cb9b0a492b139b1047a90b4a3e1221566d"
+    }
+  },
+  "date": "2026-09-29T00:33:52.969Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--sgtclassifier-predict",
+      "accepted": 19,
+      "disputed": 6,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--sgtclassifier-predict",
+      "analysis": "Logical mistakes: None found on the happy path. The method checks that the estimator is fitted, validates X as a dense 2-D numeric array (NaN allowed, inf rejected), converts it to contiguous float32, checks that the feature count matches fit, and runs the fitted tree. The tree returns encoded class indices, and each output column is mapped back to its original labels through that output's label encoder. The result is squeezed to 1-D when there is a single output. One small risk: if the underlying estimator returns float-typed encoded indices, inverse_transform expects integer indices and could fail or behave oddly. A correct version must make sure the indices are integers before decoding.\nRobustness omissions: Mostly handled. check_array rejects 1-D input, sparse input, non-numeric input, +/-inf and empty (0-sample) input. Finite float64 values outside the float32 range silently become +/-inf after the cast. This is minor and is not checked. The feature-count check runs before prediction. Nothing else significant is missing."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-predict::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_predict_1::test_unfitted_raises_not_fitted_error",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-predict::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_predict_1::test_string_labels_restored",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-predict::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_predict_1::test_non_contiguous_integer_labels_restored",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-predict::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_predict_1::test_single_class_predicts_that_class",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-predict::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_predict_1::test_multi_output_shape_and_labels",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-predict::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_predict_1::test_multi_output_agrees_with_argmax_predict_proba",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__sgtclassifier_predict_1.py",
+      "reason": "contains non-accepted tests: test_unfitted_raises_not_fitted_error (disputed), test_string_labels_restored (disputed), test_non_contiguous_integer_labels_restored (disputed), test_single_class_predicts_that_class (disputed), test_multi_output_shape_and_labels (disputed), test_multi_output_agrees_with_argmax_predict_proba (disputed)"
+    }
+  ]
+}

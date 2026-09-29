@@ -10,6 +10,7 @@ from typing import TypeVar
 
 import numpy as np
 from joblib import Parallel, delayed, effective_n_jobs
+from scipy.sparse import issparse
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from TreeAlternatingOptimization import TreeAlternatingOptimization
@@ -43,7 +44,7 @@ def _tao_targets(model: TaoModel) -> list[SGTClassifier | SGTRegressor]:
     """Extract base tree estimators to refine (one tree or ``estimators_``)."""
     if isinstance(model, RandomSGForest):
         check_is_fitted(model, attributes=("estimators_",))
-        if model.n_features_in_ is None:
+        if not model.estimators_ or getattr(model, "n_features_in_", None) is None:
             raise NotFittedError(
                 f"This {type(model).__name__} instance is not fitted yet."
             )
@@ -54,7 +55,7 @@ def _tao_targets(model: TaoModel) -> list[SGTClassifier | SGTRegressor]:
             check_is_fitted(model, attributes=("_est", "_le"))
         else:
             check_is_fitted(model, attributes=("_est",))
-        if model._est is None or model.n_features_in_ is None:
+        if model._est is None or getattr(model, "n_features_in_", None) is None:
             raise NotFittedError(
                 f"This {type(model).__name__} instance is not fitted yet."
             )
@@ -73,6 +74,11 @@ def _validate_X_y(
     *,
     check_input: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
+    n_features = getattr(model, "n_features_in_", None)
+    if n_features is None:
+        raise NotFittedError(f"This {type(model).__name__} instance is not fitted yet.")
+    if issparse(X):
+        raise ValueError("Sparse X is not supported; pass a dense array.")
     if check_input:
         if isinstance(model, (SGTRegressor, RandomSGForestRegressor)):
             X, y = check_X_y(
@@ -98,9 +104,12 @@ def _validate_X_y(
         X = np.asarray(X)
         y = np.asarray(y)
 
-    n_features = model.n_features_in_
-    if n_features is None:
-        raise NotFittedError(f"This {type(model).__name__} instance is not fitted yet.")
+    if X.ndim != 2 or X.shape[0] == 0:
+        raise ValueError(
+            f"X must be a non-empty dense 2D array; got shape {X.shape}"
+        )
+    if y.ndim < 1:
+        raise ValueError("y must be at least 1-dimensional.")
     if X.shape[1] != n_features:
         raise ValueError(
             f"X has {X.shape[1]} features, but {type(model).__name__} was fitted "
@@ -119,23 +128,32 @@ def _prepare_tao_arrays(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build ``(X32, y_native, sample_weights)`` shared by all trees in ``model``."""
     X32 = np.ascontiguousarray(X, dtype=np.float32)
+    if X32.ndim != 2:
+        raise ValueError(f"X must be 2D; got shape {X32.shape}")
+    if np.shape(y)[:1] != X32.shape[:1]:
+        raise ValueError("X and y must have the same number of samples.")
+    not_fitted = NotFittedError(
+        f"This {type(model).__name__} instance is not fitted yet."
+    )
+    if getattr(model, "n_features_in_", None) is None:
+        raise not_fitted
 
     if isinstance(model, (SGTClassifier, RandomSGForestClassifier)):
-        classes_ = model.classes_
+        classes_ = getattr(model, "classes_", None)
         class_weight = model.class_weight
         if classes_ is None:
-            raise NotFittedError(
-                f"This {type(model).__name__} instance is not fitted yet."
-            )
+            raise not_fitted
         n_outputs = int(getattr(model, "n_outputs_", 1) or 1)
         y_arr = np.asarray(y)
 
         if isinstance(model, SGTClassifier):
-            encoders = model._le
+            encoders = getattr(model, "_le", None)
         else:
             encoders = getattr(model, "_label_encoders_", None)
             if encoders is None:
-                encoders = model._label_encoder_
+                encoders = getattr(model, "_label_encoder_", None)
+        if encoders is None:
+            raise not_fitted
 
         enc_list = label_encoders_as_list(encoders, n_outputs)
         y_enc, _, _, _ = encode_classification_targets(y_arr, encoders=enc_list)

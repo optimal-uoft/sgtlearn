@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174216-6580",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "11fef8c931fe68e4d451c85509d6237d7f73832f"
+    }
+  },
+  "date": "2026-09-29T00:47:16.121Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-mean-feature-importances",
+      "accepted": 17,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-mean-feature-importances",
+      "analysis": "Logical mistakes: none found. Averaging a (n_trees, n_logical_features) matrix along axis 0 gives one mean importance per logical feature across trees, which is what the name and docstring say. The feature order depends on the helper returning rows that share the order of processed_features_.\nRobustness omissions: The property does no validation of its own. It depends entirely on the per-tree matrix helper to (a) raise when the forest has not been fitted, (b) raise when TAO refinement was applied, since per-tree importances are documented as unavailable then, and (c) avoid returning an empty matrix. If the helper ever returned zero rows, the mean would silently be all NaN (with a RuntimeWarning) instead of raising a clear error. The property also should not change fitted state or the per-tree importances it reads."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_mean_feature_importances_1.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_mean_feature_importances_1.py",
+      "tests": 17
+    }
+  ],
+  "not_promotable": []
+}

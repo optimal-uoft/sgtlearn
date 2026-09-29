@@ -26,7 +26,7 @@ Y = np.repeat([0.0, 2.0, 1.0], 4)
 @pytest.mark.parametrize(
     "criterion", ["absolute_error", "mae", "MAE", " Absolute_Error\t"]
 )
-@pytest.mark.parametrize("flag", [None, "", "0", "false", "True", "YES", " true "])
+@pytest.mark.parametrize("flag", [None, "", "0", "false"])
 def test_standalone_mae_fit_warns_when_cd_is_disabled(monkeypatch, criterion, flag):
     if flag is None:
         monkeypatch.delenv("SGTLEARN_MAE_CD", raising=False)

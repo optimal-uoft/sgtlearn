@@ -1,0 +1,110 @@
+{
+  "run": "r-20260928-174207-4fb4",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "dec084a16ad1a30a0e960622892daee732164ef9"
+    }
+  },
+  "date": "2026-09-29T00:33:53.362Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--baseshapecart-feature-importances",
+      "accepted": 1,
+      "disputed": 14,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--baseshapecart-feature-importances",
+      "analysis": "Logical mistakes: The docstring promises *normalized* importances, but the property passes through whatever the underlying estimator reports without normalizing it. If the backend returns raw impurity gains, the result will not sum to 1. Nothing checks that the returned length equals the number of logical features, so a backend that reports per-column or per-encoded-feature values would silently break the promised one-to-one mapping with the processed-features description.\nRobustness omissions: (1) Degenerate trees (a single leaf, or zero total impurity gain) are not handled. Normalizing would divide by zero and give NaN; the result should be all zeros. (2) The result may be a view of the estimator's internal buffer, so callers could change the fitted model's state by editing it. A fresh copy should be returned. (3) Nothing checks that values are finite and non-negative. (4) The pair-node warning is raised on every access, which is acceptable but noisy. It is correctly a UserWarning. Otherwise the error handling (not-fitted error before fit, AttributeError after TAO refinement, so hasattr() returns False) looks intended and correct."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_unfitted_access_raises_not_fitted_error",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_classifier_returns_float64_array_with_one_entry_per_feature",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_regressor_returns_float64_array_with_one_entry_per_feature",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_values_are_finite_and_non_negative",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_values_sum_to_one_when_tree_splits",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_regressor_values_sum_to_one_when_tree_splits",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_unused_constant_feature_gets_zero",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_informative_feature_gets_positive_importance",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_no_split_constant_target_gives_all_zeros_not_nan",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_returned_array_is_independent_copy",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_repeated_calls_return_same_values",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_repeated_calls_return_distinct_objects",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_tree_without_pair_nodes_raises_no_warning",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-feature-importances::tests.tcheck.test_sgtlearn_base_py__baseshapecart_feature_importances_1::test_pair_node_warning_still_returns_normalized_values",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__baseshapecart_feature_importances_1.py",
+      "reason": "contains non-accepted tests: test_unfitted_access_raises_not_fitted_error (disputed), test_classifier_returns_float64_array_with_one_entry_per_feature (disputed), test_regressor_returns_float64_array_with_one_entry_per_feature (disputed), test_values_are_finite_and_non_negative (disputed), test_values_sum_to_one_when_tree_splits (disputed), test_regressor_values_sum_to_one_when_tree_splits (disputed), test_unused_constant_feature_gets_zero (disputed), test_informative_feature_gets_positive_importance (disputed), test_no_split_constant_target_gives_all_zeros_not_nan (disputed), test_length_matches_processed_features (skipped), test_returned_array_is_independent_copy (disputed), test_repeated_calls_return_same_values (disputed), test_repeated_calls_return_distinct_objects (disputed), test_tree_without_pair_nodes_raises_no_warning (disputed), test_pair_node_warning_still_returns_normalized_values (disputed), test_tao_refined_tree_raises_attribute_error_mentioning_permutation (skipped), test_tao_refined_tree_hasattr_returns_false (skipped)"
+    }
+  ]
+}

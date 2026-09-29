@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174208-e43a",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "becc0ed77e58d9f5b4631d1d9d4ba35411635426"
+    }
+  },
+  "date": "2026-09-29T00:33:53.584Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--configure-processed-features",
+      "accepted": 12,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--configure-processed-features",
+      "analysis": "Logical mistakes: none found. The helper resolves which feature-grouping configuration to use. A precomputed ProcessedFeatures takes precedence. Otherwise one is built from n_features, feature_dict and column_names by the module's configure_feature_dict. This matches the name and the likely intent.\nRobustness omissions: (1) When processed_features is supplied, any feature_dict and column_names are silently ignored. Nothing checks that they conflict or that the supplied object matches n_features. This is a possible gap, but it is consistent with a \"precomputed wins\" contract, so a correct version is not required to validate it. (2) The helper does not validate n_features itself (for example, a non-positive value). It leaves that, and all feature_dict and column_names validation, to configure_feature_dict, and lets its exceptions propagate. That is acceptable delegation, not a defect."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__configure_processed_features_1.py",
+      "dest": "tests/regression/test_sgtlearn_base_py__configure_processed_features_1.py",
+      "tests": 12
+    }
+  ],
+  "not_promotable": []
+}

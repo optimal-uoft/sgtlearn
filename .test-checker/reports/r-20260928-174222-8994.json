@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174222-8994",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "9f9b7be0eecc66c93d007bc42148891a4b865996"
+    }
+  },
+  "date": "2026-09-29T00:33:56.438Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-export-py--draw-internal-panel",
+      "accepted": 35,
+      "disputed": 3,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-export-py--draw-internal-panel",
+      "analysis": "Logical mistakes: None found on the happy path. The x-extent (data range, or the threshold span padded by the mean threshold spacing, or [0, 1]) is computed correctly. The routing slabs are coloured by partition. Histogram bins are split among slabs roughly in proportion to slab width, each slab gets at least one bin, and the total is trimmed or topped up to n_hist_bins where possible. Bar colours line up with the bins of their slab. The ticks sit exactly at the internal slab boundaries.\nRobustness omissions:\n- Non-finite feature values (NaN, or inf for missing entries) are not filtered out. The min and max then become NaN or inf, which corrupts the axis extent and the histogram edges. Missing or non-finite values should be left out of both the extent and the counts, and an input with no finite values should be treated as having no data.\n- If the region merge returned no slabs, the histogram would get an empty edge list and fail. Correct behaviour is to fall back to one slab covering the whole extent.\n- When there are more slabs than n_hist_bins, the total bin count ends up above n_hist_bins. This is allowed: every slab keeps at least one bin.\n- A non-positive n_hist_bins is not validated. Each slab should still get at least one bin.\n- Zero-width slabs, where a threshold coincides with the data minimum or maximum, can produce repeated bin edges. These must not raise an error.\n- The fontsize reduction is not clamped, so a very small fontsize minus 2 can go to zero or below."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-export-py--draw-internal-panel::tests.tcheck.test_sgtlearn_export_py__draw_internal_panel_1::test_nonfinite_values_ignored_for_extent",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--draw-internal-panel::tests.tcheck.test_sgtlearn_export_py__draw_internal_panel_1::test_all_nonfinite_values_behave_as_no_data",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--draw-internal-panel::tests.tcheck.test_sgtlearn_export_py__draw_internal_panel_1::test_histogram_counts_cover_all_finite_values",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_export_py__draw_internal_panel_1.py",
+      "reason": "contains non-accepted tests: test_nonfinite_values_ignored_for_extent (disputed), test_all_nonfinite_values_behave_as_no_data (disputed), test_histogram_counts_cover_all_finite_values (disputed)"
+    }
+  ]
+}

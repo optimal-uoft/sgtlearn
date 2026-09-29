@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174216-4631",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "913b1fa9e2d444ba624df079d460d46568032137"
+    }
+  },
+  "date": "2026-09-29T00:33:55.175Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--parallel-fit-tree",
+      "accepted": 22,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--parallel-fit-tree",
+      "analysis": "Logical mistakes: none found. When bootstrapping, row indices are drawn uniformly with replacement from [0, n_samples), and exactly n_bootstrap of them are drawn from an RNG seeded deterministically by tree_seed. X, y and (if given) sample_weight are subset with the same indices, so rows stay aligned. When not bootstrapping, the full data and weights are used unchanged. The estimator comes from tree_factory(tree_seed, tree_kw), so the same seed controls both the resample and the tree's own randomness, which matches scikit-learn forests. The MAE coordinate-descent warning-suppression flag is set only for the duration of fit and is restored in a finally block, so it is restored even when fit raises. The fitted estimator is returned.\nRobustness omissions: this is a private worker helper that fits with input checking turned off, so it trusts the caller. It does not check that n_samples equals the number of rows in X, y and sample_weight, that n_bootstrap is at least 1, or that the arrays have matching lengths. With n_samples <= 0 and bootstrapping on, the random draw raises a ValueError. Passing n_bootstrap = 0 would try to fit on empty data. processed_features is passed through unchanged, which assumes it holds per-feature metadata (for example feature types or bins) that does not depend on which rows are used. Caller-side validation is acceptable here, so none of these count as defects."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__parallel_fit_tree_1.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__parallel_fit_tree_1.py",
+      "tests": 22
+    }
+  ],
+  "not_promotable": []
+}

@@ -117,31 +117,31 @@ class RandomSGForest(BaseEstimator, ABC):
         n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
-        self.n_estimators = int(n_estimators)
+        self.n_estimators = n_estimators
         self.criterion = criterion
-        self.num_partitions = int(num_partitions)
+        self.num_partitions = num_partitions
         self.max_depth = max_depth
         self.max_leaf_nodes = max_leaf_nodes
-        self.min_samples_leaf = int(min_samples_leaf)
-        self.min_impurity_decrease = float(min_impurity_decrease)
-        self.inner_max_depth = int(inner_max_depth)
-        self.inner_max_leaf_nodes = int(inner_max_leaf_nodes)
-        self.inner_min_samples_leaf = int(inner_min_samples_leaf)
-        self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
-        self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
-        self.coordinate_descent_patience = int(coordinate_descent_patience)
+        self.min_samples_leaf = min_samples_leaf
+        self.min_impurity_decrease = min_impurity_decrease
+        self.inner_max_depth = inner_max_depth
+        self.inner_max_leaf_nodes = inner_max_leaf_nodes
+        self.inner_min_samples_leaf = inner_min_samples_leaf
+        self.inner_min_impurity_decrease = inner_min_impurity_decrease
+        self.coordinate_descent_max_iters = coordinate_descent_max_iters
+        self.coordinate_descent_patience = coordinate_descent_patience
         self.max_features = max_features
-        self.bootstrap = bool(bootstrap)
+        self.bootstrap = bootstrap
         self.max_samples = max_samples
         self.random_state = random_state
         self.pairwise_candidates = pairwise_candidates
         self.pairwise_penalty = pairwise_penalty
         self.branching_penalty = branching_penalty
-        self.tao_n_runs = int(tao_n_runs)
-        self.tao_lambda = float(tao_lambda)
+        self.tao_n_runs = tao_n_runs
+        self.tao_lambda = tao_lambda
         self.tao_pair_scale = tao_pair_scale
         self.n_jobs = n_jobs
-        self.verbose = int(verbose)
+        self.verbose = verbose
 
     def _tree_kwargs(self) -> dict[str, Any]:
         return {
@@ -241,14 +241,14 @@ class RandomSGForest(BaseEstimator, ABC):
         tree_kw = self._tree_kwargs()
         _warn_if_mae_cd_disabled(self.criterion)
         tree_seeds = [
-            int(rng.randint(np.iinfo(np.int32).max)) for _ in range(self.n_estimators)
+            int(rng.randint(np.iinfo(np.int32).max)) for _ in range(int(self.n_estimators))
         ]
 
         def tree_factory(tree_seed: int, kw: dict[str, Any]) -> Any:
             return self._make_tree(tree_seed, kw)
 
         fit_args = (
-            self.bootstrap,
+            bool(self.bootstrap),
             n_samples,
             n_bootstrap,
             X,
@@ -266,7 +266,7 @@ class RandomSGForest(BaseEstimator, ABC):
         else:
             self.estimators_ = Parallel(
                 n_jobs=n_jobs,
-                verbose=self.verbose,
+                verbose=int(self.verbose),
                 prefer="threads",
             )(delayed(_parallel_fit_tree)(ts, *fit_args) for ts in tree_seeds)
 

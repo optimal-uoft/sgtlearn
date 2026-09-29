@@ -1,0 +1,55 @@
+{
+  "run": "r-20260928-174206-b45b",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "dd3784e75e2870b87d41c84db826e8a8ccca30c6"
+    }
+  },
+  "date": "2026-09-29T00:33:53.084Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--sgtclassifier-tree-export",
+      "accepted": 13,
+      "disputed": 3,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--sgtclassifier-tree-export",
+      "analysis": "Logical mistakes: none found. The method checks that the estimator is fitted, gets the tree snapshot from the backend, and normalizes it into the documented flat dict. The result follows the documented contract as long as the normalization helper does its job. That helper's own correctness is out of scope here.\nRobustness omissions: No definite omissions. Worth noting:\n(1) The fitted check reads \"_est\" and \"_le\" by attribute. If a fit fails partway, \"_est\" can exist but be None, and the explicit None guard covers that case, so it stays. It should raise the same NotFittedError, with the standard message, as the sklearn check.\n(2) The method does not copy the result defensively. The spec should say the returned dict is a fresh snapshot that the caller owns: changing it must not change the fitted model, and calling the method twice must give equal, independent results.\n(3) The method needs no arguments, so there is no input to validate."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-tree-export::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_tree_export_1::test_num_classes_binary",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-tree-export::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_tree_export_1::test_num_classes_three_classes",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--sgtclassifier-tree-export::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_tree_export_1::test_fitted_state_set_to_none_raises_not_fitted_error",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__sgtclassifier_tree_export_1.py",
+      "reason": "contains non-accepted tests: test_num_classes_binary (disputed), test_num_classes_three_classes (disputed), test_fitted_state_set_to_none_raises_not_fitted_error (disputed)"
+    }
+  ]
+}

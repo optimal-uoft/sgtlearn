@@ -1,0 +1,40 @@
+{
+  "run": "r-20260928-174222-935f",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "9f9b7be0eecc66c93d007bc42148891a4b865996"
+    }
+  },
+  "date": "2026-09-29T00:33:56.497Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-export-py--draw-leaf-text",
+      "accepted": 30,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-export-py--draw-leaf-text",
+      "analysis": "Logical mistakes: No clear happy-path error. Classifier leaves show the class with the highest count in the first output. On a tie the first (lowest) index wins, which is the usual argmax convention. Regressor leaves show the value formatted to `precision` decimals. The primary line is always drawn. The subtitle (sample count, plus impurity when requested) is drawn only for label='all'. With label='none' or any other label (for example 'feature' or 'root') only the bold line is drawn. This matches the docstring. One small quirk: the subtitle font size is \"fontsize - 1\" only when fontsize is an int. A float fontsize falls back to the default size, and fontsize=1 gives a size of 0.\nRobustness omissions:\n- class_names shorter than the number of classes causes an IndexError instead of a clear error or a fallback to the index string.\n- Missing keys ('value' for regressors, 'n_samples' and 'impurity' for label='all') raise a raw KeyError.\n- A flat (non-nested) class_counts, or a non-scalar regression value (array or multi-output), is not handled. It either raises or gives wrong output.\n- An empty or missing class_counts silently gives an empty bold label. This is tolerated rather than reported.\n- The label value is not validated. Unknown labels are treated like 'none'."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_export_py__draw_leaf_text_1.py",
+      "dest": "tests/regression/test_sgtlearn_export_py__draw_leaf_text_1.py",
+      "tests": 30
+    }
+  ],
+  "not_promotable": []
+}

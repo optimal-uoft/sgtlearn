@@ -1,0 +1,39 @@
+{
+  "run": "r-20260928-174213-be8b",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "a64b4ffc859b763d3ea208bcdb8230fff1824436"
+    }
+  },
+  "date": "2026-09-29T00:33:54.644Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-datasets-py--make-plus",
+      "accepted": 0,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-datasets-py--make-plus",
+      "analysis": "Logical mistakes: none found on the happy path. Points are drawn uniformly over [0, grid)^2. A point is kept only if both coordinates sit strictly more than `margin` from every integer cell border. Labels are 1 exactly when the point's column index or row index equals grid // 2, which is the centre column or centre row. This matches the documented intent. Two behaviours are allowed but worth noting. First, `margin` removes a band of width `margin` on each side of every border, so the empty gap between neighbouring cells is 2*margin wide. Second, when `grid` is even the \"centre\" is index grid // 2, which gives an off-centre cross. The docstring only warns about this; it does not forbid it.\nRobustness omissions:\n- `grid` is not validated. With grid == 0 every sample is 0.0, so its fractional part is 0 and never passes the margin test. The rejection loop then never ends. With a negative grid, samples fall in (grid, 0], which breaks the documented guarantee that features lie in [0, grid), and the labels are meaningless. A non-integer grid (for example 2.5) gives partial cells. `grid` should be required to be a positive integer, with ValueError otherwise.\n- `n_samples` is not validated. A negative value silently returns empty arrays instead of raising. It should be a non-negative integer, with ValueError otherwise. n_samples == 0 should return correctly shaped empty arrays.\n- There is no degenerate-case guard for grid == 1. Every point then gets label 1. This is acceptable, but it should be documented as producing a single class."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_datasets_py__make_plus_1.py",
+      "reason": "no test results"
+    }
+  ]
+}

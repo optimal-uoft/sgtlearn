@@ -1,0 +1,48 @@
+{
+  "run": "r-20260928-174208-9a71",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "85cca70fc7c1333f9d536ef794e1af72cd1fa2c4"
+    }
+  },
+  "date": "2026-09-29T00:33:53.471Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--normalize-tree-export",
+      "accepted": 33,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [
+    {
+      "test": "sgtlearn-base-py--normalize-tree-export::tests.tcheck.test_sgtlearn_base_py__normalize_tree_export_1::test_numeric_negative_inf_not_a_sentinel",
+      "target": "sgtlearn-base-py--normalize-tree-export",
+      "spec_basis": "\"Trailing positive-infinity sentinels are removed from ``thresholds``. Finite values, NaN and non-trailing values are kept, and negative infinity is not a sentinel.\"",
+      "failure": "",
+      "reason": "The spec says only trailing positive infinity is a sentinel, and it says outright that negative infinity is not one. The implementation's loop uses `np.isinf(thresholds[-1])`, which is also true for -inf, so the trailing -inf in `[1.0, -inf]` gets popped. The test expects `[1.0, -inf]` to stay as it is, which is exactly what the spec requires."
+    }
+  ],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--normalize-tree-export",
+      "analysis": "Logical mistakes:\n- Sentinel stripping is wider than the stated intent. The docstring names a trailing \"+inf\" sentinel, but the infinity test also matches negative infinity, so a trailing -inf threshold would be dropped too. Only positive-infinity trailing thresholds should be removed. NaN thresholds are correctly left alone.\n- The categorical branch always treats the last bin_to_partition entry as the NaN routing bin and removes it. Unlike the numeric branch, it never checks that a NaN bin is actually there. A payload that has already been normalized (or one without the NaN bin) loses a real category bin, and nan_prediction_partition gets overwritten with a wrong value. So the function is not idempotent for categorical nodes, although it is for numeric nodes.\n\nRobustness omissions:\n- Thresholds are trimmed in place by popping, which assumes a mutable list. A tuple would raise, and a numpy array would raise or behave unexpectedly. Also, when \"thresholds\" is present but empty after trimming, the empty list is kept rather than normalized.\n- A nan_prediction_partition value that already exists is overwritten without any check.\n- Top-level input is not validated. A non-dict tree, or a \"nodes\" value that is None or not a list of dicts, fails with an AttributeError or TypeError instead of a clear error.\n- Per-bin auxiliary arrays (bin_sample_counts, bin_counts, bin_weights, bin_categories) are trimmed only when their length matches the original bin count. Lengths that don't match anything are passed through silently. This is acceptable, but it is a silent tolerance rather than validation."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__normalize_tree_export_1.py",
+      "dest": "tests/regression/test_sgtlearn_base_py__normalize_tree_export_1.py",
+      "tests": 33
+    }
+  ],
+  "not_promotable": []
+}

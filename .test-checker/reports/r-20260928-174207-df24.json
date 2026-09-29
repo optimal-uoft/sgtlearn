@@ -1,0 +1,70 @@
+{
+  "run": "r-20260928-174207-df24",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "dec084a16ad1a30a0e960622892daee732164ef9"
+    }
+  },
+  "date": "2026-09-29T00:33:53.416Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--baseshapecart-processed-features",
+      "accepted": 5,
+      "disputed": 6,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--baseshapecart-processed-features",
+      "analysis": "Logical mistakes: none found. The property checks that the estimator has been fitted (by looking for the private `_processed_features` attribute) and returns the stored ProcessedFeatures object unchanged. That is what the name and docstring describe: a read-only accessor for fit-time state.\nRobustness omissions: The stored object is returned by reference, not copied, so any caller who changes it would silently corrupt the estimator's state. This only matters if ProcessedFeatures is mutable, and returning by reference is normal for sklearn fitted attributes, so it is minor. The fitted check depends on sklearn's `check_is_fitted`, which raises NotFittedError when the attribute is missing. That is the right behaviour. The check also needs to work for an estimator that was never fitted and for a fresh `clone()`, and it does: neither has the private attribute. No further validation is needed."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-base-py--baseshapecart-processed-features::tests.tcheck.test_sgtlearn_base_py__baseshapecart_processed_features_1::test_default_layout_names_are_string_indices",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-processed-features::tests.tcheck.test_sgtlearn_base_py__baseshapecart_processed_features_1::test_default_layout_length_matches_feature_importances_regressor",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-processed-features::tests.tcheck.test_sgtlearn_base_py__baseshapecart_processed_features_1::test_feature_dict_group_and_uncovered_column",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-processed-features::tests.tcheck.test_sgtlearn_base_py__baseshapecart_processed_features_1::test_feature_dict_int_keys_converted_to_strings",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-processed-features::tests.tcheck.test_sgtlearn_base_py__baseshapecart_processed_features_1::test_access_does_not_change_params",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-base-py--baseshapecart-processed-features::tests.tcheck.test_sgtlearn_base_py__baseshapecart_processed_features_1::test_refit_replaces_processed_features",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__baseshapecart_processed_features_1.py",
+      "reason": "contains non-accepted tests: test_default_layout_names_are_string_indices (disputed), test_default_layout_length_matches_feature_importances_regressor (disputed), test_feature_dict_group_and_uncovered_column (disputed), test_feature_dict_int_keys_converted_to_strings (disputed), test_access_does_not_change_params (disputed), test_refit_replaces_processed_features (disputed)"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "run": "r-20260928-174212-b386",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "325922062c6a9fe95ffa2913160cd0a53ba60522"
+    }
+  },
+  "date": "2026-09-29T00:33:54.230Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-multioutput-py--label-encoders-as-list",
+      "accepted": 22,
+      "disputed": 1,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-multioutput-py--label-encoders-as-list",
+      "analysis": "Logical mistakes: none found. A single encoder is only accepted when n_outputs == 1. When there are several outputs it is rejected, not copied to every output. That is correct: each per-output encoder is fitted on that output's own classes, so reusing one encoder across outputs would decode labels wrongly. The dedicated \"got 1\" error for this case is redundant with the general length check, but it does no harm and gives a clearer message.\nRobustness omissions: (1) n_outputs is not validated. With n_outputs <= 0 or a non-integer value, an empty list/tuple is returned as a valid empty result when n_outputs == 0, and other inputs get confusing \"expected 0/-1 label encoders\" messages. It should require a positive integer. (2) Only list and tuple count as sequences. Other containers, such as a numpy object array of encoders, are wrapped as one \"encoder\" and then fail the length check with a misleading message. This is acceptable if documented. Strings must never be split into characters. (3) Elements are not checked, so None entries (or a scalar None) pass through silently. This is acceptable because type checking belongs to the caller, but it should be documented."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-multioutput-py--label-encoders-as-list::tests.tcheck.test_sgtlearn_multioutput_py__label_encoders_as_list_1::test_zero_n_outputs_with_empty_list_raises",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_multioutput_py__label_encoders_as_list_1.py",
+      "reason": "contains non-accepted tests: test_zero_n_outputs_with_empty_list_raises (disputed)"
+    }
+  ]
+}

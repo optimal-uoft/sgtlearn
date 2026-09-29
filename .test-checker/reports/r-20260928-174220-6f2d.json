@@ -1,0 +1,60 @@
+{
+  "run": "r-20260928-174220-6f2d",
+  "mode": "audit",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "53a23a1739563c1c54012c5a95ec93ef9613bc5f"
+    }
+  },
+  "date": "2026-09-29T00:33:56.151Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-export-py--merge-routing-regions",
+      "accepted": 10,
+      "disputed": 4,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-export-py--merge-routing-regions",
+      "analysis": "Logical mistakes: On the normal path the merge looks correct. It groups maximal runs of equal partition ids in adjacent bins, uses the thresholds at run boundaries as slab edges, clips the outer edges to [x_min, x_max], and drops slabs whose clipped width is zero or less. One subtle problem: if thresholds contain duplicates, a bin can have zero width. Say a zero-width bin with partition B sits between two bins with partition A. The B slab is dropped because it is empty, but the two A slabs on either side stay separate. The result is two touching slabs with the same partition id, which breaks the rule that interior boundaries are only placed where the destination partition changes. After dropping zero-width slabs, touching slabs with the same partition should be merged into one.\nRobustness omissions: (1) The check that the number of thresholds matches the number of finite bins is a bare assert. Python strips asserts under -O, and an assert is the wrong error type for bad caller input. A mismatch should raise ValueError. (2) Nothing checks that thresholds are sorted non-decreasing or free of NaN. Unsorted or NaN thresholds silently produce wrong or overlapping slabs. (3) Nothing checks x_min and x_max. If x_min >= x_max, or either is NaN, the function silently returns an empty or partial list. That is acceptable only if documented. (4) An empty bin_to_partition returns [] no matter what thresholds holds, and no mismatch is reported."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [
+    {
+      "test": "sgtlearn-export-py--merge-routing-regions::tests.tcheck.test_sgtlearn_export_py__merge_routing_regions_1::test_zero_width_duplicate_threshold_bin_does_not_split_run",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--merge-routing-regions::tests.tcheck.test_sgtlearn_export_py__merge_routing_regions_1::test_too_few_bins_raises_value_error",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--merge-routing-regions::tests.tcheck.test_sgtlearn_export_py__merge_routing_regions_1::test_bins_without_thresholds_mismatch_raises_value_error",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    },
+    {
+      "test": "sgtlearn-export-py--merge-routing-regions::tests.tcheck.test_sgtlearn_export_py__merge_routing_regions_1::test_random_inputs_satisfy_tiling_invariants",
+      "category": "disputed",
+      "outcome": "pending adjudication"
+    }
+  ],
+  "dropped": [],
+  "promotable": [],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_export_py__merge_routing_regions_1.py",
+      "reason": "contains non-accepted tests: test_zero_width_duplicate_threshold_bin_does_not_split_run (disputed), test_too_few_bins_raises_value_error (disputed), test_bins_without_thresholds_mismatch_raises_value_error (disputed), test_random_inputs_satisfy_tiling_invariants (disputed)"
+    }
+  ]
+}

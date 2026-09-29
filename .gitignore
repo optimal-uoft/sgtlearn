@@ -237,3 +237,9 @@ sgt-learnold/
 CLAUDE.md
 # AI brainstorming/spec artifacts (local only)
 docs/superpowers/
+
+# test-checker
+.test-checker/runs/
+.test-checker/bundles/
+.test-checker/generated/
+.test-checker/worktrees/
