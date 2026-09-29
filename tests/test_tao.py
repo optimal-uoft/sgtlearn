@@ -417,3 +417,19 @@ def test_fit_with_tao_accepts_string_labels() -> None:
     labels = np.array(["setosa", "versicolor", "virginica"])[y]
     clf = SGTClassifier(tao_n_runs=1, max_depth=2).fit(X, labels)
     assert set(clf.predict(X)) <= set(labels)
+
+
+def test_fit_with_tao_applies_class_weight_once(monkeypatch) -> None:
+    seen = []
+    real = tao.TreeAlternatingOptimization
+
+    def spy(est, X, y, sw, **kw):
+        seen.append(np.asarray(sw, dtype=np.float64).copy())
+        return real(est, X, y, sw, **kw)
+
+    monkeypatch.setattr(tao, "TreeAlternatingOptimization", spy)
+    X, y = load_iris(return_X_y=True)
+    y = (y > 0).astype(int)
+    SGTClassifier(class_weight={0: 1.0, 1: 3.0}, tao_n_runs=1, max_depth=2).fit(X, y)
+    sw = seen[0]
+    assert sw[y == 1][0] / sw[y == 0][0] == pytest.approx(3.0)

@@ -393,17 +393,17 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
-        self.num_partitions = int(num_partitions)
+        self.num_partitions = num_partitions
         self.max_depth = max_depth
         self.max_leaf_nodes = max_leaf_nodes
-        self.min_samples_leaf = int(min_samples_leaf)
-        self.min_impurity_decrease = float(min_impurity_decrease)
-        self.inner_max_depth = int(inner_max_depth)
-        self.inner_max_leaf_nodes = int(inner_max_leaf_nodes)
-        self.inner_min_samples_leaf = int(inner_min_samples_leaf)
-        self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
-        self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
-        self.coordinate_descent_patience = int(coordinate_descent_patience)
+        self.min_samples_leaf = min_samples_leaf
+        self.min_impurity_decrease = min_impurity_decrease
+        self.inner_max_depth = inner_max_depth
+        self.inner_max_leaf_nodes = inner_max_leaf_nodes
+        self.inner_min_samples_leaf = inner_min_samples_leaf
+        self.inner_min_impurity_decrease = inner_min_impurity_decrease
+        self.coordinate_descent_max_iters = coordinate_descent_max_iters
+        self.coordinate_descent_patience = coordinate_descent_patience
         self.random_state = random_state
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
@@ -561,7 +561,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self._est = ClassificationShapeGeneralizedTree(
             str(self.criterion),
             n_classes_native,
-            self.num_partitions,
+            int(self.num_partitions),
             int(self.min_samples_leaf),
             float(self.min_impurity_decrease),
             outer_depth,
@@ -593,7 +593,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 self,
                 X32,
                 y,
-                sample_weight=sw,
+                # raw weights: TAO applies class_weight itself
+                sample_weight=sample_weight,
                 check_input=check_input,
                 n_runs=self.tao_n_runs,
                 lambda_=self.tao_lambda,
@@ -807,17 +808,17 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         tao_pair_scale: float = 1.1,
     ) -> None:
         self.criterion = criterion
-        self.num_partitions = int(num_partitions)
+        self.num_partitions = num_partitions
         self.max_depth = max_depth
         self.max_leaf_nodes = max_leaf_nodes
-        self.min_samples_leaf = int(min_samples_leaf)
-        self.min_impurity_decrease = float(min_impurity_decrease)
-        self.inner_max_depth = int(inner_max_depth)
-        self.inner_max_leaf_nodes = int(inner_max_leaf_nodes)
-        self.inner_min_samples_leaf = int(inner_min_samples_leaf)
-        self.inner_min_impurity_decrease = float(inner_min_impurity_decrease)
-        self.coordinate_descent_max_iters = int(coordinate_descent_max_iters)
-        self.coordinate_descent_patience = int(coordinate_descent_patience)
+        self.min_samples_leaf = min_samples_leaf
+        self.min_impurity_decrease = min_impurity_decrease
+        self.inner_max_depth = inner_max_depth
+        self.inner_max_leaf_nodes = inner_max_leaf_nodes
+        self.inner_min_samples_leaf = inner_min_samples_leaf
+        self.inner_min_impurity_decrease = inner_min_impurity_decrease
+        self.coordinate_descent_max_iters = coordinate_descent_max_iters
+        self.coordinate_descent_patience = coordinate_descent_patience
         self.random_state = random_state
         self.max_features = max_features
         self.pairwise_candidates = pairwise_candidates
@@ -916,7 +917,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
         self._est = RegressionShapeGeneralizedTree(
             str(self.criterion),
-            self.num_partitions,
+            int(self.num_partitions),
             int(self.min_samples_leaf),
             float(self.min_impurity_decrease),
             outer_depth,

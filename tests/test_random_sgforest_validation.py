@@ -130,3 +130,17 @@ def test_regression_forest_preserves_multioutput_shape() -> None:
     ).fit(X, y)
 
     assert forest.predict(X).shape == (12, 2)
+
+
+@pytest.mark.parametrize(
+    "estimator_cls",
+    [SGTRegressor, RandomSGForestClassifier, RandomSGForestRegressor],
+)
+def test_init_stores_params_unchanged(estimator_cls) -> None:
+    from sklearn.base import clone
+
+    est = estimator_cls(min_samples_leaf=np.int64(2), min_impurity_decrease=0)
+    params = est.get_params()
+    assert type(params["min_samples_leaf"]) is np.int64
+    assert type(params["min_impurity_decrease"]) is int
+    assert clone(est).get_params()["min_samples_leaf"] == 2

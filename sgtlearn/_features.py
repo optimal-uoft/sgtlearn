@@ -43,7 +43,9 @@ def _resolve_column_index(
     column_names: Sequence[str] | None,
 ) -> int:
     if isinstance(col, (bool, np.bool_)) or not isinstance(col, (int, np.integer, str)):
-        raise ValueError(f"feature reference {col!r} must be an int or str")
+        raise ValueError(  # noqa: TRY004 - sklearn parameters use ValueError
+            f"feature reference {col!r} must be an int or str"
+        )
     if not isinstance(col, str):
         if col < 0 or col >= n_features:
             raise ValueError(f"feature index {col} out of range for X")

@@ -34,7 +34,7 @@ def _validate_sample_weight_array(sw: np.ndarray, n_samples: int) -> None:
 def normalize_sample_weight(
     sample_weight: np.ndarray | None, n_samples: int
 ) -> np.ndarray | None:
-    """Validated float64 weights for tree ``fit``, or ``None`` for uniform weighting."""
+    """Validated C-contiguous float32 weights for native tree ``fit``, or ``None`` for uniform weighting."""
     if sample_weight is None:
         return None
     sw = np.asarray(sample_weight, dtype=np.float64).reshape(-1)
