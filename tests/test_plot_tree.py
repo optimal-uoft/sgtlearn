@@ -185,51 +185,31 @@ def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
     assert patch_count(with_histograms) > patch_count(without_histograms)
 
 
-def _tick_labels(artists) -> list[list[str]]:
-    return [
-        [tick.get_text() for tick in artist.get_xticklabels()]
-        for artist in artists
-        if hasattr(artist, "get_xticklabels")
-    ]
-
-
-@pytest.fixture
-def regressor_with_missing_feature():
+@pytest.mark.parametrize(
+    ("make_X", "has_margin"),
+    [
+        (lambda X: X, True),
+        (np.nan_to_num, False),
+        (lambda X: np.column_stack([np.full(len(X), np.nan), X[:, 1]]), True),
+    ],
+    ids=["some-missing", "finite", "all-missing"],
+)
+def test_plot_tree_univariate_panel_missing_margin(make_X, has_margin):
+    """NaN in a univariate node's feature renders as a margin instead of raising."""
     rng = np.random.default_rng(0)
     X = rng.normal(size=(500, 2))
     y = (X[:, 0] > 0) + rng.normal(0, 0.1, 500)
     X[:10, 0] = np.nan
-    est = SGTRegressor(max_depth=2, random_state=0, tao_n_runs=0).fit(X, y)
+    est = SGTRegressor(max_depth=2, random_state=0).fit(X, y)
     assert est.tree_export()["nodes"][0]["feature"] == 0
-    return est, X
-
-
-def test_plot_tree_univariate_panel_draws_missing_margin(
-    regressor_with_missing_feature,
-):
-    est, X = regressor_with_missing_feature
-    artists = plot_tree(est, X=X)
-    assert any("NaN" in labels for labels in _tick_labels(artists))
-    plt.close("all")
-
-
-def test_plot_tree_univariate_panel_omits_missing_margin_for_finite_X(
-    regressor_with_missing_feature,
-):
-    est, X = regressor_with_missing_feature
-    artists = plot_tree(est, X=np.nan_to_num(X))
-    assert not any("NaN" in labels for labels in _tick_labels(artists))
-    plt.close("all")
-
-
-def test_plot_tree_univariate_panel_renders_all_missing_feature(
-    regressor_with_missing_feature,
-):
-    est, X = regressor_with_missing_feature
-    X = X.copy()
-    X[:, 0] = np.nan
-    artists = plot_tree(est, X=X)
-    assert any("NaN" in labels for labels in _tick_labels(artists))
+    artists = plot_tree(est, X=make_X(X))
+    labels = [
+        tick.get_text()
+        for artist in artists
+        if hasattr(artist, "get_xticklabels")
+        for tick in artist.get_xticklabels()
+    ]
+    assert ("NaN" in labels) == has_margin
     plt.close("all")
 
 
