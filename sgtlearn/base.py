@@ -335,8 +335,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     vector target). Outer impurity averages across outputs. ``X`` is cast to
     C-contiguous ``float32`` and ``y`` to ``uint64`` before the native trainer.
     Sparse input is not supported. NaN in ``X`` is handled by the native
-    trainer (non-finite values are sorted to the feature tail and routed to
-    the last bin at inference). Infinity in ``X`` is rejected.
+    trainer: shape functions are fit on finite values, and each outer node
+    learns a ``nan_prediction_partition``, the child that best fits its
+    training NaNs (or the child with the most training samples when the node
+    saw none). Missing values are routed to that child at inference, which
+    need not be the child of the last bin. Infinity in ``X`` is rejected.
 
     References
     ----------
@@ -754,8 +757,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     always handled as ``(n_samples, n_outputs)``. Loss / gain sums across
     outputs. ``X`` and ``y`` are cast to C-contiguous ``float32`` before the
     native trainer. Sparse input is not supported. NaN in ``X`` is handled by
-    the native trainer (non-finite values are sorted to the feature tail and
-    routed to the last bin at inference). Infinity in ``X`` is rejected.
+    the native trainer: shape functions are fit on finite values, and each
+    outer node learns a ``nan_prediction_partition``, the child that best fits
+    its training NaNs (or the child with the most training samples when the
+    node saw none). Missing values are routed to that child at inference,
+    which need not be the child of the last bin. Infinity in ``X`` is rejected.
 
     For ``squared_error``/``mse``, the trainer runs coordinate descent after
     the round-robin seed and keeps the refined assignment only if branch MSE
