@@ -261,10 +261,13 @@ def test_rejects_finite_x_that_overflows_float32(estimator, value: float) -> Non
     X_bad[0, 0] = value
     overflow = r"too large for dtype\('float32'\)"
 
-    with pytest.raises(ValueError, match=overflow):
-        clone(estimator).fit(X_bad, y)
-
     model = clone(estimator).fit(X, y)
+    before = model.predict(X)
+    # The 3-class y makes a forest that replaced classes_ before raising fail predict.
+    with pytest.raises(ValueError, match=overflow):
+        model.fit(X_bad, np.arange(60) % 3)
+    np.testing.assert_array_equal(model.predict(X), before)
+
     methods = ["predict", "predict_proba"] if hasattr(model, "predict_proba") else ["predict"]
     for method in methods:
         with pytest.raises(ValueError, match=overflow):
@@ -275,3 +278,18 @@ def test_rejects_finite_x_that_overflows_float32(estimator, value: float) -> Non
     X_ok = X.copy()
     X_ok[0, 0] = np.copysign(3e38, value)  # representable in float32: still accepted
     assert model.predict(X_ok).shape == (60,)
+
+
+@pytest.mark.parametrize("estimator_cls", [SGTClassifier, SGTRegressor])
+def test_rejected_unchecked_refit_keeps_fitted_tree(estimator_cls) -> None:
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(60, 2))
+    y = (X[:, 0] > 0).astype(int)
+    model = estimator_cls(random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(X, y)
+    before = model.predict(X)
+    X_bad = X.copy()
+    X_bad[0, 0] = 1e39
+
+    with pytest.raises(ValueError, match=r"too large for dtype\('float32'\)"):
+        model.fit(X_bad, y, check_input=False)
+    np.testing.assert_array_equal(model.predict(X), before)
