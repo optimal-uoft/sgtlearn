@@ -338,9 +338,10 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     trainer: shape functions are fit on finite values, and each univariate
     outer node learns a ``nan_prediction_partition``, the child that best fits
     its training NaNs (or the child with the most training samples when the
-    node saw none). At inference, missing values go to that child, wherever
-    the largest finite values go. Pair nodes route missing values through
-    dedicated branches of their pair router. Infinity in ``X`` is rejected.
+    node saw none). At inference, missing values go to that child regardless
+    of where the largest finite values go. Pair nodes route missing values
+    through dedicated branches of their pair router. Infinity in ``X`` is
+    rejected.
 
     References
     ----------
@@ -762,9 +763,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     univariate outer node learns a ``nan_prediction_partition``, the child
     that best fits its training NaNs (or the child with the most training
     samples when the node saw none). At inference, missing values go to that
-    child, wherever the largest finite values go. Pair nodes route missing
-    values through dedicated branches of their pair router. Infinity in ``X``
-    is rejected.
+    child regardless of where the largest finite values go. Pair nodes route
+    missing values through dedicated branches of their pair router. Infinity
+    in ``X`` is rejected.
 
     For ``squared_error``/``mse``, the trainer runs coordinate descent after
     the round-robin seed and keeps the refined assignment only if branch MSE
