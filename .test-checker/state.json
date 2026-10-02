@@ -29,9 +29,9 @@
       "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
     },
     "sgtlearn/ensemble/random_sgforest_regressor.py": {
-      "sha": "57952fae12507229bdd6f934624cae22ba0761a8",
-      "run": "r-20261002-150225-182c",
-      "at": "2026-10-02T19:44:16.526Z"
+      "sha": "b2ad723f36c9520fda0013c7951e257e4907ba73",
+      "run": "r-20261002-162723-b8b5",
+      "at": "2026-10-02T20:30:43.728Z"
     }
   },
   "protected": {
@@ -663,6 +663,58 @@
         "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_column_names_list_is_not_mutated"
       ],
       "run": "r-20261002-160040-0a2c"
+    },
+    "tests/regression/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1.py": {
+      "test_ids": [
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_x_out_is_c_contiguous_float32_with_same_shape",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_x_out_values_match_input",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_fortran_ordered_x_becomes_c_contiguous",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_list_inputs_are_accepted_as_array_like",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_nan_in_x_is_preserved",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_one_dimensional_y_stays_one_dimensional_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_column_vector_y_stays_two_dimensional",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_multi_output_y_keeps_its_shape",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_integer_y_is_converted_to_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_none_sample_weight_returns_none",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_sample_weight_is_returned_as_c_contiguous_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_sample_weight_with_single_positive_value_is_accepted",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_single_sample_is_valid_input",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_values_at_float32_max_are_accepted",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_check_x_y_does_not_set_attributes_on_unfitted_estimator",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_check_x_y_does_not_set_attributes_on_fitted_estimator",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_check_x_y_does_not_set_attributes_when_raising",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_failed_refit_leaves_previous_forest_unchanged",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_fit_rejects_overflowing_row_even_if_bootstrap_would_skip_it",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_sparse_x_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_one_dimensional_x_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_three_dimensional_x_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_positive_infinity_in_x_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_negative_infinity_in_x_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_infinity_in_x_alongside_nan_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_positive_float32_overflow_in_x_is_rejected_naming_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_negative_float32_overflow_in_x_is_rejected_naming_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_fewer_targets_than_samples_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_more_targets_than_samples_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_two_dimensional_y_with_mismatched_rows_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_zero_samples_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_three_dimensional_y_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_non_numeric_y_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_nan_in_y_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_nan_in_two_dimensional_y_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_positive_infinity_in_y_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_negative_infinity_in_y_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_float32_overflow_in_y_is_rejected_naming_float32_and_y",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_negative_float32_overflow_in_y_is_rejected_naming_float32_and_y",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_sample_weight_too_short_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_sample_weight_too_long_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_two_dimensional_sample_weight_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_nan_sample_weight_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_infinite_sample_weight_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_negative_sample_weight_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_all_zero_sample_weight_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_float32_overflow_in_sample_weight_is_rejected"
+      ],
+      "run": "r-20261002-162723-b8b5"
     }
   },
   "quarantined": [],
