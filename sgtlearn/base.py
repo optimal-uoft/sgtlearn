@@ -225,6 +225,17 @@ def _normalize_tree_export(tree: dict) -> dict:
     return tree
 
 
+def _renormalize_proba(proba: Any) -> np.ndarray:
+    """Cast native float32 probabilities to float64 and renormalize each row.
+
+    The cast alone leaves row sums ~1e-8 from one; rows summing to zero
+    (zero-weight leaves) are left unchanged.
+    """
+    p = np.asarray(proba, dtype=np.float64)
+    sums = p.sum(axis=1, keepdims=True)
+    return np.divide(p, sums, out=p, where=sums > 0)
+
+
 class SGTClassifier(ClassifierMixin, BaseShapeCART):
     """Shape Generalized Tree classifier.
 
@@ -656,8 +667,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         # per output, aligned with encoded labels 0..K-1 for each output.
         proba = self._est.predict_proba(X32)
         if self.n_outputs_ == 1:
-            return np.asarray(proba, dtype=np.float64)
-        return [np.asarray(p, dtype=np.float64) for p in proba]
+            return _renormalize_proba(proba)
+        return [_renormalize_proba(p) for p in proba]
 
     def tree_export(self) -> dict:
         """Return a flat dict snapshot of the fitted tree.
