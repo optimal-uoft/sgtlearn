@@ -161,12 +161,18 @@ def test_route_samples_matches_predict_at_threshold_ties(pairwise_candidates):
                        tao_n_runs=0, random_state=0).fit(X, y)
     tree = est.tree_export()
     assert (tree["nodes"][0].get("routing_kind") == "pair") == bool(pairwise_candidates)
-    probes = np.array([[2.0, 2.0], [2.0 + 1e-9, 2.0 + 1e-9], [2.0 - 1e-9, 3.0]])
+    below = float(np.nextafter(np.float32(2.0), np.float32(0.0)))
+    above = float(np.nextafter(np.float32(2.0), np.float32(3.0)))
+    # tie, float32-rounds onto the tie, just below, just above
+    probes = np.array(
+        [[2.0, 2.0], [2.0 + 1e-9, 2.0 + 1e-9], [below, 3.0], [above, above]]
+    )
     reach = _route_samples(tree, probes)
     replay = np.empty(len(probes))
     for leaf in (node for node in tree["nodes"] if node["is_leaf"]):
         replay[reach[leaf["id"]]] = leaf["value"]
     np.testing.assert_allclose(replay, est.predict(probes), rtol=0, atol=0)
+    assert replay[0] != replay[3]  # the probes straddle the threshold
 
 
 def test_categorical_classifier_export_replays_predictions_and_missing_route():
