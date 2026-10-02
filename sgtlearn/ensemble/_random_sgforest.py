@@ -17,6 +17,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
 from sgtlearn.base import (
+    _as_native_X,
     _column_names_from_X,
     _configure_processed_features,
     _suppress_mae_cd_warning,
@@ -168,7 +169,8 @@ class RandomSGForest(BaseEstimator, ABC):
 
     @abstractmethod
     def _check_X_y(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Validate ``X``, ``y`` and return arrays ready for tree fitting."""
+        """Validate ``X``, ``y`` before changing any state; return float32 ``X``
+        (via ``_as_native_X``) and targets ready for tree fitting."""
 
     @abstractmethod
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> Any:
@@ -218,10 +220,11 @@ class RandomSGForest(BaseEstimator, ABC):
             raise ValueError("max_samples can only be set when bootstrap=True.")
 
         column_names = _column_names_from_X(X)
-        X, y = self._check_X_y(X, y)
+        # Checks every row up front: bootstrap samples may skip some.
+        X32, y = self._check_X_y(X, y)
         y_arr = np.asarray(y)
         self.n_outputs_ = 1 if y_arr.ndim == 1 else y_arr.shape[1]
-        self.n_features_in_ = X.shape[1]
+        self.n_features_in_ = X32.shape[1]
         self.feature_names_in_ = (
             np.asarray(column_names, dtype=object) if column_names is not None else None
         )
@@ -233,7 +236,7 @@ class RandomSGForest(BaseEstimator, ABC):
             column_names=column_names,
         )
 
-        n_samples = X.shape[0]
+        n_samples = X32.shape[0]
         sample_weight = self._prepare_sample_weight(y, sample_weight, n_samples)
         n_bootstrap = _n_samples_bootstrap(n_samples, self.max_samples)
         rng = check_random_state(self.random_state)
@@ -251,7 +254,7 @@ class RandomSGForest(BaseEstimator, ABC):
             bool(self.bootstrap),
             n_samples,
             n_bootstrap,
-            X,
+            X32,
             y,
             sample_weight,
             tree_kw,
@@ -328,7 +331,7 @@ class RandomSGForest(BaseEstimator, ABC):
                 f"X has {X.shape[1]} features, but {self._estimator_name} is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
-        return np.ascontiguousarray(X, dtype=np.float32)
+        return _as_native_X(X)
 
 
 __all__ = ["RandomSGForest", "_n_samples_bootstrap"]

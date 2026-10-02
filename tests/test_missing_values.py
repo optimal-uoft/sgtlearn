@@ -13,12 +13,19 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 from sklearn.datasets import load_breast_cancer, load_diabetes
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 pytest.importorskip("sklearn")
 
-from sgtlearn import SGTClassifier, SGTRegressor
+from sgtlearn import (
+    RandomSGForestClassifier,
+    RandomSGForestRegressor,
+    SGTClassifier,
+    SGTRegressor,
+    tao,
+)
 
 from tests.constants import TEST_TAO_N_RUNS
 
@@ -228,3 +235,61 @@ def test_sgt_classifier_still_rejects_inf_in_x() -> None:
     clf = SGTClassifier(inner_max_depth=1, random_state=42, tao_n_runs=TEST_TAO_N_RUNS)
     with pytest.raises(ValueError, match="infinity"):
         clf.fit(X, y)
+
+
+@pytest.mark.parametrize("value", [1e39, -1e39])
+@pytest.mark.parametrize(
+    "estimator",
+    [
+        SGTClassifier(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+        SGTRegressor(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+        RandomSGForestClassifier(
+            n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
+        ),
+        RandomSGForestRegressor(
+            n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
+        ),
+    ],
+    ids=lambda est: type(est).__name__,
+)
+def test_rejects_finite_x_that_overflows_float32(estimator, value: float) -> None:
+    """A finite float64 beyond float32 range would cast to inf and route like NaN."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(60, 2))
+    y = (X[:, 0] > 0).astype(int)
+    X_bad = X.copy()
+    X_bad[0, 0] = value
+    overflow = r"too large for dtype\('float32'\)"
+
+    model = clone(estimator).fit(X, y)
+    before = model.predict(X)
+    # The 3-class y makes a forest that replaced classes_ before raising fail predict.
+    with pytest.raises(ValueError, match=overflow):
+        model.fit(X_bad, np.arange(60) % 3)
+    np.testing.assert_array_equal(model.predict(X), before)
+
+    methods = ["predict", "predict_proba"] if hasattr(model, "predict_proba") else ["predict"]
+    for method in methods:
+        with pytest.raises(ValueError, match=overflow):
+            getattr(model, method)(X_bad)
+    with pytest.raises(ValueError, match=overflow):
+        tao.TAO_refine(model, X_bad, y, n_runs=1)
+
+    X_ok = X.copy()
+    X_ok[0, 0] = np.copysign(3e38, value)  # representable in float32: still accepted
+    assert model.predict(X_ok).shape == (60,)
+
+
+@pytest.mark.parametrize("estimator_cls", [SGTClassifier, SGTRegressor])
+def test_rejected_unchecked_refit_keeps_fitted_tree(estimator_cls) -> None:
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(60, 2))
+    y = (X[:, 0] > 0).astype(int)
+    model = estimator_cls(random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(X, y)
+    before = model.predict(X)
+    X_bad = X.copy()
+    X_bad[0, 0] = 1e39
+
+    with pytest.raises(ValueError, match=r"too large for dtype\('float32'\)"):
+        model.fit(X_bad, y, check_input=False)
+    np.testing.assert_array_equal(model.predict(X), before)

@@ -14,7 +14,7 @@ from sgtlearn._multioutput import (
     unwrap_classifier_public_attrs,
 )
 from sgtlearn._weights import effective_sample_weight_classification
-from sgtlearn.base import SGTClassifier
+from sgtlearn.base import SGTClassifier, _as_native_X
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
 
@@ -189,6 +189,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             ensure_all_finite="allow-nan",
             multi_output=True,
         )
+        X32 = _as_native_X(X)
         y_enc, encoders, classes_list, n_classes_list = encode_classification_targets(y)
         n_outputs = y_enc.shape[1]
         if any(k < 2 for k in n_classes_list):
@@ -204,7 +205,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             encoders, classes_list, n_classes_list, n_outputs
         )
         self._label_encoders_ = list(encoders)
-        return X, y_enc
+        return X32, y_enc
 
     def _prepare_sample_weight(
         self,
@@ -239,7 +240,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             else [int(k) for k in self.n_classes_]
         )
         accs = [
-            np.zeros((X.shape[0], n_classes_list[o]), dtype=np.float64)
+            np.zeros((X32.shape[0], n_classes_list[o]), dtype=np.float64)
             for o in range(n_outputs)
         ]
         for est in self.estimators_:
