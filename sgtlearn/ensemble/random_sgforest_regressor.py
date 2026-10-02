@@ -180,7 +180,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
     def predict(self, X: np.ndarray) -> np.ndarray:
         X32 = self._check_predict_X(X)
         n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
-        acc = np.zeros((X.shape[0], n_outputs), dtype=np.float64)
+        acc = np.zeros((X32.shape[0], n_outputs), dtype=np.float64)
         for est in self.estimators_:
             pred = np.asarray(est.predict(X32), dtype=np.float64)
             if pred.ndim == 1:

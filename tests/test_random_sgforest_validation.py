@@ -53,6 +53,17 @@ def test_forest_predict_rejects_feature_count_mismatch() -> None:
         forest.predict(X[:, :1])
 
 
+@pytest.mark.parametrize(
+    "estimator_cls", [RandomSGForestClassifier, RandomSGForestRegressor]
+)
+def test_forest_predict_accepts_list_input(estimator_cls) -> None:
+    X = np.array([[0.0, 0.0], [1.0, 1.0], [0.1, 0.2], [0.9, 0.8]])
+    y = np.array([0, 1, 0, 1])
+    forest = estimator_cls(n_estimators=2, tao_n_runs=0, random_state=0).fit(X, y)
+
+    np.testing.assert_array_equal(forest.predict(X.tolist()), forest.predict(X))
+
+
 def test_bootstrap_keeps_samples_targets_and_weights_aligned() -> None:
     X = np.arange(16, dtype=np.float32).reshape(8, 2)
     y = np.array([0.0, 1.0, 4.0, 9.0, 16.0, 25.0, 36.0, 49.0])

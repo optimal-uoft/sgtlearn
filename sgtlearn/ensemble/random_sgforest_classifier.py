@@ -239,7 +239,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             else [int(k) for k in self.n_classes_]
         )
         accs = [
-            np.zeros((X.shape[0], n_classes_list[o]), dtype=np.float64)
+            np.zeros((X32.shape[0], n_classes_list[o]), dtype=np.float64)
             for o in range(n_outputs)
         ]
         for est in self.estimators_:
