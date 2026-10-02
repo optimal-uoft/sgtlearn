@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from sklearn.base import clone
+from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.datasets import load_breast_cancer, load_diabetes
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
@@ -237,21 +237,22 @@ def test_sgt_classifier_still_rejects_inf_in_x() -> None:
         clf.fit(X, y)
 
 
+_FLOAT32_ESTIMATORS = [
+    SGTClassifier(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+    SGTRegressor(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+    RandomSGForestClassifier(
+        n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
+    ),
+    RandomSGForestRegressor(n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+]
+
+
+def _estimator_id(est) -> str:
+    return type(est).__name__
+
+
 @pytest.mark.parametrize("value", [1e39, -1e39])
-@pytest.mark.parametrize(
-    "estimator",
-    [
-        SGTClassifier(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
-        SGTRegressor(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
-        RandomSGForestClassifier(
-            n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
-        ),
-        RandomSGForestRegressor(
-            n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
-        ),
-    ],
-    ids=lambda est: type(est).__name__,
-)
+@pytest.mark.parametrize("estimator", _FLOAT32_ESTIMATORS, ids=_estimator_id)
 def test_rejects_finite_x_that_overflows_float32(estimator, value: float) -> None:
     """A finite float64 beyond float32 range would cast to inf and route like NaN."""
     rng = np.random.default_rng(0)
@@ -293,3 +294,88 @@ def test_rejected_unchecked_refit_keeps_fitted_tree(estimator_cls) -> None:
     with pytest.raises(ValueError, match=r"too large for dtype\('float32'\)"):
         model.fit(X_bad, y, check_input=False)
     np.testing.assert_array_equal(model.predict(X), before)
+
+    sw_bad = np.ones(60)
+    sw_bad[0] = 1e39
+    # One feature: a refit that replaced n_features_in_ before raising fails predict(X).
+    with pytest.raises(ValueError, match=r"too large for dtype\('float32'\)"):
+        model.fit(X[:, :1], y, sample_weight=sw_bad, check_input=False)
+    np.testing.assert_array_equal(model.predict(X), before)
+
+
+@pytest.mark.parametrize("value", [1e39, -1e39])
+@pytest.mark.parametrize(
+    "estimator", [e for e in _FLOAT32_ESTIMATORS if is_regressor(e)], ids=_estimator_id
+)
+def test_rejects_finite_y_that_overflows_float32(estimator, value: float) -> None:
+    """A finite float64 y beyond float32 range would cast to inf and make every
+    prediction non-finite."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(60, 2))
+    y = X[:, 0].copy()
+    # Two outputs: a refit that set n_outputs_ before raising changes predict's shape.
+    y_bad = np.column_stack([y, y])
+    y_bad[0, 0] = value
+    overflow = r"Input y contains infinity or a value too large for dtype\('float32'\)"
+
+    model = clone(estimator).fit(X, y)
+    before = model.predict(X)
+    with pytest.raises(ValueError, match=overflow):
+        model.fit(X, y_bad)
+    np.testing.assert_array_equal(model.predict(X), before)
+    with pytest.raises(ValueError, match=overflow):
+        tao.TAO_refine(model, X, y_bad[:, 0], n_runs=1)
+
+    y_ok = y.copy()
+    y_ok[0] = np.copysign(3e38, value)  # representable in float32: still accepted
+    clone(estimator).fit(X, y_ok)
+
+
+@pytest.mark.parametrize("estimator", _FLOAT32_ESTIMATORS, ids=_estimator_id)
+def test_rejects_finite_sample_weight_that_overflows_float32(estimator) -> None:
+    """A finite float64 weight beyond float32 range would cast to inf and make
+    predictions non-finite."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(60, 2))
+    y = (X[:, 0] > 0).astype(int)
+    # 3 classes replace classes_, 2 outputs change predict's shape: either breaks
+    # predict if a rejected refit changed state before raising.
+    y_new = np.arange(60) % 3 if is_classifier(estimator) else np.column_stack([y, y])
+    sw_bad = np.ones(60)
+    sw_bad[0] = 1e39
+    overflow = (
+        r"Input sample_weight contains infinity or a value too large for "
+        r"dtype\('float32'\)"
+    )
+
+    model = clone(estimator).fit(X, y)
+    before = model.predict(X)
+    with pytest.raises(ValueError, match=overflow):
+        model.fit(X, y_new, sample_weight=sw_bad)
+    np.testing.assert_array_equal(model.predict(X), before)
+    with pytest.raises(ValueError, match=overflow):
+        tao.TAO_refine(model, X, y, sample_weight=sw_bad, n_runs=1)
+
+    sw_ok = np.ones(60)
+    sw_ok[0] = 3e38  # representable in float32: still accepted
+    clone(estimator).fit(X, y, sample_weight=sw_ok)
+
+
+@pytest.mark.parametrize(
+    "estimator", [e for e in _FLOAT32_ESTIMATORS if is_classifier(e)], ids=_estimator_id
+)
+def test_rejects_class_weighted_sample_weight_that_overflows_float32(estimator) -> None:
+    """Each factor fits float32, but ``sample_weight * class_weight`` does not."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(60, 2))
+    y = (X[:, 0] > 0).astype(int)
+    sw = np.full(60, 1e30)
+    overflow = r"Input sample_weight \* class_weight contains infinity or a value too"
+
+    model = clone(estimator).set_params(class_weight={0: 1e10, 1: 1.0}).fit(X, y)
+    before = model.predict(X)
+    with pytest.raises(ValueError, match=overflow):
+        model.fit(X, np.arange(60) % 3, sample_weight=sw)
+    np.testing.assert_array_equal(model.predict(X), before)
+    with pytest.raises(ValueError, match=overflow):
+        tao.TAO_refine(model, X, y, sample_weight=sw, n_runs=1)

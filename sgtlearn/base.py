@@ -22,6 +22,7 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from sgtlearn._features import ProcessedFeatures, configure_feature_dict
 from sgtlearn._multioutput import (
+    as_native_float32,
     as_output_matrix,
     encode_classification_targets,
     label_encoders_as_list,
@@ -77,13 +78,7 @@ def _as_native_X(X: Any) -> np.ndarray:
     ``fit`` calls it before changing any state, so a rejected refit leaves a
     fitted model intact.
     """
-    with np.errstate(over="ignore"):
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
-    if np.isinf(X32).any():
-        raise ValueError(
-            "Input X contains infinity or a value too large for dtype('float32')."
-        )
-    return X32
+    return as_native_float32(X, "X")
 
 
 def _configure_processed_features(
@@ -368,8 +363,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     its training NaNs (or the child with the most training samples when the
     node saw none). At inference, missing values go to that child regardless
     of where the largest finite values go. Pair nodes route missing values
-    through dedicated branches of their pair router. Infinity in ``X`` is
-    rejected, as are finite values that overflow ``float32`` (e.g. ``1e39``).
+    through dedicated branches of their pair router. Infinity in ``X`` and
+    ``sample_weight`` is rejected, as are finite values that overflow
+    ``float32`` (e.g. ``1e39``), including ``sample_weight * class_weight``.
 
     References
     ----------
@@ -508,15 +504,6 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             y_enc, encoders, classes_list, n_classes_list = (
                 encode_classification_targets(y)
             )
-            self.n_outputs_ = y_enc.shape[1]
-            (
-                self._le,
-                self.classes_,
-                self.n_classes_,
-                n_classes_native,
-            ) = unwrap_classifier_public_attrs(
-                encoders, classes_list, n_classes_list, self.n_outputs_
-            )
             if any(k < 2 for k in n_classes_list):
                 raise ValueError(
                     "SGTClassifier requires at least two classes per output."
@@ -529,8 +516,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 )
             X = np.asarray(X)
             X32 = _as_native_X(X)
-            y2, self.n_outputs_ = as_output_matrix(y)
-            if self.n_outputs_ == 1 and not isinstance(self.classes_, (list, tuple)):
+            y2, n_outputs = as_output_matrix(y)
+            if n_outputs == 1 and not isinstance(self.classes_, (list, tuple)):
                 preset = [_IdentityLabelEncoder(np.asarray(self.classes_))]
                 n_classes_list = [int(self.n_classes_)]
             else:
@@ -544,25 +531,26 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             y_enc, encoders, classes_list, n_classes_list = (
                 encode_classification_targets(y2, encoders=preset)
             )
-            (
-                self._le,
-                self.classes_,
-                self.n_classes_,
-                n_classes_native,
-            ) = unwrap_classifier_public_attrs(
-                encoders, classes_list, n_classes_list, self.n_outputs_
-            )
             if y_enc.shape[0] != X.shape[0]:
                 raise ValueError("X and y must have the same number of samples.")
 
         sw: np.ndarray | None = None
         if self.class_weight is not None:
             sw = effective_sample_weight_classification(
-                sample_weight, y_enc, self.class_weight, self.classes_
+                sample_weight, y_enc, self.class_weight, classes_list
             )
         else:
             sw = normalize_sample_weight(sample_weight, X.shape[0])
 
+        self.n_outputs_ = y_enc.shape[1]
+        (
+            self._le,
+            self.classes_,
+            self.n_classes_,
+            n_classes_native,
+        ) = unwrap_classifier_public_attrs(
+            encoders, classes_list, n_classes_list, self.n_outputs_
+        )
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
@@ -793,8 +781,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     samples when the node saw none). At inference, missing values go to that
     child regardless of where the largest finite values go. Pair nodes route
     missing values through dedicated branches of their pair router. Infinity
-    in ``X`` is rejected, as are finite values that overflow ``float32``
-    (e.g. ``1e39``).
+    in ``X``, ``y`` and ``sample_weight`` is rejected, as are finite values
+    that overflow ``float32`` (e.g. ``1e39``).
 
     For ``squared_error``/``mse``, the trainer runs coordinate descent after
     the round-robin seed and keeps the refined assignment only if branch MSE
@@ -923,8 +911,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             if np.isnan(np.asarray(y, dtype=np.float64)).any():
                 raise ValueError("Input y contains NaN.")
         X32 = _as_native_X(X)
-        y = np.asarray(y)
-        y2, self.n_outputs_ = as_output_matrix(y)
+        y2, n_outputs = as_output_matrix(np.asarray(y))
+        y32 = native_y_array(as_native_float32(y2, "y"), dtype=np.float32)
+        sw = normalize_sample_weight(sample_weight, X.shape[0])
+        self.n_outputs_ = n_outputs
         self.n_features_in_ = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
@@ -975,8 +965,6 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             float(self.branching_penalty),
         )
 
-        y32 = native_y_array(y2, dtype=np.float32)
-        sw = normalize_sample_weight(sample_weight, X.shape[0])
         _warn_if_mae_cd_disabled(self.criterion)
         self._est.fit(
             X32,
