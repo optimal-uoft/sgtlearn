@@ -14,6 +14,7 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
 __all__ = [
+    "as_native_float32",
     "as_output_matrix",
     "encode_classification_targets",
     "label_encoders_as_list",
@@ -124,6 +125,22 @@ def label_encoders_as_list(encoders: Any | Sequence[Any], n_outputs: int) -> lis
     if len(enc_list) != n_outputs:
         raise ValueError(f"expected {n_outputs} label encoders; got {len(enc_list)}")
     return enc_list
+
+
+def as_native_float32(values: Any, name: str) -> np.ndarray:
+    """C-contiguous ``float32`` copy of ``values``; rejects infinity.
+
+    A finite value beyond the ``float32`` range (e.g. ``1e39``) passes
+    float64 validation but becomes ``inf`` here, so it is rejected too.
+    """
+    with np.errstate(over="ignore"):
+        arr = np.ascontiguousarray(values, dtype=np.float32)
+    if np.isinf(arr).any():
+        raise ValueError(
+            f"Input {name} contains infinity or a value too large for "
+            "dtype('float32')."
+        )
+    return arr
 
 
 def native_y_array(y_enc: np.ndarray, *, dtype: Any) -> np.ndarray:

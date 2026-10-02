@@ -8,8 +8,9 @@ import numpy as np
 from sklearn.base import RegressorMixin
 from sklearn.utils.validation import check_X_y
 
-from sgtlearn._multioutput import squeeze_outputs
-from sgtlearn.base import SGTRegressor, _as_native_X, _as_native_y
+from sgtlearn._multioutput import as_native_float32, squeeze_outputs
+from sgtlearn._weights import normalize_sample_weight
+from sgtlearn.base import SGTRegressor, _as_native_X
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
 
@@ -163,7 +164,9 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             verbose=verbose,
         )
 
-    def _check_X_y(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _check_X_y(
+        self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
         X, y = check_X_y(
             X,
             y,
@@ -173,8 +176,11 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             y_numeric=True,
             multi_output=True,
         )
-        _as_native_y(y)  # up front: bootstrap samples may skip a bad row
-        return _as_native_X(X), y
+        return (
+            _as_native_X(X),
+            as_native_float32(y, "y"),
+            normalize_sample_weight(sample_weight, X.shape[0]),
+        )
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTRegressor:
         return SGTRegressor(**tree_kw, random_state=tree_seed)

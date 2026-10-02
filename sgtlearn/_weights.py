@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from sgtlearn._multioutput import as_output_matrix
+from sgtlearn._multioutput import as_native_float32, as_output_matrix
 
 __all__ = [
     "effective_sample_weight_classification",
@@ -39,7 +39,7 @@ def normalize_sample_weight(
         return None
     sw = np.asarray(sample_weight, dtype=np.float64).reshape(-1)
     _validate_sample_weight_array(sw, n_samples)
-    return np.ascontiguousarray(sw, dtype=np.float32)
+    return as_native_float32(sw, "sample_weight")
 
 
 def _per_class_multiplier(
@@ -116,4 +116,6 @@ def effective_sample_weight_classification(
     multiplier = np.ones(n, dtype=np.float64)
     for o in range(n_outputs):
         multiplier *= _per_class_multiplier(y2[:, o], cw_list[o], classes_list[o])
-    return np.ascontiguousarray(sw * multiplier, dtype=np.float32)
+    with np.errstate(over="ignore"):
+        sw = sw * multiplier
+    return as_native_float32(sw, "sample_weight * class_weight")

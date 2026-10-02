@@ -106,9 +106,7 @@ def _validate_X_y(
         y = np.asarray(y)
 
     if X.ndim != 2 or X.shape[0] == 0:
-        raise ValueError(
-            f"X must be a non-empty dense 2D array; got shape {X.shape}"
-        )
+        raise ValueError(f"X must be a non-empty dense 2D array; got shape {X.shape}")
     if y.ndim not in (1, 2):
         raise ValueError(f"y must be 1-D or 2-D; got {y.ndim}-D.")
     if X.shape[1] != n_features:
