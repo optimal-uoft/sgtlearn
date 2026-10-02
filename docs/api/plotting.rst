@@ -26,7 +26,9 @@ export_text
 .. autofunction:: export_text
 
 Each child line describes the inputs routed to that child, so the rules
-reproduce ``predict`` exactly (up to the displayed ``decimals``):
+reproduce ``predict`` up to the displayed ``decimals``. Like ``predict``, they
+apply to ``X`` rounded to float32: ``2 + 1e-9`` rounds to ``2.0`` and follows
+``x <= 2.00``.
 
 .. code-block:: text
 

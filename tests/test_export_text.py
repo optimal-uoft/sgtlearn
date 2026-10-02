@@ -10,6 +10,7 @@ from sklearn.tree import DecisionTreeClassifier
 import sgtlearn
 from sgtlearn import SGTClassifier, SGTRegressor, export_text
 from sgtlearn._export import (
+    _active_onehot_column,
     _child_regions,
     _format_region,
     _is_categorical_node,
@@ -17,26 +18,41 @@ from sgtlearn._export import (
 )
 
 
-def _active(row: np.ndarray, cols) -> int | None:
-    active = [c for c in cols if row[c] >= 0.5]
-    return max(active, key=lambda c: row[c]) if active else None
-
-
 def _holds(cond: tuple, row: np.ndarray) -> bool:
     op = cond[0]
-    if op == "le":
-        return bool(row[cond[1]] <= cond[2])
-    if op == "gt":
-        return bool(row[cond[1]] > cond[2])
+    if op == "range":
+        return bool(cond[2] < row[cond[1]] <= cond[3])
     if op == "nan":
         return not np.isfinite(row[cond[1]])
-    if op == "finite":
-        return bool(np.isfinite(row[cond[1]]))
     if op == "none":
-        return _active(row, cond[1]) is None
+        return _active_onehot_column(row, cond[1]) is None
     if op == "in":
-        return _active(row, cond[1]) in cond[2]
+        return _active_onehot_column(row, cond[1]) in cond[2]
     raise AssertionError(f"unknown condition {cond!r}")
+
+
+def _threshold_rows(tree: dict, X: np.ndarray) -> np.ndarray:
+    """Rows of X moved onto, and one float32 step either side of, each threshold."""
+    cuts = set()
+    for node in tree["nodes"]:
+        if node["is_leaf"] or _is_categorical_node(node):
+            continue
+        if _is_pair_node(node):
+            cuts |= {
+                (int(s["feature"]), float(s["threshold"]))
+                for s in node["pair_inner_tree"]
+                if not s["is_leaf"] and s["kind"] == "continuous"
+            }
+        else:
+            cuts |= {(int(node["feature"]), float(t)) for t in node["thresholds"]}
+    rows = []
+    for col, t in sorted(cuts):
+        t32 = np.float32(t)
+        for v in (t32, np.nextafter(t32, -np.inf), np.nextafter(t32, np.inf)):
+            probe = X[:5].copy()
+            probe[:, col] = v
+            rows.append(probe)
+    return np.vstack(rows)
 
 
 def _leaf_by_rules(tree: dict, row: np.ndarray) -> dict:
@@ -120,8 +136,9 @@ def _pair_regressor():
 )
 def test_child_regions_route_like_predict(make):
     model, X = make()
-    X = X.astype(np.float32).astype(np.float64)  # what the native router sees
     tree = model.tree_export()
+    X = np.vstack([X, _threshold_rows(tree, X)])
+    X = X.astype(np.float32).astype(np.float64)  # what the native router sees
     leaves = [_leaf_by_rules(tree, row) for row in X]
     if isinstance(model, SGTRegressor):
         np.testing.assert_allclose(
@@ -156,10 +173,10 @@ def test_format_region_renders_every_condition():
         return "color"
 
     region = [
-        [("gt", 0, 1.0), ("le", 0, 2.0)],
-        [("le", 0, -1.0)],
-        [("gt", 0, 3.0), ("in", (1, 2), (2,))],
-        [("finite", 0), ("none", (1, 2))],
+        [("range", 0, 1.0, 2.0)],
+        [("range", 0, -np.inf, -1.0)],
+        [("range", 0, 3.0, np.inf), ("in", (1, 2), (2,))],
+        [("range", 0, -np.inf, np.inf), ("none", (1, 2))],
         [("nan", 0)],
     ]
     assert _format_region(region, names, group, 1) == (

@@ -35,9 +35,10 @@ def export_text(
 
     Each internal node prints one line per child: the inputs routed to that
     child, as merged threshold intervals (univariate nodes), category sets
-    (categorical nodes) or the boxes of the pair router (bivariate nodes). The
-    child that receives missing values is marked ``is missing``. A univariate
-    bin includes its upper threshold, as in ``predict``.
+    (categorical nodes) or the boxes of the pair router (pair nodes). The
+    child that receives missing values is marked ``is missing``. As in
+    ``predict``, thresholds are compared with ``X`` rounded to float32, and a
+    value on a threshold takes the lower side (``<=``).
 
     Parameters
     ----------
@@ -81,12 +82,15 @@ def export_text(
             prefer_logical_name=feature_names is None,
         )
 
+    def per_output(items: Sequence[str]) -> str:
+        return items[0] if len(items) == 1 else "[" + ", ".join(items) + "]"
+
     def fmt_list(values: Sequence[float]) -> str:
         return "[" + ", ".join(f"{v:.{decimals}f}" for v in values) + "]"
 
-    names: Any = getattr(estimator, "classes_", None)
-    if class_names is not None:
-        names = class_names
+    names: Any = class_names
+    if names is None:
+        names = getattr(estimator, "classes_", None)
     names_per_output: list[Any] = [names] if tree["num_outputs"] == 1 else names
 
     def leaf_text(node: dict) -> str:
@@ -96,16 +100,11 @@ def export_text(
                 return f"value: {fmt_list(value)}"
             return f"value: {value:.{decimals}f}"
         counts = node["class_counts"]
-        classes = [
-            str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)
-        ]
-        text = "class: " + (
-            classes[0] if len(classes) == 1 else "[" + ", ".join(classes) + "]"
+        text = "class: " + per_output(
+            [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
         )
         if show_weights:
-            weights = [fmt_list(c) for c in counts]
-            joined = weights[0] if len(weights) == 1 else "[" + ", ".join(weights) + "]"
-            text = f"weights: {joined} {text}"
+            text = f"weights: {per_output([fmt_list(c) for c in counts])} {text}"
         return text
 
     lines: list[str] = []
@@ -145,75 +144,53 @@ def _resolve_feature_names(
     return [f"X[{i}]" for i in range(estimator.n_features_in_ or 0)]
 
 
-#: One routing condition; see ``_child_regions``.
-_Condition = tuple
-#: A conjunction of conditions.
-_Box = list[_Condition]
-
-
-def _child_regions(node: dict) -> list[list[_Box]]:
+def _child_regions(node: dict) -> list[list[list[tuple]]]:
     """Inputs routed to each child of an internal node, as unions of boxes.
 
     ``regions[k]`` lists the boxes (any may match) that reach
     ``node["children"][k]``; a box lists conditions that must all hold:
 
-    - ``("le", col, t)`` / ``("gt", col, t)``: ``X[col] <= t`` / ``X[col] > t``
-    - ``("nan", col)`` / ``("finite", col)``: ``X[col]`` is / is not NaN
+    - ``("range", col, lo, hi)``: ``lo < X[col] <= hi`` (``±inf`` for an open
+      end, so ``(-inf, inf)`` means "not missing")
+    - ``("nan", col)``: ``X[col]`` is NaN
     - ``("in", cols, cats)``: the active one-hot column of ``cols`` is in ``cats``
     - ``("none", cols)``: no column of ``cols`` is active (missing category)
 
-    The rules replay the native router, so ``export_text`` (and a future
-    ``export_graphviz``) describe exactly what ``predict`` does.
+    The rules replay the native router on float32 input, so ``export_text``
+    (and ``export_graphviz``, #69) describe exactly what ``predict`` does.
     """
-    regions: list[list[_Box]] = [[] for _ in node["children"]]
+    regions: list[list[list[tuple]]] = [[] for _ in node["children"]]
     if _is_pair_node(node):
         _add_pair_regions(node, regions)
         return regions
     nan_child = int(node.get("nan_prediction_partition", 0))
     if _is_categorical_node(node):
         cols = tuple(int(c) for c in node["features"])
+        cats: list[set[int]] = [set() for _ in regions]
         bins = _bin_categories_for_node(node)
-        b2p = list(node["bin_to_partition"])
-        for k, region in enumerate(regions):
-            cats = sorted(
-                {
-                    int(c)
-                    for b, bin_cats in enumerate(bins)
-                    if b2p[b] == k
-                    for c in bin_cats
-                }
-            )
-            if cats:
-                region.append([("in", cols, tuple(cats))])
+        for bin_cats, k in zip(bins, node["bin_to_partition"]):
+            cats[int(k)].update(int(c) for c in bin_cats)
+        for region, child_cats in zip(regions, cats):
+            if child_cats:
+                region.append([("in", cols, tuple(sorted(child_cats)))])
         regions[nan_child].append([("none", cols)])
         return regions
     col = int(node["feature"])
-    thresholds = [float(t) for t in node["thresholds"]]
-    b2p = _finite_routing_bins(thresholds, list(node["bin_to_partition"]))
-    edges: list[float | None] = [None, *thresholds, None]
-    i = 0
-    while i < len(b2p):
-        j = i + 1
-        while j < len(b2p) and b2p[j] == b2p[i]:
-            j += 1
-        box: _Box = []
-        if edges[i] is not None:
-            box.append(("gt", col, edges[i]))
-        if edges[j] is not None:
-            box.append(("le", col, edges[j]))
-        regions[int(b2p[i])].append(box or [("finite", col)])
-        i = j
+    for lo, hi, k in _merge_routing_regions(
+        list(node["thresholds"]), list(node["bin_to_partition"]), -np.inf, np.inf
+    ):
+        regions[int(k)].append([("range", col, lo, hi)])
     regions[nan_child].append([("nan", col)])
     return regions
 
 
-def _add_pair_regions(node: dict, regions: list[list[_Box]]) -> None:
+def _add_pair_regions(node: dict, regions: list[list[list[tuple]]]) -> None:
     """Append one box per pair-router bin to its outer child's region."""
     inner = {int(n["id"]): n for n in node["pair_inner_tree"]}
     axes = node["pair_axes"]
     b2p = node["bin_to_partition"]
 
-    def visit(nid: int, state: tuple[dict, dict]) -> None:
+    def visit(nid: int, state: tuple[dict, ...]) -> None:
         split = inner[nid]
         if split["is_leaf"]:
             regions[int(b2p[int(split["bin"])])].append(_pair_box(axes, state))
@@ -221,10 +198,8 @@ def _add_pair_regions(node: dict, regions: list[list[_Box]]) -> None:
         a = int(split["axis"])
         axis_state = state[a]
 
-        def with_axis(**changes: Any) -> tuple[dict, dict]:
-            updated = list(state)
-            updated[a] = {**axis_state, **changes}
-            return (updated[0], updated[1])
+        def with_axis(**changes: Any) -> tuple[dict, ...]:
+            return tuple({**s, **changes} if i == a else s for i, s in enumerate(state))
 
         if axis_state.get("missing") is not False:
             visit(int(split["missing"]), with_axis(missing=True))
@@ -243,36 +218,57 @@ def _add_pair_regions(node: dict, regions: list[list[_Box]]) -> None:
                     visit(int(child), with_axis(missing=False, cats=kept))
             return
         t = float(split["threshold"])
-        lo, hi = axis_state.get("lo"), axis_state.get("hi")
-        left_hi = t if hi is None else min(hi, t)
-        right_lo = t if lo is None else max(lo, t)
-        if lo is None or lo < left_hi:
-            visit(int(split["left"]), with_axis(missing=False, hi=left_hi))
-        if hi is None or right_lo < hi:
-            visit(int(split["right"]), with_axis(missing=False, lo=right_lo))
+        lo, hi = axis_state.get("lo", -np.inf), axis_state.get("hi", np.inf)
+        if lo < t:
+            visit(int(split["left"]), with_axis(missing=False, hi=min(hi, t)))
+        if t < hi:
+            visit(int(split["right"]), with_axis(missing=False, lo=max(lo, t)))
 
     visit(0, ({}, {}))
 
 
-def _pair_box(axes: list[dict], state: tuple[dict, dict]) -> _Box:
-    box: _Box = []
+def _pair_box(axes: list[dict], state: tuple[dict, ...]) -> list[tuple]:
+    box: list[tuple] = []
     for axis, axis_state in zip(axes, state):
         cols = tuple(int(c) for c in axis["columns"])
         continuous = axis["kind"] == "continuous"
         if axis_state.get("missing"):
             box.append(("nan", cols[0]) if continuous else ("none", cols))
-        elif continuous:
-            if axis_state.get("lo") is not None:
-                box.append(("gt", cols[0], axis_state["lo"]))
-            if axis_state.get("hi") is not None:
-                box.append(("le", cols[0], axis_state["hi"]))
+        elif continuous and axis_state:
+            lo, hi = axis_state.get("lo", -np.inf), axis_state.get("hi", np.inf)
+            box.append(("range", cols[0], lo, hi))
         elif axis_state.get("cats") is not None:
             box.append(("in", cols, tuple(sorted(axis_state["cats"]))))
     return box
 
 
+def _format_condition(
+    cond: tuple,
+    feat_names: list[str],
+    group_label: Callable[[Sequence[int]], str],
+    decimals: int,
+) -> str:
+    op = cond[0]
+    if op == "in":
+        cats = ", ".join(_column_label(c, feat_names) for c in cond[2])
+        return f"{group_label(cond[1])} in {{{cats}}}"
+    if op == "none":
+        return f"{group_label(cond[1])} is missing"
+    name = _column_label(int(cond[1]), feat_names)
+    if op == "nan":
+        return f"{name} is missing"
+    lo, hi = cond[2], cond[3]
+    if np.isinf(lo) and np.isinf(hi):
+        return f"{name} is not missing"
+    if np.isinf(lo):
+        return f"{name} <= {hi:.{decimals}f}"
+    if np.isinf(hi):
+        return f"{name} > {lo:.{decimals}f}"
+    return f"{lo:.{decimals}f} < {name} <= {hi:.{decimals}f}"
+
+
 def _format_region(
-    region: list[_Box],
+    region: list[list[tuple]],
     feat_names: list[str],
     group_label: Callable[[Sequence[int]], str],
     decimals: int,
@@ -282,30 +278,7 @@ def _format_region(
         return "(empty)"
     texts = []
     for box in region:
-        lower = {c[1]: c[2] for c in box if c[0] == "gt"}
-        upper = {c[1] for c in box if c[0] == "le"}
-        parts = []
-        for cond in box:
-            op = cond[0]
-            single = op in ("le", "gt", "nan", "finite")
-            name = _column_label(int(cond[1]), feat_names) if single else ""
-            if op == "le" and cond[1] in lower:
-                parts.append(
-                    f"{lower[cond[1]]:.{decimals}f} < {name} <= {cond[2]:.{decimals}f}"
-                )
-            elif op == "le":
-                parts.append(f"{name} <= {cond[2]:.{decimals}f}")
-            elif op == "gt" and cond[1] not in upper:
-                parts.append(f"{name} > {cond[2]:.{decimals}f}")
-            elif op == "nan":
-                parts.append(f"{name} is missing")
-            elif op == "finite":
-                parts.append(f"{name} is not missing")
-            elif op == "none":
-                parts.append(f"{group_label(cond[1])} is missing")
-            elif op == "in":
-                cats = ", ".join(_column_label(c, feat_names) for c in cond[2])
-                parts.append(f"{group_label(cond[1])} in {{{cats}}}")
+        parts = [_format_condition(c, feat_names, group_label, decimals) for c in box]
         texts.append((" and ".join(parts) or "always", len(parts)))
     if len(texts) == 1:
         return texts[0][0]
