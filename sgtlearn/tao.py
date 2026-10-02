@@ -16,6 +16,7 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from TreeAlternatingOptimization import TreeAlternatingOptimization
 
 from sgtlearn._multioutput import (
+    as_native_float32,
     as_output_matrix,
     encode_classification_targets,
     label_encoders_as_list,
@@ -169,7 +170,7 @@ def _prepare_tao_arrays(
             sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
         return X32, y_out, sw
 
-    y2, _ = as_output_matrix(np.asarray(y, dtype=np.float32))
+    y2, _ = as_output_matrix(as_native_float32(y, "y"))
     y_reg = native_y_array(y2, dtype=np.float32)
     sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
     sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)

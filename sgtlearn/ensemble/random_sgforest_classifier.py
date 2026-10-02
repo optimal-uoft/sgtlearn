@@ -13,7 +13,10 @@ from sgtlearn._multioutput import (
     encode_classification_targets,
     unwrap_classifier_public_attrs,
 )
-from sgtlearn._weights import effective_sample_weight_classification
+from sgtlearn._weights import (
+    effective_sample_weight_classification,
+    normalize_sample_weight,
+)
 from sgtlearn.base import SGTClassifier, _as_native_X
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
@@ -180,7 +183,9 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             verbose=verbose,
         )
 
-    def _check_X_y(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _check_X_y(
+        self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
         X, y = check_X_y(
             X,
             y,
@@ -196,6 +201,12 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             raise ValueError(
                 "RandomSGForestClassifier requires at least two classes per output."
             )
+        if self.class_weight is None:
+            sw = normalize_sample_weight(sample_weight, X.shape[0])
+        else:
+            sw = effective_sample_weight_classification(
+                sample_weight, y_enc, self.class_weight, classes_list
+            )
         (
             self._label_encoder_,
             self.classes_,
@@ -205,22 +216,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             encoders, classes_list, n_classes_list, n_outputs
         )
         self._label_encoders_ = list(encoders)
-        return X32, y_enc
-
-    def _prepare_sample_weight(
-        self,
-        y: np.ndarray,
-        sample_weight: np.ndarray | None,
-        n_samples: int,
-    ) -> np.ndarray | None:
-        if self.class_weight is None:
-            return super()._prepare_sample_weight(y, sample_weight, n_samples)
-        return effective_sample_weight_classification(
-            sample_weight,
-            y,
-            self.class_weight,
-            self.classes_,
-        )
+        return X32, y_enc, sw
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
         tree = SGTClassifier(**tree_kw, random_state=tree_seed)
