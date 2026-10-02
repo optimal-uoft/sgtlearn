@@ -200,6 +200,27 @@ def test_sgt_regressor_inner_depth_one_predict_with_new_nan_matches_sklearn() ->
     np.testing.assert_allclose(sgt.predict(X_pred), dt.predict(X_pred))
 
 
+def test_nan_routes_to_nan_prediction_partition_not_last_bin() -> None:
+    """NaN follows the learned partition even when the last bin goes elsewhere."""
+    x = np.linspace(0.0, 10.0, 100)
+    X = np.concatenate([x, np.full(20, np.nan)])[:, None]
+    y = np.concatenate([np.where(x < 5.0, 0.0, 10.0), np.zeros(20)])
+
+    sgt = SGTRegressor(max_depth=1, tao_n_runs=0, random_state=0).fit(X, y)
+    tree = sgt.tree_export()
+    root = tree["nodes"][tree["root_index"]]
+    nan_part = root["nan_prediction_partition"]
+    assert root["bin_to_partition"][-1] != nan_part
+
+    leaves = {n["id"]: n for n in tree["nodes"]}
+    nan_leaf = leaves[root["children"][nan_part]]
+    last_bin_leaf = leaves[root["children"][root["bin_to_partition"][-1]]]
+    pred_nan, pred_large = sgt.predict(np.array([[np.nan], [1e6]]))
+    assert pred_nan == pytest.approx(nan_leaf["value"])
+    assert pred_large == pytest.approx(last_bin_leaf["value"])
+    assert pred_nan != pytest.approx(pred_large)
+
+
 def test_sgt_classifier_still_rejects_inf_in_x() -> None:
     X, y = load_breast_cancer(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
