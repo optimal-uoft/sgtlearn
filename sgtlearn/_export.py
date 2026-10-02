@@ -4,12 +4,12 @@
 matplotlib: every internal node is drawn as a small histogram of the chosen
 routing feature with bins colored by the destination child partition, and
 every leaf is drawn as a text box with the predicted class / value.
-``export_text`` prints the same tree as indented routing rules.
+``export_text`` returns the same tree as indented routing rules.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, cast
 
 import numpy as np
@@ -208,7 +208,7 @@ def _child_regions(node: dict) -> list[list[_Box]]:
 
 
 def _add_pair_regions(node: dict, regions: list[list[_Box]]) -> None:
-    """Append one box per pair-router leaf to its outer child's region."""
+    """Append one box per pair-router bin to its outer child's region."""
     inner = {int(n["id"]): n for n in node["pair_inner_tree"]}
     axes = node["pair_axes"]
     b2p = node["bin_to_partition"]
@@ -274,7 +274,7 @@ def _pair_box(axes: list[dict], state: tuple[dict, dict]) -> _Box:
 def _format_region(
     region: list[_Box],
     feat_names: list[str],
-    group_label: Any,
+    group_label: Callable[[Sequence[int]], str],
     decimals: int,
 ) -> str:
     """Render ``_child_regions`` output as ``a or (b and c)`` text."""

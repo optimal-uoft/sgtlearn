@@ -9,7 +9,12 @@ from sklearn.tree import DecisionTreeClassifier
 
 import sgtlearn
 from sgtlearn import SGTClassifier, SGTRegressor, export_text
-from sgtlearn._export import _child_regions
+from sgtlearn._export import (
+    _child_regions,
+    _format_region,
+    _is_categorical_node,
+    _is_pair_node,
+)
 
 
 def _active(row: np.ndarray, cols) -> int | None:
@@ -138,10 +143,30 @@ def test_fixtures_cover_every_routing_kind():
             if not node["is_leaf"]:
                 kinds.add(
                     "pair"
-                    if node.get("routing_kind") == "pair"
-                    else "categorical" if node["is_categorical"] else "numeric"
+                    if _is_pair_node(node)
+                    else "categorical" if _is_categorical_node(node) else "numeric"
                 )
     assert kinds == {"numeric", "categorical", "pair"}
+
+
+def test_format_region_renders_every_condition():
+    names = ["x", "red", "blue"]
+
+    def group(cols):
+        return "color"
+
+    region = [
+        [("gt", 0, 1.0), ("le", 0, 2.0)],
+        [("le", 0, -1.0)],
+        [("gt", 0, 3.0), ("in", (1, 2), (2,))],
+        [("finite", 0), ("none", (1, 2))],
+        [("nan", 0)],
+    ]
+    assert _format_region(region, names, group, 1) == (
+        "1.0 < x <= 2.0 or x <= -1.0 or (x > 3.0 and color in {blue})"
+        " or (x is not missing and color is missing) or x is missing"
+    )
+    assert _format_region([], names, group, 1) == "(empty)"
 
 
 def test_export_text_regressor_exact():
