@@ -32,7 +32,10 @@ def _holds(cond: tuple, row: np.ndarray) -> bool:
 
 
 def _threshold_rows(tree: dict, X: np.ndarray) -> np.ndarray:
-    """Rows of X moved onto, and one float32 step either side of, each threshold."""
+    """Rows of X moved to the float32 nearest each threshold and one step either side.
+
+    That is an exact tie wherever the threshold is float32-representable.
+    """
     cuts = set()
     for node in tree["nodes"]:
         if node["is_leaf"] or _is_categorical_node(node):
