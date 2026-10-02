@@ -225,7 +225,7 @@ def _normalize_tree_export(tree: dict) -> dict:
     return tree
 
 
-def _rows_sum_to_one(proba: Any) -> np.ndarray:
+def _renormalize_proba(proba: Any) -> np.ndarray:
     """Cast native float32 probabilities to float64 and renormalize each row.
 
     The cast alone leaves row sums ~1e-8 from one; rows summing to zero
@@ -662,8 +662,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         # per output, aligned with encoded labels 0..K-1 for each output.
         proba = self._est.predict_proba(X32)
         if self.n_outputs_ == 1:
-            return _rows_sum_to_one(proba)
-        return [_rows_sum_to_one(p) for p in proba]
+            return _renormalize_proba(proba)
+        return [_renormalize_proba(p) for p in proba]
 
     def tree_export(self) -> dict:
         """Return a flat dict snapshot of the fitted tree.
