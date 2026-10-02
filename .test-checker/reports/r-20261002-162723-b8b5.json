@@ -1,0 +1,40 @@
+{
+  "run": "r-20261002-162723-b8b5",
+  "mode": "new",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "471219d3ea9a7127474a1107eb8260912c798541"
+    }
+  },
+  "date": "2026-10-02T20:30:43.672Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y",
+      "accepted": 47,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y",
+      "analysis": "Logical mistakes: none found. X is validated as dense float64, with NaN allowed and infinity rejected, then converted to C-contiguous float32 with an overflow check. y is validated as numeric and finite, keeps its 1-D or 2-D shape (multi_output), and is converted to C-contiguous float32 with an overflow check. The weights are normalized against the number of validated samples. Validation covers the full dataset before any bootstrap sampling and sets no attributes, which matches the stated intent.\n\nRobustness omissions: (1) The numeric check on y only coerces object-dtype arrays. A y given as a string array (dtype kind 'U'/'S') is not rejected at that step, so numeric-looking strings such as '1.5' could be quietly turned into floats during the float32 conversion. The intent says non-numeric y must be rejected, so string-typed y should raise ValueError even when every entry parses as a number. (2) The multi-output path of the underlying y validation can accept a sparse (CSR) y. A sparse target should be rejected cleanly with ValueError rather than failing unpredictably later in the float32 conversion. (3) The row count for the weights comes from X after validation, which is correct, but mismatched lengths only raise if every validation step runs before any conversion. Callers rely on all errors being raised before fit changes any state."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1.py",
+      "tests": 47
+    }
+  ],
+  "not_promotable": []
+}

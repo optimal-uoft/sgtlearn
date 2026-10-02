@@ -1,0 +1,46 @@
+{
+  "run": "r-20261002-160040-0a2c",
+  "mode": "bugfix",
+  "revisions": {
+    "buggy": {
+      "given": "HEAD",
+      "commit": "7ad98519ce4cd326d5e751c7b210b3b5db9c54ca"
+    },
+    "fixed": {
+      "given": "WORKTREE",
+      "commit": "a5df592055d32dfa4e61df369507b437a15ad5f8"
+    }
+  },
+  "date": "2026-10-02T20:03:42.220Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--configure-processed-features",
+      "effective": 9,
+      "misguided": 0,
+      "neutral": 21,
+      "broken": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--configure-processed-features",
+      "analysis": "Logical mistakes: none found. The pre-resolved processed_features takes precedence and is returned as-is (the same object). feature_dict is ignored in that case. Otherwise the result of resolving feature_dict with configure_feature_dict is returned. This matches the stated intent.\nRobustness omissions: none found that the stated intent requires. Two things worth noting, both consistent with the intent. (1) A supplied processed_features is not checked against n_features or column_names here, so a ProcessedFeatures built for a different column count is passed through unchanged; checking that is left to the caller or to training. (2) If both processed_features and feature_dict are given, feature_dict is silently ignored and no warning or error is raised. The type check is strict isinstance, so subclasses of ProcessedFeatures are accepted and a plain list of feature-info dicts (for example the output of to_native()) is rejected with TypeError. Passing None for processed_features falls through to resolution and does not raise TypeError."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__configure_processed_features_1.py",
+      "dest": "tests/regression/test_sgtlearn_base_py__configure_processed_features_1.py",
+      "tests": 30
+    }
+  ],
+  "not_promotable": []
+}

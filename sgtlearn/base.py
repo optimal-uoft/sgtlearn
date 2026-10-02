@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from contextvars import ContextVar
 from math import ceil, isfinite
 from numbers import Integral, Real
@@ -81,6 +82,14 @@ def _as_native_X(X: Any) -> np.ndarray:
     return as_native_float32(X, "X")
 
 
+def _as_native_y(y: Any) -> np.ndarray:
+    """``float32`` regression targets for the native code; rejects infinity.
+
+    The ``y`` counterpart of :func:`_as_native_X`.
+    """
+    return native_y_array(as_native_float32(y, "y"), dtype=np.float32)
+
+
 def _configure_processed_features(
     n_features: int,
     *,
@@ -89,6 +98,11 @@ def _configure_processed_features(
     column_names: list[str] | None,
 ) -> ProcessedFeatures:
     if processed_features is not None:
+        if not isinstance(processed_features, ProcessedFeatures):
+            raise TypeError(
+                "processed_features must be a ProcessedFeatures from "
+                f"configure_feature_dict; got {type(processed_features).__name__}"
+            )
         return processed_features
     return configure_feature_dict(
         n_features,
@@ -121,6 +135,23 @@ def _validate_tao_pair_scale(value: float) -> float:
     if not isfinite(scale) or scale < 0:
         raise ValueError("tao_pair_scale must be finite and non-negative")
     return scale
+
+
+def _validate_int(name: str, value: int, minimum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral) or value < minimum:
+        raise ValueError(f"{name} must be an int >= {minimum}")
+    return int(value)
+
+
+@contextmanager
+def _restore_on_error(est: Any) -> Iterator[None]:
+    """Put ``est``'s attributes back if the block raises."""
+    state = est.__dict__.copy()
+    try:
+        yield
+    except BaseException:
+        est.__dict__ = state
+        raise
 
 
 class _IdentityLabelEncoder(LabelEncoder):
@@ -491,6 +522,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         """
         column_names = _column_names_from_X(X)
 
+        # Validate and fit into locals; ``self`` changes only once the new
+        # tree is trained (and is restored if TAO then fails), so a rejected
+        # refit leaves a fitted model intact.
         if check_input:
             X, y = check_X_y(
                 X,
@@ -504,6 +538,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             y_enc, encoders, classes_list, n_classes_list = (
                 encode_classification_targets(y)
             )
+            n_outputs = y_enc.shape[1]
             if any(k < 2 for k in n_classes_list):
                 raise ValueError(
                     "SGTClassifier requires at least two classes per output."
@@ -522,8 +557,15 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 n_classes_list = [int(self.n_classes_)]
             else:
                 classes_seq = list(self.classes_)
+                n_classes_seq = list(np.atleast_1d(self.n_classes_))
+                if len(classes_seq) != n_outputs or len(n_classes_seq) != n_outputs:
+                    raise ValueError(
+                        "SGTClassifier.fit(check_input=False) requires one "
+                        f"classes_ and n_classes_ entry per output; y has "
+                        f"{n_outputs} outputs."
+                    )
                 preset = [_IdentityLabelEncoder(np.asarray(c)) for c in classes_seq]
-                n_classes_list = [int(k) for k in self.n_classes_]
+                n_classes_list = [int(k) for k in n_classes_seq]
             if any(k < 2 for k in n_classes_list):
                 raise ValueError(
                     "SGTClassifier requires at least two classes per output."
@@ -533,6 +575,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             )
             if y_enc.shape[0] != X.shape[0]:
                 raise ValueError("X and y must have the same number of samples.")
+        le, classes, n_classes, n_classes_native = unwrap_classifier_public_attrs(
+            encoders, classes_list, n_classes_list, n_outputs
+        )
 
         sw: np.ndarray | None = None
         if self.class_weight is not None:
@@ -542,29 +587,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         else:
             sw = normalize_sample_weight(sample_weight, X.shape[0])
 
-        self.n_outputs_ = y_enc.shape[1]
-        (
-            self._le,
-            self.classes_,
-            self.n_classes_,
-            n_classes_native,
-        ) = unwrap_classifier_public_attrs(
-            encoders, classes_list, n_classes_list, self.n_outputs_
-        )
-        self.n_features_in_ = X.shape[1]
+        n_features = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
-        self.feature_names_in_ = (
-            np.asarray(column_names, dtype=object) if column_names is not None else None
-        )
 
         processed_features = _configure_processed_features(
-            self.n_features_in_,
+            n_features,
             feature_dict=feature_dict,
             processed_features=processed_features,
             column_names=column_names,
         )
-        self._processed_features = processed_features
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
@@ -573,6 +605,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
                 raise ValueError(f"{name} must be finite and non-negative")
         tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
+        tao_n_runs = _validate_int("tao_n_runs", self.tao_n_runs, 0)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -581,7 +614,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             0 if self.inner_max_leaf_nodes is None else int(self.inner_max_leaf_nodes)
         )
 
-        self._est = ClassificationShapeGeneralizedTree(
+        est = ClassificationShapeGeneralizedTree(
             str(self.criterion),
             n_classes_native,
             int(self.num_partitions),
@@ -603,25 +636,36 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         )
 
         y_u = native_y_array(y_enc, dtype=np.uint64)
-        self._est.fit(
-            X32, y_u, sample_weight=sw, features=processed_features.to_native()
-        )
-        self._tao_refined_ = False
+        est.fit(X32, y_u, sample_weight=sw, features=processed_features.to_native())
 
-        if self.tao_n_runs > 0:
-            from sgtlearn.tao import TAO_refine
-
-            TAO_refine(
-                self,
-                X32,
-                y,
-                # raw weights: TAO applies class_weight itself
-                sample_weight=sample_weight,
-                check_input=check_input,
-                n_runs=self.tao_n_runs,
-                lambda_=self.tao_lambda,
-                tao_pair_scale=tao_pair_scale,
+        with _restore_on_error(self):
+            self.n_outputs_ = n_outputs
+            self._le = le
+            self.classes_ = classes
+            self.n_classes_ = n_classes
+            self.n_features_in_ = n_features
+            self.feature_names_in_ = (
+                np.asarray(column_names, dtype=object)
+                if column_names is not None
+                else None
             )
+            self._processed_features = processed_features
+            self._est = est
+            self._tao_refined_ = False
+            if tao_n_runs > 0:
+                from sgtlearn.tao import TAO_refine
+
+                TAO_refine(
+                    self,
+                    X32,
+                    y,
+                    # raw weights: TAO applies class_weight itself
+                    sample_weight=sample_weight,
+                    check_input=check_input,
+                    n_runs=tao_n_runs,
+                    lambda_=self.tao_lambda,
+                    tao_pair_scale=tao_pair_scale,
+                )
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -898,6 +942,9 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         """
         column_names = _column_names_from_X(X)
 
+        # Validate and fit into locals; ``self`` changes only once the new
+        # tree is trained (and is restored if TAO then fails), so a rejected
+        # refit leaves a fitted model intact.
         if check_input:
             X, y = check_X_y(
                 X,
@@ -912,23 +959,18 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 raise ValueError("Input y contains NaN.")
         X32 = _as_native_X(X)
         y2, n_outputs = as_output_matrix(np.asarray(y))
-        y32 = native_y_array(as_native_float32(y2, "y"), dtype=np.float32)
+        y32 = _as_native_y(y2)
         sw = normalize_sample_weight(sample_weight, X.shape[0])
-        self.n_outputs_ = n_outputs
-        self.n_features_in_ = X.shape[1]
+        n_features = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
-        self.feature_names_in_ = (
-            np.asarray(column_names, dtype=object) if column_names is not None else None
-        )
 
         processed_features = _configure_processed_features(
-            self.n_features_in_,
+            n_features,
             feature_dict=feature_dict,
             processed_features=processed_features,
             column_names=column_names,
         )
-        self._processed_features = processed_features
         resolved_pairwise_candidates = _resolve_pairwise_candidates(
             self.pairwise_candidates, len(processed_features.features)
         )
@@ -937,6 +979,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             if not isinstance(value, Real) or not isfinite(float(value)) or value < 0:
                 raise ValueError(f"{name} must be finite and non-negative")
         tao_pair_scale = _validate_tao_pair_scale(self.tao_pair_scale)
+        tao_n_runs = _validate_int("tao_n_runs", self.tao_n_runs, 0)
 
         outer_depth = 0 if self.max_depth is None else int(self.max_depth)
         outer_leaves = 0 if self.max_leaf_nodes is None else int(self.max_leaf_nodes)
@@ -945,7 +988,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             0 if self.inner_max_leaf_nodes is None else int(self.inner_max_leaf_nodes)
         )
 
-        self._est = RegressionShapeGeneralizedTree(
+        est = RegressionShapeGeneralizedTree(
             str(self.criterion),
             int(self.num_partitions),
             int(self.min_samples_leaf),
@@ -966,27 +1009,32 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         )
 
         _warn_if_mae_cd_disabled(self.criterion)
-        self._est.fit(
-            X32,
-            y32,
-            sample_weight=sw,
-            features=processed_features.to_native(),
-        )
-        self._tao_refined_ = False
+        est.fit(X32, y32, sample_weight=sw, features=processed_features.to_native())
 
-        if self.tao_n_runs > 0:
-            from sgtlearn.tao import TAO_refine
-
-            TAO_refine(
-                self,
-                X32,
-                y32,
-                sample_weight=sw,
-                check_input=check_input,
-                n_runs=self.tao_n_runs,
-                lambda_=self.tao_lambda,
-                tao_pair_scale=tao_pair_scale,
+        with _restore_on_error(self):
+            self.n_outputs_ = n_outputs
+            self.n_features_in_ = n_features
+            self.feature_names_in_ = (
+                np.asarray(column_names, dtype=object)
+                if column_names is not None
+                else None
             )
+            self._processed_features = processed_features
+            self._est = est
+            self._tao_refined_ = False
+            if tao_n_runs > 0:
+                from sgtlearn.tao import TAO_refine
+
+                TAO_refine(
+                    self,
+                    X32,
+                    y32,
+                    sample_weight=sw,
+                    check_input=check_input,
+                    n_runs=tao_n_runs,
+                    lambda_=self.tao_lambda,
+                    tao_pair_scale=tao_pair_scale,
+                )
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

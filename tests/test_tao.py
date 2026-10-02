@@ -179,6 +179,11 @@ def test_tao_rejects_feature_mismatch(fit_fn, data_fn) -> None:
         tao.TAO_refine(est, X[:, :-1], y)
     with pytest.raises(ValueError, match="samples"):
         tao.TAO_refine(est, X, y[:-1])
+    with pytest.raises(ValueError, match="2 outputs"):
+        tao.TAO_refine(est, X, np.column_stack([y, y]))
+    multi = fit_fn(X, np.column_stack([y, y]))
+    with pytest.raises(ValueError, match="1 outputs"):
+        tao.TAO_refine(multi, X, y)
 
 
 def test_tao_accepts_check_input_false() -> None:
