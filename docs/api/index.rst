@@ -14,7 +14,6 @@ The public API is re-exported from the top-level :mod:`sgtlearn` package.
    RandomSGForestRegressor
    plot_tree
    configure_feature_dict
-   export_graphviz
    export_text
    make_plus
    tao.TAO_refine

@@ -4,18 +4,18 @@
 matplotlib: every internal node is drawn as a small histogram of the chosen
 routing feature with bins colored by the destination child partition, and
 every leaf is drawn as a text box with the predicted class / value.
-``export_graphviz`` / ``export_text`` are placeholders for a future iteration.
+``export_text`` returns the same tree as indented routing rules.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, cast
 
 import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
-__all__ = ["export_graphviz", "export_text", "plot_tree"]
+__all__ = ["export_text", "plot_tree"]
 
 import matplotlib.pyplot as plt
 from sklearn.utils.validation import check_is_fitted
@@ -23,14 +23,266 @@ from sklearn.utils.validation import check_is_fitted
 from sgtlearn.base import SGTClassifier, SGTRegressor
 
 
-def export_graphviz() -> None:
-    """Serialize the fitted tree as Graphviz DOT (not implemented)."""
-    raise NotImplementedError("not implemented yet")
+def export_text(
+    estimator: Any,
+    *,
+    feature_names: Sequence[str] | None = None,
+    class_names: Sequence[Any] | None = None,
+    decimals: int = 2,
+    show_weights: bool = False,
+) -> str:
+    """Return the fitted tree as indented routing rules.
+
+    Each internal node prints one line per child: the inputs routed to that
+    child, as merged threshold intervals (univariate nodes), category sets
+    (categorical nodes) or the boxes of the pair router (pair nodes). The
+    child that receives missing values is marked ``is missing``. As in
+    ``predict``, thresholds are compared with ``X`` rounded to float32, and a
+    value on a threshold takes the lower side (``<=``).
+
+    Parameters
+    ----------
+    estimator : SGTClassifier or SGTRegressor
+        Fitted estimator to export.
+    feature_names : sequence of str, optional
+        Names for the input columns. Defaults to ``feature_names_in_`` when
+        available, else ``X[i]``. When omitted, multi-column categorical
+        features use their ``feature_dict`` names.
+    class_names : sequence, optional
+        Classifier only: class names, defaulting to ``classes_``. For a
+        multi-output classifier, pass one sequence per output.
+    decimals : int, default=2
+        Digits shown for thresholds, leaf values and weights.
+    show_weights : bool, default=False
+        Classifier only: also print each leaf's weighted class counts.
+
+    Returns
+    -------
+    str
+        One line per child and leaf, indented by depth.
+    """
+    _check_fitted_sgt(estimator, "export_text")
+    n_features = estimator.n_features_in_ or 0
+    if feature_names is not None and len(feature_names) != n_features:
+        raise ValueError(
+            f"feature_names has {len(feature_names)} entries, but the estimator "
+            f"was fit on {n_features} features"
+        )
+    feat_names = _resolve_feature_names(estimator, feature_names)
+    tree = estimator.tree_export()
+    nodes = {n["id"]: n for n in tree["nodes"]}
+
+    def group_label(cols: Sequence[int]) -> str:
+        if len(cols) == 1:
+            return _column_label(int(cols[0]), feat_names)
+        return _logical_feature_label(
+            estimator,
+            {"features": list(cols)},
+            feat_names,
+            prefer_logical_name=feature_names is None,
+        )
+
+    def per_output(items: Sequence[str]) -> str:
+        return items[0] if len(items) == 1 else "[" + ", ".join(items) + "]"
+
+    def fmt_list(values: Sequence[float]) -> str:
+        return "[" + ", ".join(f"{v:.{decimals}f}" for v in values) + "]"
+
+    names: Any = class_names
+    if names is None:
+        names = getattr(estimator, "classes_", None)
+    names_per_output: list[Any] = [names] if tree["num_outputs"] == 1 else names
+
+    def leaf_text(node: dict) -> str:
+        if not isinstance(estimator, SGTClassifier):
+            value = node["value"]
+            if isinstance(value, (list, tuple)):
+                return f"value: {fmt_list(value)}"
+            return f"value: {value:.{decimals}f}"
+        counts = node["class_counts"]
+        text = "class: " + per_output(
+            [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
+        )
+        if show_weights:
+            text = f"weights: {per_output([fmt_list(c) for c in counts])} {text}"
+        return text
+
+    lines: list[str] = []
+
+    def walk(nid: int, depth: int) -> None:
+        node = nodes[nid]
+        prefix = "|   " * depth + "|--- "
+        if node["is_leaf"]:
+            lines.append(prefix + leaf_text(node))
+            return
+        for region, cid in zip(_child_regions(node), node["children"]):
+            lines.append(
+                prefix + _format_region(region, feat_names, group_label, decimals)
+            )
+            walk(cid, depth + 1)
+
+    walk(tree["root_index"], 0)
+    return "\n".join(lines) + "\n"
 
 
-def export_text() -> None:
-    """Return a human-readable multiline description of the tree (not implemented)."""
-    raise NotImplementedError("not implemented yet")
+def _check_fitted_sgt(estimator: Any, caller: str) -> None:
+    if not isinstance(estimator, (SGTClassifier, SGTRegressor)):
+        raise TypeError(
+            f"{caller} expects an SGTClassifier or SGTRegressor; got "
+            f"{type(estimator).__name__}"
+        )
+    check_is_fitted(estimator, attributes=("_est",))
+
+
+def _resolve_feature_names(
+    estimator: Any, feature_names: Sequence[str] | None
+) -> list[str]:
+    if feature_names is not None:
+        return list(feature_names)
+    if estimator.feature_names_in_ is not None:
+        return [str(n) for n in estimator.feature_names_in_]
+    return [f"X[{i}]" for i in range(estimator.n_features_in_ or 0)]
+
+
+def _child_regions(node: dict) -> list[list[list[tuple]]]:
+    """Inputs routed to each child of an internal node, as unions of boxes.
+
+    ``regions[k]`` lists the boxes (any may match) that reach
+    ``node["children"][k]``; a box lists conditions that must all hold:
+
+    - ``("range", col, lo, hi)``: ``lo < X[col] <= hi`` (``±inf`` for an open
+      end, so ``(-inf, inf)`` means "not missing")
+    - ``("nan", col)``: ``X[col]`` is NaN
+    - ``("in", cols, cats)``: the active one-hot column of ``cols`` is in ``cats``
+    - ``("none", cols)``: no column of ``cols`` is active (missing category)
+
+    The rules replay the native router on float32 input, so ``export_text``
+    (and ``export_graphviz``, #69) describe exactly what ``predict`` does.
+    """
+    regions: list[list[list[tuple]]] = [[] for _ in node["children"]]
+    if _is_pair_node(node):
+        _add_pair_regions(node, regions)
+        return regions
+    nan_child = int(node.get("nan_prediction_partition", 0))
+    if _is_categorical_node(node):
+        cols = tuple(int(c) for c in node["features"])
+        cats: list[set[int]] = [set() for _ in regions]
+        bins = _bin_categories_for_node(node)
+        for bin_cats, k in zip(bins, node["bin_to_partition"]):
+            cats[int(k)].update(int(c) for c in bin_cats)
+        for region, child_cats in zip(regions, cats):
+            if child_cats:
+                region.append([("in", cols, tuple(sorted(child_cats)))])
+        regions[nan_child].append([("none", cols)])
+        return regions
+    col = int(node["feature"])
+    for lo, hi, k in _merge_routing_regions(
+        list(node["thresholds"]), list(node["bin_to_partition"]), -np.inf, np.inf
+    ):
+        regions[int(k)].append([("range", col, lo, hi)])
+    regions[nan_child].append([("nan", col)])
+    return regions
+
+
+def _add_pair_regions(node: dict, regions: list[list[list[tuple]]]) -> None:
+    """Append one box per pair-router bin to its outer child's region."""
+    inner = {int(n["id"]): n for n in node["pair_inner_tree"]}
+    axes = node["pair_axes"]
+    b2p = node["bin_to_partition"]
+
+    def visit(nid: int, state: tuple[dict, ...]) -> None:
+        split = inner[nid]
+        if split["is_leaf"]:
+            regions[int(b2p[int(split["bin"])])].append(_pair_box(axes, state))
+            return
+        a = int(split["axis"])
+        axis_state = state[a]
+
+        def with_axis(**changes: Any) -> tuple[dict, ...]:
+            return tuple({**s, **changes} if i == a else s for i, s in enumerate(state))
+
+        if axis_state.get("missing") is not False:
+            visit(int(split["missing"]), with_axis(missing=True))
+        if axis_state.get("missing"):
+            return
+        if split["kind"] == "categorical":
+            cats = axis_state.get("cats")
+            if cats is None:
+                cats = frozenset(int(c) for c in axes[a]["categories"])
+            c = int(split["feature"])
+            for child, kept in (
+                (split["left"], cats - {c}),
+                (split["right"], cats & {c}),
+            ):
+                if kept:
+                    visit(int(child), with_axis(missing=False, cats=kept))
+            return
+        t = float(split["threshold"])
+        lo, hi = axis_state.get("lo", -np.inf), axis_state.get("hi", np.inf)
+        if lo < t:
+            visit(int(split["left"]), with_axis(missing=False, hi=min(hi, t)))
+        if t < hi:
+            visit(int(split["right"]), with_axis(missing=False, lo=max(lo, t)))
+
+    visit(0, ({}, {}))
+
+
+def _pair_box(axes: list[dict], state: tuple[dict, ...]) -> list[tuple]:
+    box: list[tuple] = []
+    for axis, axis_state in zip(axes, state):
+        cols = tuple(int(c) for c in axis["columns"])
+        continuous = axis["kind"] == "continuous"
+        if axis_state.get("missing"):
+            box.append(("nan", cols[0]) if continuous else ("none", cols))
+        elif continuous and axis_state:
+            lo, hi = axis_state.get("lo", -np.inf), axis_state.get("hi", np.inf)
+            box.append(("range", cols[0], lo, hi))
+        elif axis_state.get("cats") is not None:
+            box.append(("in", cols, tuple(sorted(axis_state["cats"]))))
+    return box
+
+
+def _format_condition(
+    cond: tuple,
+    feat_names: list[str],
+    group_label: Callable[[Sequence[int]], str],
+    decimals: int,
+) -> str:
+    op = cond[0]
+    if op == "in":
+        cats = ", ".join(_column_label(c, feat_names) for c in cond[2])
+        return f"{group_label(cond[1])} in {{{cats}}}"
+    if op == "none":
+        return f"{group_label(cond[1])} is missing"
+    name = _column_label(int(cond[1]), feat_names)
+    if op == "nan":
+        return f"{name} is missing"
+    lo, hi = cond[2], cond[3]
+    if np.isinf(lo) and np.isinf(hi):
+        return f"{name} is not missing"
+    if np.isinf(lo):
+        return f"{name} <= {hi:.{decimals}f}"
+    if np.isinf(hi):
+        return f"{name} > {lo:.{decimals}f}"
+    return f"{lo:.{decimals}f} < {name} <= {hi:.{decimals}f}"
+
+
+def _format_region(
+    region: list[list[tuple]],
+    feat_names: list[str],
+    group_label: Callable[[Sequence[int]], str],
+    decimals: int,
+) -> str:
+    """Render ``_child_regions`` output as ``a or (b and c)`` text."""
+    if not region:
+        return "(empty)"
+    texts = []
+    for box in region:
+        parts = [_format_condition(c, feat_names, group_label, decimals) for c in box]
+        texts.append((" and ".join(parts) or "always", len(parts)))
+    if len(texts) == 1:
+        return texts[0][0]
+    return " or ".join(f"({t})" if n > 1 else t for t, n in texts)
 
 
 #: Hand-picked pastel sequence used as the default ``cmap`` for ``plot_tree``.
@@ -1156,12 +1408,7 @@ def plot_tree(
     list
         Matplotlib artists created by the tree exporter.
     """
-    if not isinstance(estimator, (SGTClassifier, SGTRegressor)):
-        raise TypeError(
-            "plot_tree expects an SGTClassifier or SGTRegressor; got "
-            f"{type(estimator).__name__}"
-        )
-    check_is_fitted(estimator, attributes=("_est",))
+    _check_fitted_sgt(estimator, "plot_tree")
 
     tree = estimator.tree_export()
 
@@ -1212,14 +1459,7 @@ def plot_tree(
     else:
         resolved_class_names = list(class_names)  # type: ignore[arg-type]
 
-    n_features = estimator.n_features_in_ or 0
-    stored_feature_names = estimator.feature_names_in_
-    if feature_names is not None:
-        feat_names = list(feature_names)
-    elif stored_feature_names is not None:
-        feat_names = [str(n) for n in stored_feature_names]
-    else:
-        feat_names = [f"X[{i}]" for i in range(n_features)]
+    feat_names = _resolve_feature_names(estimator, feature_names)
 
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     drawn_ids = set(layout)

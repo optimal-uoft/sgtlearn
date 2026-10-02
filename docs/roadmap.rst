@@ -17,7 +17,9 @@ v0.2.0
 ------
 
 - ✅ Superset branching on categorical features
-- ✅ More plotting options (e.g. exporting to Graphviz)
+- ✅ More plotting options
+- ⬜ Exporting to Graphviz, planned for v0.4.0 (see
+  `issue #69 <https://github.com/optimal-uoft/sgtlearn/issues/69>`_)
 - ✅ Feature importances matching scikit-learn's API for SGTs and :math:`\mathrm{SGT}_K`
 - ✅ TAO refinement
 - ✅ Sklearn-style NaN support (replaces current tail-bin placeholder): split search uses finite values only; each candidate is scored with missing sent left vs right—including an explicit missing-vs-non-missing split—with the winning direction stored per node (ties → right).
