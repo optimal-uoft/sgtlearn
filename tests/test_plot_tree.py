@@ -185,6 +185,54 @@ def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
     assert patch_count(with_histograms) > patch_count(without_histograms)
 
 
+def _tick_labels(artists) -> list[list[str]]:
+    return [
+        [tick.get_text() for tick in artist.get_xticklabels()]
+        for artist in artists
+        if hasattr(artist, "get_xticklabels")
+    ]
+
+
+@pytest.fixture
+def regressor_with_missing_feature():
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(500, 2))
+    y = (X[:, 0] > 0) + rng.normal(0, 0.1, 500)
+    X[:10, 0] = np.nan
+    est = SGTRegressor(max_depth=2, random_state=0, tao_n_runs=0).fit(X, y)
+    assert est.tree_export()["nodes"][0]["feature"] == 0
+    return est, X
+
+
+def test_plot_tree_univariate_panel_draws_missing_margin(
+    regressor_with_missing_feature,
+):
+    est, X = regressor_with_missing_feature
+    artists = plot_tree(est, X=X)
+    assert any("NaN" in labels for labels in _tick_labels(artists))
+    plt.close("all")
+
+
+def test_plot_tree_univariate_panel_omits_missing_margin_for_finite_X(
+    regressor_with_missing_feature,
+):
+    est, X = regressor_with_missing_feature
+    artists = plot_tree(est, X=np.nan_to_num(X))
+    assert not any("NaN" in labels for labels in _tick_labels(artists))
+    plt.close("all")
+
+
+def test_plot_tree_univariate_panel_renders_all_missing_feature(
+    regressor_with_missing_feature,
+):
+    est, X = regressor_with_missing_feature
+    X = X.copy()
+    X[:, 0] = np.nan
+    artists = plot_tree(est, X=X)
+    assert any("NaN" in labels for labels in _tick_labels(artists))
+    plt.close("all")
+
+
 def test_plot_tree_X_shape_mismatch_raises(fitted_classifier):
     bad_X = np.zeros((10, fitted_classifier.n_features_in_ + 1))
     with pytest.raises(ValueError):
