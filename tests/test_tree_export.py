@@ -149,6 +149,26 @@ def test_univariate_classifier_export_replays_predictions():
     np.testing.assert_array_equal(_replay_classifier_export(estimator, X), y)
 
 
+@pytest.mark.parametrize("pairwise_candidates", [0, 1])
+def test_route_samples_matches_predict_at_threshold_ties(pairwise_candidates):
+    """A value on a threshold, or float32-rounding onto it, takes the lower bin."""
+    states = np.array([[1.0, 1.0], [1.0, 3.0], [3.0, 1.0], [3.0, 3.0]])
+    X = np.tile(states, (16, 1))
+    y = np.tile([0.0, 1.0, 2.0, 3.0], 16)
+    est = SGTRegressor(num_partitions=4, max_depth=1, inner_max_depth=2,
+                       inner_max_leaf_nodes=4,
+                       pairwise_candidates=pairwise_candidates,
+                       tao_n_runs=0, random_state=0).fit(X, y)
+    tree = est.tree_export()
+    assert (tree["nodes"][0].get("routing_kind") == "pair") == bool(pairwise_candidates)
+    probes = np.array([[2.0, 2.0], [2.0 + 1e-9, 2.0 + 1e-9], [2.0 - 1e-9, 3.0]])
+    reach = _route_samples(tree, probes)
+    replay = np.empty(len(probes))
+    for leaf in (node for node in tree["nodes"] if node["is_leaf"]):
+        replay[reach[leaf["id"]]] = leaf["value"]
+    np.testing.assert_allclose(replay, est.predict(probes), rtol=0, atol=0)
+
+
 def test_categorical_classifier_export_replays_predictions_and_missing_route():
     categories = np.eye(3, dtype=np.float32)
     X = np.vstack([np.repeat(categories, 8, axis=0), np.zeros((3, 3))])

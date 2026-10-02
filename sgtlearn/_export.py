@@ -243,14 +243,15 @@ def _route_samples(tree: dict, X) -> dict[int, Any]:
     The returned array for each node lists the row indices of ``X`` that
     reach that node. Leaves' sample sets partition the root's sample set.
 
-    Routing rule (matches the C++ trainer): at each internal node, look up
-    the routing feature column. Non-finite values use
-    ``nan_prediction_partition``; finite values use
-    ``bin = np.searchsorted(thresholds, value, side='right')`` (clamped) and
+    Routing rule (matches the native router): ``X`` is rounded to float32
+    as in ``predict``. At each internal node, look up the routing feature
+    column. Non-finite values use ``nan_prediction_partition``; finite values
+    use ``bin = np.searchsorted(thresholds, value, side='left')`` (a value on
+    a threshold takes the lower bin, like ``std::lower_bound``) and
     ``children[bin_to_partition[bin]]``.
     """
 
-    X_arr = np.asarray(X)
+    X_arr = np.asarray(X, dtype=np.float32).astype(np.float64)
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     root = tree["root_index"]
     n = X_arr.shape[0]
@@ -305,7 +306,7 @@ def _route_samples(tree: dict, X) -> dict[int, Any]:
             if np.any(~finite_mask):
                 part_idx[~finite_mask] = nan_part
             if np.any(finite_mask):
-                bin_idx = np.searchsorted(thresholds, values[finite_mask], side="right")
+                bin_idx = np.searchsorted(thresholds, values[finite_mask], side="left")
                 bin_idx = np.clip(bin_idx, 0, len(b2p) - 1)
                 part_idx[finite_mask] = b2p[bin_idx]
 
