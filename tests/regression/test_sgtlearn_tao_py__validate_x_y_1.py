@@ -149,10 +149,11 @@ def test_regressor_valid_single_output(reg):
     np.testing.assert_allclose(np.ravel(yo), y)
 
 
-def test_regressor_multi_output_accepted(reg):
+def test_regressor_multi_output_accepted():
     X = _data(10, seed=10)
     y = np.random.RandomState(10).rand(10, 2)
-    Xo, yo = m._validate_X_y(reg, X, y, check_input=True)
+    reg2 = SGTRegressor().fit(_data(), np.random.RandomState(0).rand(40, 2))
+    Xo, yo = m._validate_X_y(reg2, X, y, check_input=True)
     assert Xo.shape[0] == yo.shape[0] == 10
     assert yo.shape == (10, 2)
 

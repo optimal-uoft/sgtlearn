@@ -9,7 +9,7 @@ from sklearn.base import RegressorMixin
 from sklearn.utils.validation import check_X_y
 
 from sgtlearn._multioutput import squeeze_outputs
-from sgtlearn.base import SGTRegressor, _as_native_X
+from sgtlearn.base import SGTRegressor, _as_native_X, _as_native_y
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
 
 
@@ -173,6 +173,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             y_numeric=True,
             multi_output=True,
         )
+        _as_native_y(y)  # up front: bootstrap samples may skip a bad row
         return _as_native_X(X), y
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTRegressor:

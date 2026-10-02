@@ -1,0 +1,68 @@
+{
+  "run": "r-20261002-155229-09d0",
+  "mode": "bugfix",
+  "revisions": {
+    "buggy": {
+      "given": "HEAD",
+      "commit": "7ad98519ce4cd326d5e751c7b210b3b5db9c54ca"
+    },
+    "fixed": {
+      "given": "WORKTREE",
+      "commit": "b588e246814db2cef5a5d5823324d93f47738914"
+    }
+  },
+  "date": "2026-10-02T20:00:06.146Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit",
+      "effective": 6,
+      "misguided": 0,
+      "neutral": 51,
+      "broken": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [
+    {
+      "test": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_invalid_processed_features_raises",
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit",
+      "spec_basis": "\"ValueError/TypeError for invalid X or y, single-class classification labels, invalid sample weights or class_weight, an invalid feature_dict or processed_features, or an invalid n_jobs.\"",
+      "failure": "AttributeError: 'str' object has no attribute 'features'",
+      "reason": "The spec says an invalid processed_features must raise ValueError or TypeError. Here the forest's _configure_processed_features accepts the string without checking it, and the base tree then fails with an AttributeError on `.features`, which is neither type. The \"base tree errors pass through\" clause does not apply: its examples are deliberate rejections of hyperparameters or TAO failures, not a crash on a forest-level argument that the spec says must be validated."
+    }
+  ],
+  "suspicions": [
+    {
+      "target": "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit",
+      "analysis": "Logical mistakes: none found on the happy path. All fitted attributes are rebound to new objects rather than changed in place, and the attribute dictionary is restored in one step, so a shallow snapshot is enough to roll back. Tree seeds are drawn before any tree is fitted, which keeps results the same whether trees are fitted one at a time or in parallel.\nRobustness omissions: (1) n_estimators is only checked with \"< 1\". A non-integer value (for example 2.5, or True) gets past that check and is quietly truncated. A value that cannot be compared (None, a string) raises TypeError rather than a clear ValueError. These checks run before any state changes, so the rollback promise still holds. (2) When random_state is a RandomState instance, a failed fit has still used up random draws from it. Only the forest's own attributes are restored, not the generator's internal state. (3) The rollback relies on helper steps (_check_X_y, _prepare_sample_weight, the tree factory) never changing an existing fitted attribute in place, for example classes_ or processed_features_. If one did, the shallow snapshot would not undo it. (4) If one tree fails during a parallel fit, trees on other threads may still be running when the error propagates. Their results are thrown away, so this is acceptable."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2.py",
+      "tests": 19
+    },
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3.py",
+      "dest": "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3.py",
+      "tests": 11
+    }
+  ],
+  "not_promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_1.py",
+      "reason": "only neutral tests (use --all-accepted to include)"
+    },
+    {
+      "file": "tests/tcheck/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_4.py",
+      "reason": "only neutral tests (use --all-accepted to include)"
+    }
+  ]
+}

@@ -16,7 +16,6 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from TreeAlternatingOptimization import TreeAlternatingOptimization
 
 from sgtlearn._multioutput import (
-    as_output_matrix,
     encode_classification_targets,
     label_encoders_as_list,
     native_y_array,
@@ -30,6 +29,7 @@ from sgtlearn.base import (
     SGTClassifier,
     SGTRegressor,
     _as_native_X,
+    _as_native_y,
     _validate_tao_pair_scale,
 )
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
@@ -109,8 +109,8 @@ def _validate_X_y(
         raise ValueError(
             f"X must be a non-empty dense 2D array; got shape {X.shape}"
         )
-    if y.ndim < 1:
-        raise ValueError("y must be at least 1-dimensional.")
+    if y.ndim not in (1, 2):
+        raise ValueError(f"y must be 1-D or 2-D; got {y.ndim}-D.")
     if X.shape[1] != n_features:
         raise ValueError(
             f"X has {X.shape[1]} features, but {type(model).__name__} was fitted "
@@ -118,6 +118,13 @@ def _validate_X_y(
         )
     if y.shape[0] != X.shape[0]:
         raise ValueError("X and y must have the same number of samples.")
+    n_outputs = 1 if y.ndim == 1 else y.shape[1]
+    n_outputs_fit = int(getattr(model, "n_outputs_", 1) or 1)
+    if n_outputs != n_outputs_fit:
+        raise ValueError(
+            f"y has {n_outputs} outputs, but {type(model).__name__} was fitted "
+            f"with {n_outputs_fit} outputs."
+        )
     return X, y
 
 
@@ -169,8 +176,7 @@ def _prepare_tao_arrays(
             sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
         return X32, y_out, sw
 
-    y2, _ = as_output_matrix(np.asarray(y, dtype=np.float32))
-    y_reg = native_y_array(y2, dtype=np.float32)
+    y_reg = _as_native_y(y)
     sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
     sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
     return X32, y_reg, sw

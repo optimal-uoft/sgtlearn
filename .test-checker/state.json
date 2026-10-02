@@ -1,9 +1,10 @@
 {
   "verified": {
     "sgtlearn/base.py": {
-      "sha": "3a3e3f9b337f0fd2aeebe00203b001a6a0605d56",
-      "run": "r-20260928-174209-ca73",
-      "at": "2026-09-29T00:33:23.617Z"
+      "sha": "a4072b8eaadf34d83a0f10c96f01dc674d6a300d",
+      "run": null,
+      "at": "2026-10-02T20:22:31.572Z",
+      "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
     },
     "sgtlearn/_features.py": {
       "sha": "14bbcf7ce569621eee5c019b13ef84360340b7d4",
@@ -16,14 +17,21 @@
       "at": "2026-09-29T00:33:23.839Z"
     },
     "sgtlearn/ensemble/_random_sgforest.py": {
-      "sha": "454de59c3efb9d0e61655930bde3e8d5cfd74928",
-      "run": "r-20260928-174217-b4af",
-      "at": "2026-09-29T00:57:06.507Z"
+      "sha": "9357cc710c769925454d42308f5540230fa4037d",
+      "run": null,
+      "at": "2026-10-02T20:22:31.572Z",
+      "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
     },
     "sgtlearn/tao.py": {
-      "sha": "c8b387c61b8f4e984e5868eecc5f4a71e5befe50",
-      "run": "r-20260928-174214-5680",
-      "at": "2026-09-29T00:57:06.248Z"
+      "sha": "bef20092ac111217b1f1efe2831962417b670ead",
+      "run": null,
+      "at": "2026-10-02T20:22:31.572Z",
+      "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
+    },
+    "sgtlearn/ensemble/random_sgforest_regressor.py": {
+      "sha": "57952fae12507229bdd6f934624cae22ba0761a8",
+      "run": "r-20261002-150225-182c",
+      "at": "2026-10-02T19:44:16.526Z"
     }
   },
   "protected": {
@@ -390,6 +398,271 @@
         "sgtlearn-ensemble-random-sgforest-py--randomsgforest-std-feature-importance::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_std_feature_importance_1::test_tao_fitted_forest_raises_unavailable_error"
       ],
       "run": "r-20260928-174217-b4af"
+    },
+    "tests/regression/test_sgtlearn_base_py__sgtclassifier_fit_1.py": {
+      "test_ids": [
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_returns_self",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_sets_single_output_attributes_unwrapped",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_string_labels_records_classes_and_predicts_them",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_on_ndarray_sets_feature_names_in_to_none",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_on_dataframe_records_feature_names_in",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_multi_output_sets_per_output_classes",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_accepts_nan_in_X",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_accepts_valid_sample_weight",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_accepts_valid_class_weight",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_tao_n_runs_zero_skips_tao",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_tao_runs_sets_tao_refined_true",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_does_not_change_hyper_parameters",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_random_state_none_is_deterministic",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_feature_dict_resolves_processed_features",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_feature_dict_column_names_on_dataframe",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_with_processed_features_uses_them",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_feature_dict_column_names_without_dataframe",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_feature_dict_with_out_of_range_column",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_processed_features_for_wrong_number_of_columns",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_infinite_X",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_X_overflowing_float32",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_one_dimensional_X",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_mismatched_sample_counts",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_single_class_y",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_multi_output_with_single_class_output",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_sparse_X_with_type_error",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_sample_weight_of_wrong_length",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_negative_sample_weight",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[-0.1-min_impurity_decrease]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[-0.1-pairwise_penalty]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[-0.1-branching_penalty]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[nan-min_impurity_decrease]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[nan-pairwise_penalty]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[nan-branching_penalty]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[inf-min_impurity_decrease]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[inf-pairwise_penalty]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_non_finite_or_negative_penalty_params[inf-branching_penalty]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_negative_pairwise_candidates",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_nan_tao_pair_scale",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_invalid_tao_n_runs[-1]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_invalid_tao_n_runs[True]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_invalid_tao_n_runs[False]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_invalid_tao_n_runs[1.0]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_rejects_invalid_tao_n_runs[None]",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_check_input_false_with_preset_classes_succeeds",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_check_input_false_with_preset_multi_output_classes_succeeds",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_check_input_false_without_preset_classes_raises",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_check_input_false_with_labels_outside_preset_classes_raises",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_fit_check_input_false_with_output_count_mismatch_raises",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_failed_check_input_false_fit_leaves_preset_classes_untouched",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_failed_refit_keeps_previous_fitted_attributes_and_predictions",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_failed_first_fit_leaves_estimator_unfitted",
+        "sgtlearn-base-py--sgtclassifier-fit::tests.tcheck.test_sgtlearn_base_py__sgtclassifier_fit_1::test_base_exception_during_tao_keeps_previous_fit"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_base_py__sgtregressor_fit_2.py": {
+      "test_ids": [
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_allows_nan_in_X",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_infinite_X[inf]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_infinite_X[-inf]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_X_value_overflowing_float32[1e+39]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_X_value_overflowing_float32[-1e+39]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_non_finite_y[nan]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_non_finite_y[inf]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_non_finite_y[-inf]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_y_value_overflowing_float32[1e+39]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_y_value_overflowing_float32[-1e+39]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_non_finite_value_in_2d_y",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_with_check_input_false_still_rejects_X_float32_overflow",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_with_check_input_false_still_rejects_y_float32_overflow",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_sample_weight_with_wrong_length",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_negative_sample_weight",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_non_finite_sample_weight[nan]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_2::test_fit_rejects_non_finite_sample_weight[inf]"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_base_py__sgtregressor_fit_4.py": {
+      "test_ids": [
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[-0.1-min_impurity_decrease]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[-0.1-pairwise_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[-0.1-branching_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[inf-min_impurity_decrease]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[inf-pairwise_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[inf-branching_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[nan-min_impurity_decrease]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[nan-pairwise_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_negative_or_non_finite_penalty_hyperparameters[nan-branching_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_accepts_positive_finite_penalty_hyperparameters[min_impurity_decrease]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_accepts_positive_finite_penalty_hyperparameters[pairwise_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_accepts_positive_finite_penalty_hyperparameters[branching_penalty]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_pairwise_candidates",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_pair_scale",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_n_runs[-1]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_n_runs[True]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_n_runs[False]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_n_runs[1.0]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_n_runs[2.5]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_rejects_invalid_tao_n_runs[None]",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_4::test_fit_accepts_zero_tao_n_runs"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_base_py__sgtregressor_fit_5.py": {
+      "test_ids": [
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_failed_fit_on_unfitted_model_leaves_it_unfitted",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_failed_refit_with_invalid_X_keeps_fitted_attributes",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_failed_refit_with_invalid_X_keeps_predictions_unchanged",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_failed_refit_with_invalid_sample_weight_keeps_fitted_attributes",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_failed_refit_with_invalid_feature_dict_keeps_fitted_attributes",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_failed_refit_with_invalid_hyperparameter_keeps_fitted_attributes",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_interrupted_tao_on_unfitted_model_leaves_it_unfitted",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_interrupted_tao_on_fitted_model_keeps_previous_fit",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_refit_replaces_n_features_in",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_refit_replaces_n_outputs",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_refit_on_ndarray_after_dataframe_clears_feature_names",
+        "sgtlearn-base-py--sgtregressor-fit::tests.tcheck.test_sgtlearn_base_py__sgtregressor_fit_5::test_refit_replaces_processed_features"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_base_py__as_native_y_1.py": {
+      "test_ids": [
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_float64_1d_is_converted_to_float32_1d",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_float32_1d_input_keeps_values",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_integer_1d_is_converted_to_float32",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_nested_list_1d_is_converted_to_float32",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_nested_list_2d_multioutput_is_converted_to_2d_float32",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_multioutput_2d_array_keeps_2d_shape",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_single_column_2d_input_is_flattened_to_1d",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_single_column_nested_list_is_flattened_to_1d",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_fortran_ordered_multioutput_input_gives_c_contiguous_output",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_strided_1d_input_gives_c_contiguous_output",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_strided_float32_multioutput_input_gives_c_contiguous_output",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_input_array_is_not_modified",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_float32_input_is_not_modified_when_output_is_changed",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_input_list_is_not_modified",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_positive_infinity_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_negative_infinity_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_infinity_in_float32_input_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_infinity_in_multioutput_input_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_infinity_in_nested_list_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_large_positive_finite_value_overflowing_float32_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_large_negative_finite_value_overflowing_float32_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_overflowing_value_in_multioutput_input_raises_value_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_overflow_does_not_emit_runtime_warning",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_valid_conversion_does_not_emit_runtime_warning",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_largest_finite_float32_and_its_negative_are_accepted",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_largest_finite_float32_in_float32_input_is_accepted",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_tiny_value_underflowing_to_zero_is_not_an_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_subnormal_float32_value_is_not_an_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_precision_loss_is_not_an_error_and_uses_float32_rounding",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_large_integer_losing_precision_is_not_an_error",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_empty_1d_input_gives_empty_1d_float32_array",
+        "sgtlearn-base-py--as-native-y::tests.tcheck.test_sgtlearn_base_py__as_native_y_1::test_empty_multioutput_input_gives_empty_2d_float32_array"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3.py": {
+      "test_ids": [
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_empty_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_three_dimensional_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_non_numeric_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_nan_in_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_positive_infinity_in_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_negative_infinity_in_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_nan_in_multi_output_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_y_positive_float32_overflow_raises_value_error_naming_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_y_negative_float32_overflow_raises_value_error_naming_float32",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_y_float32_overflow_in_last_row_is_rejected",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_y_float32_overflow_in_multi_output_y_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_3::test_y_float32_overflow_rejected_with_max_samples_set"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4.py": {
+      "test_ids": [
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_successful_call_does_not_set_fitted_attributes",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_successful_call_does_not_change_params",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_successful_call_on_fitted_forest_keeps_attributes",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_failed_call_on_fitted_forest_keeps_attributes",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_failed_call_on_fitted_forest_keeps_predictions",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_rejected_refit_with_y_float32_overflow_keeps_fitted_attributes",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_rejected_refit_with_x_float32_overflow_keeps_predictions",
+        "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_4::test_input_arrays_are_not_modified"
+      ],
+      "run": "r-20261002-150225-182c"
+    },
+    "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2.py": {
+      "test_ids": [
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_n_estimators_below_one_raises_value_error[0]",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_n_estimators_below_one_raises_value_error[-1]",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_max_samples_with_bootstrap_false_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_negative_max_samples_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_infinite_value_in_X_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_negative_infinite_value_in_X_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_value_overflowing_float32_raises_value_error",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_every_row_is_validated_even_with_small_bootstrap",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_single_class_labels_raise_value_error",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_mismatched_X_and_y_lengths_raise",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_negative_sample_weight_raises",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_sample_weight_wrong_length_raises",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_invalid_class_weight_raises",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_feature_dict_with_unknown_column_raises",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_invalid_processed_features_raises",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_invalid_n_jobs_raises[0]",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_invalid_n_jobs_raises[many]",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_base_tree_rejects_negative_min_impurity_decrease",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_2::test_base_tree_rejects_invalid_tao_n_runs"
+      ],
+      "run": "r-20261002-155229-09d0"
+    },
+    "tests/regression/test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3.py": {
+      "test_ids": [
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_failed_refit_keeps_classifier_attributes_identical",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_failed_refit_keeps_classifier_predictions",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_failed_refit_keeps_regressor_attributes_and_predictions",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_base_tree_failure_during_refit_keeps_fitted_state",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_refit_failure_with_different_feature_count_keeps_state",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_failed_first_fit_leaves_classifier_unfitted",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_failed_first_fit_from_base_tree_leaves_regressor_unfitted",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_failed_fit_does_not_change_hyperparameters",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_successful_fit_does_not_change_hyperparameters",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_keyboard_interrupt_in_refit_keeps_fitted_state",
+        "sgtlearn-ensemble-random-sgforest-py--randomsgforest-fit::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_py__randomsgforest_fit_3::test_base_tree_error_is_passed_through_unchanged"
+      ],
+      "run": "r-20261002-155229-09d0"
+    },
+    "tests/regression/test_sgtlearn_base_py__configure_processed_features_1.py": {
+      "test_ids": [
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_returns_given_processed_features_identical_object",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_returns_subclass_instance_of_processed_features_unchanged",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_given_processed_features_not_revalidated_against_n_features",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_given_processed_features_not_revalidated_against_column_names",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_valid_feature_dict_ignored_when_processed_features_given",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_invalid_out_of_range_feature_dict_ignored_when_processed_features_given",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_invalid_name_based_feature_dict_ignored_when_processed_features_given",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_given_processed_features_is_not_mutated",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_non_processed_features_value_raises_type_error[list_of_dicts]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_non_processed_features_value_raises_type_error[dict]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_non_processed_features_value_raises_type_error[str]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_non_processed_features_value_raises_type_error[int]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_type_error_message_names_parameter_and_received_type[list]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_type_error_message_names_parameter_and_received_type[dict]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_type_error_message_names_parameter_and_received_type[str]",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_type_check_happens_before_invalid_feature_dict_is_resolved",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_native_feature_list_from_to_native_is_rejected",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_no_grouping_matches_configure_feature_dict_default",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_no_grouping_with_column_names_matches_configure_feature_dict",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_integer_grouping_matches_configure_feature_dict",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_name_based_grouping_matches_configure_feature_dict",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_integer_logical_name_grouping_matches_configure_feature_dict",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_result_is_processed_features_instance_when_resolved",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_out_of_range_index_raises_value_error",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_unknown_column_name_raises_value_error",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_duplicate_column_across_groups_raises_value_error",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_name_based_columns_without_column_names_propagates_same_error",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_out_of_range_error_type_matches_configure_feature_dict",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_feature_dict_is_not_mutated",
+        "sgtlearn-base-py--configure-processed-features::tests.tcheck.test_sgtlearn_base_py__configure_processed_features_1::test_column_names_list_is_not_mutated"
+      ],
+      "run": "r-20261002-160040-0a2c"
     }
   },
   "quarantined": [],

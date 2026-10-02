@@ -20,7 +20,9 @@ from sgtlearn.base import (
     _as_native_X,
     _column_names_from_X,
     _configure_processed_features,
+    _restore_on_error,
     _suppress_mae_cd_warning,
+    _validate_int,
     _warn_if_mae_cd_disabled,
 )
 
@@ -214,64 +216,71 @@ class RandomSGForest(BaseEstimator, ABC):
             Pre-resolved features from :func:`~sgtlearn.configure_feature_dict`,
             used instead of resolving ``feature_dict``.
         """
-        if self.n_estimators < 1:
-            raise ValueError("n_estimators must be at least 1.")
+        _validate_int("n_estimators", self.n_estimators, 1)
         if not self.bootstrap and self.max_samples is not None:
             raise ValueError("max_samples can only be set when bootstrap=True.")
 
-        column_names = _column_names_from_X(X)
-        # Checks every row up front: bootstrap samples may skip some.
-        X32, y = self._check_X_y(X, y)
-        y_arr = np.asarray(y)
-        self.n_outputs_ = 1 if y_arr.ndim == 1 else y_arr.shape[1]
-        self.n_features_in_ = X32.shape[1]
-        self.feature_names_in_ = (
-            np.asarray(column_names, dtype=object) if column_names is not None else None
-        )
+        # A failed refit (bad data, weights or base-tree hyperparameters)
+        # restores the previous fit instead of leaving it half-updated.
+        with _restore_on_error(self):
+            column_names = _column_names_from_X(X)
+            # Checks every row up front: bootstrap samples may skip some.
+            X32, y = self._check_X_y(X, y)
+            y_arr = np.asarray(y)
+            self.n_outputs_ = 1 if y_arr.ndim == 1 else y_arr.shape[1]
+            self.n_features_in_ = X32.shape[1]
+            self.feature_names_in_ = (
+                np.asarray(column_names, dtype=object)
+                if column_names is not None
+                else None
+            )
 
-        self.processed_features_ = _configure_processed_features(
-            self.n_features_in_,
-            feature_dict=feature_dict,
-            processed_features=processed_features,
-            column_names=column_names,
-        )
+            self.processed_features_ = _configure_processed_features(
+                self.n_features_in_,
+                feature_dict=feature_dict,
+                processed_features=processed_features,
+                column_names=column_names,
+            )
 
-        n_samples = X32.shape[0]
-        sample_weight = self._prepare_sample_weight(y, sample_weight, n_samples)
-        n_bootstrap = _n_samples_bootstrap(n_samples, self.max_samples)
-        rng = check_random_state(self.random_state)
+            n_samples = X32.shape[0]
+            sw = self._prepare_sample_weight(y, sample_weight, n_samples)
+            n_bootstrap = _n_samples_bootstrap(n_samples, self.max_samples)
+            rng = check_random_state(self.random_state)
 
-        tree_kw = self._tree_kwargs()
-        _warn_if_mae_cd_disabled(self.criterion)
-        tree_seeds = [
-            int(rng.randint(np.iinfo(np.int32).max)) for _ in range(int(self.n_estimators))
-        ]
+            tree_kw = self._tree_kwargs()
+            _warn_if_mae_cd_disabled(self.criterion)
+            tree_seeds = [
+                int(rng.randint(np.iinfo(np.int32).max))
+                for _ in range(int(self.n_estimators))
+            ]
 
-        def tree_factory(tree_seed: int, kw: dict[str, Any]) -> Any:
-            return self._make_tree(tree_seed, kw)
+            def tree_factory(tree_seed: int, kw: dict[str, Any]) -> Any:
+                return self._make_tree(tree_seed, kw)
 
-        fit_args = (
-            bool(self.bootstrap),
-            n_samples,
-            n_bootstrap,
-            X32,
-            y,
-            sample_weight,
-            tree_kw,
-            tree_factory,
-            self.processed_features_,
-        )
+            fit_args = (
+                bool(self.bootstrap),
+                n_samples,
+                n_bootstrap,
+                X32,
+                y,
+                sw,
+                tree_kw,
+                tree_factory,
+                self.processed_features_,
+            )
 
-        n_jobs_req = 1 if self.n_jobs is None else self.n_jobs
-        n_jobs = effective_n_jobs(n_jobs_req)
-        if n_jobs == 1:
-            self.estimators_ = [_parallel_fit_tree(ts, *fit_args) for ts in tree_seeds]
-        else:
-            self.estimators_ = Parallel(
-                n_jobs=n_jobs,
-                verbose=int(self.verbose),
-                prefer="threads",
-            )(delayed(_parallel_fit_tree)(ts, *fit_args) for ts in tree_seeds)
+            n_jobs_req = 1 if self.n_jobs is None else self.n_jobs
+            n_jobs = effective_n_jobs(n_jobs_req)
+            if n_jobs == 1:
+                self.estimators_ = [
+                    _parallel_fit_tree(ts, *fit_args) for ts in tree_seeds
+                ]
+            else:
+                self.estimators_ = Parallel(
+                    n_jobs=n_jobs,
+                    verbose=int(self.verbose),
+                    prefer="threads",
+                )(delayed(_parallel_fit_tree)(ts, *fit_args) for ts in tree_seeds)
 
         return self
 
