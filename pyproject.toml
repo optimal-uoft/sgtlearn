@@ -21,7 +21,6 @@ dependencies = [
   "joblib>=1.2",
   "matplotlib>=3.10.9",
   "seaborn>=0.13.2",
-  "graphviz>=0.21",
 ]
 
 [project.optional-dependencies]
@@ -78,7 +77,5 @@ module = [
   "matplotlib.*",
   "seaborn",
   "seaborn.*",
-  "graphviz",
-  "graphviz.*",
 ]
 ignore_missing_imports = true
