@@ -751,7 +751,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     Notes
     -----
     Internally, single- and multi-output training share one path: ``y`` is
-    always handled as ``(n_samples, n_outputs)``. Loss / gain sums across
+    always handled as ``(n_samples, n_outputs)``. Outer impurity averages across
     outputs. ``X`` and ``y`` are cast to C-contiguous ``float32`` before the
     native trainer. Sparse input is not supported. NaN in ``X`` is handled by
     the native trainer (non-finite values are sorted to the feature tail and
