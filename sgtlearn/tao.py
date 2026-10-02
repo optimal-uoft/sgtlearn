@@ -29,6 +29,7 @@ from sgtlearn.base import (
     BaseShapeCART,
     SGTClassifier,
     SGTRegressor,
+    _as_native_X,
     _validate_tao_pair_scale,
 )
 from sgtlearn.ensemble._random_sgforest import RandomSGForest
@@ -127,7 +128,7 @@ def _prepare_tao_arrays(
     sample_weight: np.ndarray | None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build ``(X32, y_native, sample_weights)`` shared by all trees in ``model``."""
-    X32 = np.ascontiguousarray(X, dtype=np.float32)
+    X32 = _as_native_X(X)
     if X32.ndim != 2:
         raise ValueError(f"X must be 2D; got shape {X32.shape}")
     if np.shape(y)[:1] != X32.shape[:1]:

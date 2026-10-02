@@ -69,6 +69,21 @@ def _column_names_from_X(X: Any) -> list[str] | None:
     return [str(c) for c in columns]
 
 
+def _as_native_X(X: Any) -> np.ndarray:
+    """C-contiguous ``float32`` ``X`` for the native code; rejects infinity.
+
+    A finite value beyond the ``float32`` range passes ``check_array`` but
+    becomes ``inf`` here, which the native router would treat like NaN.
+    """
+    with np.errstate(over="ignore"):
+        X32 = np.ascontiguousarray(X, dtype=np.float32)
+    if np.isinf(X32).any():
+        raise ValueError(
+            "Input X contains infinity or a value too large for dtype('float32')."
+        )
+    return X32
+
+
 def _configure_processed_features(
     n_features: int,
     *,
@@ -352,7 +367,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     node saw none). At inference, missing values go to that child regardless
     of where the largest finite values go. Pair nodes route missing values
     through dedicated branches of their pair router. Infinity in ``X`` is
-    rejected.
+    rejected, as are finite values that overflow ``float32`` (e.g. ``1e39``).
 
     References
     ----------
@@ -595,7 +610,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             float(self.branching_penalty),
         )
 
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
+        X32 = _as_native_X(X)
         y_u = native_y_array(y_enc, dtype=np.uint64)
         self._est.fit(
             X32, y_u, sample_weight=sw, features=processed_features.to_native()
@@ -622,14 +637,13 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         """Predict class labels (via the fitted label encoder)."""
 
         check_is_fitted(self, attributes=("_est", "_le"))
-        X32 = np.ascontiguousarray(
+        X32 = _as_native_X(
             check_array(
                 X,
                 accept_sparse=False,
                 dtype=np.float64,
                 ensure_all_finite="allow-nan",
-            ),
-            dtype=np.float32,
+            )
         )
         if X32.shape[1] != self.n_features_in_:
             raise ValueError(
@@ -662,7 +676,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
                 f"X has {X.shape[1]} features, but SGTClassifier is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
+        X32 = _as_native_X(X)
         # Native: single (n_samples, n_classes) array, or a list of such arrays
         # per output, aligned with encoded labels 0..K-1 for each output.
         proba = self._est.predict_proba(X32)
@@ -776,7 +790,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     samples when the node saw none). At inference, missing values go to that
     child regardless of where the largest finite values go. Pair nodes route
     missing values through dedicated branches of their pair router. Infinity
-    in ``X`` is rejected.
+    in ``X`` is rejected, as are finite values that overflow ``float32``
+    (e.g. ``1e39``).
 
     For ``squared_error``/``mse``, the trainer runs coordinate descent after
     the round-robin seed and keeps the refined assignment only if branch MSE
@@ -956,7 +971,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             float(self.branching_penalty),
         )
 
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
+        X32 = _as_native_X(X)
         y32 = native_y_array(y2, dtype=np.float32)
         sw = normalize_sample_weight(sample_weight, X.shape[0])
         _warn_if_mae_cd_disabled(self.criterion)
@@ -993,7 +1008,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 f"X has {X.shape[1]} features, but SGTRegressor is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
-        X32 = np.ascontiguousarray(X, dtype=np.float32)
+        X32 = _as_native_X(X)
         preds = np.asarray(self._est.predict(X32), dtype=np.float64)
         return squeeze_outputs(preds, self.n_outputs_)
 

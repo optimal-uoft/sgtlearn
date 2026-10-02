@@ -17,6 +17,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 from sgtlearn._features import ProcessedFeatures
 from sgtlearn._weights import normalize_sample_weight
 from sgtlearn.base import (
+    _as_native_X,
     _column_names_from_X,
     _configure_processed_features,
     _suppress_mae_cd_warning,
@@ -219,6 +220,8 @@ class RandomSGForest(BaseEstimator, ABC):
 
         column_names = _column_names_from_X(X)
         X, y = self._check_X_y(X, y)
+        # Validate every row up front: bootstrap samples may skip some.
+        X = _as_native_X(X)
         y_arr = np.asarray(y)
         self.n_outputs_ = 1 if y_arr.ndim == 1 else y_arr.shape[1]
         self.n_features_in_ = X.shape[1]
@@ -328,7 +331,7 @@ class RandomSGForest(BaseEstimator, ABC):
                 f"X has {X.shape[1]} features, but {self._estimator_name} is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
-        return np.ascontiguousarray(X, dtype=np.float32)
+        return _as_native_X(X)
 
 
 __all__ = ["RandomSGForest", "_n_samples_bootstrap"]
