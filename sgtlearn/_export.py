@@ -598,7 +598,12 @@ def _draw_internal_panel(
     fontsize: int | None,
     label: str,
 ) -> list:
-    """Render a single internal node panel: slabs + optional fine histogram."""
+    """Render a single internal node panel: slabs + optional fine histogram.
+
+    Non-finite feature values are kept out of the extent and histogram; when
+    any are present they are drawn as a "NaN" margin in the color of
+    ``nan_prediction_partition``.
+    """
     cx, cy = center
     w, h = size
     inset = host_ax.inset_axes(
@@ -607,6 +612,12 @@ def _draw_internal_panel(
 
     thresholds = list(node["thresholds"])
     b2p = _finite_routing_bins(thresholds, list(node["bin_to_partition"]))
+
+    n_missing = 0
+    if feature_values is not None:
+        finite = np.isfinite(feature_values)
+        n_missing = int(np.count_nonzero(~finite))
+        feature_values = feature_values[finite]
 
     # Compute panel x extent.
     if feature_values is not None and len(feature_values):
@@ -667,13 +678,32 @@ def _draw_internal_panel(
             align="center",
         )
 
-    boundaries = [x1 for (_x0, x1, _p) in slabs[:-1]]
-    inset.set_xlim(x_min, x_max)
-    if boundaries:
-        inset.set_xticks(boundaries)
+    ticks = [x1 for (_x0, x1, _p) in slabs[:-1]]
+    tick_labels = [f"{t:.{precision}f}" for t in ticks]
+    x_hi = x_max
+    if n_missing:
+        span = x_max - x_min
+        m0, m1 = x_max + span * 0.04, x_max + span * 0.12
+        color = palette[int(node.get("nan_prediction_partition", 0))]
+        inset.axvspan(m0, m1, color=color, alpha=0.5, zorder=0)
+        inset.bar(
+            (m0 + m1) / 2,
+            n_missing,
+            width=m1 - m0,
+            color=color,
+            edgecolor="white",
+            linewidth=0.3,
+            zorder=1,
+        )
+        ticks.append((m0 + m1) / 2)
+        tick_labels.append("NaN")
+        x_hi = m1
+    inset.set_xlim(x_min, x_hi)
+    if ticks:
+        inset.set_xticks(ticks)
         tick_fs = (fontsize - 2) if isinstance(fontsize, int) else None
         inset.set_xticklabels(
-            [f"{t:.{precision}f}" for t in boundaries],
+            tick_labels,
             fontsize=tick_fs,
             rotation=30,
             ha="right",

@@ -185,6 +185,34 @@ def test_plot_tree_with_X_renders_fine_histograms(fitted_classifier):
     assert patch_count(with_histograms) > patch_count(without_histograms)
 
 
+@pytest.mark.parametrize(
+    ("make_X", "has_margin"),
+    [
+        (lambda X: X, True),
+        (np.nan_to_num, False),
+        (lambda X: np.column_stack([np.full(len(X), np.nan), X[:, 1]]), True),
+    ],
+    ids=["some-missing", "finite", "all-missing"],
+)
+def test_plot_tree_univariate_panel_missing_margin(make_X, has_margin):
+    """NaN in a univariate node's feature renders as a margin instead of raising."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(500, 2))
+    y = (X[:, 0] > 0) + rng.normal(0, 0.1, 500)
+    X[:10, 0] = np.nan
+    est = SGTRegressor(max_depth=2, random_state=0).fit(X, y)
+    assert est.tree_export()["nodes"][0]["feature"] == 0
+    artists = plot_tree(est, X=make_X(X))
+    labels = [
+        tick.get_text()
+        for artist in artists
+        if hasattr(artist, "get_xticklabels")
+        for tick in artist.get_xticklabels()
+    ]
+    assert ("NaN" in labels) == has_margin
+    plt.close("all")
+
+
 def test_plot_tree_X_shape_mismatch_raises(fitted_classifier):
     bad_X = np.zeros((10, fitted_classifier.n_features_in_ + 1))
     with pytest.raises(ValueError):
