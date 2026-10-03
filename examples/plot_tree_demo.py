@@ -176,7 +176,7 @@ save(plt.gcf(), "06_classifier_custom_palette.png")
 
 
 # ---------------------------------------------------------------------------
-# 7. Multi-way partitioning — ``num_partitions > 2`` fans out K children.
+# 7. Multi-way partitioning — ``num_partitions > 2`` fans out up to K children.
 # ---------------------------------------------------------------------------
 # The default pastel sequence has 8 colors; partitions beyond that cycle. For
 # a K-way tree, ``cmap`` should provide at least K distinguishable colors.
