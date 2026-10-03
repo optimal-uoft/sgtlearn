@@ -32,6 +32,11 @@
       "sha": "b2ad723f36c9520fda0013c7951e257e4907ba73",
       "run": "r-20261002-162723-b8b5",
       "at": "2026-10-02T20:30:43.728Z"
+    },
+    "sgtlearn/_export.py": {
+      "sha": "9af0b3c1a90f76795010d09eac3d2257bab5af37",
+      "run": "r-20261002-215733-b7b8",
+      "at": "2026-10-03T02:02:15.801Z"
     }
   },
   "protected": {
@@ -715,6 +720,50 @@
         "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_float32_overflow_in_sample_weight_is_rejected"
       ],
       "run": "r-20261002-162723-b8b5"
+    },
+    "tests/regression/test_sgtlearn_export_py__draw_leaf_text_1.py": {
+      "test_ids": [
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_single_output_shows_majority_class_name",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_tie_picks_lowest_class_index",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_all_equal_counts_picks_first_class",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_multi_output_shows_bracketed_comma_separated_names",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_multi_output_uses_per_output_class_names",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_empty_class_counts_shows_empty_string",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_classifier_missing_class_counts_shows_empty_string",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_none_value_shows_ellipsis",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_scalar_value_formatted_to_precision",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_scalar_value_respects_different_precision",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_scalar_value_zero_precision",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_multi_output_shows_bracketed_formatted_values",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_multi_output_tuple_sequence",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_regressor_ignores_class_names",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_is_bold",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_positioned_at_xy",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_uses_axes_transform",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_centred_horizontally_and_vertically",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_uses_given_fontsize",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_default_fontsize_when_none",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_uses_given_color",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_primary_line_is_added_to_host_axes",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_none_returns_single_text_artist",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_other_label_value_returns_single_text_artist",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_all_returns_two_text_artists",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_all_primary_artist_first",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_none_does_not_require_n_samples",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_shows_n_samples_without_impurity",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_includes_impurity_line_when_requested",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_for_classifier_node",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_is_not_bold",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_placed_below_primary",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_anchored_top_and_centred",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_uses_axes_transform",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_fontsize_one_smaller_than_integer_fontsize",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_subtitle_default_fontsize_when_fontsize_none",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_all_missing_n_samples_raises_key_error",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_all_with_impurity_missing_impurity_raises_key_error",
+        "sgtlearn-export-py--draw-leaf-text::tests.tcheck.test_sgtlearn_export_py__draw_leaf_text_1::test_label_all_without_impurity_does_not_need_impurity_key"
+      ],
+      "run": "r-20261002-215733-b7b8"
     }
   },
   "quarantined": [],
