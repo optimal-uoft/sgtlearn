@@ -1,0 +1,46 @@
+{
+  "run": "r-20261002-215910-e7c6",
+  "mode": "bugfix",
+  "revisions": {
+    "buggy": {
+      "given": "53a5c14",
+      "commit": "53a5c148d71076030fca81ed23bf8df64780e3d2"
+    },
+    "fixed": {
+      "given": "e2deb3a",
+      "commit": "e2deb3abd3bca202e1e41e008d8db455adf0378a"
+    }
+  },
+  "date": "2026-10-03T02:02:21.120Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-features-py--feature-dict-to-features",
+      "effective": 2,
+      "misguided": 0,
+      "neutral": 21,
+      "broken": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-features-py--feature-dict-to-features",
+      "analysis": "Logical mistakes: none found for the stated intent. The collision check runs after the uniqueness check and before auto-filling, so a user group is never overwritten; an int key equal to a column some group does list is not a collision. (Int keys sort by their string form, so 10 before 9; this is documented, intended behaviour and out of scope.)\nRobustness omissions: a str key such as \"3\" plus an unlisted column 3 yields duplicate logical names (out of scope per intent: str keys behave as before). Empty groups are accepted. bool keys are not validated. Invalid column references rely on the column-resolution helper to raise."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_features_py__feature_dict_to_features_1.py",
+      "dest": "tests/regression/test_sgtlearn_features_py__feature_dict_to_features_1.py",
+      "tests": 23
+    }
+  ],
+  "not_promotable": []
+}
