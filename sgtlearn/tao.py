@@ -194,8 +194,6 @@ def TAO_refine(
 ) -> TaoModel:
     """Refine a fitted shape-generalized tree or forest in place with TAO.
 
-    Accepts a single :class:`~sgtlearn.base.BaseShapeCART` or a
-    :class:`~sgtlearn.ensemble._random_sgforest.RandomSGForest` ensemble.
     Forests refine each base estimator independently; pass ``n_jobs`` (or rely on
     the forest's own ``n_jobs`` when ``n_jobs`` is ``None``) to run those passes
     in parallel via joblib.
@@ -206,11 +204,60 @@ def TAO_refine(
 
     ``lambda_`` is a per-sample complexity rate (cost-complexity style). At each
     internal node, a non-constant routing rule must beat the dummy rule by more
-    than ``lambda_ * n_samples`` in weighted reward units (equivalently
-    ``lambda_ * n_samples / n_care`` on the mean care reward).
+    than ``lambda_ * n_node`` in weighted reward units, where ``n_node`` is the
+    (unweighted) number of samples reaching the node (equivalently
+    ``lambda_ * n_node / w_care`` on the mean care reward, where ``w_care`` is
+    the care set's total weight after any ``class_weight`` is applied).
     Pair routers pay ``tao_pair_scale`` times this cost; dummy routers pay zero.
     After any call with ``n_runs > 0``, impurity feature importances are
     unavailable; use held-out permutation importance instead.
+
+    Parameters
+    ----------
+    model : SGTClassifier, SGTRegressor, RandomSGForestClassifier or \
+            RandomSGForestRegressor
+        A fitted estimator, refined in place.
+    X : array-like of shape (n_samples, n_features)
+        Dense training features (NaN allowed) with the ``n_features_in_``
+        columns seen at fit.
+    y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        Training targets with the same number of outputs as at fit. Class
+        labels must come from the fitted ``classes_``.
+    sample_weight : array-like of shape (n_samples,), default=None
+        Finite, non-negative per-sample weights with at least one positive
+        value; ``None`` means uniform weights. For classifiers the model's
+        ``class_weight`` is multiplied in automatically, so pass raw weights.
+    n_runs : int, default=10
+        Maximum number of bottom-up sweeps (a non-negative int); refinement can
+        stop early once a sweep makes no change. ``0`` leaves the model
+        unchanged.
+    lambda_ : float, default=0.0
+        Per-sample complexity rate (see above).
+    tao_pair_scale : float, default=1.1
+        Finite, non-negative multiplier on the complexity cost of pair routers.
+    check_input : bool, default=True
+        Validate ``X`` and ``y`` with scikit-learn checks. Set to ``False`` only
+        when they are already validated dense arrays.
+    n_jobs : int, default=None
+        Number of joblib threads used to refine a forest's trees. ``None`` uses
+        the forest's ``n_jobs``; ignored for a single tree.
+
+    Returns
+    -------
+    model : SGTClassifier, SGTRegressor, RandomSGForestClassifier or \
+            RandomSGForestRegressor
+        The same ``model`` object, refined in place.
+
+    Raises
+    ------
+    sklearn.exceptions.NotFittedError
+        If ``model`` is not fitted.
+    TypeError
+        If ``model`` is not a supported estimator.
+    ValueError
+        If ``X`` is sparse, ``X`` / ``y`` / ``sample_weight`` are invalid or do
+        not match the fitted model, or ``tao_pair_scale`` is negative or not
+        finite.
     """
     tao_pair_scale = _validate_tao_pair_scale(tao_pair_scale)
     targets = _tao_targets(model)

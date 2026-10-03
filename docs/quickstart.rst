@@ -27,8 +27,9 @@ Inner vs. outer depth
 By default, every SGT node's split is itself a small *inner* tree (the shape
 function) that carves one feature into bins; the *outer* tree routes samples
 through those bins.
-``num_partitions`` sets the outer branching factor (the :math:`\mathrm{SGT}_K`
-arity), and ``inner_max_depth`` controls how rich each shape function may be:
+``num_partitions`` sets the outer branching factor (the :math:`K` in
+:math:`\mathrm{SGT}_K`; an individual split may produce fewer children), and
+``inner_max_depth`` controls how rich each shape function may be:
 
 .. code-block:: python
 
