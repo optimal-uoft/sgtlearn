@@ -159,9 +159,9 @@ class _IdentityLabelEncoder(LabelEncoder):
 
     Meta-estimators (e.g. :class:`~sgtlearn.ensemble.RandomSGForestClassifier`)
     fit a full :class:`~sklearn.preprocessing.LabelEncoder` once and train base
-    trees on integer ``y``. Each base tree holds ``classes_ = np.arange(K)`` so
-    :meth:`inverse_transform` follows the same sklearn contract as a fitted
-    :class:`~sklearn.preprocessing.LabelEncoder` without re-encoding labels.
+    trees on integer ``y``. Each base tree holds the meta-estimator's original
+    ``classes_``, so :meth:`transform` passes the integer codes through and
+    :meth:`inverse_transform` maps them back to the original labels.
     """
 
     def __init__(self, classes_: np.ndarray) -> None:
@@ -195,7 +195,10 @@ class BaseShapeCART(BaseEstimator):
 
         Length matches the number of logical features passed to ``fit``
         (one-to-one with :attr:`processed_features_`). Available only after
-        training without TAO refinement.
+        training with ``tao_n_runs=0`` (the default ``tao_n_runs=10`` runs TAO)
+        and no later TAO refinement; otherwise raises ``AttributeError``. Warns
+        when the tree has pair nodes, whose gain is split equally between both
+        features.
         """
         check_is_fitted(self, attributes=("_est",))
         if getattr(self, "_tao_refined_", False):
@@ -218,7 +221,7 @@ class BaseShapeCART(BaseEstimator):
 
         ``features[i]`` and ``logical_names[i]`` correspond to
         ``feature_importances_[i]``. ``logical_names`` are the ``feature_dict``
-        keys (stringified); omitted columns are filled as ``\"0\"``, ``\"1\"``, …
+        keys (stringified); each omitted column ``i`` is named ``str(i)``.
         """
         check_is_fitted(self, attributes=("_processed_features",))
         return self._processed_features
@@ -286,7 +289,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     *shape function*. By default the shape function is a depth-limited inner
     tree over one logical feature; ``pairwise_candidates > 0`` also lets it use
     an ordinary axis-aligned CART over two logical features. The outer tree
-    routes the resulting bins into ``num_partitions`` children. Training is
+    routes those bins into at most ``num_partitions`` children. Training is
     performed by the native ShapeCART C++ trainer exposed through
     ``ClassificationShapeGeneralizedTree``.
 
@@ -295,13 +298,15 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
 
     Parameters
     ----------
-    criterion : {"gini", "entropy"}, default="gini"
-        Impurity criterion used at outer-tree splits, forwarded to the native
-        trainer.
+    criterion : {"gini", "entropy", "log_loss"}, default="gini"
+        Impurity criterion used both to grow each node's inner shape-function
+        tree and to score outer-tree splits (``"log_loss"`` is an alias of
+        ``"entropy"``).
     num_partitions : int, default=2
-        Number of branches each outer split fans out into (i.e. the arity of
-        the shape function). ``2`` reproduces standard binary tree; larger
-        values yield the ``SGT_K`` multi-way variant.
+        Maximum number of branches each outer split fans out into; a split may
+        have fewer children. Must be at least ``2``. ``2`` reproduces a
+        standard binary tree; larger values yield the ``SGT_K`` multi-way
+        variant.
     max_depth : int, optional
         Maximum depth of the *outer* tree. ``None`` (default) means grow until
         another stopping criterion fires.
@@ -332,14 +337,14 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     random_state : int, optional, default=42
         Seed forwarded to the native trainer. ``None`` is treated as ``42``.
     max_features : int, float, {"sqrt", "log2"} or None, default=None
-        Number of features sampled (without replacement) when searching for
-        a split:
+        Number of logical features sampled (without replacement) when
+        searching for a split:
 
-        - ``None``: use all ``n_features`` columns.
-        - ``int k >= 1``: use ``min(k, n_features)`` columns.
-        - ``float c in (0, 1]``: use ``max(1, int(c * n_features))`` columns.
-        - ``"sqrt"``: use ``max(1, int(sqrt(n_features)))`` columns.
-        - ``"log2"``: use ``max(1, int(log2(n_features)))`` columns.
+        - ``None``: use all ``n_logical_features`` features.
+        - ``int k >= 1``: use ``min(k, n_logical_features)`` features.
+        - ``float c in (0, 1]``: use ``max(1, int(c * n_logical_features))`` features.
+        - ``"sqrt"``: use ``max(1, int(sqrt(n_logical_features)))`` features.
+        - ``"log2"``: use ``max(1, int(log2(n_logical_features)))`` features.
 
         String values are case-insensitive in the native binding.
     pairwise_candidates : int or float, default=0
@@ -351,6 +356,15 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant nonnegative cost per additional occupied child beyond two.
+    tao_n_runs : int, default=10
+        Maximum number of Tree Alternating Optimization (TAO) sweeps run at the
+        end of :meth:`fit` (see :func:`~sgtlearn.tao.TAO_refine`); sweeps stop
+        early once one makes no change. ``0`` disables TAO; any positive value
+        makes ``feature_importances_`` unavailable.
+    tao_lambda : float, default=0.0
+        TAO per-sample complexity rate: at each internal node a non-constant
+        routing rule must beat the constant rule by more than ``tao_lambda``
+        times the number of samples reaching the node (weighted reward units).
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     class_weight : dict, list of dict, or None, default=None
@@ -371,16 +385,21 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Number of target columns (``1`` for a 1-D ``y``).
     n_features_in_ : int
         Number of features in ``X`` passed to :meth:`fit`.
+    feature_names_in_ : ndarray of shape (n_features,) or None
+        Column names, converted to ``str``, of an ``X`` with a ``columns``
+        attribute (e.g. a pandas ``DataFrame``) seen during :meth:`fit`;
+        ``None`` otherwise.
     feature_importances_ : ndarray of shape (n_logical_features,)
         Normalized impurity-based importances from the fitted tree. Index
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
-        order as the logical features passed to the native trainer). Available
-        only when the model has not undergone TAO refinement.
+        order as the logical features passed to the native trainer). Raises
+        ``AttributeError`` after TAO refinement, which runs by default
+        (``tao_n_runs=10``); fit with ``tao_n_runs=0`` to use it.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
-        ``logical_names`` are stringified ``feature_dict`` keys (auto-filled
-        columns use ``\"0\"``, ``\"1\"``, …).
+        ``logical_names`` are stringified ``feature_dict`` keys (an
+        auto-filled column ``i`` is named ``str(i)``).
 
     Notes
     -----
@@ -394,9 +413,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     its training NaNs (or the child with the most training samples when the
     node saw none). At inference, missing values go to that child regardless
     of where the largest finite values go. Pair nodes route missing values
-    through dedicated branches of their pair router. Infinity in ``X`` and
-    ``sample_weight`` is rejected, as are finite values that overflow
-    ``float32`` (e.g. ``1e39``), including ``sample_weight * class_weight``.
+    through their pair router: a pair-tree split sends values missing on its
+    axis to a dedicated branch when its training samples had any, otherwise
+    to the larger finite child. Infinity in ``X`` and ``sample_weight`` is
+    rejected, as are finite values that overflow ``float32`` (e.g. ``1e39``),
+    including ``sample_weight * class_weight``.
 
     References
     ----------
@@ -406,7 +427,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     See Also
     --------
     SGTRegressor : Regression counterpart.
-    sgtlearn.ensemble.RandomSGForestClassifier : Bootstrap ensemble over
+    sgtlearn.RandomSGForestClassifier : Bootstrap ensemble over
         :class:`SGTClassifier`.
 
     Examples
@@ -507,10 +528,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             ``{logical_name: [columns]}`` grouping of columns into logical
             features. Keys are ``int`` or ``str`` logical names. Values are
             column indices (``int``) or column names (``str``); names require a
-            pandas ``DataFrame`` ``X`` or an explicit ``column_names``. A group
-            of more than one column is treated as a single **categorical**
-            feature (routed through the one-hot inner discretizer); singletons
-            are **continuous**. Columns not mentioned default to continuous
+            pandas ``DataFrame`` ``X``. A group of more than one column is
+            treated as a single **categorical** feature (routed through the
+            one-hot inner discretizer); singletons are **continuous**. Columns not mentioned default to continuous
             singletons. See :func:`~sgtlearn.configure_feature_dict` for the
             full resolution rules.
         processed_features : ProcessedFeatures, optional
@@ -518,7 +538,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
             ensembles that should resolve features once).
         check_input : bool, default=True
             If ``False``, ``X`` and ``y`` are not validated (for callers that
-            already ran :func:`~sklearn.utils.validation.check_X_y`).
+            already ran :func:`~sklearn.utils.check_X_y`). The caller must then
+            pass ``y`` as integer codes ``0 .. n_classes - 1`` and preset
+            ``classes_`` and ``n_classes_``.
         """
         column_names = _column_names_from_X(X)
 
@@ -722,8 +744,9 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
     def tree_export(self) -> dict:
         """Return a flat dict snapshot of the fitted tree.
 
-        See ``sgtlearn._export.plot_tree`` for the canonical consumer. Keys:
-        ``num_partitions``, ``num_nodes``, ``root_index``, ``num_classes``,
+        Consumed by :func:`~sgtlearn.plot_tree` and :func:`~sgtlearn.export_text`.
+        Keys: ``num_partitions``, ``num_nodes``, ``root_index``, ``num_classes`` (one
+        entry per output), ``num_outputs``, ``classes_per_output``,
         ``criterion``, ``nodes`` (list of per-node dicts).
         """
         check_is_fitted(self, attributes=("_est", "_le"))
@@ -747,12 +770,14 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     Parameters
     ----------
     criterion : {"squared_error", "mse", "absolute_error", "mae"}, default="squared_error"
-        Loss used at outer-tree splits. ``"mse"`` and ``"mae"`` are accepted
-        as aliases.
+        Loss used both to grow each node's inner shape-function tree and to
+        score outer-tree splits. ``"mse"`` and ``"mae"`` are accepted as
+        aliases.
     num_partitions : int, default=2
-        Number of branches each outer split fans out into (i.e. the arity of
-        the shape function). ``2`` reproduces standard binary tree; larger
-        values yield the ``SGT_K`` multi-way variant.
+        Maximum number of branches each outer split fans out into; a split may
+        have fewer children. Must be at least ``2``. ``2`` reproduces a
+        standard binary tree; larger values yield the ``SGT_K`` multi-way
+        variant.
     max_depth : int, optional
         Maximum depth of the outer tree. ``None`` means grow until another
         stopping criterion fires.
@@ -793,6 +818,15 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant nonnegative cost per additional occupied child beyond two.
+    tao_n_runs : int, default=10
+        Maximum number of Tree Alternating Optimization (TAO) sweeps run at the
+        end of :meth:`fit` (see :func:`~sgtlearn.tao.TAO_refine`); sweeps stop
+        early once one makes no change. ``0`` disables TAO; any positive value
+        makes ``feature_importances_`` unavailable.
+    tao_lambda : float, default=0.0
+        TAO per-sample complexity rate: at each internal node a non-constant
+        routing rule must beat the constant rule by more than ``tao_lambda``
+        times the number of samples reaching the node (weighted reward units).
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
 
@@ -802,16 +836,21 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Number of target columns (``1`` for a 1-D ``y``).
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
+    feature_names_in_ : ndarray of shape (n_features,) or None
+        Column names, converted to ``str``, of an ``X`` with a ``columns``
+        attribute (e.g. a pandas ``DataFrame``) seen during :meth:`fit`;
+        ``None`` otherwise.
     feature_importances_ : ndarray of shape (n_logical_features,)
         Normalized impurity-based importances from the fitted tree. Index
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
-        order as the logical features passed to the native trainer). Available
-        only when the model has not undergone TAO refinement.
+        order as the logical features passed to the native trainer). Raises
+        ``AttributeError`` after TAO refinement, which runs by default
+        (``tao_n_runs=10``); fit with ``tao_n_runs=0`` to use it.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
-        ``logical_names`` are stringified ``feature_dict`` keys (auto-filled
-        columns use ``\"0\"``, ``\"1\"``, …).
+        ``logical_names`` are stringified ``feature_dict`` keys (an
+        auto-filled column ``i`` is named ``str(i)``).
 
     Notes
     -----
@@ -824,14 +863,20 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     that best fits its training NaNs (or the child with the most training
     samples when the node saw none). At inference, missing values go to that
     child regardless of where the largest finite values go. Pair nodes route
-    missing values through dedicated branches of their pair router. Infinity
-    in ``X``, ``y`` and ``sample_weight`` is rejected, as are finite values
-    that overflow ``float32`` (e.g. ``1e39``).
+    missing values through their pair router: a pair-tree split sends values
+    missing on its axis to a dedicated branch when its training samples had
+    any, otherwise to the larger finite child. Infinity in ``X``, ``y`` and
+    ``sample_weight`` is rejected, as are finite values that overflow
+    ``float32`` (e.g. ``1e39``).
 
-    For ``squared_error``/``mse``, the trainer runs coordinate descent after
-    the round-robin seed and keeps the refined assignment only if branch MSE
-    improves clearly; otherwise it restores the seed. ``absolute_error``/``mae``
-    skips coordinate descent entirely.
+    For each candidate branch count, ``squared_error``/``mse`` starts coordinate
+    descent from a weighted k-means clustering of the bin means, or from the
+    inner tree's root split when the root split's impurity is no higher.
+    ``absolute_error``/``mae`` scores the root split and round-robin seeds
+    without coordinate descent unless the ``SGTLEARN_MAE_CD`` environment
+    variable is set to ``1``; :meth:`fit` warns while it is unset.
+    Across all scored trials, the lowest-impurity feasible assignment is kept
+    for each number of occupied branches.
 
     References
     ----------
@@ -841,7 +886,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     See Also
     --------
     SGTClassifier : Classification counterpart.
-    sgtlearn.ensemble.RandomSGForestRegressor : Bootstrap ensemble over
+    sgtlearn.RandomSGForestRegressor : Bootstrap ensemble over
         :class:`SGTRegressor`.
 
     Examples
@@ -928,17 +973,16 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             ``{logical_name: [columns]}`` grouping of columns into logical
             features. Keys are ``int`` or ``str`` logical names. Values are
             column indices (``int``) or column names (``str``); names require a
-            pandas ``DataFrame`` ``X`` or an explicit ``column_names``. A group
-            of more than one column is treated as a single **categorical**
-            feature (routed through the one-hot inner discretizer); singletons
-            are **continuous**. Columns not mentioned default to continuous
+            pandas ``DataFrame`` ``X``. A group of more than one column is
+            treated as a single **categorical** feature (routed through the
+            one-hot inner discretizer); singletons are **continuous**. Columns not mentioned default to continuous
             singletons. See :func:`~sgtlearn.configure_feature_dict` for the
             full resolution rules.
         processed_features : ProcessedFeatures, optional
             Pre-resolved features from :func:`configure_feature_dict`.
         check_input : bool, default=True
             If ``False``, ``X`` and ``y`` are not validated (for callers that
-            already ran :func:`~sklearn.utils.validation.check_X_y`).
+            already ran :func:`~sklearn.utils.check_X_y`).
         """
         column_names = _column_names_from_X(X)
 
@@ -1038,6 +1082,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict regression targets for ``X``.
+
+        Returns an array of shape ``(n_samples,)`` for a single output or
+        ``(n_samples, n_outputs)`` for multi-output ``y``.
+        """
         check_is_fitted(self, attributes=("_est",))
         X = check_array(
             X, accept_sparse=False, dtype=np.float64, ensure_all_finite="allow-nan"
@@ -1054,9 +1103,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     def tree_export(self) -> dict:
         """Return a flat dict snapshot of the fitted tree.
 
-        See ``sgtlearn._export.plot_tree`` for the canonical consumer. Keys:
-        ``num_partitions``, ``num_nodes``, ``root_index``, ``criterion``,
-        ``nodes`` (list of per-node dicts). Regression has no ``num_classes``.
+        Consumed by :func:`~sgtlearn.plot_tree` and :func:`~sgtlearn.export_text`.
+        Keys: ``num_partitions``, ``num_nodes``, ``root_index``, ``num_outputs``,
+        ``criterion``, ``nodes`` (list of per-node dicts). Regression has no
+        ``num_classes``.
         """
         check_is_fitted(self, attributes=("_est",))
         if self._est is None:

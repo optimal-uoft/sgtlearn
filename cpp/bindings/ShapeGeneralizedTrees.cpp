@@ -86,7 +86,9 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("features"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
            "uint class labels, 1-D (n_samples,) or 2-D (n_samples, n_outputs). "
-           "Optional sample_weight is 1-D float32.")
+           "Optional sample_weight is 1-D float32. features is a list of dicts "
+           "with 'type' ('continuous' or 'categorical') and 'indices' (the X "
+           "columns of each logical feature).")
       .def("predict", &ClassificationShapeGeneralizedTreePy::predict,
            py::arg("X"),
            "Predict class labels for X (shape (n_samples, n_features)). Returns "
@@ -114,7 +116,9 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
           "feature_importance",
           &ClassificationShapeGeneralizedTreePy::featureImportance,
           "Normalized feature importances aligned with the features sequence "
-          "passed to fit. Available only after training.")
+          "passed to fit (all zeros if the tree has no split). Computed at fit "
+          "and not updated by TreeAlternatingOptimization. Available only "
+          "after training.")
       .def("tree_export", &ClassificationShapeGeneralizedTreePy::tree_export,
            "Return a flat snapshot of the fitted tree as a Python dict.");
 
@@ -152,16 +156,19 @@ PYBIND11_MODULE(ShapeGeneralizedTrees, m) {
            py::arg("pairwise_candidates") = 0,
            py::arg("pairwise_penalty") = 0.0,
            py::arg("branching_penalty") = 0.0,
-           R"(Regression tree: inner bins are round-robin seeded. ``squared_error`` runs
-coordinate descent and keeps the map only if branch MSE improves clearly vs the seed;
-otherwise the snapshot is restored and the branch objective is rebuilt.
-``absolute_error`` / ``mae`` skip coordinate descent by default.)")
+           R"(Regression tree. For each branch count, ``squared_error`` seeds bins with
+weighted k-means over bin means, starts from the inner tree's root split instead
+when that is no worse, and refines with coordinate descent, keeping the best
+feasible assignment per arity. ``absolute_error`` / ``mae`` score the root split
+and round-robin seeds and skip coordinate descent unless ``SGTLEARN_MAE_CD=1``.)")
       .def("fit", &RegressionShapeGeneralizedTreePy::fit, py::arg("X"),
            py::arg("y"), py::arg("sample_weight") = py::none(),
            py::arg("features"),
            "Fit the routing tree. X is (n_samples, n_features) float32; y is "
            "float32 targets, 1-D (n_samples,) or 2-D (n_samples, n_outputs). "
-           "Optional sample_weight is 1-D float32.")
+           "Optional sample_weight is 1-D float32. features is a list of dicts "
+           "with 'type' ('continuous' or 'categorical') and 'indices' (the X "
+           "columns of each logical feature).")
       .def("predict", &RegressionShapeGeneralizedTreePy::predict, py::arg("X"),
            "Predict targets for X. Returns (n_samples,) for a single output or "
            "(n_samples, n_outputs) for multi-output.")
@@ -179,7 +186,9 @@ otherwise the snapshot is restored and the branch objective is rebuilt.
           "feature_importance",
           &RegressionShapeGeneralizedTreePy::featureImportance,
           "Normalized feature importances aligned with the features sequence "
-          "passed to fit. Available only after training.")
+          "passed to fit (all zeros if the tree has no split). Computed at fit "
+          "and not updated by TreeAlternatingOptimization. Available only "
+          "after training.")
       .def_property_readonly(
           "leaf_regression_stats",
           &RegressionShapeGeneralizedTreePy::leafRegressionStats)

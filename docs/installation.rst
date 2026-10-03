@@ -58,13 +58,14 @@ installs the ``sgtlearn`` package plus native modules into ``.venv``.
    Use a non-Anaconda Python — e.g. ``uv venv --python 3.12 .venv``, ``pyenv``,
    or your distro's ``python3``.
 
-Build workflow (scikit-build + CMake)
--------------------------------------
+Build workflow (scikit-build-core + CMake)
+------------------------------------------
 
 ``pip install .`` drives this build path:
 
 1. ``pyproject.toml`` selects ``scikit_build_core.build`` as the backend.
 2. CMake is configured from ``cpp/CMakeLists.txt``.
 3. Each file in ``cpp/bindings/*.cpp`` becomes one pybind11 module target.
-4. After each module is built, ``pybind11-stubgen`` generates a matching ``.pyi``.
-5. The ``.pyi`` is installed alongside the module ``.so``.
+4. After each module is built, ``pybind11-stubgen`` generates a matching ``.pyi``
+   (best effort; a missing or failing stubgen does not break the build).
+5. Any generated ``.pyi`` is installed alongside the module ``.so``.

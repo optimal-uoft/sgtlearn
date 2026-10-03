@@ -1,0 +1,41 @@
+{
+  "run": "r-20261002-215733-b7b8",
+  "mode": "bugfix",
+  "revisions": {
+    "buggy": {
+      "given": "HEAD",
+      "commit": "53a5c148d71076030fca81ed23bf8df64780e3d2"
+    },
+    "fixed": {
+      "given": "WORKTREE",
+      "commit": "676c746e8e2c52431adb7bb362fb3c2428833a4f"
+    }
+  },
+  "date": "2026-10-03T02:02:15.741Z",
+  "harness": "claude-code",
+  "blind_isolation": "strong",
+  "summary": [
+    {
+      "target": "sgtlearn-export-py--draw-leaf-text",
+      "effective": 9,
+      "misguided": 0,
+      "neutral": 30,
+      "broken": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_export_py__draw_leaf_text_1.py",
+      "dest": "tests/regression/test_sgtlearn_export_py__draw_leaf_text_1.py",
+      "tests": 39
+    }
+  ],
+  "not_promotable": []
+}

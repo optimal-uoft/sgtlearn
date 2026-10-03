@@ -92,7 +92,7 @@ installs the `sgtlearn` package plus native modules into `.venv`.
 
 ```bash
 pip install .
-pip install ".[dev]"   # dev extras (pytest, scikit-learn) only if needed
+pip install ".[dev]"   # dev extras (pytest, ruff, black, mypy, ...) only if needed
 ```
 
 > **Anaconda users:** Do not bootstrap the venv from an Anaconda Python.
@@ -102,27 +102,26 @@ pip install ".[dev]"   # dev extras (pytest, scikit-learn) only if needed
 > non-Anaconda Python — e.g. `uv venv --python 3.12 .venv` (downloads a
 > hermetic CPython), `pyenv`, or your distro's `python3`.
 
-## Build Workflow (scikit-build + CMake)
+## Build Workflow (scikit-build-core + CMake)
 
 `pip install .` drives this build path:
 
 1. `pyproject.toml` selects `scikit_build_core.build` as the backend.
 2. CMake is configured from `cpp/CMakeLists.txt`.
 3. Each file in `cpp/bindings/*.cpp` becomes one pybind11 module target.
-4. After each module is built, `pybind11-stubgen` generates a matching `.pyi`.
-5. The `.pyi` is generated and installed in the same location as the module `.so`.
+4. After each module is built, `pybind11-stubgen` generates a matching `.pyi` (best effort; a missing or failing `pybind11-stubgen` does not break the build).
+5. Any generated `.pyi` is installed in the same location as the module `.so`.
 
 ## C++ Folder Conventions
 
-- `cpp/include/sgtlearn/`: public headers for the core C++ API.
-- `cpp/src/`: internal C++ implementation for the core library.
+- `cpp/src/`: C++ headers and implementation for the core library (the public include directory of `sgtlearn_core`).
 - `cpp/bindings/`: pybind11 binding entrypoints; one `.cpp` file maps to one Python extension module.
 - `cpp/tests/`: C++ unit tests consumed by the `cpp_tests` executable target.
 
 ## CMake Targets
 
 - `sgtlearn_core` (static library): shared C++ logic used by Python modules and tests.
-- `<module_name>` (pybind11 module, one per file in `cpp/bindings/`): compiled extension modules installed into the package.
+- `<module_name>` (pybind11 module, one per file in `cpp/bindings/`): compiled extension modules installed as top-level modules next to the `sgtlearn` package.
 - `cpp_tests` (Catch2 executable): optional C++ test target, controlled by:
   - `-DSGTLEARN_BUILD_TESTS=ON` (build C++ tests)
   - `-DSGTLEARN_BUILD_TESTS=OFF` (default for `pip install`; the CMake option itself defaults to `ON`, but `pyproject.toml` overrides this so wheels don't ship test binaries)

@@ -29,9 +29,9 @@
  * - **Outer growth** (`OuterTreeBuilder`): best-first regularized expansion;
  *   per-node split search and child creation via lambdas in ``fit``; commit
  *   step remains a local lambda in ``fit``.
- * - **Per-node split search** (``fit`` lambdas): for each
- *   discretize -> round-robin bin-to-partition seed -> ``coordinateDescent`` on
- *   ``SquaredError`` only; ``AbsoluteError`` keeps the round-robin map (no CD).
+ * - **Per-node split search** (``fit`` lambdas): for each candidate feature,
+ *   discretize -> seed bin-to-partition maps -> ``coordinateDescent``
+ *   (``SquaredError``; ``AbsoluteError`` only when ``SGTLEARN_MAE_CD=1``).
  * - **Leaf state**: per-leaf mean (squared error) or median (absolute error)
  *   plus optional ``[sum y, sum y^2]`` stats for squared error.
  * - **Inference**: `predict` walks `childIndices_` using
@@ -40,17 +40,21 @@
  * At every outer-tree node, for each candidate feature:
  *   1. **Discretize**: train univariate regression discretizer on the node's
  *      samples (per-bin stats and training column indices).
- *   2. **Initial assignment**: round-robin by discretizer bin index
- *      (``b % numPartitions``); regression does not use k-means seeding.
+ *   2. **Initial assignment** (for each k in [2, numPartitions]):
+ *      ``SquaredError`` seeds with weighted k-means over bin means and starts
+ *      from the inner tree's root split instead when that is no worse;
+ *      ``AbsoluteError`` scores a round-robin seed (``b % k``) and starts from
+ *      the root split.
  *   3. **Refinement**: ``SquaredError`` runs coordinate descent on the
- *      bin-to-partition map; if the post-CD objective clearly worsens vs the
- *      seed, restore the assignment snapshot and rebuild. ``AbsoluteError``
- *      keeps the round-robin seed (no CD).
+ *      bin-to-partition map; ``AbsoluteError`` skips it unless
+ *      ``SGTLEARN_MAE_CD=1``. Every scored assignment is observed and the
+ *      lowest-impurity feasible one is kept per occupied arity.
  *
  * The best-scoring feature wins; its inner discretizer + bin->partition
- * mapping become the routing rule for that node, producing `numPartitions`
- * children. Inner-node fitting matches the Python `BranchingTree` pattern;
- * the outer loop uses `OuterTreeBuilder` like Python's heap over
+ * mapping become the routing rule for that node, producing at most
+ * `numPartitions` children (empty partitions are compacted away).
+ * Inner-node fitting matches the Python `BranchingTree` pattern; the outer
+ * loop uses `OuterTreeBuilder` like Python's heap over
  * `best_impurity_decrease`.
  *
  * Inputs use Armadillo's column-major convention: X has shape

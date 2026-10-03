@@ -18,7 +18,8 @@ Multi-output ``y`` is supported the same way as for single trees
 Forests accept ``branching_penalty`` (default ``0.0``) and the Shape²CART
 options ``pairwise_candidates`` and ``pairwise_penalty`` and forward them to
 every base estimator. Outer growth uses the same total sample-mass-weighted,
-output-averaged score, constant ``alpha``/``lambda``/``gamma`` costs, strict
+output-averaged score, constant ``min_impurity_decrease``,
+``branching_penalty`` and ``pairwise_penalty`` costs, strict
 actual-arity leaf budget, fixed-epsilon acceptance, and always-best-first order
 as single trees. Pair candidates are restricted to each node's
 ``max_features`` logical-feature subset. See :doc:`estimators` for the full
@@ -26,11 +27,11 @@ scoring, candidate-count, pair-screening, categorical and joint missing-routing
 semantics, and the feature-importance warning for pair nodes.
 See :doc:`../tutorials/bivariate-branching` for a worked classifier example.
 
-:attr:`~sgtlearn.ensemble.RandomSGForestClassifier.mean_feature_importances_`
-and :attr:`~sgtlearn.ensemble.RandomSGForestClassifier.std_feature_importance_`
+:attr:`~sgtlearn.RandomSGForestClassifier.mean_feature_importances_`
+and :attr:`~sgtlearn.RandomSGForestClassifier.std_feature_importance_`
 (and the regressor counterparts) summarize per-tree
 :attr:`~sgtlearn.SGTClassifier.feature_importances_` across the forest,
-aligned with the shared :attr:`processed_features_`.
+aligned with the shared :attr:`~sgtlearn.RandomSGForestClassifier.processed_features_`.
 They are unavailable if any base tree has undergone positive-run TAO refinement.
 
 RandomSGForestClassifier
@@ -40,6 +41,7 @@ RandomSGForestClassifier
    :members:
    :inherited-members:
    :show-inheritance:
+   :exclude-members: mean_feature_importances_, std_feature_importance_
 
 RandomSGForestRegressor
 -----------------------
@@ -48,3 +50,4 @@ RandomSGForestRegressor
    :members:
    :inherited-members:
    :show-inheritance:
+   :exclude-members: mean_feature_importances_, std_feature_importance_

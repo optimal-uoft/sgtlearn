@@ -22,10 +22,15 @@ class ProcessedFeatures:
         List of ``{"type": "continuous"|"categorical", "indices": [...]}``
         dicts in trainer order. Index ``i`` aligns with
         ``estimator.feature_importances_[i]`` after a fit without TAO.
+        Without ``feature_dict``, entry ``i`` is column ``i``. With one, entries
+        are re-sorted (integer keys, including auto-filled columns, before
+        string keys, each ordered by ``str(key)``, so ``10`` sorts before
+        ``9``), so map entries back to ``X`` through ``indices``.
     logical_names
         Parallel names for ``features``. When ``feature_dict`` is supplied,
-        these are the stringified keys; omitted columns are filled as
-        ``\"0\"``, ``\"1\"``, …. Default (no ``feature_dict``) uses
+        these are the stringified keys; each omitted column ``i`` is named
+        ``str(i)``, or ``\"<i>_1\"`` (``_2``, …) if a key already uses that
+        name. Default (no ``feature_dict``) uses
         ``\"0\"`` … ``\"n_features-1\"`` even if ``X`` is a pandas DataFrame
         (DataFrame column names are stored on ``feature_names_in_`` instead).
     """
@@ -81,21 +86,36 @@ def _feature_dict_to_features(
     if len(all_idxs) != len(set(all_idxs)):
         raise ValueError("Feature indices must be unique")
 
+    # (is str key, logical name, columns); int keys and auto-filled columns sort first.
+    entries = [(isinstance(k, str), str(k), cols) for k, cols in index_dict.items()]
+    taken = {name for _, name, _ in entries}
+    if len(taken) != len(entries):
+        raise ValueError("feature_dict keys must have distinct string forms")
+
+    # Auto-fill unlisted columns as singletons named str(i). If a user key
+    # already has that name, suffix it ("0_1", "0_2", ...) so the user's group
+    # is never overwritten or shares its name (#81).
+    listed = set(all_idxs)
     for i in range(n_features):
-        if i not in all_idxs:
-            index_dict[i] = [i]
+        if i in listed:
+            continue
+        name, n = str(i), 0
+        while name in taken:
+            n += 1
+            name = f"{i}_{n}"
+        taken.add(name)
+        entries.append((False, name, [i]))
 
     out: list[FeatureInfoDict] = []
     logical_names: list[str] = []
-    for key in sorted(index_dict.keys(), key=lambda k: (isinstance(k, str), str(k))):
-        cols = list(index_dict[key])
+    for _, name, cols in sorted(entries, key=lambda e: (e[0], e[1])):
         out.append(
             {
                 "type": "categorical" if len(cols) > 1 else "continuous",
-                "indices": cols,
+                "indices": list(cols),
             }
         )
-        logical_names.append(str(key))
+        logical_names.append(name)
     return out, tuple(logical_names)
 
 
@@ -117,8 +137,11 @@ def configure_feature_dict(
         (``int``) or column names (``str``) when ``column_names`` or a pandas
         ``DataFrame`` was used for training. A group with more than one column
         is categorical; singletons are continuous. Unmentioned columns are
-        filled in as continuous singletons. When omitted, each column is its
-        own continuous feature.
+        filled in as continuous singletons named ``str(i)``; if a key already
+        uses that name, the column is named ``"<i>_1"`` (then ``_2``, …)
+        instead. Keys must have distinct string forms (``0`` and ``"0"``
+        together raise ``ValueError``). When omitted, each column is its own
+        continuous feature.
     column_names
         Names of columns in ``X``, used to resolve string column references in
         ``feature_dict``.
