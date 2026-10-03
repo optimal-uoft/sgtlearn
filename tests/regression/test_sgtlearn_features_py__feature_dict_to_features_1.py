@@ -104,23 +104,26 @@ def test_int_key_matching_listed_column_is_allowed() -> None:
     assert _simplify(features) == [([0], "continuous"), ([1, 2], "categorical")]
 
 
-def test_int_key_matching_unlisted_column_raises_collide() -> None:
-    with pytest.raises(ValueError, match="collide") as exc:
-        m._feature_dict_to_features(3, {1: [0, 2]})
-    assert "1" in str(exc.value)
+def test_int_key_matching_unlisted_column_renames_auto_column() -> None:
+    features, names = m._feature_dict_to_features(3, {1: [0, 2]})
+    assert names == ("1", "1_1")
+    assert _simplify(features) == [([0, 2], "categorical"), ([1], "continuous")]
 
 
-def test_multiple_colliding_keys_listed_in_message() -> None:
-    with pytest.raises(ValueError, match="collide") as exc:
-        m._feature_dict_to_features(6, {3: [0, 1], 4: [2, 5]})
-    msg = str(exc.value)
-    assert "3" in msg
-    assert "4" in msg
+def test_multiple_colliding_keys_each_get_renamed_auto_column() -> None:
+    features, names = m._feature_dict_to_features(6, {3: [0, 1], 4: [2, 5]})
+    assert names == ("3", "3_1", "4", "4_1")
+    assert _simplify(features) == [
+        ([0, 1], "categorical"),
+        ([3], "continuous"),
+        ([2, 5], "categorical"),
+        ([4], "continuous"),
+    ]
 
 
-def test_str_key_equal_to_auto_name_does_not_collide() -> None:
+def test_str_key_equal_to_auto_name_renames_auto_column() -> None:
     features, names = m._feature_dict_to_features(3, {"0": [1, 2]})
-    assert names == ("0", "0")
+    assert names == ("0_1", "0")
     assert _simplify(features) == [([0], "continuous"), ([1, 2], "categorical")]
 
 

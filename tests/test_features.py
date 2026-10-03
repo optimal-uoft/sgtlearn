@@ -42,24 +42,60 @@ def test_configure_feature_dict_rejects_duplicate_indices() -> None:
         configure_feature_dict(4, feature_dict={0: [0], 1: [0]})
 
 
-@pytest.mark.parametrize("feature_dict", [{0: [2, 3]}, {5: [0, 1, 2]}])
-def test_configure_feature_dict_rejects_int_key_colliding_with_unlisted_column(
-    feature_dict: FeatureDict,
+@pytest.mark.parametrize(
+    ("feature_dict", "expected"),
+    [
+        # Regression (#81): auto-filled column 0 used to overwrite group 0.
+        (
+            {0: [2, 3]},
+            [("0", [2, 3]), ("0_1", [0]), ("1", [1]), ("4", [4]), ("5", [5])],
+        ),
+        (
+            {"0": [2, 3]},
+            [("0_1", [0]), ("1", [1]), ("4", [4]), ("5", [5]), ("0", [2, 3])],
+        ),
+        (
+            {0: [2], "0_1": [3]},
+            [
+                ("0", [2]),
+                ("0_2", [0]),
+                ("1", [1]),
+                ("4", [4]),
+                ("5", [5]),
+                ("0_1", [3]),
+            ],
+        ),
+    ],
+)
+def test_configure_feature_dict_renames_auto_column_clashing_with_key(
+    feature_dict: FeatureDict, expected: list[tuple[str, list[int]]]
 ) -> None:
-    # Regression (#81): the auto-filled column used to overwrite the user's group.
-    with pytest.raises(ValueError, match="collide"):
-        configure_feature_dict(6, feature_dict)
+    pf = configure_feature_dict(6, feature_dict)
+    assert list(zip(pf.logical_names, [f["indices"] for f in pf.features])) == expected
 
 
-def test_fit_rejects_int_key_colliding_with_unlisted_column() -> None:
+def test_configure_feature_dict_rejects_keys_with_same_string_form() -> None:
+    with pytest.raises(ValueError, match="distinct"):
+        configure_feature_dict(4, {0: [1], "0": [2]})
+
+
+def test_fit_keeps_int_key_group_clashing_with_unlisted_column() -> None:
     X, y = make_classification(n_samples=60, n_features=6, random_state=0)
-    with pytest.raises(ValueError, match="collide"):
-        SGTClassifier(tao_n_runs=0).fit(X, y, feature_dict={0: [2, 3]})
+    clf = SGTClassifier(tao_n_runs=0).fit(X, y, feature_dict={0: [2, 3]})
+    assert [2, 3] in [f["indices"] for f in clf.processed_features_.features]
 
 
 @pytest.mark.parametrize(
     "feature_dict",
-    [{9: [2, 3]}, {0: [0, 1]}, {"0": [2, 3]}, {"a": [0, 5], 3: [2, 3]}, {7: [4]}],
+    [
+        {9: [2, 3]},
+        {0: [0, 1]},
+        {"0": [2, 3]},
+        {0: [2, 3]},
+        {5: [0, 1, 2]},
+        {"a": [0, 5], 3: [2, 3]},
+        {7: [4]},
+    ],
 )
 def test_configure_feature_dict_covers_every_column_exactly_once(
     feature_dict: FeatureDict,
@@ -69,6 +105,7 @@ def test_configure_feature_dict_covers_every_column_exactly_once(
     assert cols == list(range(6))
     groups = [f["indices"] for f in pf.features]
     assert all(list(cols) in groups for cols in feature_dict.values())
+    assert len(set(pf.logical_names)) == len(pf.logical_names)
 
 
 @pytest.mark.parametrize(
