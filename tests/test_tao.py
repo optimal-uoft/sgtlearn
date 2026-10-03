@@ -438,3 +438,166 @@ def test_fit_with_tao_applies_class_weight_once(monkeypatch) -> None:
     SGTClassifier(class_weight={0: 1.0, 1: 3.0}, tao_n_runs=1, max_depth=2).fit(X, y)
     sw = seen[0]
     assert sw[y == 1][0] / sw[y == 0][0] == pytest.approx(3.0)
+
+
+def _square_in_cross_data(
+    seed: int = 0, n_samples: int = 2400, n_features: int = 2, noise: float = 0.0
+) -> tuple[np.ndarray, np.ndarray]:
+    """Square-in-cross labels: several children of one 3-way split share a class."""
+    rng = np.random.default_rng(seed)
+    X = rng.uniform(-2.5, 2.5, size=(n_samples, n_features))
+    ix = np.abs(X[:, 0]) < 0.85
+    iy = np.abs(X[:, 1]) < 0.85
+    y = np.where(ix & iy, 2, np.where(ix | iy, 1, 0))
+    flip = rng.random(n_samples) < noise
+    y[flip] = rng.integers(0, 3, flip.sum())
+    return X, y
+
+
+def test_tao_lambda0_keeps_accuracy_when_children_share_a_class() -> None:
+    X, y = _square_in_cross_data()
+    clf = SGTClassifier(
+        max_depth=1,
+        inner_max_depth=4,
+        inner_max_leaf_nodes=9,
+        num_partitions=3,
+        pairwise_candidates=0,
+        tao_n_runs=0,
+        random_state=0,
+    ).fit(X, y)
+    before = clf.score(X, y)
+
+    tao.TAO_refine(clf, X, y, n_runs=10, lambda_=0.0)
+
+    assert clf.score(X, y) >= before
+
+
+@pytest.mark.parametrize("tao_n_runs", [0, None], ids=["no_fit_tao", "fit_tao"])
+@pytest.mark.parametrize("weighting", ["none", "sample_weight", "class_weight"])
+@pytest.mark.parametrize("num_partitions", [2, 3, 4])
+@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+def test_tao_lambda0_never_lowers_weighted_training_accuracy(
+    seed: int, num_partitions: int, weighting: str, tao_n_runs: Optional[int]
+) -> None:
+    X, y = _square_in_cross_data(seed, n_samples=600, n_features=3, noise=0.1)
+    sample_weight = None
+    class_weight = None
+    effective = np.ones(len(y))
+    if weighting == "sample_weight":
+        sample_weight = np.random.default_rng(seed + 100).uniform(0.2, 3.0, len(y))
+        effective = sample_weight
+    elif weighting == "class_weight":
+        # Same weights as sklearn's "balanced" (not accepted by SGTClassifier).
+        counts = np.bincount(y)
+        class_weight = {c: len(y) / (len(counts) * counts[c]) for c in range(len(counts))}
+        effective = np.array([class_weight[c] for c in y])
+    # TAO sees float32 weights.
+    effective = effective.astype(np.float32).astype(np.float64)
+
+    params: dict[str, Any] = dict(
+        max_depth=1,
+        num_partitions=num_partitions,
+        inner_max_depth=4,
+        inner_max_leaf_nodes=9,
+        class_weight=class_weight,
+        random_state=seed,
+    )
+    if tao_n_runs is not None:
+        params["tao_n_runs"] = tao_n_runs
+    clf = SGTClassifier(**params).fit(X, y, sample_weight=sample_weight)
+    before = np.average(clf.predict(X) == y, weights=effective)
+
+    tao.TAO_refine(clf, X, y, sample_weight=sample_weight, lambda_=0.0)
+
+    after = np.average(clf.predict(X) == y, weights=effective)
+    assert after >= before - 1e-12
+
+
+def _k2_threshold_data(seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """On x0, Gini's best cut isolates a pure block (600/800 correct); cutting
+    after the mixed middle block is more accurate (605/800). x1 is noise."""
+    rng = np.random.default_rng(seed)
+    blocks = [(0.0, 200, 0), (1.0, 105, 0), (1.0, 100, 1), (2.0, 95, 0), (2.0, 300, 1)]
+    x0 = np.concatenate([lo + rng.integers(0, 10, n) / 10 for lo, n, _ in blocks])
+    y = np.concatenate([np.full(n, label) for _, n, label in blocks])
+    x1 = rng.integers(0, 100, len(y)) / 10
+    return np.column_stack([x0, x1]), y
+
+
+def _best_single_threshold_accuracy(
+    X: np.ndarray, y: np.ndarray, labels: tuple[int, int]
+) -> float:
+    """Best accuracy of routing by one threshold to two leaves with fixed labels.
+
+    Assumes finite values whose distinct values stay more than 1e-7 apart in
+    float32, as in ``_k2_threshold_data``; it does not model NaN routing or the
+    splitter's tie rule.
+    """
+    hits = np.column_stack([y == labels[0], y == labels[1]]).astype(float)
+    total = hits.sum(axis=0)
+    best = total.max()  # constant routing
+    for f in range(X.shape[1]):
+        order = np.argsort(X[:, f], kind="stable")
+        xs = X[order, f]
+        left = np.cumsum(hits[order], axis=0)
+        cuts = np.flatnonzero(xs[1:] > xs[:-1])  # left side = order[: cut + 1]
+        keep = left[cuts, 0] + total[1] - left[cuts, 1]
+        swap = left[cuts, 1] + total[0] - left[cuts, 0]
+        best = max(best, keep.max(initial=0.0), swap.max(initial=0.0))
+    return best / len(y)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+def test_tao_two_children_reach_the_best_single_threshold(seed: int) -> None:
+    X, y = _k2_threshold_data(seed)
+    clf = SGTClassifier(
+        max_depth=1,
+        num_partitions=2,
+        inner_max_depth=1,
+        inner_max_leaf_nodes=2,
+        pairwise_candidates=0,
+        tao_n_runs=0,
+        random_state=seed,
+    ).fit(X, y)
+    export = clf.tree_export()
+    root = export["nodes"][export["root_index"]]
+    assert len(root["children"]) == 2
+    labels = tuple(
+        int(np.argmax(export["nodes"][cid]["class_counts"][0]))
+        for cid in root["children"]
+    )
+    target = _best_single_threshold_accuracy(X, y, labels)
+
+    tao.TAO_refine(clf, X, y, lambda_=0.0)
+
+    assert clf.score(X, y) >= target - 1e-12
+
+
+@pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
+@pytest.mark.parametrize("num_partitions", [2, 3])
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_tao_lambda0_never_raises_regression_training_loss(
+    seed: int, num_partitions: int, criterion: str
+) -> None:
+    X, y = make_regression(
+        n_samples=300, n_features=4, n_informative=3, noise=15.0, random_state=seed
+    )
+    reg = SGTRegressor(
+        criterion=criterion,
+        max_depth=2,
+        num_partitions=num_partitions,
+        inner_max_depth=3,
+        inner_max_leaf_nodes=8,
+        tao_n_runs=0,
+        random_state=seed,
+    ).fit(X, y)
+    if criterion == "squared_error":
+        loss = lambda: np.mean((reg.predict(X) - y) ** 2)  # noqa: E731
+    else:
+        loss = lambda: np.mean(np.abs(reg.predict(X) - y))  # noqa: E731
+    before = loss()
+
+    tao.TAO_refine(reg, X, y, lambda_=0.0)
+
+    # Native targets are float32, so allow float32-level slack.
+    assert loss() <= before * (1 + 1e-6)

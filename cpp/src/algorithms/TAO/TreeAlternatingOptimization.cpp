@@ -12,10 +12,13 @@
 #include "Discretizers/factories/DiscretizerFactories.h"
 #include "Discretizers/InnerDiscretizerBase.h"
 #include "algorithms/TAO/TaoObjective.h"
+#include "algorithms/missing_values.h"
 
 #include <limits>
+#include <optional>
 #include <queue>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -52,6 +55,51 @@ computeNodeSamples(const std::vector<ShapeFunctionNode> &nodes,
       frontier.push(childIdx);
   }
   return nodeSamples;
+}
+
+/**
+ * Numeric router for ``cut`` on raw ``feature``: finite ``x <= cut.leftMax``
+ * -> bin 0, larger -> bin 1, non-finite -> NaN bin 2. Trained as a depth-1
+ * discretizer on the finite care samples labelled by side; that split is pure,
+ * so the splitter recovers it with its own threshold convention. Writes the
+ * bin of every column of ``X`` to ``bins``.
+ */
+std::unique_ptr<ClassificationDiscretizer>
+materializeThresholdCut(LearningCriterion criterion, const NodeCareSet &care,
+                        const arma::fmat &X, size_t feature,
+                        const ThresholdCut &cut, arma::Row<size_t> &bins) {
+  const auto side = [&](arma::uword col) -> size_t {
+    const float value = X(static_cast<arma::uword>(feature), col);
+    if (!missing_values::is_finite(value))
+      return 2;
+    return value > cut.leftMax ? 1 : 0;
+  };
+  std::vector<arma::uword> cols;
+  std::vector<size_t> labels;
+  for (arma::uword col : care.careCols) {
+    const size_t s = side(col);
+    if (s == 2)
+      continue;
+    cols.push_back(col);
+    labels.push_back(s);
+  }
+
+  arma::uvec featOne = {static_cast<arma::uword>(feature)};
+  auto disc =
+      makeClassificationDiscretizer(criterion, DiscretizerInputKind::Numeric);
+  disc->Train(X.cols(arma::uvec(cols)), featOne, arma::Row<size_t>(labels), 2,
+              /*minLeafSize=*/1, /*minGainSplit=*/0.0, /*maxDepth=*/1,
+              /*maxLeafNodes=*/2);
+  disc->transform(X, bins);
+
+  bool reproduced = disc->numLeaves() == 2;
+  for (size_t i = 0; reproduced && i < care.size(); ++i)
+    reproduced = bins(care.careCols[i]) == side(care.careCols[i]);
+  if (!reproduced)
+    throw std::runtime_error(
+        "tao: threshold router does not reproduce the exact cut on feature " +
+        std::to_string(feature));
+  return disc;
 }
 
 } // namespace
@@ -118,6 +166,37 @@ bool optimizeNodeInPlace(
       bestDiscretizer =
           std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
       haveSingle = true;
+    }
+  }
+
+  // Two children: also try the exact best threshold on each feature, which
+  // the inner-tree fit above only approximates.
+  if (k == 2) {
+    std::optional<ThresholdCut> bestCut;
+    size_t cutFeature = 0;
+    for (size_t f = 0; f < numFeatures; ++f) {
+      const auto cut = objective.bestThresholdCut(f, innerParams.minLeafSize);
+      if (cut && (!bestCut || cut->rewardSum > bestCut->rewardSum)) {
+        bestCut = cut;
+        cutFeature = f;
+      }
+    }
+    if (bestCut) {
+      arma::Row<size_t> bins;
+      auto disc = materializeThresholdCut(routerCriterion, care, X, cutFeature,
+                                          *bestCut, bins);
+      std::vector<size_t> binToPartition = {
+          bestCut->leftChild, 1 - bestCut->leftChild, bestCut->nanChild};
+      const double score = objective.scoreBinAssignment(
+          bins, binToPartition, /*complexityScale=*/1.0);
+      if (score > bestSingleScore) {
+        bestSingleScore = score;
+        bestFeature = cutFeature;
+        bestBinToPartition = std::move(binToPartition);
+        bestDiscretizer =
+            std::shared_ptr<const InnerDiscretizerBase>(std::move(disc));
+        haveSingle = true;
+      }
     }
   }
 

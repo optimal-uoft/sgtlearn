@@ -14,8 +14,9 @@
  * 2. Score the current rule and a constant (dummy) rule that sends all care
  *    samples to ``dummyChild``.
  * 3. For each candidate feature or feature pair, train a classification
- *    discretizer over child-partition pseudolabels and score the induced routing
- *    rule.
+ *    discretizer over child-partition pseudolabels, send each bin to the child
+ *    with the largest care reward in it, and score the induced routing rule.
+ *    Two-child nodes also try the exact best threshold on each feature.
  * 4. Accept the best non-worsening rule (current, dummy, single-feature, or pair
  *    split). In weighted reward units, ``lambda`` penalizes single-feature splits
  *    by ``lambda * nodeSampleCount`` and pair splits by

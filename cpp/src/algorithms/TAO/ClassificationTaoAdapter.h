@@ -7,11 +7,14 @@
  * Care-set logic (classification variant):
  *
  * - For each sample at an internal node, walk each child subtree to its leaf
- *   and score child ``c`` with reward ``1/x`` if the leaf's majority class equals
- *   the sample label, where ``x`` is the number of correct children; else ``0``.
+ *   and score child ``c`` with reward ``1`` if the leaf's majority class equals
+ *   the sample label, else ``0``. Routing to any correct child is fully
+ *   correct (multi-label), so rewards are the true accuracy contribution.
  * - Samples where all children tie are excluded from the care set.
  * - Samples with multiple equally good children contribute one expanded router-
- *   training row per good child (multi-to-single pseudolabel expansion).
+ *   training row per good child (multi-to-single pseudolabel expansion). In
+ *   single-output, each row carries ``w / x`` (``x`` = number of correct
+ *   children), so the sample adds total weight ``w`` to the router fit.
  *
  * Leaf refresh recomputes weighted class histograms at every node from
  * ``nodeSamples``. The routing discretizer uses the tree's own criterion
@@ -59,9 +62,8 @@ private:
   /**
    * Per-child correctness rewards for one sample.
    *
-   * Single-output: ``1/x`` split uniformly across correct children (``x`` =
-   * count of correct), else ``0``. Multi-output: fraction of outputs correctly
-   * classified by each child's leaf.
+   * Single-output: ``1`` for each correct child, else ``0``. Multi-output:
+   * fraction of outputs correctly classified by each child's leaf.
    */
   void childRewards(const std::vector<size_t> &childLeaves, arma::uword col,
                     std::vector<double> &reward) const;

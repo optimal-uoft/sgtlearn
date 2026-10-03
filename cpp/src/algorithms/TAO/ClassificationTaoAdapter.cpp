@@ -91,23 +91,13 @@ void ClassificationTaoAdapter::childRewards(
     return;
   }
 
-  // Single-output: 1/x split uniformly across correct children.
+  // Single-output: full credit (1) for every correct child. Routing is
+  // multi-label, so a sample counts once wherever it lands correctly.
   const size_t label = y_(0, col);
-  size_t numCorrect = 0;
   for (size_t c = 0; c < childLeaves.size(); ++c) {
     const auto predictions =
         argMaxClass(classificationTree_.classCounts[childLeaves[c]]);
-    const bool correct = predictions[0] == label;
-    if (correct)
-      ++numCorrect;
-    reward[c] = correct ? 1.0 : 0.0;
-  }
-  if (numCorrect == 0)
-    return;
-  const double correctReward = 1.0 / static_cast<double>(numCorrect);
-  for (size_t c = 0; c < reward.size(); ++c) {
-    if (reward[c] > 0.0)
-      reward[c] = correctReward;
+    reward[c] = predictions[0] == label ? 1.0 : 0.0;
   }
 }
 
@@ -160,10 +150,15 @@ NodeCareSet ClassificationTaoAdapter::buildCareSet(
   size_t pos = 0;
   for (size_t i = 0; i < care.size(); ++i) {
     const float wi = w_(care.careCols[i]);
+    // Single-output: split the sample's weight across its correct children
+    // (soft labels), so it adds total mass wi to the router fit. childCounts
+    // keeps full weight: dummyChild is correct for the most care weight.
+    const float wRow =
+        nOutputs_ == 1 ? wi / static_cast<float>(goodChildren[i].size()) : wi;
     for (size_t child : goodChildren[i]) {
       care.Xexp.col(pos) = X_.col(care.careCols[i]);
       care.yexp(pos) = child;
-      care.wexp(pos) = wi;
+      care.wexp(pos) = wRow;
       childCounts[child] += static_cast<double>(wi);
       ++pos;
     }
