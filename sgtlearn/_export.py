@@ -1,9 +1,10 @@
 """Tree visualization for fitted SGT estimators.
 
 ``plot_tree`` renders a fitted ``SGTClassifier`` / ``SGTRegressor`` with
-matplotlib: every internal node is drawn as a small histogram of the chosen
-routing feature with bins colored by the destination child partition, and
-every leaf is drawn as a text box with the predicted class / value.
+matplotlib: every internal node is drawn as a small panel of its routing
+bins colored by the destination child partition (a two-feature heatmap for
+pair nodes) plus histograms of ``X`` when it is supplied, and every leaf is
+drawn as colored text with the predicted class / value.
 ``export_text`` returns the same tree as indented routing rules.
 """
 
@@ -82,12 +83,6 @@ def export_text(
             prefer_logical_name=feature_names is None,
         )
 
-    def per_output(items: Sequence[str]) -> str:
-        return items[0] if len(items) == 1 else "[" + ", ".join(items) + "]"
-
-    def fmt_list(values: Sequence[float]) -> str:
-        return "[" + ", ".join(f"{v:.{decimals}f}" for v in values) + "]"
-
     names: Any = class_names
     if names is None:
         names = getattr(estimator, "classes_", None)
@@ -97,14 +92,15 @@ def export_text(
         if not isinstance(estimator, SGTClassifier):
             value = node["value"]
             if isinstance(value, (list, tuple)):
-                return f"value: {fmt_list(value)}"
+                return f"value: {_fmt_list(value, decimals)}"
             return f"value: {value:.{decimals}f}"
         counts = node["class_counts"]
-        text = "class: " + per_output(
+        text = "class: " + _per_output(
             [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
         )
         if show_weights:
-            text = f"weights: {per_output([fmt_list(c) for c in counts])} {text}"
+            fmt = [_fmt_list(c, decimals) for c in counts]
+            text = f"weights: {_per_output(fmt)} {text}"
         return text
 
     lines: list[str] = []
@@ -123,6 +119,15 @@ def export_text(
 
     walk(tree["root_index"], 0)
     return "\n".join(lines) + "\n"
+
+
+def _per_output(items: Sequence[str]) -> str:
+    """One item as-is; several (one per output) as ``[a, b]``."""
+    return items[0] if len(items) == 1 else "[" + ", ".join(items) + "]"
+
+
+def _fmt_list(values: Sequence[float], decimals: int) -> str:
+    return "[" + ", ".join(f"{v:.{decimals}f}" for v in values) + "]"
 
 
 def _check_fitted_sgt(estimator: Any, caller: str) -> None:
@@ -286,9 +291,8 @@ def _format_region(
 
 
 #: Hand-picked pastel sequence used as the default ``cmap`` for ``plot_tree``.
-#: The first two colors (pink, peach) match the reference visualization
-#: aesthetic in ``ex_viz/*.png``; the remaining colors come from matplotlib's
-#: Pastel1 palette in a deterministic order.
+#: The first two colors are pink and peach; the remaining colors come from
+#: matplotlib's Pastel1 palette in a deterministic order.
 _DEFAULT_PALETTE_COLORS = (
     "#E8A0BF",  # pink
     "#FAC898",  # peach
@@ -490,17 +494,19 @@ def _merge_routing_regions(
 
 
 def _route_samples(tree: dict, X) -> dict[int, Any]:
-    """Route ``X`` through the tree; return ``{node_id: column-indices}``.
+    """Route ``X`` through the tree; return ``{node_id: row-indices}``.
 
     The returned array for each node lists the row indices of ``X`` that
     reach that node. Leaves' sample sets partition the root's sample set.
 
     Routing rule (matches the native router): ``X`` is rounded to float32
-    as in ``predict``. At each internal node, look up the routing feature
+    as in ``predict``. At a univariate node, look up the routing feature
     column. Non-finite values use ``nan_prediction_partition``; finite values
     use ``bin = np.searchsorted(thresholds, value, side='left')`` (a value on
     a threshold takes the lower bin, like ``std::lower_bound``) and
-    ``children[bin_to_partition[bin]]``.
+    ``children[bin_to_partition[bin]]``. A categorical node maps the active
+    one-hot column to its ``bin_categories`` bin (no active column uses
+    ``nan_prediction_partition``); a pair node replays ``pair_inner_tree``.
     """
 
     X_arr = np.asarray(X, dtype=np.float32).astype(np.float64)
@@ -579,8 +585,8 @@ def _compute_layout_leafcounter(
     Each visible leaf (or depth-cap-truncated internal node, which renders as
     a draw-leaf) claims the next integer x in DFS left-to-right order; each
     visible internal node's x = mean of its drawn children's x. y is set
-    from depth and rescaled into the band ``[0.03, 0.88]`` (top 12% reserved
-    for annotations, bottom 3% margin).
+    from depth and rescaled into the band ``[0.10, 0.88]`` (top 12% reserved
+    for annotations, bottom 10% margin).
     """
     nodes_by_id = {n["id"]: n for n in tree["nodes"]}
     root = tree["root_index"]
@@ -685,7 +691,7 @@ def _draw_leaf_text(
     node: dict,
     *,
     is_classifier: bool,
-    class_names: list[str] | None,
+    class_names: list[list[str]] | None,
     criterion: str,
     precision: int,
     fontsize: int | None,
@@ -695,19 +701,33 @@ def _draw_leaf_text(
 ) -> list:
     """Render a leaf as bold colored text (no box).
 
+    ``node`` may also be an internal node cut off by ``max_depth``. Regressor
+    internals carry no ``value``, so they render as ``"…"``; classifier
+    internals still carry ``class_counts`` and show their majority class.
+    Multi-output nodes show one entry per output, as ``[a, b]``.
+
     Returns a list of Text artists (one bold class/value line, optional
     subtitle lines for ``label='all'``).
     """
     artists: list = []
 
     if is_classifier:
-        counts_by_output = list(node.get("class_counts", []))
-        counts = list(counts_by_output[0]) if counts_by_output else []
-        if counts:
-            arg = max(range(len(counts)), key=lambda i: counts[i])
-            primary = class_names[arg] if class_names is not None else str(arg)
-        else:
-            primary = ""
+        assert class_names is not None
+        counts_by_output = node.get("class_counts") or []
+        primary = (
+            _per_output(
+                [
+                    class_names[o][int(np.argmax(counts))]
+                    for o, counts in enumerate(counts_by_output)
+                ]
+            )
+            if counts_by_output
+            else ""
+        )
+    elif node["value"] is None:
+        primary = "…"
+    elif isinstance(node["value"], (list, tuple)):
+        primary = _fmt_list(node["value"], precision)
     else:
         primary = f"{node['value']:.{precision}f}"
 
@@ -1107,7 +1127,11 @@ def _draw_internal_panel_pair(
     n_hist_bins: int,
     precision: int,
 ) -> list:
-    """Draw exported pair-routing cells, including the two missing margins."""
+    """Draw exported pair-routing cells and their missing-value margins.
+
+    Without ``X_rows`` both margins are drawn; with it, only axes whose rows
+    contain missing values get one.
+    """
     cx, cy = center
     w, h = size
     left, bottom = cx - w / 2, cy - h / 2
@@ -1368,9 +1392,10 @@ def plot_tree(
     """Render a fitted SGT estimator with matplotlib.
 
     Univariate nodes show their one-dimensional shape function. Bivariate
-    nodes show the exact two-dimensional routing heatmap; when ``X`` is
-    supplied, top/right marginal histograms and observed missing-value margins
-    are included. Continuous axes label only thresholds where the final outer
+    nodes show the exact two-dimensional routing heatmap with a missing-value
+    margin on each axis; when ``X`` is supplied, top/right marginal histograms
+    are added and only axes with observed missing values keep a margin.
+    Continuous axes label only thresholds where the final outer
     partition changes.
 
     Parameters
@@ -1378,23 +1403,35 @@ def plot_tree(
     estimator : SGTClassifier or SGTRegressor
         Fitted estimator to render.
     X : array-like of shape (n_samples, n_features), optional
-        Data used for node sample counts and bivariate marginal histograms.
+        Data routed through the tree to draw node histograms (univariate,
+        categorical and bivariate marginal) and missing-value margins. The
+        ``n=`` labels always come from the fitted tree, not from ``X``.
     max_depth : int, optional
         Maximum outer-tree depth to display.
     feature_names : list of str, optional
         Display names for input columns.
     class_names : list of str, bool, or None, default=None
-        Class labels shown on classifier leaves.
+        Class labels shown on classifier leaves, in ``classes_`` order.
+        ``True`` uses ``classes_``; ``None`` or ``False`` shows the encoded
+        class index (``0``, ``1``, ...). For multi-output classifiers, pass
+        one list per output.
     label : str, default="feature"
-        Controls field-name labels in node text.
+        Sample-count annotations: ``"feature"`` shows ``n=`` on internal
+        nodes, ``"all"`` also adds each leaf's ``n`` (and impurity when
+        ``impurity=True``), and ``"none"`` hides them. The ``n=`` counts are
+        the rounded weighted sample counts for classifiers (so they reflect
+        ``sample_weight`` and ``class_weight``) and unweighted training
+        sample counts for regressors.
     impurity : bool, default=False
-        Whether to display node impurity.
+        Whether to display leaf impurity; only used with ``label="all"``.
     proportion : bool, default=False
-        Whether to display sample proportions instead of counts.
+        Currently ignored; node annotations always show sample counts.
     precision : int, default=2
         Decimal precision for displayed values and routing thresholds.
-    cmap : colormap or color sequence, optional
-        Colors for classes and routing partitions.
+    cmap : str, Colormap, or list or tuple of colors, default=pastel palette
+        Colors for the routing partitions: edges, routing bins and leaf text
+        are colored by the child position they lead to. A list or tuple is
+        cycled; a colormap (or its registered name) is sampled evenly.
     ax : matplotlib.axes.Axes, optional
         Axes on which to draw.
     fontsize : int, optional
@@ -1402,7 +1439,8 @@ def plot_tree(
     node_aspect_ratio : float, default=2.5
         Width-to-height ratio of node boxes.
     n_hist_bins : int, default=20
-        Number of bins in each bivariate marginal histogram.
+        Number of histogram bins in each univariate node panel and each
+        continuous bivariate marginal histogram (used only when ``X`` is given).
 
     Returns
     -------
@@ -1446,19 +1484,20 @@ def plot_tree(
     palette = _build_palette(cmap, tree["num_partitions"])
 
     is_classifier = isinstance(estimator, SGTClassifier)
-    resolved_class_names: list[str] | None
+    # One list of class labels per output.
+    resolved_class_names: list[list[str]] | None
     if not is_classifier:
         resolved_class_names = None
-    elif class_names is True:
-        clf_estimator: SGTClassifier = estimator  # type: ignore[assignment]
-        classes: Any = (
-            clf_estimator.classes_ if clf_estimator.classes_ is not None else []
-        )
-        resolved_class_names = [str(c) for c in classes]
     elif class_names in (None, False):
-        resolved_class_names = [str(c) for c in range(tree["num_classes"][0])]
+        resolved_class_names = [[str(c) for c in range(k)] for k in tree["num_classes"]]
     else:
-        resolved_class_names = list(class_names)  # type: ignore[arg-type]
+        names: Any = (
+            estimator.classes_  # type: ignore[union-attr]
+            if class_names is True
+            else class_names
+        )
+        names_per_output = [names] if tree["num_outputs"] == 1 else names
+        resolved_class_names = [[str(c) for c in n] for n in names_per_output]
 
     feat_names = _resolve_feature_names(estimator, feature_names)
 

@@ -196,7 +196,7 @@ class RandomSGForest(BaseEstimator, ABC):
         X : array-like of shape (n_samples, n_features)
             Training features. A pandas ``DataFrame`` lets ``feature_dict``
             reference columns by name.
-        y : array-like of shape (n_samples,)
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
             Targets.
         sample_weight : array-like of shape (n_samples,), optional
             Per-sample weights.
@@ -208,6 +208,11 @@ class RandomSGForest(BaseEstimator, ABC):
         processed_features : ProcessedFeatures, optional
             Pre-resolved features from :func:`~sgtlearn.configure_feature_dict`,
             used instead of resolving ``feature_dict``.
+
+        Returns
+        -------
+        self : object
+            The fitted forest.
         """
         _validate_int("n_estimators", self.n_estimators, 1)
         if not self.bootstrap and self.max_samples is not None:
@@ -307,8 +312,9 @@ class RandomSGForest(BaseEstimator, ABC):
         """Mean per-logical-feature importances across fitted base trees.
 
         Aligned with :attr:`processed_features_` (same order as each tree's
-        ``feature_importances_``). Available only after :meth:`fit` without
-        TAO refinement.
+        ``feature_importances_``). Available only after :meth:`fit` with
+        ``tao_n_runs=0`` and no later TAO refinement; otherwise raises
+        ``AttributeError``.
         """
         return self._tree_feature_importances_matrix().mean(axis=0)
 
@@ -318,7 +324,7 @@ class RandomSGForest(BaseEstimator, ABC):
 
         Population std (``ddof=0``) over base estimators; aligned with
         :attr:`mean_feature_importances_`. Available only after :meth:`fit`
-        without TAO refinement.
+        with ``tao_n_runs=0`` and no later TAO refinement.
         """
         return self._tree_feature_importances_matrix().std(axis=0)
 

@@ -29,7 +29,7 @@ plot_tree(model, X=X_train, ax=ax_tree)
 ax_tree.set_title("Learned SGT")
 
 
-# left: the checkerboard
+# left: the Plus Sign dataset
 ax_data.scatter(
     X_train[:, 0], X_train[:, 1], c=y_train, cmap="coolwarm", s=12, edgecolors="none"
 )

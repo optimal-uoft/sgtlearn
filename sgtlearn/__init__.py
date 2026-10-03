@@ -1,7 +1,8 @@
-"""Shape-generalized tree estimators (classification), text export and plotting.
+"""Shape-generalized trees and forests, TAO refinement, text export and plotting.
 
-The heavy lifting lives in optional native extensions (``ShapeGeneralizedTrees``,
-``Discretizers``). Import ``SGTClassifier`` from this package for the sklearn-style API.
+The heavy lifting lives in compiled native extensions (``ShapeGeneralizedTrees``,
+``TreeAlternatingOptimization``). Import the estimators from this package for the
+sklearn-style API.
 """
 
 from sgtlearn import tao

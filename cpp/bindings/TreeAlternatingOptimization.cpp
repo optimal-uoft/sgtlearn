@@ -167,8 +167,10 @@ PYBIND11_MODULE(TreeAlternatingOptimization, m) {
         py::arg("lambda_") = 0.0, py::arg("tao_pair_scale") = 1.1,
         "Refine a fitted ClassificationShapeGeneralizedTree or "
         "RegressionShapeGeneralizedTree in place. X is "
-        "(n_samples, n_features) float32; y is 1-D class labels (uint) or "
-        "float targets matching the tree type. Runs up to n_runs bottom-up "
+        "(n_samples, n_features) float32; y is class labels (uint) or float "
+        "targets matching the tree type, 1-D (n_samples,) or 2-D "
+        "(n_samples, n_outputs) with the fitted tree's number of outputs. "
+        "Optional sample_weight is 1-D float32. Runs up to n_runs bottom-up "
         "sweeps. In weighted reward units, lambda_ penalizes single-feature "
         "routers by lambda_ * nodeSampleCount and pair routers by "
         "tao_pair_scale * lambda_ * nodeSampleCount; dummy routers are "

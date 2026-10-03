@@ -2,8 +2,10 @@
  * @file Estimators/RegressionShapeGeneralizedTree.cpp
  * @brief Training, child partitioning, and prediction for the regression
  *        shape-generalized tree. Per-node inner fit: discretize -> search
- *        partition counts k in [2, numPartitions] -> coordinate descent (MSE)
- *        or round-robin (MAE) -> record best branch.
+ *        partition counts k in [2, numPartitions] -> k-means / root-split seed
+ *        plus coordinate descent (MSE), or root / round-robin seeds without
+ *        coordinate descent unless SGTLEARN_MAE_CD=1 (MAE) -> record best
+ *        branch per arity.
  */
 
 #include <memory>

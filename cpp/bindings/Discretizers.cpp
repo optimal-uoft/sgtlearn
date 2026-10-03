@@ -1,6 +1,6 @@
 /**
  * @file Discretizers.cpp
- * @brief pybind11 module ``Discretizers``: univariate classification/regression discretizers.
+ * @brief pybind11 module ``Discretizers``: univariate and categorical classification/regression discretizers.
  */
 
 #include <carma>
