@@ -15,9 +15,25 @@
 #include "algorithms/TAO/TaoAdapter.h"
 
 #include <cstddef>
+#include <limits>
+#include <optional>
 #include <vector>
 
 namespace tao {
+
+/**
+ * One univariate threshold routing for a two-child node: finite
+ * ``x <= leftMax`` goes to ``leftChild``, finite ``x > leftMax`` to
+ * ``1 - leftChild``, non-finite to ``nanChild``.
+ */
+struct ThresholdCut {
+  /** Largest finite care value on the left side; the cut lies above it. */
+  float leftMax = 0.0f;
+  size_t leftChild = 0;
+  size_t nanChild = 0;
+  /** Weighted care reward of this routing (no complexity penalty). */
+  double rewardSum = -std::numeric_limits<double>::infinity();
+};
 
 /**
  * Mean care-set reward under a routing rule, with optional split penalty.
@@ -48,8 +64,11 @@ public:
   /**
    * Extract routing from a trained discretizer and score it on the care set.
    *
-   * Bins are mapped to child partitions by argmax over discretizer leaf stats.
-   * Writes the induced bin-to-partition map to the out-param.
+   * Each bin goes to the child with the largest summed care reward over the
+   * care samples in it (ties: lowest child index), not to the argmax of the
+   * discretizer's fitted histogram. Bins with zero care weight, including an
+   * unused NaN bin, go to ``dummyChild``. Writes the bin-to-partition map to
+   * the out-param.
    *
    * @returns Penalized mean reward, or ``-infinity`` when ``disc`` has no bins.
    */
@@ -57,12 +76,35 @@ public:
                           std::vector<size_t> &binToPartitionOut,
                           double complexityScale) const;
 
+  /**
+   * Penalized mean reward when care sample ``i`` routes to
+   * ``binToPartition[bins(careCols[i])]``.
+   *
+   * @param bins Bin of every column of ``X`` (as from ``transform(X, bins)``).
+   */
+  double scoreBinAssignment(const arma::Row<size_t> &bins,
+                            const std::vector<size_t> &binToPartition,
+                            double complexityScale) const;
+
+  /**
+   * Exact best threshold routing on raw ``feature`` for a two-child node.
+   *
+   * Cuts lie between consecutive distinct finite care values (using the inner
+   * splitter's ``1e-7`` tie rule) with at least ``minLeafSize`` finite care
+   * samples per side; both orientations are tried. Non-finite care samples go
+   * to the child with the larger summed reward over them (``dummyChild`` when
+   * they carry no weight).
+   *
+   * @returns The best cut, or ``std::nullopt`` when no cut is feasible.
+   */
+  std::optional<ThresholdCut> bestThresholdCut(size_t feature,
+                                               size_t minLeafSize) const;
+
 private:
   static size_t argMax(const std::vector<double> &counts);
 
-  double rewardSumForDiscretizer(
-      const ClassificationDiscretizer &disc,
-      const std::vector<size_t> &binToPartition) const;
+  double rewardSumForBins(const arma::Row<size_t> &bins,
+                          const std::vector<size_t> &binToPartition) const;
 
   double meanReward(double rewardSum) const;
   double penalizedScore(double rewardSum, double complexityScale) const;
