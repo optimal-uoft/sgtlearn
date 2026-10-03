@@ -32,7 +32,7 @@ and the umbrella issue [#27](https://github.com/optimal-uoft/sgtlearn/issues/27)
 ## v0.3.1
 - [x] Regularized best-first outer growth with `branching_penalty` and strict `max_leaf_nodes` budgets for multiway splits
 
-## Unreleased
+## v0.3.2
 - [x] Text export of fitted trees with `export_text`
 
 ## v1.0.0

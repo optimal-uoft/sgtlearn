@@ -49,8 +49,8 @@ v0.3.1
 - ✅ Regularized best-first outer growth with ``branching_penalty`` and strict
   ``max_leaf_nodes`` budgets for multiway splits
 
-Unreleased
-----------
+v0.3.2
+------
 
 - ✅ Text export of fitted trees with :func:`~sgtlearn.export_text`
 
