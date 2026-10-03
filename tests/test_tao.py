@@ -527,7 +527,12 @@ def _k2_threshold_data(seed: int) -> tuple[np.ndarray, np.ndarray]:
 def _best_single_threshold_accuracy(
     X: np.ndarray, y: np.ndarray, labels: tuple[int, int]
 ) -> float:
-    """Best accuracy of routing by one threshold to two leaves with fixed labels."""
+    """Best accuracy of routing by one threshold to two leaves with fixed labels.
+
+    Assumes finite values whose distinct values stay more than 1e-7 apart in
+    float32, as in ``_k2_threshold_data``; it does not model NaN routing or the
+    splitter's tie rule.
+    """
     hits = np.column_stack([y == labels[0], y == labels[1]]).astype(float)
     total = hits.sum(axis=0)
     best = total.max()  # constant routing

@@ -22,9 +22,10 @@
 namespace tao {
 
 /**
- * One univariate threshold routing for a two-child node: finite
- * ``x <= leftMax`` goes to ``leftChild``, finite ``x > leftMax`` to
- * ``1 - leftChild``, non-finite to ``nanChild``.
+ * One univariate threshold routing for a two-child node: finite care values
+ * ``x <= leftMax`` go to ``leftChild``, larger ones to ``1 - leftChild``, and
+ * non-finite ones to ``nanChild``. The installed router's threshold lies
+ * between ``leftMax`` and the next finite care value.
  */
 struct ThresholdCut {
   /** Largest finite care value on the left side; the cut lies above it. */
