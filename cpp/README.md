@@ -4,17 +4,15 @@ This directory contains the C++ core library and pybind11 module definitions use
 
 ## Layout Conventions
 
-- `include/sgtlearn/`: public headers for `sgtlearn_core`.
-- `src/`: internal implementation for `sgtlearn_core`.
+- `src/`: headers (`.h`, `.tpp`) and sources (`.cpp`) for `sgtlearn_core`; `src/` is its public include directory.
 - `bindings/`: pybind11 module sources; each `*.cpp` file becomes one extension module target.
-- `../tests/cpp/`: C++ test files used by `cpp_tests`.
+- `tests/`: C++ test files used by `cpp_tests`.
 
 | Directory | Content Type | Visibility | Target |
 |:--|:--|:--|:--|
-| `include/sgtlearn/` | Public headers (`.hpp`) | Public | `sgtlearn_core` |
-| `src/` | Internal logic (`.cpp`) | Private | `sgtlearn_core` |
+| `src/` | Headers (`.h`, `.tpp`) and logic (`.cpp`) | Public | `sgtlearn_core` |
 | `bindings/` | Python wrappers (`.cpp`) | Private | `<module_name>` |
-| `../tests/cpp/` | Unit tests (`.cpp`) | Private | `cpp_tests` |
+| `tests/` | Unit tests (`.cpp`) | Private | `cpp_tests` |
 
 ## Targets Defined in `CMakeLists.txt`
 
@@ -33,10 +31,10 @@ This directory contains the C++ core library and pybind11 module definitions use
 For each pybind11 module target:
 
 1. the extension module (`.so`) is built;
-2. `pybind11_stubgen` runs as a post-build step;
+2. if `pybind11_stubgen` was importable at configure time, it runs as a non-fatal post-build step;
 3. the generated `.pyi` is written to the same output directory as that module.
 
-The install rules place the `.so` and matching `.pyi` together in the same install destination.
+The install rules place the `.so` and, when it was generated, the matching `.pyi` together in the same install destination.
 
 ## Common Commands
 
@@ -64,7 +62,7 @@ Skip C++ test target:
 cmake -S cpp -B build -DSGTLEARN_BUILD_TESTS=OFF
 ```
 
-Most developers should use `pip install .` from the repository root, which drives this CMake configuration via scikit-build.
+Most developers should use `pip install .` from the repository root, which drives this CMake configuration via scikit-build-core (with `-DSGTLEARN_BUILD_TESTS=OFF`).
 
 ## CLion Notes
 

@@ -26,10 +26,14 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
     n_estimators : int, default=100
         Number of trees in the forest.
     criterion : {"squared_error", "mse", "absolute_error", "mae"}, default="squared_error"
-        Loss forwarded to each base tree's outer splits.
+        Loss forwarded to each base tree, which uses it for its inner
+        shape-function trees and outer splits. With ``"absolute_error"`` /
+        ``"mae"``, coordinate descent is disabled unless
+        ``SGTLEARN_MAE_CD=1`` is set; while it is disabled, :meth:`fit` warns
+        once.
     num_partitions : int, default=2
-        Arity of the shape function at each outer split. See
-        :class:`sgtlearn.SGTRegressor`.
+        Maximum number of children per outer split (a split may have fewer).
+        See :class:`sgtlearn.SGTRegressor`.
     max_depth, max_leaf_nodes, min_samples_leaf, min_impurity_decrease : \
         see :class:`sgtlearn.SGTRegressor`
         Outer-tree stopping criteria forwarded to each base estimator.
@@ -41,7 +45,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         Coordinate-descent controls forwarded to each base estimator.
     max_features : int, float, {"sqrt", "log2"} or None, default="sqrt"
         Per-split feature subsampling for each base tree. Defaults to
-        ``"sqrt"`` to follow ``RandomForestRegressor`` convention. See
+        ``"sqrt"`` (``RandomForestRegressor`` defaults to ``1.0``). See
         :class:`sgtlearn.SGTRegressor` for the full semantics.
     pairwise_candidates : int or float, default=0
         Maximum retained feature pairs fitted per node. An integer is an
@@ -52,6 +56,18 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant cost per additional occupied child beyond two.
+    tao_n_runs : int, default=10
+        Maximum number of bottom-up TAO sweeps run on each base tree at the
+        end of its ``fit`` (stopping early once a sweep changes nothing), on
+        that tree's bootstrap sample (or the full training set when
+        ``bootstrap=False``). ``0`` disables TAO; any positive value makes
+        :attr:`mean_feature_importances_` and :attr:`std_feature_importance_`
+        unavailable.
+    tao_lambda : float, default=0.0
+        Per-sample complexity rate for TAO: at each internal node, a
+        non-constant routing rule must beat the constant dummy rule by more
+        than ``tao_lambda`` times the node's sample count, in weighted reward
+        units. See :func:`~sgtlearn.tao.TAO_refine`.
     tao_pair_scale : float, default=1.1
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     bootstrap : bool, default=True
@@ -78,20 +94,28 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         The collection of fitted base estimators.
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
+    n_outputs_ : int
+        Number of target columns (``1`` for a 1-D ``y``).
+    feature_names_in_ : ndarray of shape (n_features,) or None
+        Column names, converted to ``str``, of an ``X`` with a ``columns``
+        attribute (e.g. a pandas ``DataFrame``) seen during :meth:`fit`;
+        ``None`` otherwise.
     mean_feature_importances_ : ndarray of shape (n_logical_features,)
         Mean of per-tree :attr:`~sgtlearn.SGTRegressor.feature_importances_`,
-        aligned with :attr:`processed_features_`. Unavailable after TAO.
+        aligned with :attr:`processed_features_`. Accessing it raises
+        ``AttributeError`` if any base tree was TAO-refined, which happens by
+        default (``tao_n_runs=10``); fit with ``tao_n_runs=0`` to use it.
     std_feature_importance_ : ndarray of shape (n_logical_features,)
         Population standard deviation of per-tree importances across the
-        forest (same alignment as :attr:`mean_feature_importances_`).
-        Unavailable after TAO.
+        forest (same alignment and TAO restriction as
+        :attr:`mean_feature_importances_`).
     processed_features_ : ProcessedFeatures
         Logical features resolved once and shared by every base tree.
 
     See Also
     --------
     sgtlearn.SGTRegressor : Single-tree base estimator.
-    sgtlearn.ensemble.RandomSGForestClassifier : Classification counterpart.
+    sgtlearn.RandomSGForestClassifier : Classification counterpart.
     sklearn.ensemble.RandomForestRegressor : Standard CART forest with the
         same prediction semantics.
 
@@ -186,6 +210,11 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         return SGTRegressor(**tree_kw, random_state=tree_seed)
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict the mean of the per-tree predictions.
+
+        Returns shape ``(n_samples,)`` for a single output and
+        ``(n_samples, n_outputs)`` for multi-output ``y``.
+        """
         X32 = self._check_predict_X(X)
         n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
         acc = np.zeros((X32.shape[0], n_outputs), dtype=np.float64)

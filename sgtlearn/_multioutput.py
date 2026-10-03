@@ -1,7 +1,7 @@
 """Helpers so single-output is the multi-output path with ``n_outputs == 1``.
 
 Public sklearn shapes still unwrap at API boundaries (1-D ``y`` / ``predict``,
-scalar ``classes_`` / ``n_classes_``, ndarray ``predict_proba``). Internally
+1-D ``classes_`` and int ``n_classes_``, ndarray ``predict_proba``). Internally
 targets are always treated as ``(n_samples, n_outputs)``.
 """
 
@@ -93,7 +93,7 @@ def unwrap_classifier_public_attrs(
     n_classes_list: Sequence[int],
     n_outputs: int,
 ) -> tuple[Any, Any, Any, Any]:
-    """Sklearn public forms: scalar attrs when ``n_outputs == 1``, else lists.
+    """Sklearn public forms: unwrapped when ``n_outputs == 1``, else lists.
 
     Returns ``(_le, classes_, n_classes_, n_classes_native)`` where
     ``n_classes_native`` is what the C++ constructor expects (``int`` or
@@ -128,7 +128,7 @@ def label_encoders_as_list(encoders: Any | Sequence[Any], n_outputs: int) -> lis
 
 
 def as_native_float32(values: Any, name: str) -> np.ndarray:
-    """C-contiguous ``float32`` copy of ``values``; rejects infinity.
+    """C-contiguous ``float32`` ``values``, copied only if needed; rejects infinity.
 
     A finite value beyond the ``float32`` range (e.g. ``1e39``) passes
     float64 validation but becomes ``inf`` here, so it is rejected too.

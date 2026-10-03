@@ -1,7 +1,7 @@
 API Reference
 =============
 
-The public API is re-exported from the top-level :mod:`sgtlearn` package.
+The public API is re-exported from the top-level ``sgtlearn`` package.
 
 .. currentmodule:: sgtlearn
 

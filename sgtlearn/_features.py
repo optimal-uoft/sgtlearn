@@ -22,10 +22,14 @@ class ProcessedFeatures:
         List of ``{"type": "continuous"|"categorical", "indices": [...]}``
         dicts in trainer order. Index ``i`` aligns with
         ``estimator.feature_importances_[i]`` after a fit without TAO.
+        Without ``feature_dict``, entry ``i`` is column ``i``. With one, entries
+        are re-sorted (integer keys, including auto-filled columns, before
+        string keys, each ordered by ``str(key)``, so ``10`` sorts before
+        ``9``), so map entries back to ``X`` through ``indices``.
     logical_names
         Parallel names for ``features``. When ``feature_dict`` is supplied,
-        these are the stringified keys; omitted columns are filled as
-        ``\"0\"``, ``\"1\"``, …. Default (no ``feature_dict``) uses
+        these are the stringified keys; each omitted column ``i`` is named
+        ``str(i)``. Default (no ``feature_dict``) uses
         ``\"0\"`` … ``\"n_features-1\"`` even if ``X`` is a pandas DataFrame
         (DataFrame column names are stored on ``feature_names_in_`` instead).
     """

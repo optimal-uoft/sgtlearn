@@ -3,15 +3,20 @@ TAO refinement
 
 Tree-Alternating Optimization (TAO) refines an *already fitted* shape-generalized
 tree or random forest **in place**. It walks internal nodes bottom-up and replaces
-routing rules when doing so does not decrease training performance at that node.
+routing rules when doing so does not lower the node's penalized training
+objective (weighted reward minus the ``tao_lambda`` complexity cost).
 Tree topology (node structure) is preserved; leaf statistics are refreshed as
-routing changes.
+routing changes. Univariate candidates are shape functions fit on one input
+column at a time, over every column regardless of ``max_features`` or
+``feature_dict`` grouping (each one-hot column is treated as numeric);
+bivariate candidates are limited to the node's retained pairs.
 
 There are two ways to use TAO:
 
-1. **During ``fit``** — pass ``tao_n_runs`` and ``tao_lambda`` to any supported
-   estimator (see below). TAO runs automatically after the native trainer finishes.
-2. **After ``fit``** — call :func:`~sgtlearn.tao.TAO_refine` on a fitted model to
+1. **During fit** — pass ``tao_n_runs``, ``tao_lambda``, and ``tao_pair_scale``
+   to any supported estimator (see below). TAO runs automatically after the
+   native trainer finishes.
+2. **After fit** — call :func:`~sgtlearn.tao.TAO_refine` on a fitted model to
    refine it further (or to run TAO when ``tao_n_runs=0`` was used at fit time).
 
 Import the post-hoc entry point from the dedicated module (also re-exported on the
@@ -28,14 +33,18 @@ All four public tree estimators accept the same three constructor / ``fit``-time
 TAO knobs:
 
 ``tao_n_runs`` : int, default=10
-    Number of bottom-up TAO passes to run after the native trainer finishes.
-    Set to ``0`` to skip TAO entirely during :meth:`~sklearn.base.BaseEstimator.fit`.
+    Maximum number of bottom-up TAO passes to run after the native trainer
+    finishes (TAO may stop earlier).
+    Set to ``0`` to skip TAO entirely during ``fit``.
 
 ``tao_lambda`` : float, default=0.0
     Per-sample complexity rate (cost-complexity style). At each internal node, a
     non-constant routing rule must beat the constant dummy rule by more than
-    ``tao_lambda * n_samples`` in weighted reward units to be accepted. With the
-    default ``0.0``, weighted training accuracy / loss does not decrease.
+    ``tao_lambda * n_node`` in weighted reward units to be accepted
+    (``n_node``: unweighted count of training samples reaching the node).
+    With the default ``0.0``, weighted training loss does not increase for
+    regression, and weighted training accuracy (mean over outputs) does not
+    decrease for classifiers.
 
 ``tao_pair_scale`` : float, default=1.1
     Finite, non-negative multiplier for the TAO complexity penalty of a
@@ -80,7 +89,7 @@ Example — TAO during ``fit``:
 
    from sgtlearn import SGTClassifier, RandomSGForestClassifier
 
-   # Default: 10 TAO passes after native training (tao_lambda=0.0)
+   # Default: up to 10 TAO passes after native training (tao_lambda=0.0)
    tree = SGTClassifier(max_depth=4, random_state=42).fit(X, y)
 
    # Disable fit-time TAO
@@ -128,15 +137,17 @@ Single tree
 
 ``y`` must be in the same label space used for :meth:`~sgtlearn.SGTClassifier.fit`.
 Pass the **same** ``(X, y)`` used to fit the model (per-sample partitions are not
-stored after fit). With ``lambda_=0`` (the default), training accuracy / loss does
-not decrease. When ``lambda_ > 0``, non-constant routing rules must improve
-weighted training reward by more than ``lambda_ * n_samples`` to beat the constant
-dummy rule at each node.
+stored after fit). With ``lambda_=0`` (the default), weighted training loss does not
+increase for regression, and weighted training accuracy (mean over outputs)
+does not decrease for classifiers. When ``lambda_ > 0``, non-constant routing
+rules must improve weighted training reward by more than ``lambda_ * n_node``
+to beat the constant dummy rule at each node (``n_node``: unweighted count of
+training samples reaching that node).
 
 Multi-output ``y`` is supported with the same shapes as the estimators
 (``(n_samples,)`` or ``(n_samples, n_outputs)``). Classification TAO uses an
 all-but-worst care set when ``n_outputs > 1`` (matching regression); single-output
-classification keeps the all-but-correct (best children) care set.
+classification keeps only the correct (best) children in the care set.
 
 Random forest
 ~~~~~~~~~~~~~
@@ -180,7 +191,8 @@ Choosing fit-time vs. post-hoc TAO
    * - :func:`~sgtlearn.tao.TAO_refine` after ``fit``
      - Extra refinement passes, different ``lambda_``, or refining a forest on
        the full ``(X, y)`` instead of per-tree bootstrap data. Safe to call
-       multiple times; each call further refines the model in place.
+       multiple times; each call refines the model in place and stops early
+       once a sweep makes no change.
 
 API reference
 -------------

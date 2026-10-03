@@ -3,7 +3,7 @@ Plotting & Export
 
 .. currentmodule:: sgtlearn
 
-Visualize a fitted SGT, or export it to other formats.
+Visualize a fitted SGT, or export it as indented text rules.
 
 plot_tree
 ---------
