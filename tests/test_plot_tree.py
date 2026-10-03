@@ -312,3 +312,61 @@ def test_plot_tree_pair_heatmap_renders_without_training_data():
     assert "NaN" in [tick.get_text() for tick in panel.get_xticklabels()]
     assert "NaN" in [tick.get_text() for tick in panel.get_yticklabels()]
     plt.close(fig)
+
+
+def _leaf_labels(artists) -> list[str]:
+    return [
+        a.get_text()
+        for a in artists
+        if hasattr(a, "get_fontweight") and a.get_fontweight() == "bold"
+    ]
+
+
+def _is_value_label(text: str, n_outputs: int) -> bool:
+    parts = text[1:-1].split(", ") if n_outputs > 1 else [text]
+    if n_outputs > 1 and not (text.startswith("[") and text.endswith("]")):
+        return False
+    try:
+        return len([float(p) for p in parts]) == n_outputs
+    except ValueError:
+        return False
+
+
+@pytest.mark.parametrize("n_outputs", [1, 2])
+@pytest.mark.parametrize("max_depth", [None, 1])
+def test_plot_tree_regressor_leaf_labels(n_outputs, max_depth):
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(300, 3))
+    y = X[:, 0] + np.sin(X[:, 1])
+    Y = y if n_outputs == 1 else np.column_stack([y, -y])
+    est = SGTRegressor(max_depth=3, random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(
+        X, Y
+    )
+
+    labels = _leaf_labels(plot_tree(est, max_depth=max_depth, label="all"))
+    plt.close("all")
+
+    assert labels
+    values = [t for t in labels if t != "…"]
+    assert all(_is_value_label(t, n_outputs) for t in values), labels
+    if max_depth is None:
+        assert len(values) == len(labels)
+    else:
+        assert "…" in labels
+
+
+def test_plot_tree_multi_output_classifier_labels_every_output():
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(300, 3))
+    Y = np.column_stack([X[:, 0] > 0, np.digitize(X[:, 1], [-1.0, 1.0])])
+    est = SGTClassifier(max_depth=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(
+        X, Y
+    )
+
+    labels = _leaf_labels(plot_tree(est, class_names=True))
+    plt.close("all")
+
+    assert labels
+    for text in labels:
+        first, second = text.strip("[]").split(", ")
+        assert first in {"0", "1"} and second in {"0", "1", "2"}, labels

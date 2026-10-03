@@ -2079,3 +2079,16 @@
 {"ts":"2026-10-02T20:30:43.618Z","run":"r-20261002-162723-b8b5","type":"classified","exec":1,"counts":{"sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y":{"accepted":47}},"queued":0}
 {"ts":"2026-10-02T20:30:43.673Z","run":"r-20261002-162723-b8b5","type":"run_reported","likely_bugs":0,"needs_decision":0}
 {"ts":"2026-10-02T20:30:43.740Z","run":"r-20261002-162723-b8b5","type":"promoted","files":["tests/regression/test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1.py"],"verified":["sgtlearn/ensemble/random_sgforest_regressor.py"]}
+{"ts":"2026-10-03T01:57:33.139Z","run":"r-20261002-215733-b7b8","type":"run_started","mode":"bugfix","revisions":{"buggy":"53a5c148d71076030fca81ed23bf8df64780e3d2","fixed":"676c746e8e2c52431adb7bb362fb3c2428833a4f"},"given":{"buggy":"HEAD","fixed":"WORKTREE"}}
+{"ts":"2026-10-03T01:57:36.583Z","run":"r-20261002-215733-b7b8","type":"target_added","target":"sgtlearn-export-py--draw-leaf-text","file":"sgtlearn/_export.py","symbol":"_draw_leaf_text","lines":[685,765],"rev":"fixed","body_sha":"faf7044cbc68687fcfa0ea5b13ea538a606b5779d860a71be10b8c0c9ccb09a1"}
+{"ts":"2026-10-03T01:58:04.295Z","run":"r-20261002-215733-b7b8","type":"context_set","target":"sgtlearn-export-py--draw-leaf-text","shingle_ratio":0}
+{"ts":"2026-10-03T01:58:04.349Z","run":"r-20261002-215733-b7b8","type":"payload_emitted","payload":"p-e471ca8a","role":"spec","sha256":"6d27fc85bb8d000d2c86b86805d3ec975f42a1fda3dba494d8f92f355edf3aa9","target":"sgtlearn-export-py--draw-leaf-text"}
+{"ts":"2026-10-03T01:59:28.987Z","run":"r-20261002-215733-b7b8","type":"spec_saved","target":"sgtlearn-export-py--draw-leaf-text","shingle_ratio":0}
+{"ts":"2026-10-03T01:59:29.046Z","run":"r-20261002-215733-b7b8","type":"bundle_frozen","target":"sgtlearn-export-py--draw-leaf-text","bundle":"b-b7b8-sgtlearn-export-py--draw-leaf-text"}
+{"ts":"2026-10-03T01:59:34.750Z","run":"r-20261002-215733-b7b8","type":"payload_emitted","payload":"p-c938749f","role":"writer","sha256":"2bb722170802873f243950a6b3c462a56963a47bfb1eb760125e1fc085d7860b","target":"sgtlearn-export-py--draw-leaf-text"}
+{"ts":"2026-10-03T01:59:42.323Z","run":"r-20261002-215733-b7b8","type":"payload_emitted","payload":"p-4bd33228","role":"writer","sha256":"325fe67e3a0cfc9e93e785cb01f65540cddf10cd4c2a63ba227634458617b724","target":"sgtlearn-export-py--draw-leaf-text"}
+{"ts":"2026-10-03T02:00:21.771Z","run":"r-20261002-215733-b7b8","type":"tests_submitted","target":"sgtlearn-export-py--draw-leaf-text","round":0,"role":"writer","payload":"p-4bd33228","files":["test_sgtlearn_export_py__draw_leaf_text_1.py"]}
+{"ts":"2026-10-03T02:02:09.212Z","run":"r-20261002-215733-b7b8","type":"exec_completed","exec":1,"labels":{"buggy":{"failure":9,"pass":30,"load_errors":0},"fixed":{"pass":39,"load_errors":0}}}
+{"ts":"2026-10-03T02:02:11.890Z","run":"r-20261002-215733-b7b8","type":"classified","exec":1,"counts":{"sgtlearn-export-py--draw-leaf-text":{"effective":9,"neutral":30}},"queued":0}
+{"ts":"2026-10-03T02:02:15.743Z","run":"r-20261002-215733-b7b8","type":"run_reported","likely_bugs":0,"needs_decision":0}
+{"ts":"2026-10-03T02:02:15.813Z","run":"r-20261002-215733-b7b8","type":"promoted","files":["tests/regression/test_sgtlearn_export_py__draw_leaf_text_1.py"],"verified":["sgtlearn/_export.py"]}

@@ -82,12 +82,6 @@ def export_text(
             prefer_logical_name=feature_names is None,
         )
 
-    def per_output(items: Sequence[str]) -> str:
-        return items[0] if len(items) == 1 else "[" + ", ".join(items) + "]"
-
-    def fmt_list(values: Sequence[float]) -> str:
-        return "[" + ", ".join(f"{v:.{decimals}f}" for v in values) + "]"
-
     names: Any = class_names
     if names is None:
         names = getattr(estimator, "classes_", None)
@@ -97,14 +91,15 @@ def export_text(
         if not isinstance(estimator, SGTClassifier):
             value = node["value"]
             if isinstance(value, (list, tuple)):
-                return f"value: {fmt_list(value)}"
+                return f"value: {_fmt_list(value, decimals)}"
             return f"value: {value:.{decimals}f}"
         counts = node["class_counts"]
-        text = "class: " + per_output(
+        text = "class: " + _per_output(
             [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
         )
         if show_weights:
-            text = f"weights: {per_output([fmt_list(c) for c in counts])} {text}"
+            fmt = [_fmt_list(c, decimals) for c in counts]
+            text = f"weights: {_per_output(fmt)} {text}"
         return text
 
     lines: list[str] = []
@@ -123,6 +118,15 @@ def export_text(
 
     walk(tree["root_index"], 0)
     return "\n".join(lines) + "\n"
+
+
+def _per_output(items: Sequence[str]) -> str:
+    """One item as-is; several (one per output) as ``[a, b]``."""
+    return items[0] if len(items) == 1 else "[" + ", ".join(items) + "]"
+
+
+def _fmt_list(values: Sequence[float], decimals: int) -> str:
+    return "[" + ", ".join(f"{v:.{decimals}f}" for v in values) + "]"
 
 
 def _check_fitted_sgt(estimator: Any, caller: str) -> None:
@@ -685,7 +689,7 @@ def _draw_leaf_text(
     node: dict,
     *,
     is_classifier: bool,
-    class_names: list[str] | None,
+    class_names: list[list[str]] | None,
     criterion: str,
     precision: int,
     fontsize: int | None,
@@ -695,19 +699,33 @@ def _draw_leaf_text(
 ) -> list:
     """Render a leaf as bold colored text (no box).
 
+    ``node`` may also be an internal node cut off by ``max_depth``. Regressor
+    internals carry no ``value``, so they render as ``"…"``; classifier
+    internals still carry ``class_counts`` and show their majority class.
+    Multi-output nodes show one entry per output, as ``[a, b]``.
+
     Returns a list of Text artists (one bold class/value line, optional
     subtitle lines for ``label='all'``).
     """
     artists: list = []
 
     if is_classifier:
-        counts_by_output = list(node.get("class_counts", []))
-        counts = list(counts_by_output[0]) if counts_by_output else []
-        if counts:
-            arg = max(range(len(counts)), key=lambda i: counts[i])
-            primary = class_names[arg] if class_names is not None else str(arg)
-        else:
-            primary = ""
+        assert class_names is not None
+        counts_by_output = node.get("class_counts") or []
+        primary = (
+            _per_output(
+                [
+                    class_names[o][int(np.argmax(counts))]
+                    for o, counts in enumerate(counts_by_output)
+                ]
+            )
+            if counts_by_output
+            else ""
+        )
+    elif node["value"] is None:
+        primary = "…"
+    elif isinstance(node["value"], (list, tuple)):
+        primary = _fmt_list(node["value"], precision)
     else:
         primary = f"{node['value']:.{precision}f}"
 
@@ -1384,9 +1402,13 @@ def plot_tree(
     feature_names : list of str, optional
         Display names for input columns.
     class_names : list of str, bool, or None, default=None
-        Class labels shown on classifier leaves.
+        Class labels shown on classifier leaves. For multi-output
+        classifiers, pass one list per output.
     label : str, default="feature"
-        Controls field-name labels in node text.
+        Controls field-name labels in node text. The ``n=`` counts are the
+        rounded weighted sample counts for classifiers (so they reflect
+        ``sample_weight`` and ``class_weight``) and unweighted training
+        sample counts for regressors.
     impurity : bool, default=False
         Whether to display node impurity.
     proportion : bool, default=False
@@ -1446,19 +1468,20 @@ def plot_tree(
     palette = _build_palette(cmap, tree["num_partitions"])
 
     is_classifier = isinstance(estimator, SGTClassifier)
-    resolved_class_names: list[str] | None
+    # One list of class labels per output.
+    resolved_class_names: list[list[str]] | None
     if not is_classifier:
         resolved_class_names = None
-    elif class_names is True:
-        clf_estimator: SGTClassifier = estimator  # type: ignore[assignment]
-        classes: Any = (
-            clf_estimator.classes_ if clf_estimator.classes_ is not None else []
-        )
-        resolved_class_names = [str(c) for c in classes]
     elif class_names in (None, False):
-        resolved_class_names = [str(c) for c in range(tree["num_classes"][0])]
+        resolved_class_names = [[str(c) for c in range(k)] for k in tree["num_classes"]]
     else:
-        resolved_class_names = list(class_names)  # type: ignore[arg-type]
+        names: Any = (
+            estimator.classes_  # type: ignore[union-attr]
+            if class_names is True
+            else class_names
+        )
+        names_per_output = [names] if tree["num_outputs"] == 1 else names
+        resolved_class_names = [[str(c) for c in n] for n in names_per_output]
 
     feat_names = _resolve_feature_names(estimator, feature_names)
 
