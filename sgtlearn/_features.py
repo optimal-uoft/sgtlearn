@@ -81,9 +81,20 @@ def _feature_dict_to_features(
     if len(all_idxs) != len(set(all_idxs)):
         raise ValueError("Feature indices must be unique")
 
-    for i in range(n_features):
-        if i not in all_idxs:
-            index_dict[i] = [i]
+    listed = set(all_idxs)
+    unlisted = [i for i in range(n_features) if i not in listed]
+    # An int key equal to an unlisted column's index would be overwritten by
+    # that column's auto-filled singleton, silently dropping the group (#81).
+    clashes = [i for i in unlisted if i in index_dict]
+    if clashes:
+        raise ValueError(
+            f"feature_dict key(s) {clashes} equal the index of a column that no "
+            "group lists, so they would collide with that column's auto-filled "
+            "feature; use a different key (e.g. a str name) or list the column "
+            "in a group"
+        )
+    for i in unlisted:
+        index_dict[i] = [i]
 
     out: list[FeatureInfoDict] = []
     logical_names: list[str] = []
@@ -117,8 +128,9 @@ def configure_feature_dict(
         (``int``) or column names (``str``) when ``column_names`` or a pandas
         ``DataFrame`` was used for training. A group with more than one column
         is categorical; singletons are continuous. Unmentioned columns are
-        filled in as continuous singletons. When omitted, each column is its
-        own continuous feature.
+        filled in as continuous singletons keyed by their index, so an ``int``
+        key must not equal the index of an unmentioned column (``ValueError``).
+        When omitted, each column is its own continuous feature.
     column_names
         Names of columns in ``X``, used to resolve string column references in
         ``feature_dict``.

@@ -42,6 +42,35 @@ def test_configure_feature_dict_rejects_duplicate_indices() -> None:
         configure_feature_dict(4, feature_dict={0: [0], 1: [0]})
 
 
+@pytest.mark.parametrize("feature_dict", [{0: [2, 3]}, {5: [0, 1, 2]}])
+def test_configure_feature_dict_rejects_int_key_colliding_with_unlisted_column(
+    feature_dict: FeatureDict,
+) -> None:
+    # Regression (#81): the auto-filled column used to overwrite the user's group.
+    with pytest.raises(ValueError, match="collide"):
+        configure_feature_dict(6, feature_dict)
+
+
+def test_fit_rejects_int_key_colliding_with_unlisted_column() -> None:
+    X, y = make_classification(n_samples=60, n_features=6, random_state=0)
+    with pytest.raises(ValueError, match="collide"):
+        SGTClassifier(tao_n_runs=0).fit(X, y, feature_dict={0: [2, 3]})
+
+
+@pytest.mark.parametrize(
+    "feature_dict",
+    [{9: [2, 3]}, {0: [0, 1]}, {"0": [2, 3]}, {"a": [0, 5], 3: [2, 3]}, {7: [4]}],
+)
+def test_configure_feature_dict_covers_every_column_exactly_once(
+    feature_dict: FeatureDict,
+) -> None:
+    pf = configure_feature_dict(6, feature_dict)
+    cols = sorted(c for f in pf.features for c in f["indices"])
+    assert cols == list(range(6))
+    groups = [f["indices"] for f in pf.features]
+    assert all(list(cols) in groups for cols in feature_dict.values())
+
+
 @pytest.mark.parametrize(
     ("feature_dict", "column_names", "match"),
     [
