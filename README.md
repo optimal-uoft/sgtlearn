@@ -12,10 +12,6 @@
   - **SGT<sub>K</sub>:** Multi-way branching generalization.
   - **Shape²CART & ShapeCART<sub>K</sub>:** Algorithms for learning S²GTs and SGT<sub>K</sub>s.
 
-
-> [!NOTE]
-> This codebase is an efficient implementation of the algorithms in "Empowering Decision Trees via Shape Function Branching." See the [ROADMAP](ROADMAP.md) for implementation status and the [canonical research code](https://github.com/optimal-uoft/Empowering-DTs-via-Shape-Functions) for the paper's original implementation.
-
 ## Installation
 
 ```bash
