@@ -141,7 +141,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
-        inner_max_depth: int = 3,
+        inner_max_depth: int | None = None,
         inner_max_leaf_nodes: int = 8,
         inner_min_samples_leaf: int = 1,
         inner_min_impurity_decrease: float = 0.0,

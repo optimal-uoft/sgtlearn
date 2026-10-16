@@ -318,12 +318,17 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Constant nonnegative cost subtracted from total sample-weighted,
         output-averaged impurity improvement. An outer split must have finite
         improvement after all costs strictly greater than double epsilon.
-    inner_max_depth : int, default=3
+    inner_max_depth : int or None, default=None
         Maximum depth of the *inner* tree that defines the shape function on
         each feature. ``1`` corresponds to a standard CART threshold split;
-        larger values produce richer shapes.
+        larger values produce richer shapes. ``None`` means unlimited depth,
+        so ``inner_max_leaf_nodes`` alone controls the inner tree size.
     inner_max_leaf_nodes : int, default=8
         Maximum number of bins (leaves) the inner tree may form on a feature.
+        The inner tree grows best-first until this limit. Both limits apply
+        together: depth ``d`` allows at most ``2**d`` leaves, so setting
+        ``inner_max_depth`` with ``2**d <= inner_max_leaf_nodes`` makes the
+        leaf limit ineffective.
     inner_min_samples_leaf : int, default=1
         Minimum samples per inner-tree leaf.
     inner_min_impurity_decrease : float, default=0.0
@@ -456,7 +461,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
-        inner_max_depth: int = 3,
+        inner_max_depth: int | None = None,
         inner_max_leaf_nodes: int = 8,
         inner_min_samples_leaf: int = 1,
         inner_min_impurity_decrease: float = 0.0,
@@ -789,11 +794,17 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Constant nonnegative cost subtracted from total sample-weighted,
         output-averaged impurity improvement. An outer split must have finite
         improvement after all costs strictly greater than double epsilon.
-    inner_max_depth : int, default=3
-        Maximum depth of the inner tree defining the shape function on each
-        feature. ``1`` reduces to a standard threshold split.
+    inner_max_depth : int or None, default=None
+        Maximum depth of the *inner* tree that defines the shape function on
+        each feature. ``1`` corresponds to a standard CART threshold split;
+        larger values produce richer shapes. ``None`` means unlimited depth,
+        so ``inner_max_leaf_nodes`` alone controls the inner tree size.
     inner_max_leaf_nodes : int, default=8
         Maximum number of bins (leaves) the inner tree may form on a feature.
+        The inner tree grows best-first until this limit. Both limits apply
+        together: depth ``d`` allows at most ``2**d`` leaves, so setting
+        ``inner_max_depth`` with ``2**d <= inner_max_leaf_nodes`` makes the
+        leaf limit ineffective.
     inner_min_samples_leaf : int, default=1
         Minimum samples per inner-tree leaf.
     inner_min_impurity_decrease : float, default=0.0
@@ -908,7 +919,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 1,
         min_impurity_decrease: float = 0.0,
-        inner_max_depth: int = 3,
+        inner_max_depth: int | None = None,
         inner_max_leaf_nodes: int = 8,
         inner_min_samples_leaf: int = 1,
         inner_min_impurity_decrease: float = 0.0,
