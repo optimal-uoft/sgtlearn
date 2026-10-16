@@ -232,12 +232,14 @@ _PANEL_CAT_PX = 16  # one categorical column or row
 _PANEL_PAIR_CELLS = 24  # cells across a continuous pair axis
 _PANEL_PAIR_PX = 4
 _PANEL_MARGIN_CELLS = 6  # depth of a pair node's marginal histogram
-_PANEL_NAN_PX = 10
+_PANEL_NAN_PX = 18  # fits an 8pt "NaN" label
 _PANEL_GAP_PX = 4
 _PANEL_TINT = 0.4  # shading strength of the routing background
 _PANEL_MARGIN_COLOR = "#9e9e9e"
+_PANEL_TICK_COLOR = "#555555"
 
 #: One panel cell: (width px, height px, fill color or None, text or None).
+#: Text ``""`` continues the text cell to its left, which then spans it.
 _Cell = tuple[int, int, "str | None", "str | None"]
 
 
@@ -296,9 +298,14 @@ def _html_grid(grid: list[list[_Cell]]) -> str:
         while j < len(row):
             w, h, color, text = row[j]
             if text is not None:
-                body = f'<FONT POINT-SIZE="8">{html.escape(text)}</FONT>'
-                out.append(f'<TD WIDTH="{w}" HEIGHT="{h}">{body}</TD>')
-                j += 1
+                span = 1
+                while j + span < len(row) and row[j + span][3] == "":
+                    w += row[j + span][0]
+                    span += 1
+                lines = "<BR/>".join(html.escape(t) for t in text.split("\n"))
+                body = f'<FONT POINT-SIZE="8">{lines}</FONT>' if text else ""
+                out.append(f'<TD COLSPAN="{span}" WIDTH="{w}" HEIGHT="{h}">{body}</TD>')
+                j += span
                 continue
             # Merge a run of same-colored cells into one spanning cell.
             span = 1
@@ -378,15 +385,71 @@ def _univariate_panel(
             parts += [None, int(node.get("nan_prediction_partition", 0))]
             widths += [_PANEL_GAP_PX, _PANEL_NAN_PX]
             counts += [0, int(n_missing)]
-    breaks = [
-        t for t, a, b in zip(thresholds, b2p[:-1], b2p[1:]) if a != b and lo < t < hi
+    # Tick and label each visible color switch, with the threshold that
+    # causes it (the one closest to the column boundary).
+    breaks = [t for t, a, b in zip(thresholds, b2p[:-1], b2p[1:]) if a != b]
+    cols = [j for j in range(1, _PANEL_FINE_COLS) if parts[j] != parts[j - 1]]
+    labels = [
+        (j, f"{min(breaks, key=lambda t: abs(t - edges[j])):.{decimals}f}")
+        for j in cols
     ]
-    middle = ", ".join(f"{t:.{decimals}f}" for t in breaks)
-    caption = (
-        f"{lo:.{decimals}f}  |  {middle}  |  " if breaks else f"{lo:.{decimals}f} to "
-    )
-    caption += f"{hi:.{decimals}f}" + ("   NaN" if n_missing else "")
-    return _bar_rows(widths, parts, counts), [caption]
+    rows_out = _axis_rows(labels, f"{lo:.{decimals}f}", f"{hi:.{decimals}f}")
+    tick: list[_Cell] = [
+        (_PANEL_FINE_PX, 3, _PANEL_TICK_COLOR if j in cols else None, None)
+        for j in range(_PANEL_FINE_COLS)
+    ]
+    grid = _bar_rows(widths, parts, counts) + [tick] + rows_out
+    if len(widths) > _PANEL_FINE_COLS:  # NaN column: blank tick, label under it
+        tick += [(_PANEL_GAP_PX, 3, None, None), (_PANEL_NAN_PX, 3, None, None)]
+        for i, row in enumerate(rows_out):
+            nan = "NaN" if i == 0 else None
+            row += [
+                (_PANEL_GAP_PX, row[0][1], None, None),
+                (_PANEL_NAN_PX, row[0][1], None, nan),
+            ]
+    return grid, []
+
+
+def _axis_rows(labels: list[tuple[int, str]], lo: str, hi: str) -> list[list[_Cell]]:
+    """Label rows under a continuous axis, each label centered on its column.
+
+    Labels that would overlap move to a further row. The axis ends ``lo`` and
+    ``hi`` are added at the edges only where they fit in an existing row.
+    """
+    n = _PANEL_FINE_COLS
+
+    def width(text: str) -> int:  # columns needed by an 8pt label (~5px/char)
+        return min(n, -(-(5 * len(text) + 4) // _PANEL_FINE_PX))
+
+    placed: list[list[tuple[int, int, str]]] = []  # per row: (start, stop, text)
+
+    def place(start: int, text: str, new_row: bool) -> None:
+        stop = start + width(text)
+        for row in placed:
+            if all(stop + 1 <= a or start >= b + 1 for a, b, _ in row):
+                row.append((start, stop, text))
+                return
+        if new_row:
+            placed.append([(start, stop, text)])
+
+    for col, text in labels:
+        start = min(max(col - width(text) // 2, 0), n - width(text))
+        place(start, text, new_row=True)
+    if not placed:
+        placed.append([])
+    place(0, lo, new_row=False)
+    place(n - width(hi), hi, new_row=False)
+
+    out = []
+    for row in placed:
+        cells: list[_Cell] = [(_PANEL_FINE_PX, 12, None, None)] * n
+        for start, stop, text in row:
+            cells[start] = (_PANEL_FINE_PX, 12, None, text)
+            cells[start + 1 : stop] = [(_PANEL_FINE_PX, 12, None, "")] * (
+                stop - start - 1
+            )
+        out.append(cells)
+    return out
 
 
 def _categorical_panel(

@@ -351,7 +351,10 @@ def test_export_graphviz_panels_and_out_file(tmp_path):
     assert _panel_text(panels[0]) == [
         'x "q"',
         "samples = 5",
-        "0.00  |  1.50  |  3.00   NaN",
+        "0.00",
+        "1.50",
+        "3.00",
+        "NaN",
     ]
     assert sorted(label for label, _ in leaves.values()) == [
         "samples = 2\nvalue = 1.00",
@@ -361,10 +364,8 @@ def test_export_graphviz_panels_and_out_file(tmp_path):
         'x "q" <= 1.50 or x "q" is missing',
         'x "q" > 1.50',
     ]
-    assert (
-        _panel_text(_parse_dot(export_graphviz(model))[1][0])[-1]
-        == "0.50  |  1.50  |  2.50"
-    )
+    no_x = _panel_text(_parse_dot(export_graphviz(model))[1][0])
+    assert no_x[-3:] == ["0.50", "1.50", "2.50"]
     path = tmp_path / "tree.dot"
     out = export_graphviz(model, out_file=path, X=X, feature_names=['x "q"'])
     assert out is None and path.read_text() == dot
@@ -379,6 +380,58 @@ def test_export_graphviz_panels_and_out_file(tmp_path):
         "value = [2.00, 2.00]",
         "class = neg",
     ]
+
+
+@pytest.mark.parametrize("make", [_univariate_regressor, _categorical_classifier])
+def test_export_graphviz_axis_labels_line_up(make):
+    """Ticks sit on color switches, threshold labels center on their tick, and
+    "NaN" sits under the NaN column."""
+    model, X = make()
+    tree = model.tree_export()
+    _, panels, _ = _parse_dot(export_graphviz(model, X=X))
+    checked = 0
+    for node in tree["nodes"]:
+        if node["is_leaf"] or _is_categorical_node(node) or _is_pair_node(node):
+            continue
+        grid = next(t for t in panels[node["id"]].iter("TABLE") if t.get("FIXEDSIZE"))
+        rows = grid.findall("TR")
+        tick_rows = [
+            i
+            for i, r in enumerate(rows)
+            if "#555555" in ElementTree.tostring(r, "unicode")
+        ]
+        if not tick_rows:  # no visible switch, so nothing to line up
+            continue
+        tick_i = tick_rows[0]
+        top, tick, labels = rows[0], rows[tick_i], rows[tick_i + 1 : -1]
+
+        def cells(row):  # (first column, last column, td)
+            col, out = 0, []
+            for td in row.findall("TD"):
+                n = int(td.get("COLSPAN", 1))
+                out.append((col, col + n - 1, td))
+                col += n
+            return out
+
+        def per_column(row):
+            return [
+                td.get("BGCOLOR") for a, b, td in cells(row) for _ in range(a, b + 1)
+            ]
+
+        n_fine = 80
+        bg = per_column(top)[:n_fine]
+        switches = {j for j in range(1, n_fine) if bg[j] != bg[j - 1]}
+        ticks = {j for j, c in enumerate(per_column(tick)) if c == "#555555"}
+        assert ticks == switches
+        for row_i, row in enumerate(labels):
+            for a, b, td in cells(row):
+                text = "".join(td.itertext())
+                if text == "NaN":
+                    assert row_i == 0 and (a, b) == cells(top)[-1][:2]
+                elif text and 0 < a and b < n_fine - 1:  # not an axis-end label
+                    assert min(abs((a + b + 1) / 2 - j) for j in ticks) <= 1, text
+        checked += 1
+    assert checked
 
 
 def test_export_graphviz_categorical_and_pair_panels():
