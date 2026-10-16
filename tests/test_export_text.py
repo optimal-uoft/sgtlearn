@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from xml.etree import ElementTree
 
 import numpy as np
 import pytest
@@ -12,6 +13,7 @@ from sklearn.tree import DecisionTreeClassifier
 import sgtlearn
 from sgtlearn import SGTClassifier, SGTRegressor, export_graphviz, export_text
 from sgtlearn._export import (
+    _DEFAULT_PALETTE_COLORS,
     _active_onehot_column,
     _child_regions,
     _format_region,
@@ -244,25 +246,44 @@ def test_export_text_validates_inputs():
         export_text(model, feature_names=["only_one"])
 
 
-_DOT_NODE = re.compile(
-    r'^(\d+) \[label="((?:[^"\\]|\\.)*)"(?:, fillcolor="(#[0-9a-f]{6})")?\] ;$'
+_DOT_LEAF = re.compile(
+    r'^(\d+) \[shape=box, style="[a-z, ]+", label="((?:[^"\\]|\\.)*)"'
+    r'(?:, fillcolor="(#[0-9a-f]{6})")?\] ;$'
 )
-_DOT_EDGE = re.compile(r'^(\d+) -> (\d+) \[label="((?:[^"\\]|\\.)*)"\] ;$')
+_DOT_PANEL = re.compile(r"^(\d+) \[shape=plain, label=<(.*)>\] ;$")
+_DOT_EDGE = re.compile(
+    r'^(\d+) -> (\d+) \[color="(#[0-9A-Fa-f]{6})", tooltip="((?:[^"\\]|\\.)*)"\] ;$'
+)
+_PALETTE = [c.lower() for c in _DEFAULT_PALETTE_COLORS]
 
 
-def _parse_dot(dot: str) -> tuple[dict, list]:
-    """Parse ``export_graphviz`` output; every body line must be a node or edge."""
+def _parse_dot(dot: str) -> tuple[dict, dict, list]:
+    """Parse ``export_graphviz`` output; every body line must be a node or edge.
+
+    Returns leaves ``{id: (label, fillcolor)}``, panels ``{id: XML element}``
+    and edges ``[(parent, child, color, tooltip)]``.
+    """
     lines = dot.splitlines()
     assert lines[0] == "digraph Tree {" and lines[-1] == "}"
-    nodes, edges = {}, []
+    leaves, panels, edges = {}, {}, []
     for line in lines[3:-1]:
-        if m := _DOT_NODE.match(line):
-            nodes[int(m[1])] = (m[2].replace("\\n", "\n"), m[3])
+        if m := _DOT_LEAF.match(line):
+            leaves[int(m[1])] = (m[2].replace("\\n", "\n"), m[3])
+        elif m := _DOT_PANEL.match(line):
+            panels[int(m[1])] = ElementTree.fromstring(m[2])  # well-formed HTML label
         else:
             m = _DOT_EDGE.match(line)
             assert m, line
-            edges.append((int(m[1]), int(m[2]), m[3].replace('\\"', '"')))
-    return nodes, edges
+            edges.append((int(m[1]), int(m[2]), m[3].lower(), m[4].replace('\\"', '"')))
+    return leaves, panels, edges
+
+
+def _panel_colors(panel: ElementTree.Element) -> set[str]:
+    return {td.get("BGCOLOR").lower() for td in panel.iter("TD") if td.get("BGCOLOR")}
+
+
+def _panel_text(panel: ElementTree.Element) -> list[str]:
+    return [t.strip() for t in panel.itertext() if t.strip()]
 
 
 @pytest.mark.parametrize(
@@ -270,20 +291,20 @@ def _parse_dot(dot: str) -> tuple[dict, list]:
     [_univariate_regressor, _categorical_classifier, _pair_classifier, _pair_regressor],
 )
 def test_export_graphviz_matches_export_text(make):
-    model, _ = make()
+    model, X = make()
     tree = model.tree_export()
-    nodes, edges = _parse_dot(export_graphviz(model, filled=True))
-    assert set(nodes) == {n["id"] for n in tree["nodes"]}
-    assert all(color for _, color in nodes.values())
-    assert sorted((a, b) for a, b, _ in edges) == sorted(
+    by_id = {n["id"]: n for n in tree["nodes"]}
+    leaves, panels, edges = _parse_dot(export_graphviz(model, X=X, filled=True))
+    assert set(leaves) == {n["id"] for n in tree["nodes"] if n["is_leaf"]}
+    assert set(panels) == {n["id"] for n in tree["nodes"] if not n["is_leaf"]}
+    assert all(color for _, color in leaves.values())
+    for parent, child, color, _ in edges:
+        k = by_id[parent]["children"].index(child)
+        assert color == _PALETTE[k % len(_PALETTE)]
+    assert sorted((a, b) for a, b, *_ in edges) == sorted(
         (n["id"], c) for n in tree["nodes"] for c in n["children"]
     )
-    child_lines = [
-        line.split("|--- ", 1)[1]
-        for line in export_text(model).splitlines()
-        if "|--- class:" not in line and "|--- value:" not in line
-    ]
-    by_id = {n["id"]: n for n in tree["nodes"]}
+
     dfs: list[tuple[int, int]] = []
 
     def walk(nid: int) -> None:  # export_text's line order
@@ -292,35 +313,91 @@ def test_export_graphviz_matches_export_text(make):
             walk(cid)
 
     walk(tree["root_index"])
-    labels = {(a, b): label for a, b, label in edges}
-    assert [labels[e] for e in dfs] == child_lines
-
-
-def test_export_graphviz_node_labels_and_out_file(tmp_path):
-    X = np.arange(4.0)[:, None]
-    model = SGTRegressor(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
-        X, np.array([0.0, 0.0, 1.0, 1.0])
-    )
-    dot = export_graphviz(model, feature_names=['x "q"'])
-    nodes, edges = _parse_dot(dot)
-    assert nodes[0] == ('x \\"q\\"\nsamples = 4', None)
-    assert sorted(label for label, _ in list(nodes.values())[1:]) == [
-        "samples = 2\nvalue = 0.00",
-        "samples = 2\nvalue = 1.00",
+    tips = {(a, b): tip for a, b, _, tip in edges}
+    child_lines = [
+        line.split("|--- ", 1)[1]
+        for line in export_text(model).splitlines()
+        if "|--- class:" not in line and "|--- value:" not in line
     ]
-    assert [label for *_, label in edges] == [
+    assert [tips[e] for e in dfs] == child_lines
+
+
+@pytest.mark.parametrize(
+    "make",
+    [_univariate_regressor, _categorical_classifier, _pair_classifier, _pair_regressor],
+)
+def test_export_graphviz_histograms_only_with_X(make):
+    """Full child colors mark histogram bars or occupied cells; tints the routing."""
+    model, X = make()
+    _, with_x, _ = _parse_dot(export_graphviz(model, X=X))
+    _, without_x, _ = _parse_dot(export_graphviz(model))
+    reached = {n["id"] for n in model.tree_export()["nodes"] if n["n_samples"]}
+    for nid, panel in with_x.items():
+        if nid in reached:
+            assert _panel_colors(panel) & set(_PALETTE), nid
+    for panel in without_x.values():
+        colors = _panel_colors(panel)
+        assert colors and not colors & set(_PALETTE)
+        assert "#9e9e9e" not in colors  # no pair marginals
+
+
+def test_export_graphviz_panels_and_out_file(tmp_path):
+    X = np.array([[0.0], [1.0], [2.0], [3.0], [np.nan]])
+    model = SGTRegressor(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
+        X, np.array([0.0, 0.0, 1.0, 1.0, 0.0])
+    )
+    dot = export_graphviz(model, X=X, feature_names=['x "q"'])
+    leaves, panels, edges = _parse_dot(dot)
+    assert _panel_text(panels[0]) == [
+        'x "q"',
+        "samples = 5",
+        "0.00  |  1.50  |  3.00   NaN",
+    ]
+    assert sorted(label for label, _ in leaves.values()) == [
+        "samples = 2\nvalue = 1.00",
+        "samples = 3\nvalue = 0.00",
+    ]
+    assert [tip for *_, tip in edges] == [
         'x "q" <= 1.50 or x "q" is missing',
         'x "q" > 1.50',
     ]
+    assert (
+        _panel_text(_parse_dot(export_graphviz(model))[1][0])[-1]
+        == "0.50  |  1.50  |  2.50"
+    )
     path = tmp_path / "tree.dot"
-    assert export_graphviz(model, out_file=path, feature_names=['x "q"']) is None
-    assert path.read_text() == dot
+    out = export_graphviz(model, out_file=path, X=X, feature_names=['x "q"'])
+    assert out is None and path.read_text() == dot
 
     clf = SGTClassifier(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
-        X, ["a", "a", "b", "b"]
+        X[:4], ["a", "a", "b", "b"]
     )
-    root = _parse_dot(export_graphviz(clf, class_names=["neg", "pos"]))[0][0][0]
-    assert root == "X[0]\nsamples = 4\nvalue = [2.00, 2.00]\nclass = neg"
+    root = _parse_dot(export_graphviz(clf, class_names=["neg", "pos"]))[1][0]
+    assert _panel_text(root)[:4] == [
+        "X[0]",
+        "samples = 4",
+        "value = [2.00, 2.00]",
+        "class = neg",
+    ]
+
+
+def test_export_graphviz_categorical_and_pair_panels():
+    model, X = _pair_classifier()
+    panels = _parse_dot(
+        export_graphviz(model, X=X, feature_names=["x", "red", "blue"])
+    )[1]
+    text = _panel_text(panels[model.tree_export()["root_index"]])
+    assert text[0] == "x & [red, blue]"
+    assert text[-2:] == [
+        "x-axis: x, -1.00 to 1.00",
+        "y-axis: [red, blue] in {red, blue}",
+    ]
+
+    model, X = _categorical_classifier()
+    root = _parse_dot(export_graphviz(model, X=X))[1][0]
+    labels = _panel_text(root)[4:]
+    assert labels.count("NaN") == 1  # the empty category bin is the NaN column
+    assert len(labels) == 5
 
 
 def test_export_graphviz_is_public_and_validates_inputs():
@@ -330,3 +407,5 @@ def test_export_graphviz_is_public_and_validates_inputs():
     model = SGTRegressor(tao_n_runs=0).fit(np.zeros((4, 2)), np.arange(4.0))
     with pytest.raises(ValueError, match="feature_names"):
         export_graphviz(model, feature_names=["only_one"])
+    with pytest.raises(ValueError, match="features"):
+        export_graphviz(model, X=np.zeros((3, 3)))
