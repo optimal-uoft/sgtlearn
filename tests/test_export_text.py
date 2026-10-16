@@ -15,6 +15,7 @@ from sgtlearn import SGTClassifier, SGTRegressor, export_graphviz, export_text
 from sgtlearn._export import (
     _DEFAULT_PALETTE_COLORS,
     _active_onehot_column,
+    _blend_white,
     _child_regions,
     _format_region,
     _is_categorical_node,
@@ -441,16 +442,54 @@ def test_export_graphviz_categorical_and_pair_panels():
     )[1]
     text = _panel_text(panels[model.tree_export()["root_index"]])
     assert text[0] == "x & [red, blue]"
-    assert text[-2:] == [
-        "x-axis: x, -1.00 to 1.00",
-        "y-axis: [red, blue] in {red, blue}",
-    ]
+    assert text[-2:] == ["x-axis: x", "y-axis: [red, blue]"]
+    assert {"red", "blue", "NaN", "-1.00", "1.00"} <= set(text)
 
     model, X = _categorical_classifier()
     root = _parse_dot(export_graphviz(model, X=X))[1][0]
     labels = _panel_text(root)[4:]
     assert labels.count("NaN") == 1  # the empty category bin is the NaN column
     assert len(labels) == 5
+
+
+def test_export_graphviz_pair_ticks_line_up():
+    """Pair heatmap ticks sit on the color switches along each continuous axis,
+    including switches visible only in the other axis's missing margin."""
+    model, X = _pair_regressor()
+    tree = model.tree_export()
+    _, panels, _ = _parse_dot(export_graphviz(model, X=X))
+    child = {}
+    for k, color in enumerate(_PALETTE):
+        child[color] = child[_blend_white(color, 0.4)] = k
+
+    def per_column(row):
+        return [
+            (td.get("BGCOLOR") or "").lower()
+            for td in row.findall("TD")
+            for _ in range(int(td.get("COLSPAN", 1)))
+        ]
+
+    n, checked = 24, 0  # continuous cells per pair axis
+    for node in tree["nodes"]:
+        if node["is_leaf"] or not _is_pair_node(node):
+            continue
+        grid = next(
+            t
+            for t in panels[node["id"]].iter("TABLE")
+            if t.find("TR/TD[@BGCOLOR]") is not None
+        )
+        rows = [per_column(r) for r in grid.findall("TR")]
+        heat = [r for r in rows if any(c in child for c in r)]  # + missing row
+        kids = [[child.get(c) for c in r[1:]] for r in heat]  # + missing column
+        x_switch = {i + 1 for i in range(1, n) if any(r[i] != r[i - 1] for r in kids)}
+        y_switch = {j for j in range(1, n) if kids[j] != kids[j - 1]}
+        x_ticks = {
+            i for r in rows if r not in heat for i, c in enumerate(r) if c == "#555555"
+        }
+        y_ticks = {j for j, r in enumerate(heat) if r[0] == "#555555"}
+        assert (x_ticks, y_ticks) == (x_switch, y_switch)
+        checked += 1
+    assert checked
 
 
 def test_export_graphviz_is_public_and_validates_inputs():

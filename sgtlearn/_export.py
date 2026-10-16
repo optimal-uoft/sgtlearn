@@ -257,15 +257,15 @@ def _panel_label(
 ) -> str:
     """HTML-like label: feature name, node stats, shape-function panel, captions."""
     if _is_pair_node(node):
-        grid, captions = _pair_panel(node, rows, group_label, decimals)
+        chart, captions = _pair_panel(node, rows, group_label, decimals)
     elif _is_categorical_node(node):
-        grid, captions = _categorical_panel(node, rows, feat_names)
+        chart, captions = _categorical_panel(node, rows, feat_names)
     else:
-        grid, captions = _univariate_panel(node, rows, decimals)
+        chart, captions = _univariate_panel(node, rows, decimals)
     title = html.escape(_node_feature_label(node, feat_names, group_label))
     parts = [f"<TR><TD><B>{title}</B></TD></TR>"]
     parts += [_html_text_row(s, 10) for s in stats]
-    parts.append(f"<TR><TD>{_html_grid(grid)}</TD></TR>")
+    parts.append(f"<TR><TD>{chart}</TD></TR>")
     parts += [_html_text_row(c, 9) for c in captions]
     return (
         '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2" '
@@ -363,7 +363,7 @@ def _axis_extent(finite: np.ndarray, thresholds: list[float]) -> tuple[float, fl
 
 def _univariate_panel(
     node: dict, rows: np.ndarray | None, decimals: int
-) -> tuple[list[list[_Cell]], list[str]]:
+) -> tuple[str, list[str]]:
     thresholds = list(node["thresholds"])
     b2p = _finite_routing_bins(thresholds, list(node["bin_to_partition"]))
     values = rows[:, int(node["feature"])] if rows is not None else np.empty(0)
@@ -393,7 +393,13 @@ def _univariate_panel(
         (j, f"{min(breaks, key=lambda t: abs(t - edges[j])):.{decimals}f}")
         for j in cols
     ]
-    rows_out = _axis_rows(labels, f"{lo:.{decimals}f}", f"{hi:.{decimals}f}")
+    rows_out = _axis_rows(
+        labels,
+        f"{lo:.{decimals}f}",
+        f"{hi:.{decimals}f}",
+        _PANEL_FINE_COLS,
+        _PANEL_FINE_PX,
+    )
     tick: list[_Cell] = [
         (_PANEL_FINE_PX, 3, _PANEL_TICK_COLOR if j in cols else None, None)
         for j in range(_PANEL_FINE_COLS)
@@ -407,19 +413,20 @@ def _univariate_panel(
                 (_PANEL_GAP_PX, row[0][1], None, None),
                 (_PANEL_NAN_PX, row[0][1], None, nan),
             ]
-    return grid, []
+    return _html_grid(grid), []
 
 
-def _axis_rows(labels: list[tuple[int, str]], lo: str, hi: str) -> list[list[_Cell]]:
-    """Label rows under a continuous axis, each label centered on its column.
+def _axis_rows(
+    labels: list[tuple[int, str]], lo: str, hi: str, n: int, col_px: int
+) -> list[list[_Cell]]:
+    """Label rows under ``n`` axis columns, each label centered on its column.
 
     Labels that would overlap move to a further row. The axis ends ``lo`` and
     ``hi`` are added at the edges only where they fit in an existing row.
     """
-    n = _PANEL_FINE_COLS
 
-    def width(text: str) -> int:  # columns needed by an 8pt label (~5px/char)
-        return min(n, -(-(5 * len(text) + 4) // _PANEL_FINE_PX))
+    def width(text: str) -> int:  # columns needed by an 8pt label
+        return min(n, -(-_label_px(text) // col_px))
 
     placed: list[list[tuple[int, int, str]]] = []  # per row: (start, stop, text)
 
@@ -442,19 +449,17 @@ def _axis_rows(labels: list[tuple[int, str]], lo: str, hi: str) -> list[list[_Ce
 
     out = []
     for row in placed:
-        cells: list[_Cell] = [(_PANEL_FINE_PX, 12, None, None)] * n
+        cells: list[_Cell] = [(col_px, 12, None, None)] * n
         for start, stop, text in row:
-            cells[start] = (_PANEL_FINE_PX, 12, None, text)
-            cells[start + 1 : stop] = [(_PANEL_FINE_PX, 12, None, "")] * (
-                stop - start - 1
-            )
+            cells[start] = (col_px, 12, None, text)
+            cells[start + 1 : stop] = [(col_px, 12, None, "")] * (stop - start - 1)
         out.append(cells)
     return out
 
 
 def _categorical_panel(
     node: dict, rows: np.ndarray | None, feat_names: list[str]
-) -> tuple[list[list[_Cell]], list[str]]:
+) -> tuple[str, list[str]]:
     """One column per category bin, plus a NaN column when ``rows`` has missing.
 
     A bin with no categories is the missing-value bin; it is drawn as the NaN
@@ -484,10 +489,10 @@ def _categorical_panel(
             counts += [0, n_missing]
             labels += [None, "NaN"]
     # Widen columns to fit their 8pt labels (~5px per character).
-    widths = [max(w, 5 * len(t or "") + 4) for w, t in zip(widths, labels)]
+    widths = [max(w, _label_px(t)) for w, t in zip(widths, labels)]
     grid = _bar_rows(widths, parts, counts)
     grid.append([(w, 12, None, text) for w, text in zip(widths, labels)])
-    return grid, []
+    return _html_grid(grid), []
 
 
 def _pair_axis_layout(
@@ -528,13 +533,16 @@ def _pair_panel(
     rows: np.ndarray | None,
     group_label: Callable[[Sequence[int]], str],
     decimals: int,
-) -> tuple[list[list[_Cell]], list[str]]:
+) -> tuple[str, list[str]]:
     """Routing heatmap (x = first axis, y = second, high values on top).
 
     Cells holding samples are drawn in full color; with ``rows``, gray
-    marginal histograms sit above (x) and to the right (y).
+    marginal histograms sit above (x) and to the right (y). Continuous axes
+    get a tick at each color switch with its threshold label (x below, y to
+    the left); categorical axes label each category.
     """
     x_axis, y_axis = node["pair_axes"]
+    n = _PANEL_PAIR_CELLS
 
     def axis_values(axis: dict) -> np.ndarray | None:
         if rows is None or axis["kind"] != "continuous":
@@ -543,9 +551,30 @@ def _pair_panel(
 
     xs, x_px, x_ext = _pair_axis_layout(node, 0, axis_values(x_axis), rows)
     ys, y_px, y_ext = _pair_axis_layout(node, 1, axis_values(y_axis), rows)
-    if y_axis["kind"] == "continuous":  # high values on top, missing row last
-        n = _PANEL_PAIR_CELLS
+    if y_ext is not None:  # high values on top, missing row last
         ys[:n], y_px[:n] = ys[:n][::-1], y_px[:n][::-1]
+
+    def cell_label(value: object) -> str | None:
+        if value is None:
+            return "NaN"
+        return group_label([value]) if isinstance(value, int) else None
+
+    if x_ext is None:  # widen category columns to fit their labels
+        x_px = [max(w, _label_px(cell_label(v))) for w, v in zip(x_px, xs)]
+
+    part = [
+        [
+            (
+                None
+                if "gap" in (xv, yv)
+                else _route_pair_partition(
+                    node, _pair_cell_row(node, x_axis, xv, y_axis, yv)
+                )
+            )
+            for xv in xs
+        ]
+        for yv in ys
+    ]
     x_counts, y_counts = [0] * len(xs), [0] * len(ys)
     occupied = set()
     for row in rows if rows is not None else []:
@@ -554,28 +583,50 @@ def _pair_panel(
         x_counts[i] += 1
         y_counts[j] += 1
         occupied.add((i, j))
+
+    def switches(lines: list[list[int | None]]) -> list[int]:
+        """Cells ``i`` (of the first ``n``) whose color differs from ``i - 1``."""
+        return [i for i in range(1, n) if any(ln[i] != ln[i - 1] for ln in lines)]
+
+    def boundary_label(a: int, cells: list[object], i: int) -> str:
+        edge = (float(cast(float, cells[i - 1])) + float(cast(float, cells[i]))) / 2
+        cuts = _pair_axis_thresholds(node, a) or [edge]
+        return f"{min(cuts, key=lambda t: abs(t - edge)):.{decimals}f}"
+
+    real_rows = [part[j] for j, yv in enumerate(ys) if yv != "gap"]
+    x_sw = switches(real_rows) if x_ext is not None else []
+    real_cols = [
+        [part[j][i] for j in range(len(ys))] for i, xv in enumerate(xs) if xv != "gap"
+    ]
+    y_sw = switches(real_cols) if y_ext is not None else []
+
     margin = rows is not None and len(rows) > 0
     x_bars = _margin_lengths(x_counts)
     y_bars = _margin_lengths(y_counts)
+
+    def right(h: int) -> list[_Cell]:  # blank cells under/over the y margin
+        return (
+            [(_PANEL_PAIR_PX, h, None, None)] * (_PANEL_MARGIN_CELLS + 1)
+            if margin
+            else []
+        )
+
+    tick_w = 3
     grid: list[list[_Cell]] = []
     if margin:
         for r in range(_PANEL_MARGIN_CELLS, 0, -1):
-            cells: list[_Cell] = [
-                (w, _PANEL_PAIR_PX, _PANEL_MARGIN_COLOR if n >= r else None, None)
-                for w, n in zip(x_px, x_bars)
+            cells: list[_Cell] = [(tick_w, _PANEL_PAIR_PX, None, None)]
+            cells += [
+                (w, _PANEL_PAIR_PX, _PANEL_MARGIN_COLOR if b >= r else None, None)
+                for w, b in zip(x_px, x_bars)
             ]
-            cells += [(_PANEL_PAIR_PX, _PANEL_PAIR_PX, None, None)] * (
-                _PANEL_MARGIN_CELLS + 1
-            )
-            grid.append(cells)
-    for j, (yv, h) in enumerate(zip(ys, y_px)):
-        cells = []
-        for i, (xv, w) in enumerate(zip(xs, x_px)):
+            grid.append(cells + right(_PANEL_PAIR_PX))
+    for j, h in enumerate(y_px):
+        cells = [(tick_w, h, _PANEL_TICK_COLOR if j in y_sw else None, None)]
+        for i, w in enumerate(x_px):
+            k = part[j][i]
             color = None
-            if "gap" not in (xv, yv):
-                k = _route_pair_partition(
-                    node, _pair_cell_row(node, x_axis, xv, y_axis, yv)
-                )
+            if k is not None:
                 color = _partition_color(k) if (i, j) in occupied else _tint(k)
             cells.append((w, h, color, None))
         if margin:
@@ -591,14 +642,118 @@ def _pair_panel(
             ]
         grid.append(cells)
 
-    def caption(side: str, axis: dict, ext: tuple[float, float] | None) -> str:
-        name = group_label(axis["columns"])
-        if ext is None:
-            cats = ", ".join(group_label([c]) for c in axis["categories"])
-            return f"{side}-axis: {name} in {{{cats}}}"
-        return f"{side}-axis: {name}, {ext[0]:.{decimals}f} to {ext[1]:.{decimals}f}"
+    # x labels under the heatmap.
+    tail = list(zip(x_px[n:], xs[n:])) if x_ext is not None else []
+    if x_ext is not None:
+        tick = [(tick_w, 3, None, None)] + [
+            (w, 3, _PANEL_TICK_COLOR if i in x_sw else None, None)
+            for i, w in enumerate(x_px)
+        ]
+        grid.append(tick + right(3))
+        labels = [(i, boundary_label(0, xs, i)) for i in x_sw]
+        lo, hi = (f"{v:.{decimals}f}" for v in x_ext)
+        for r, label_row in enumerate(_axis_rows(labels, lo, hi, n, _PANEL_PAIR_PX)):
+            extra = [(w, 12, None, cell_label(v) if r == 0 else None) for w, v in tail]
+            grid.append([(tick_w, 12, None, None)] + label_row + extra + right(12))
+    else:
+        cats = [(w, 12, None, cell_label(v)) for w, v in zip(x_px, xs)]
+        grid.append([(tick_w, 12, None, None)] + cats + right(12))
 
-    return grid, [caption("x", x_axis, x_ext), caption("y", y_axis, y_ext)]
+    # y labels to the left, centered on their row boundary or row.
+    top = _PANEL_MARGIN_CELLS * _PANEL_PAIR_PX if margin else 0
+    starts = [top + sum(y_px[:j]) for j in range(len(ys) + 1)]
+    marks: list[tuple[float, str]] = []
+    ends: list[tuple[float, str]] = []
+    if y_ext is not None:
+        marks = [(starts[j], boundary_label(1, ys, j)) for j in y_sw]
+        ends = [
+            (starts[0] + 6, f"{y_ext[1]:.{decimals}f}"),
+            (starts[n] - 6, f"{y_ext[0]:.{decimals}f}"),
+        ]
+    for j, yv in enumerate(ys):
+        text = cell_label(yv)
+        if text is not None:
+            marks.append(((starts[j] + starts[j + 1]) / 2, text))
+    height = sum(row[0][1] for row in grid) + 1
+    side, side_px = _side_labels(marks, ends, height)
+    width = side_px + sum(w for w, *_ in grid[0])
+    chart = (
+        '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+        f'FIXEDSIZE="TRUE" WIDTH="{width}" HEIGHT="{height}"><TR>'
+        f"{side}<TD>{_html_grid(grid)}</TD></TR></TABLE>"
+    )
+    names = [
+        f"{s}-axis: {group_label(a['columns'])}" for s, a in zip("xy", (x_axis, y_axis))
+    ]
+    return chart, names
+
+
+def _pair_axis_thresholds(node: dict, a: int) -> list[float]:
+    return sorted(
+        float(s["threshold"])
+        for s in node["pair_inner_tree"]
+        if not s["is_leaf"] and int(s["axis"]) == a and s["kind"] == "continuous"
+    )
+
+
+def _label_px(text: str | None) -> int:
+    """Width of an 8pt label (~5px per character)."""
+    return 5 * len(text or "") + 4
+
+
+def _side_labels(
+    marks: list[tuple[float, str]], ends: list[tuple[float, str]], height: int
+) -> tuple[str, int]:
+    """Columns of right-aligned 12px labels, each centered on its pixel row.
+
+    Returns the cells' HTML and their total width.
+
+    Overlapping ``marks`` move to a further column (further left); ``ends``
+    are added only where they fit in an existing column.
+    """
+    columns: list[list[tuple[int, int, str]]] = []
+
+    def place(center: float, text: str, new_column: bool) -> None:
+        start = min(max(round(center - 6), 0), height - 12)
+        stop = start + 12
+        for col in columns:
+            if all(stop + 1 <= a or start >= b + 1 for a, b, _ in col):
+                col.append((start, stop, text))
+                return
+        if new_column:
+            columns.append([(start, stop, text)])
+
+    for center, text in marks:
+        place(center, text, new_column=True)
+    for center, text in ends:
+        place(center, text, new_column=False)
+    out, total = [], 0
+    for col in reversed(columns):  # the first column sits next to the heatmap
+        width = max(_label_px(t) for *_, t in col)
+        total += width
+        cells, cursor = [], 0
+        for start, stop, text in sorted(col):
+            if start > cursor:
+                cells.append(
+                    f'<TR><TD WIDTH="{width}" HEIGHT="{start - cursor}"></TD></TR>'
+                )
+            body = f'<FONT POINT-SIZE="8">{html.escape(text)}</FONT>'
+            cells.append(
+                f'<TR><TD WIDTH="{width}" HEIGHT="12" FIXEDSIZE="TRUE" ALIGN="RIGHT">'
+                f"{body}</TD></TR>"
+            )
+            cursor = stop
+        if cursor < height:
+            cells.append(
+                f'<TR><TD WIDTH="{width}" HEIGHT="{height - cursor}"></TD></TR>'
+            )
+        out.append(
+            '<TD><TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            f'FIXEDSIZE="TRUE" WIDTH="{width}" HEIGHT="{height}">'
+            + "".join(cells)
+            + "</TABLE></TD>"
+        )
+    return "".join(out), total
 
 
 def _margin_lengths(counts: list[int]) -> list[int]:
