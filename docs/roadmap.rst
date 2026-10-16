@@ -18,7 +18,7 @@ v0.2.0
 
 - ✅ Superset branching on categorical features
 - ✅ More plotting options
-- ⬜ Exporting to Graphviz, planned for v0.4.0 (see
+- ✅ Exporting to Graphviz with ``export_graphviz`` (see
   `issue #69 <https://github.com/optimal-uoft/sgtlearn/issues/69>`_)
 - ✅ Feature importances matching scikit-learn's API for SGTs and :math:`\mathrm{SGT}_K`
 - ✅ TAO refinement

@@ -1,6 +1,8 @@
-"""Contracts for ``sgtlearn.export_text`` and the shared child-region rules."""
+"""Contracts for ``export_text``, ``export_graphviz`` and the shared child-region rules."""
 
 from __future__ import annotations
+
+import re
 
 import numpy as np
 import pytest
@@ -8,7 +10,7 @@ from sklearn.exceptions import NotFittedError
 from sklearn.tree import DecisionTreeClassifier
 
 import sgtlearn
-from sgtlearn import SGTClassifier, SGTRegressor, export_text
+from sgtlearn import SGTClassifier, SGTRegressor, export_graphviz, export_text
 from sgtlearn._export import (
     _active_onehot_column,
     _child_regions,
@@ -242,6 +244,89 @@ def test_export_text_validates_inputs():
         export_text(model, feature_names=["only_one"])
 
 
-def test_export_graphviz_is_not_exported_until_implemented():
-    assert not hasattr(sgtlearn, "export_graphviz")
-    assert "export_graphviz" not in sgtlearn.__all__
+_DOT_NODE = re.compile(
+    r'^(\d+) \[label="((?:[^"\\]|\\.)*)"(?:, fillcolor="(#[0-9a-f]{6})")?\] ;$'
+)
+_DOT_EDGE = re.compile(r'^(\d+) -> (\d+) \[label="((?:[^"\\]|\\.)*)"\] ;$')
+
+
+def _parse_dot(dot: str) -> tuple[dict, list]:
+    """Parse ``export_graphviz`` output; every body line must be a node or edge."""
+    lines = dot.splitlines()
+    assert lines[0] == "digraph Tree {" and lines[-1] == "}"
+    nodes, edges = {}, []
+    for line in lines[3:-1]:
+        if m := _DOT_NODE.match(line):
+            nodes[int(m[1])] = (m[2].replace("\\n", "\n"), m[3])
+        else:
+            m = _DOT_EDGE.match(line)
+            assert m, line
+            edges.append((int(m[1]), int(m[2]), m[3].replace('\\"', '"')))
+    return nodes, edges
+
+
+@pytest.mark.parametrize(
+    "make",
+    [_univariate_regressor, _categorical_classifier, _pair_classifier, _pair_regressor],
+)
+def test_export_graphviz_matches_export_text(make):
+    model, _ = make()
+    tree = model.tree_export()
+    nodes, edges = _parse_dot(export_graphviz(model, filled=True))
+    assert set(nodes) == {n["id"] for n in tree["nodes"]}
+    assert all(color for _, color in nodes.values())
+    assert sorted((a, b) for a, b, _ in edges) == sorted(
+        (n["id"], c) for n in tree["nodes"] for c in n["children"]
+    )
+    child_lines = [
+        line.split("|--- ", 1)[1]
+        for line in export_text(model).splitlines()
+        if "|--- class:" not in line and "|--- value:" not in line
+    ]
+    by_id = {n["id"]: n for n in tree["nodes"]}
+    dfs: list[tuple[int, int]] = []
+
+    def walk(nid: int) -> None:  # export_text's line order
+        for cid in by_id[nid]["children"]:
+            dfs.append((nid, cid))
+            walk(cid)
+
+    walk(tree["root_index"])
+    labels = {(a, b): label for a, b, label in edges}
+    assert [labels[e] for e in dfs] == child_lines
+
+
+def test_export_graphviz_node_labels_and_out_file(tmp_path):
+    X = np.arange(4.0)[:, None]
+    model = SGTRegressor(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
+        X, np.array([0.0, 0.0, 1.0, 1.0])
+    )
+    dot = export_graphviz(model, feature_names=['x "q"'])
+    nodes, edges = _parse_dot(dot)
+    assert nodes[0] == ('x \\"q\\"\nsamples = 4', None)
+    assert sorted(label for label, _ in list(nodes.values())[1:]) == [
+        "samples = 2\nvalue = 0.00",
+        "samples = 2\nvalue = 1.00",
+    ]
+    assert [label for *_, label in edges] == [
+        'x "q" <= 1.50 or x "q" is missing',
+        'x "q" > 1.50',
+    ]
+    path = tmp_path / "tree.dot"
+    assert export_graphviz(model, out_file=path, feature_names=['x "q"']) is None
+    assert path.read_text() == dot
+
+    clf = SGTClassifier(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
+        X, ["a", "a", "b", "b"]
+    )
+    root = _parse_dot(export_graphviz(clf, class_names=["neg", "pos"]))[0][0][0]
+    assert root == "X[0]\nsamples = 4\nvalue = [2.00, 2.00]\nclass = neg"
+
+
+def test_export_graphviz_is_public_and_validates_inputs():
+    assert "export_graphviz" in sgtlearn.__all__
+    with pytest.raises(TypeError):
+        export_graphviz(DecisionTreeClassifier().fit([[0], [1]], [0, 1]))
+    model = SGTRegressor(tao_n_runs=0).fit(np.zeros((4, 2)), np.arange(4.0))
+    with pytest.raises(ValueError, match="feature_names"):
+        export_graphviz(model, feature_names=["only_one"])

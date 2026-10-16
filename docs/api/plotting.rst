@@ -3,7 +3,7 @@ Plotting & Export
 
 .. currentmodule:: sgtlearn
 
-Visualize a fitted SGT, or export it as indented text rules.
+Visualize a fitted SGT, or export it as indented text rules or Graphviz DOT.
 
 plot_tree
 ---------
@@ -36,3 +36,21 @@ apply to ``X`` rounded to float32: ``1.5 + 1e-9`` rounds to ``1.5`` and follows
    |   |--- value: 0.00
    |--- x > 1.50
    |   |--- value: 1.00
+
+export_graphviz
+---------------
+
+.. autofunction:: export_graphviz
+
+Edge labels use the same routing rules as ``export_text``, so the two exports
+cannot disagree. ``export_graphviz`` writes plain DOT text and needs no extra
+package. To render it, install the ``graphviz`` Python package and the Graphviz
+binaries:
+
+.. code-block:: python
+
+   import graphviz
+   from sgtlearn import export_graphviz
+
+   dot = export_graphviz(model, feature_names=feature_names, filled=True)
+   graphviz.Source(dot).render("tree", format="png")

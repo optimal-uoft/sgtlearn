@@ -5,7 +5,8 @@ matplotlib: every internal node is drawn as a small panel of its routing
 bins colored by the destination child partition (a two-feature heatmap for
 pair nodes) plus histograms of ``X`` when it is supplied, and every leaf is
 drawn as colored text with the predicted class / value.
-``export_text`` returns the same tree as indented routing rules.
+``export_text`` returns the same tree as indented routing rules, and
+``export_graphviz`` as Graphviz DOT source.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from typing import Any, cast
 import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
-__all__ = ["export_text", "plot_tree"]
+__all__ = ["export_graphviz", "export_text", "plot_tree"]
 
 import matplotlib.pyplot as plt
 from sklearn.utils.validation import check_is_fitted
@@ -62,31 +63,10 @@ def export_text(
     str
         One line per child and leaf, indented by depth.
     """
-    _check_fitted_sgt(estimator, "export_text")
-    n_features = estimator.n_features_in_ or 0
-    if feature_names is not None and len(feature_names) != n_features:
-        raise ValueError(
-            f"feature_names has {len(feature_names)} entries, but the estimator "
-            f"was fit on {n_features} features"
-        )
-    feat_names = _resolve_feature_names(estimator, feature_names)
-    tree = estimator.tree_export()
+    tree, feat_names, group_label, names_per_output = _prepare_export(
+        estimator, feature_names, class_names, "export_text"
+    )
     nodes = {n["id"]: n for n in tree["nodes"]}
-
-    def group_label(cols: Sequence[int]) -> str:
-        if len(cols) == 1:
-            return _column_label(int(cols[0]), feat_names)
-        return _logical_feature_label(
-            estimator,
-            {"features": list(cols)},
-            feat_names,
-            prefer_logical_name=feature_names is None,
-        )
-
-    names: Any = class_names
-    if names is None:
-        names = getattr(estimator, "classes_", None)
-    names_per_output: list[Any] = [names] if tree["num_outputs"] == 1 else names
 
     def leaf_text(node: dict) -> str:
         if not isinstance(estimator, SGTClassifier):
@@ -95,9 +75,7 @@ def export_text(
                 return f"value: {_fmt_list(value, decimals)}"
             return f"value: {value:.{decimals}f}"
         counts = node["class_counts"]
-        text = "class: " + _per_output(
-            [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
-        )
+        text = "class: " + _majority_class(counts, names_per_output)
         if show_weights:
             fmt = [_fmt_list(c, decimals) for c in counts]
             text = f"weights: {_per_output(fmt)} {text}"
@@ -119,6 +97,183 @@ def export_text(
 
     walk(tree["root_index"], 0)
     return "\n".join(lines) + "\n"
+
+
+def export_graphviz(
+    estimator: Any,
+    out_file: Any = None,
+    *,
+    feature_names: Sequence[str] | None = None,
+    class_names: Sequence[Any] | None = None,
+    filled: bool = False,
+    decimals: int = 2,
+) -> str | None:
+    """Export the fitted tree in Graphviz DOT format.
+
+    Every node shows its routing feature (internal nodes), ``samples`` and
+    ``value``; classifier nodes also show the majority ``class``. Regressor
+    internal nodes carry no ``value``, so they show only ``samples``. An
+    internal node with ``K`` children has ``K`` out-edges, each labelled with
+    the inputs routed to that child, using the same rules as ``export_text``.
+
+    Producing DOT needs no extra package. To render it, install the
+    ``graphviz`` Python package and binaries and use ``graphviz.Source(dot)``.
+
+    Parameters
+    ----------
+    estimator : SGTClassifier or SGTRegressor
+        Fitted estimator to export.
+    out_file : str, path-like or file object, optional
+        Where to write the DOT source. When omitted, it is returned instead.
+    feature_names : sequence of str, optional
+        Names for the input columns, as in ``export_text``.
+    class_names : sequence, optional
+        Classifier only: class names, as in ``export_text``.
+    filled : bool, default=False
+        Fill nodes by majority class (classifier, shaded by purity) or by
+        value (regressor, shaded from the smallest to the largest value).
+    decimals : int, default=2
+        Digits shown for thresholds and values.
+
+    Returns
+    -------
+    str or None
+        The DOT source when ``out_file`` is None, else None.
+    """
+    tree, feat_names, group_label, names_per_output = _prepare_export(
+        estimator, feature_names, class_names, "export_graphviz"
+    )
+    is_classifier = isinstance(estimator, SGTClassifier)
+    values = [v for n in tree["nodes"] if (v := _first_value(n)) is not None]
+    v_lo, v_hi = (min(values), max(values)) if values else (0.0, 0.0)
+
+    def fill(node: dict) -> str:
+        """sklearn-style shading; multi-output trees use the first output."""
+        if is_classifier:
+            counts = np.asarray(node["class_counts"][0], dtype=float)
+            if counts.sum() <= 0:
+                return "#ffffff"
+            p = np.sort(counts / counts.sum())[::-1]
+            second = p[1] if len(p) > 1 else 0.0
+            color = _DEFAULT_PALETTE_COLORS[
+                int(np.argmax(counts)) % len(_DEFAULT_PALETTE_COLORS)
+            ]
+            return _blend_white(color, (p[0] - second) / (1 - second))
+        value = _first_value(node)
+        if value is None:
+            return "#ffffff"
+        alpha = 1.0 if v_hi == v_lo else (value - v_lo) / (v_hi - v_lo)
+        return _blend_white(_DEFAULT_PALETTE_COLORS[0], alpha)
+
+    style = '"filled, rounded"' if filled else '"rounded"'
+    lines = [
+        "digraph Tree {",
+        f'node [shape=box, style={style}, color="black", fontname="helvetica"] ;',
+        'edge [fontname="helvetica"] ;',
+    ]
+    for node in tree["nodes"]:
+        label = (
+            []
+            if node["is_leaf"]
+            else [_node_feature_label(node, feat_names, group_label)]
+        )
+        label.append(f"samples = {node['n_samples']}")
+        if is_classifier:
+            counts = node["class_counts"]
+            label.append(
+                "value = " + _per_output([_fmt_list(c, decimals) for c in counts])
+            )
+            label.append("class = " + _majority_class(counts, names_per_output))
+        elif isinstance(node["value"], (list, tuple)):
+            label.append(f"value = {_fmt_list(node['value'], decimals)}")
+        elif node["value"] is not None:
+            label.append(f"value = {node['value']:.{decimals}f}")
+        attrs = f'label="{_dot_escape(chr(10).join(label))}"'
+        if filled:
+            attrs += f', fillcolor="{fill(node)}"'
+        lines.append(f"{node['id']} [{attrs}] ;")
+        if node["is_leaf"]:
+            continue
+        for region, cid in zip(_child_regions(node), node["children"]):
+            text = _format_region(region, feat_names, group_label, decimals)
+            lines.append(f'{node["id"]} -> {cid} [label="{_dot_escape(text)}"] ;')
+    lines.append("}")
+    dot = "\n".join(lines) + "\n"
+    if out_file is None:
+        return dot
+    if hasattr(out_file, "write"):
+        out_file.write(dot)
+    else:
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(dot)
+    return None
+
+
+def _prepare_export(
+    estimator: Any,
+    feature_names: Sequence[str] | None,
+    class_names: Sequence[Any] | None,
+    caller: str,
+) -> tuple[dict, list[str], Callable[[Sequence[int]], str], list[Any]]:
+    """Validate inputs shared by the exporters and resolve display names."""
+    _check_fitted_sgt(estimator, caller)
+    n_features = estimator.n_features_in_ or 0
+    if feature_names is not None and len(feature_names) != n_features:
+        raise ValueError(
+            f"feature_names has {len(feature_names)} entries, but the estimator "
+            f"was fit on {n_features} features"
+        )
+    feat_names = _resolve_feature_names(estimator, feature_names)
+    tree = estimator.tree_export()
+
+    def group_label(cols: Sequence[int]) -> str:
+        if len(cols) == 1:
+            return _column_label(int(cols[0]), feat_names)
+        return _logical_feature_label(
+            estimator,
+            {"features": list(cols)},
+            feat_names,
+            prefer_logical_name=feature_names is None,
+        )
+
+    names: Any = class_names
+    if names is None:
+        names = getattr(estimator, "classes_", None)
+    names_per_output: list[Any] = [names] if tree["num_outputs"] == 1 else names
+    return tree, feat_names, group_label, names_per_output
+
+
+def _majority_class(counts: Sequence[Sequence[float]], names_per_output: list) -> str:
+    return _per_output(
+        [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
+    )
+
+
+def _node_feature_label(
+    node: dict, feat_names: list[str], group_label: Callable[[Sequence[int]], str]
+) -> str:
+    if _is_pair_node(node):
+        return " & ".join(group_label(a["columns"]) for a in node["pair_axes"])
+    if _is_categorical_node(node):
+        return group_label(node["features"])
+    return _column_label(int(node["feature"]), feat_names)
+
+
+def _first_value(node: dict) -> float | None:
+    value = node.get("value")
+    if isinstance(value, (list, tuple)):
+        return float(value[0])
+    return None if value is None else float(value)
+
+
+def _blend_white(color: str, alpha: float) -> str:
+    """Mix a ``#rrggbb`` color with white; ``alpha=1`` keeps the color."""
+    rgb = [int(color[i : i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(alpha * c + (1 - alpha) * 255):02x}" for c in rgb)
+
+
+def _dot_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _per_output(items: Sequence[str]) -> str:
@@ -162,7 +317,7 @@ def _child_regions(node: dict) -> list[list[list[tuple]]]:
     - ``("none", cols)``: no column of ``cols`` is active (missing category)
 
     The rules replay the native router on float32 input, so ``export_text``
-    (and ``export_graphviz``, #69) describe exactly what ``predict`` does.
+    and ``export_graphviz`` describe exactly what ``predict`` does.
     """
     regions: list[list[list[tuple]]] = [[] for _ in node["children"]]
     if _is_pair_node(node):
