@@ -11,7 +11,7 @@
 ## v0.2.0
 - [x] Superset branching on categorical features
 - [x] More plotting options
-- [ ] Exporting to Graphviz, planned for v0.4.0 ([#69](https://github.com/optimal-uoft/sgtlearn/issues/69))
+- [x] Exporting to Graphviz with `export_graphviz` ([#69](https://github.com/optimal-uoft/sgtlearn/issues/69))
 - [x] Feature importances matching scikit-learn's API for SGTs and SGT$_K$
 - [x] Adding TAO Refinement
 - [x] **Sklearn-style NaN support**: split search uses finite values only, and each univariate node learns which child receives missing values.

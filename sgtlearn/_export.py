@@ -5,18 +5,20 @@ matplotlib: every internal node is drawn as a small panel of its routing
 bins colored by the destination child partition (a two-feature heatmap for
 pair nodes) plus histograms of ``X`` when it is supplied, and every leaf is
 drawn as colored text with the predicted class / value.
-``export_text`` returns the same tree as indented routing rules.
+``export_text`` returns the same tree as indented routing rules, and
+``export_graphviz`` as Graphviz DOT source with the same panels.
 """
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable, Sequence
 from typing import Any, cast
 
 import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
-__all__ = ["export_text", "plot_tree"]
+__all__ = ["export_graphviz", "export_text", "plot_tree"]
 
 import matplotlib.pyplot as plt
 from sklearn.utils.validation import check_is_fitted
@@ -62,31 +64,10 @@ def export_text(
     str
         One line per child and leaf, indented by depth.
     """
-    _check_fitted_sgt(estimator, "export_text")
-    n_features = estimator.n_features_in_ or 0
-    if feature_names is not None and len(feature_names) != n_features:
-        raise ValueError(
-            f"feature_names has {len(feature_names)} entries, but the estimator "
-            f"was fit on {n_features} features"
-        )
-    feat_names = _resolve_feature_names(estimator, feature_names)
-    tree = estimator.tree_export()
+    tree, feat_names, group_label, names_per_output = _prepare_export(
+        estimator, feature_names, class_names, "export_text"
+    )
     nodes = {n["id"]: n for n in tree["nodes"]}
-
-    def group_label(cols: Sequence[int]) -> str:
-        if len(cols) == 1:
-            return _column_label(int(cols[0]), feat_names)
-        return _logical_feature_label(
-            estimator,
-            {"features": list(cols)},
-            feat_names,
-            prefer_logical_name=feature_names is None,
-        )
-
-    names: Any = class_names
-    if names is None:
-        names = getattr(estimator, "classes_", None)
-    names_per_output: list[Any] = [names] if tree["num_outputs"] == 1 else names
 
     def leaf_text(node: dict) -> str:
         if not isinstance(estimator, SGTClassifier):
@@ -95,9 +76,7 @@ def export_text(
                 return f"value: {_fmt_list(value, decimals)}"
             return f"value: {value:.{decimals}f}"
         counts = node["class_counts"]
-        text = "class: " + _per_output(
-            [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
-        )
+        text = "class: " + _majority_class(counts, names_per_output)
         if show_weights:
             fmt = [_fmt_list(c, decimals) for c in counts]
             text = f"weights: {_per_output(fmt)} {text}"
@@ -119,6 +98,752 @@ def export_text(
 
     walk(tree["root_index"], 0)
     return "\n".join(lines) + "\n"
+
+
+def export_graphviz(
+    estimator: Any,
+    out_file: Any = None,
+    *,
+    X: Any = None,
+    feature_names: Sequence[str] | None = None,
+    class_names: Sequence[Any] | None = None,
+    filled: bool = False,
+    decimals: int = 2,
+) -> str | None:
+    """Export the fitted tree in Graphviz DOT format, with ``plot_tree`` panels.
+
+    Each internal node is drawn as a panel of its shape function, like
+    ``plot_tree``: the routing bins are shaded by the child they route to
+    (a heatmap for pair nodes). When ``X`` is given, the panel also shows a
+    histogram of the samples that reach the node, with each bar colored by
+    its child (marginal histograms for pair nodes), plus a ``NaN`` column
+    when any of them are missing. Edges are colored by child. Each edge's
+    tooltip holds the inputs routed to that child, using the same rules as
+    ``export_text``.
+
+    Panels are drawn with Graphviz HTML-like labels, so the DOT source is
+    self-contained and needs no extra package. To render it, install the
+    ``graphviz`` Python package and binaries and use ``graphviz.Source(dot)``.
+
+    Parameters
+    ----------
+    estimator : SGTClassifier or SGTRegressor
+        Fitted estimator to export.
+    out_file : str, path-like or file object, optional
+        Where to write the DOT source. When omitted, it is returned instead.
+    X : array-like of shape (n_samples, n_features), optional
+        Samples to histogram in each internal node, as in ``plot_tree``.
+    feature_names : sequence of str, optional
+        Names for the input columns, as in ``export_text``.
+    class_names : sequence, optional
+        Classifier only: class names, as in ``export_text``.
+    filled : bool, default=False
+        Fill leaves by majority class (classifier, shaded by purity) or by
+        value (regressor, shaded from the smallest to the largest value).
+    decimals : int, default=2
+        Digits shown for thresholds and values.
+
+    Returns
+    -------
+    str or None
+        The DOT source when ``out_file`` is None, else None.
+    """
+    tree, feat_names, group_label, names_per_output = _prepare_export(
+        estimator, feature_names, class_names, "export_graphviz"
+    )
+    X_arr = _validate_X(estimator, X)
+    reach = _route_samples(tree, X_arr) if X_arr is not None else {}
+    is_classifier = isinstance(estimator, SGTClassifier)
+    values = [v for n in tree["nodes"] if (v := _first_value(n)) is not None]
+    v_lo, v_hi = (min(values), max(values)) if values else (0.0, 0.0)
+
+    def fill(node: dict) -> str:
+        """sklearn-style shading; multi-output trees use the first output."""
+        if is_classifier:
+            counts = np.asarray(node["class_counts"][0], dtype=float)
+            if counts.sum() <= 0:
+                return "#ffffff"
+            p = np.sort(counts / counts.sum())[::-1]
+            second = p[1] if len(p) > 1 else 0.0
+            return _blend_white(
+                _partition_color(int(np.argmax(counts))), (p[0] - second) / (1 - second)
+            )
+        value = _first_value(node)
+        if value is None:
+            return "#ffffff"
+        alpha = 1.0 if v_hi == v_lo else (value - v_lo) / (v_hi - v_lo)
+        return _blend_white(_partition_color(0), alpha)
+
+    def stats(node: dict) -> list[str]:
+        lines = [f"samples = {node['n_samples']}"]
+        if is_classifier:
+            counts = node["class_counts"]
+            lines.append(
+                "value = " + _per_output([_fmt_list(c, decimals) for c in counts])
+            )
+            lines.append("class = " + _majority_class(counts, names_per_output))
+        elif isinstance(node["value"], (list, tuple)):
+            lines.append(f"value = {_fmt_list(node['value'], decimals)}")
+        elif node["value"] is not None:
+            lines.append(f"value = {node['value']:.{decimals}f}")
+        return lines
+
+    leaf_style = '"filled, rounded"' if filled else '"rounded"'
+    lines = [
+        "digraph Tree {",
+        'node [fontname="helvetica"] ;',
+        "edge [penwidth=2] ;",
+    ]
+    for node in tree["nodes"]:
+        nid = node["id"]
+        if node["is_leaf"]:
+            attrs = f'shape=box, style={leaf_style}, label="{_dot_escape(chr(10).join(stats(node)))}"'
+            if filled:
+                attrs += f', fillcolor="{fill(node)}"'
+            lines.append(f"{nid} [{attrs}] ;")
+            continue
+        rows = X_arr[reach[nid]] if X_arr is not None else None
+        label = _panel_label(node, rows, feat_names, group_label, stats(node), decimals)
+        lines.append(f"{nid} [shape=plain, label=<{label}>] ;")
+        for k, (region, cid) in enumerate(zip(_child_regions(node), node["children"])):
+            tip = _dot_escape(_format_region(region, feat_names, group_label, decimals))
+            lines.append(
+                f'{nid} -> {cid} [color="{_partition_color(k)}", tooltip="{tip}"] ;'
+            )
+    lines.append("}")
+    dot = "\n".join(lines) + "\n"
+    if out_file is None:
+        return dot
+    if hasattr(out_file, "write"):
+        out_file.write(dot)
+    else:
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(dot)
+    return None
+
+
+#: Panel geometry for ``export_graphviz`` (pixels and cell counts).
+_PANEL_BAR_ROWS = 10  # vertical resolution of a histogram; bars use 8, 2 are headroom
+_PANEL_ROW_PX = 5
+_PANEL_FINE_COLS = 80  # columns across a continuous axis
+_PANEL_FINE_PX = 2
+_PANEL_HIST_BINS = 20  # histogram bars across a continuous axis
+_PANEL_CAT_PX = 16  # one categorical column or row
+_PANEL_PAIR_CELLS = 24  # cells across a continuous pair axis
+_PANEL_PAIR_PX = 4
+_PANEL_MARGIN_CELLS = 6  # depth of a pair node's marginal histogram
+_PANEL_NAN_PX = 18  # fits an 8pt "NaN" label
+_PANEL_GAP_PX = 4
+_PANEL_TINT = 0.4  # shading strength of the routing background
+_PANEL_MARGIN_COLOR = "#9e9e9e"
+_PANEL_TICK_COLOR = "#555555"
+
+#: One panel cell: (width px, height px, fill color or None, text or None).
+#: Text ``""`` continues the text cell to its left, which then spans it.
+_Cell = tuple[int, int, "str | None", "str | None"]
+
+
+def _partition_color(k: int) -> str:
+    return _DEFAULT_PALETTE_COLORS[int(k) % len(_DEFAULT_PALETTE_COLORS)]
+
+
+def _panel_label(
+    node: dict,
+    rows: np.ndarray | None,
+    feat_names: list[str],
+    group_label: Callable[[Sequence[int]], str],
+    stats: list[str],
+    decimals: int,
+) -> str:
+    """HTML-like label: feature name, node stats, shape-function panel, captions."""
+    if _is_pair_node(node):
+        chart, captions = _pair_panel(node, rows, group_label, decimals)
+    elif _is_categorical_node(node):
+        chart, captions = _categorical_panel(node, rows, feat_names)
+    else:
+        chart, captions = _univariate_panel(node, rows, decimals)
+    title = html.escape(_node_feature_label(node, feat_names, group_label))
+    parts = [f"<TR><TD><B>{title}</B></TD></TR>"]
+    parts += [_html_text_row(s, 10) for s in stats]
+    parts.append(f"<TR><TD>{chart}</TD></TR>")
+    parts += [_html_text_row(c, 9) for c in captions]
+    return (
+        '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2" '
+        'STYLE="ROUNDED" BGCOLOR="white">' + "".join(parts) + "</TABLE>"
+    )
+
+
+def _html_text_row(text: str, size: int) -> str:
+    return f'<TR><TD><FONT POINT-SIZE="{size}">{html.escape(text)}</FONT></TD></TR>'
+
+
+def _html_grid(grid: list[list[_Cell]]) -> str:
+    """Render rows of cells as a borderless Graphviz table.
+
+    Every row must have the same column widths. Runs of same-colored cells
+    become one spanning cell; a 1px ruler row pins each column's width, since
+    Graphviz otherwise spreads spanning cells unevenly.
+    """
+    width = sum(w for w, *_ in grid[0])
+    height = sum(row[0][1] for row in grid) + 1
+    out = [
+        (
+            '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            f'FIXEDSIZE="TRUE" WIDTH="{width}" HEIGHT="{height}">'
+        )
+    ]
+    for row in grid:
+        out.append("<TR>")
+        j = 0
+        while j < len(row):
+            w, h, color, text = row[j]
+            if text is not None:
+                span = 1
+                while j + span < len(row) and row[j + span][3] == "":
+                    w += row[j + span][0]
+                    span += 1
+                lines = "<BR/>".join(html.escape(t) for t in text.split("\n"))
+                body = f'<FONT POINT-SIZE="8">{lines}</FONT>' if text else ""
+                out.append(f'<TD COLSPAN="{span}" WIDTH="{w}" HEIGHT="{h}">{body}</TD>')
+                j += span
+                continue
+            # Merge a run of same-colored cells into one spanning cell.
+            span = 1
+            while j + span < len(row) and row[j + span][2:] == (color, None):
+                w += row[j + span][0]
+                span += 1
+            bg = f' BGCOLOR="{color}"' if color else ""
+            out.append(f'<TD COLSPAN="{span}" WIDTH="{w}" HEIGHT="{h}"{bg}></TD>')
+            j += span
+        out.append("</TR>")
+    ruler = "".join(f'<TD WIDTH="{w}" HEIGHT="1"></TD>' for w, *_ in grid[0])
+    out.append(f"<TR>{ruler}</TR></TABLE>")
+    return "".join(out)
+
+
+def _bar_rows(
+    widths: list[int], parts: list[int | None], counts: list[int] | None
+) -> list[list[_Cell]]:
+    """Histogram over a shaded routing background, one column per entry.
+
+    ``parts[j]`` is the child of column ``j`` (None leaves a blank gap). With
+    ``counts`` None, only the background is drawn.
+    """
+    top = max(counts or [0]) or 1
+    heights = [int(np.ceil(c / top * (_PANEL_BAR_ROWS - 2))) for c in counts or []]
+    if counts is None:  # background only: one row of full panel height
+        h = _PANEL_BAR_ROWS * _PANEL_ROW_PX
+        return [[(w, h, _tint(k), None) for w, k in zip(widths, parts)]]
+    grid = []
+    for r in range(_PANEL_BAR_ROWS, 0, -1):
+        row: list[_Cell] = []
+        for w, k, n in zip(widths, parts, heights):
+            color = _partition_color(k) if k is not None and n >= r else _tint(k)
+            row.append((w, _PANEL_ROW_PX, color, None))
+        grid.append(row)
+    return grid
+
+
+def _tint(k: int | None) -> str | None:
+    """Light routing-background shade of child ``k`` (None for a gap)."""
+    return None if k is None else _blend_white(_partition_color(k), _PANEL_TINT)
+
+
+def _axis_extent(finite: np.ndarray, thresholds: list[float]) -> tuple[float, float]:
+    """Data range when available, else the thresholds padded by one step."""
+    if finite.size:
+        lo, hi = float(finite.min()), float(finite.max())
+    elif thresholds:
+        step = (thresholds[-1] - thresholds[0]) / max(len(thresholds) - 1, 1) or 1.0
+        lo, hi = thresholds[0] - step, thresholds[-1] + step
+    else:
+        lo, hi = 0.0, 1.0
+    return (lo, hi) if hi > lo else (lo - 0.5, lo + 0.5)
+
+
+def _univariate_panel(
+    node: dict, rows: np.ndarray | None, decimals: int
+) -> tuple[str, list[str]]:
+    thresholds = list(node["thresholds"])
+    b2p = _finite_routing_bins(thresholds, list(node["bin_to_partition"]))
+    values = rows[:, int(node["feature"])] if rows is not None else np.empty(0)
+    finite = values[np.isfinite(values)]
+    lo, hi = _axis_extent(finite, thresholds)
+    edges = np.linspace(lo, hi, _PANEL_FINE_COLS + 1)
+    parts: list[int | None] = [
+        int(b2p[int(np.searchsorted(thresholds, m, side="left"))])
+        for m in (edges[:-1] + edges[1:]) / 2
+    ]
+    widths = [_PANEL_FINE_PX] * _PANEL_FINE_COLS
+    counts: list[int] | None = None
+    n_missing = values.size - finite.size
+    if rows is not None:
+        hist, _ = np.histogram(finite, bins=_PANEL_HIST_BINS, range=(lo, hi))
+        per_bar = _PANEL_FINE_COLS // _PANEL_HIST_BINS
+        counts = [int(hist[j // per_bar]) for j in range(_PANEL_FINE_COLS)]
+        if n_missing:
+            parts += [None, int(node.get("nan_prediction_partition", 0))]
+            widths += [_PANEL_GAP_PX, _PANEL_NAN_PX]
+            counts += [0, int(n_missing)]
+    # Tick and label each visible color switch, with the threshold that
+    # causes it (the one closest to the column boundary).
+    breaks = [t for t, a, b in zip(thresholds, b2p[:-1], b2p[1:]) if a != b]
+    cols = [j for j in range(1, _PANEL_FINE_COLS) if parts[j] != parts[j - 1]]
+    labels = [
+        (j, f"{min(breaks, key=lambda t: abs(t - edges[j])):.{decimals}f}")
+        for j in cols
+    ]
+    rows_out = _axis_rows(
+        labels,
+        f"{lo:.{decimals}f}",
+        f"{hi:.{decimals}f}",
+        _PANEL_FINE_COLS,
+        _PANEL_FINE_PX,
+    )
+    tick: list[_Cell] = [
+        (_PANEL_FINE_PX, 3, _PANEL_TICK_COLOR if j in cols else None, None)
+        for j in range(_PANEL_FINE_COLS)
+    ]
+    grid = _bar_rows(widths, parts, counts) + [tick] + rows_out
+    if len(widths) > _PANEL_FINE_COLS:  # NaN column: blank tick, label under it
+        tick += [(_PANEL_GAP_PX, 3, None, None), (_PANEL_NAN_PX, 3, None, None)]
+        for i, row in enumerate(rows_out):
+            nan = "NaN" if i == 0 else None
+            row += [
+                (_PANEL_GAP_PX, row[0][1], None, None),
+                (_PANEL_NAN_PX, row[0][1], None, nan),
+            ]
+    return _html_grid(grid), []
+
+
+def _axis_rows(
+    labels: list[tuple[int, str]], lo: str, hi: str, n: int, col_px: int
+) -> list[list[_Cell]]:
+    """Label rows under ``n`` axis columns, each label centered on its column.
+
+    Labels that would overlap move to a further row. The axis ends ``lo`` and
+    ``hi`` are added at the edges only where they fit in an existing row.
+    """
+
+    def width(text: str) -> int:  # columns needed by an 8pt label
+        return min(n, -(-_label_px(text) // col_px))
+
+    placed: list[list[tuple[int, int, str]]] = []  # per row: (start, stop, text)
+
+    def place(start: int, text: str, new_row: bool) -> None:
+        stop = start + width(text)
+        for row in placed:
+            if all(stop + 1 <= a or start >= b + 1 for a, b, _ in row):
+                row.append((start, stop, text))
+                return
+        if new_row:
+            placed.append([(start, stop, text)])
+
+    for col, text in labels:
+        start = min(max(col - width(text) // 2, 0), n - width(text))
+        place(start, text, new_row=True)
+    if not placed:
+        placed.append([])
+    place(0, lo, new_row=False)
+    place(n - width(hi), hi, new_row=False)
+
+    out = []
+    for row in placed:
+        cells: list[_Cell] = [(col_px, 12, None, None)] * n
+        for start, stop, text in row:
+            cells[start] = (col_px, 12, None, text)
+            cells[start + 1 : stop] = [(col_px, 12, None, "")] * (stop - start - 1)
+        out.append(cells)
+    return out
+
+
+def _categorical_panel(
+    node: dict, rows: np.ndarray | None, feat_names: list[str]
+) -> tuple[str, list[str]]:
+    """One column per category bin, plus a NaN column when ``rows`` has missing.
+
+    A bin with no categories is the missing-value bin; it is drawn as the NaN
+    column instead.
+    """
+    bins = _bin_categories_for_node(node)
+    keep = [b for b, cats in enumerate(bins) if cats]
+    b2p = [int(node["bin_to_partition"][b]) for b in keep]
+    all_labels = _bin_labels_for_categorical_node(node, feat_names)
+    labels: list[str | None] = [all_labels[b] for b in keep]
+    parts: list[int | None] = list(b2p)
+    widths = [_PANEL_CAT_PX] * len(b2p)
+    counts: list[int] | None = None
+    if rows is not None:
+        cols = [int(c) for c in node.get("features") or []]
+        counts = [0] * len(b2p)
+        n_missing = 0
+        for row in rows:
+            active = _active_onehot_column(row, cols)
+            if active is None:
+                n_missing += 1
+            else:
+                counts[keep.index(_categorical_bin_index(active, bins))] += 1
+        if n_missing:
+            parts += [None, int(node.get("nan_prediction_partition", 0))]
+            widths += [_PANEL_GAP_PX, _PANEL_NAN_PX]
+            counts += [0, n_missing]
+            labels += [None, "NaN"]
+    # Widen columns to fit their 8pt labels (~5px per character).
+    widths = [max(w, _label_px(t)) for w, t in zip(widths, labels)]
+    grid = _bar_rows(widths, parts, counts)
+    grid.append([(w, 12, None, text) for w, text in zip(widths, labels)])
+    return _html_grid(grid), []
+
+
+def _pair_axis_layout(
+    node: dict, a: int, values: np.ndarray | None, rows: np.ndarray | None
+) -> tuple[list[object], list[int], tuple[float, float] | None]:
+    """Cell values along one pair axis, then ``"gap"`` and ``None`` (missing) if shown."""
+    axis = node["pair_axes"][a]
+    if axis["kind"] == "categorical":
+        cells: list[object] = [int(c) for c in axis["categories"]]
+        sizes = [_PANEL_CAT_PX] * len(cells)
+        extent = None
+    else:
+        cuts = _pair_axis_cells(node, a, axis, values, include_missing=False)
+        extent = (cuts[0][0], cuts[-1][1])
+        edges = np.linspace(*extent, _PANEL_PAIR_CELLS + 1)
+        cells = list((edges[:-1] + edges[1:]) / 2)
+        sizes = [_PANEL_PAIR_PX] * len(cells)
+    has_missing = rows is None or any(_pair_axis_missing(r, axis) for r in rows)
+    if has_missing:
+        cells += ["gap", None]
+        sizes += [_PANEL_GAP_PX, _PANEL_NAN_PX]
+    return cells, sizes, extent
+
+
+def _pair_cell_index(row: np.ndarray, axis: dict, cells: list[object]) -> int:
+    """Index in ``cells`` of the cell that ``row`` falls in along ``axis``."""
+    if _pair_axis_missing(row, axis):
+        return cells.index(None)
+    cols = [int(c) for c in axis["columns"]]
+    if axis["kind"] == "categorical":
+        return cells.index(_active_onehot_column(row, cols))
+    mids = np.array([c for c in cells if c not in ("gap", None)], dtype=float)
+    return int(np.argmin(np.abs(mids - row[cols[0]])))
+
+
+def _pair_panel(
+    node: dict,
+    rows: np.ndarray | None,
+    group_label: Callable[[Sequence[int]], str],
+    decimals: int,
+) -> tuple[str, list[str]]:
+    """Routing heatmap (x = first axis, y = second, high values on top).
+
+    Cells holding samples are drawn in full color; with ``rows``, gray
+    marginal histograms sit above (x) and to the right (y). Continuous axes
+    get a tick at each color switch with its threshold label (x below, y to
+    the left); categorical axes label each category.
+    """
+    x_axis, y_axis = node["pair_axes"]
+    n = _PANEL_PAIR_CELLS
+
+    def axis_values(axis: dict) -> np.ndarray | None:
+        if rows is None or axis["kind"] != "continuous":
+            return None
+        return rows[:, int(axis["columns"][0])]
+
+    xs, x_px, x_ext = _pair_axis_layout(node, 0, axis_values(x_axis), rows)
+    ys, y_px, y_ext = _pair_axis_layout(node, 1, axis_values(y_axis), rows)
+    if y_ext is not None:  # high values on top, missing row last
+        ys[:n], y_px[:n] = ys[:n][::-1], y_px[:n][::-1]
+
+    def cell_label(value: object) -> str | None:
+        if value is None:
+            return "NaN"
+        return group_label([value]) if isinstance(value, int) else None
+
+    if x_ext is None:  # widen category columns to fit their labels
+        x_px = [max(w, _label_px(cell_label(v))) for w, v in zip(x_px, xs)]
+
+    part = [
+        [
+            (
+                None
+                if "gap" in (xv, yv)
+                else _route_pair_partition(
+                    node, _pair_cell_row(node, x_axis, xv, y_axis, yv)
+                )
+            )
+            for xv in xs
+        ]
+        for yv in ys
+    ]
+    x_counts, y_counts = [0] * len(xs), [0] * len(ys)
+    occupied = set()
+    for row in rows if rows is not None else []:
+        i = _pair_cell_index(row, x_axis, xs)
+        j = _pair_cell_index(row, y_axis, ys)
+        x_counts[i] += 1
+        y_counts[j] += 1
+        occupied.add((i, j))
+
+    def switches(lines: list[list[int | None]]) -> list[int]:
+        """Cells ``i`` (of the first ``n``) whose color differs from ``i - 1``."""
+        return [i for i in range(1, n) if any(ln[i] != ln[i - 1] for ln in lines)]
+
+    def boundary_label(a: int, cells: list[object], i: int) -> str:
+        edge = (float(cast(float, cells[i - 1])) + float(cast(float, cells[i]))) / 2
+        cuts = _pair_axis_thresholds(node, a) or [edge]
+        return f"{min(cuts, key=lambda t: abs(t - edge)):.{decimals}f}"
+
+    real_rows = [part[j] for j, yv in enumerate(ys) if yv != "gap"]
+    x_sw = switches(real_rows) if x_ext is not None else []
+    real_cols = [
+        [part[j][i] for j in range(len(ys))] for i, xv in enumerate(xs) if xv != "gap"
+    ]
+    y_sw = switches(real_cols) if y_ext is not None else []
+
+    margin = rows is not None and len(rows) > 0
+    x_bars = _margin_lengths(x_counts)
+    y_bars = _margin_lengths(y_counts)
+
+    def right(h: int) -> list[_Cell]:  # blank cells under/over the y margin
+        return (
+            [(_PANEL_PAIR_PX, h, None, None)] * (_PANEL_MARGIN_CELLS + 1)
+            if margin
+            else []
+        )
+
+    tick_w = 3
+    grid: list[list[_Cell]] = []
+    if margin:
+        for r in range(_PANEL_MARGIN_CELLS, 0, -1):
+            cells: list[_Cell] = [(tick_w, _PANEL_PAIR_PX, None, None)]
+            cells += [
+                (w, _PANEL_PAIR_PX, _PANEL_MARGIN_COLOR if b >= r else None, None)
+                for w, b in zip(x_px, x_bars)
+            ]
+            grid.append(cells + right(_PANEL_PAIR_PX))
+    for j, h in enumerate(y_px):
+        cells = [(tick_w, h, _PANEL_TICK_COLOR if j in y_sw else None, None)]
+        for i, w in enumerate(x_px):
+            k = part[j][i]
+            color = None
+            if k is not None:
+                color = _partition_color(k) if (i, j) in occupied else _tint(k)
+            cells.append((w, h, color, None))
+        if margin:
+            cells.append((_PANEL_PAIR_PX, h, None, None))
+            cells += [
+                (
+                    _PANEL_PAIR_PX,
+                    h,
+                    _PANEL_MARGIN_COLOR if m < y_bars[j] else None,
+                    None,
+                )
+                for m in range(_PANEL_MARGIN_CELLS)
+            ]
+        grid.append(cells)
+
+    # x labels under the heatmap.
+    tail = list(zip(x_px[n:], xs[n:])) if x_ext is not None else []
+    if x_ext is not None:
+        tick = [(tick_w, 3, None, None)] + [
+            (w, 3, _PANEL_TICK_COLOR if i in x_sw else None, None)
+            for i, w in enumerate(x_px)
+        ]
+        grid.append(tick + right(3))
+        labels = [(i, boundary_label(0, xs, i)) for i in x_sw]
+        lo, hi = (f"{v:.{decimals}f}" for v in x_ext)
+        for r, label_row in enumerate(_axis_rows(labels, lo, hi, n, _PANEL_PAIR_PX)):
+            extra = [(w, 12, None, cell_label(v) if r == 0 else None) for w, v in tail]
+            grid.append([(tick_w, 12, None, None)] + label_row + extra + right(12))
+    else:
+        cats = [(w, 12, None, cell_label(v)) for w, v in zip(x_px, xs)]
+        grid.append([(tick_w, 12, None, None)] + cats + right(12))
+
+    # y labels to the left, centered on their row boundary or row.
+    top = _PANEL_MARGIN_CELLS * _PANEL_PAIR_PX if margin else 0
+    starts = [top + sum(y_px[:j]) for j in range(len(ys) + 1)]
+    marks: list[tuple[float, str]] = []
+    ends: list[tuple[float, str]] = []
+    if y_ext is not None:
+        marks = [(starts[j], boundary_label(1, ys, j)) for j in y_sw]
+        ends = [
+            (starts[0] + 6, f"{y_ext[1]:.{decimals}f}"),
+            (starts[n] - 6, f"{y_ext[0]:.{decimals}f}"),
+        ]
+    for j, yv in enumerate(ys):
+        text = cell_label(yv)
+        if text is not None:
+            marks.append(((starts[j] + starts[j + 1]) / 2, text))
+    height = sum(row[0][1] for row in grid) + 1
+    side, side_px = _side_labels(marks, ends, height)
+    width = side_px + sum(w for w, *_ in grid[0])
+    chart = (
+        '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+        f'FIXEDSIZE="TRUE" WIDTH="{width}" HEIGHT="{height}"><TR>'
+        f"{side}<TD>{_html_grid(grid)}</TD></TR></TABLE>"
+    )
+    names = [
+        f"{s}-axis: {group_label(a['columns'])}" for s, a in zip("xy", (x_axis, y_axis))
+    ]
+    return chart, names
+
+
+def _pair_axis_thresholds(node: dict, a: int) -> list[float]:
+    return sorted(
+        float(s["threshold"])
+        for s in node["pair_inner_tree"]
+        if not s["is_leaf"] and int(s["axis"]) == a and s["kind"] == "continuous"
+    )
+
+
+def _label_px(text: str | None) -> int:
+    """Width of an 8pt label (~5px per character)."""
+    return 5 * len(text or "") + 4
+
+
+def _side_labels(
+    marks: list[tuple[float, str]], ends: list[tuple[float, str]], height: int
+) -> tuple[str, int]:
+    """Columns of right-aligned 12px labels, each centered on its pixel row.
+
+    Returns the cells' HTML and their total width.
+
+    Overlapping ``marks`` move to a further column (further left); ``ends``
+    are added only where they fit in an existing column.
+    """
+    columns: list[list[tuple[int, int, str]]] = []
+
+    def place(center: float, text: str, new_column: bool) -> None:
+        start = min(max(round(center - 6), 0), height - 12)
+        stop = start + 12
+        for col in columns:
+            if all(stop + 1 <= a or start >= b + 1 for a, b, _ in col):
+                col.append((start, stop, text))
+                return
+        if new_column:
+            columns.append([(start, stop, text)])
+
+    for center, text in marks:
+        place(center, text, new_column=True)
+    for center, text in ends:
+        place(center, text, new_column=False)
+    out, total = [], 0
+    for col in reversed(columns):  # the first column sits next to the heatmap
+        width = max(_label_px(t) for *_, t in col)
+        total += width
+        cells, cursor = [], 0
+        for start, stop, text in sorted(col):
+            if start > cursor:
+                cells.append(
+                    f'<TR><TD WIDTH="{width}" HEIGHT="{start - cursor}"></TD></TR>'
+                )
+            body = f'<FONT POINT-SIZE="8">{html.escape(text)}</FONT>'
+            cells.append(
+                f'<TR><TD WIDTH="{width}" HEIGHT="12" FIXEDSIZE="TRUE" ALIGN="RIGHT">'
+                f"{body}</TD></TR>"
+            )
+            cursor = stop
+        if cursor < height:
+            cells.append(
+                f'<TR><TD WIDTH="{width}" HEIGHT="{height - cursor}"></TD></TR>'
+            )
+        out.append(
+            '<TD><TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            f'FIXEDSIZE="TRUE" WIDTH="{width}" HEIGHT="{height}">'
+            + "".join(cells)
+            + "</TABLE></TD>"
+        )
+    return "".join(out), total
+
+
+def _margin_lengths(counts: list[int]) -> list[int]:
+    """Marginal bar lengths in cells; any nonzero count gets at least one."""
+    top = max(counts, default=0) or 1
+    return [int(np.ceil(c / top * _PANEL_MARGIN_CELLS)) for c in counts]
+
+
+def _validate_X(estimator: Any, X: Any) -> np.ndarray | None:
+    if X is None:
+        return None
+    X_arr = np.asarray(X, dtype=np.float64)
+    if X_arr.ndim != 2:
+        raise ValueError(
+            f"X must be 2-D (n_samples, n_features); got shape {X_arr.shape}"
+        )
+    n_features = estimator.n_features_in_ or 0
+    if X_arr.shape[1] != n_features:
+        raise ValueError(
+            f"X has {X_arr.shape[1]} features, but estimator was fit on "
+            f"{n_features}"
+        )
+    return X_arr
+
+
+def _prepare_export(
+    estimator: Any,
+    feature_names: Sequence[str] | None,
+    class_names: Sequence[Any] | None,
+    caller: str,
+) -> tuple[dict, list[str], Callable[[Sequence[int]], str], list[Any]]:
+    """Validate inputs shared by the exporters and resolve display names."""
+    _check_fitted_sgt(estimator, caller)
+    n_features = estimator.n_features_in_ or 0
+    if feature_names is not None and len(feature_names) != n_features:
+        raise ValueError(
+            f"feature_names has {len(feature_names)} entries, but the estimator "
+            f"was fit on {n_features} features"
+        )
+    feat_names = _resolve_feature_names(estimator, feature_names)
+    tree = estimator.tree_export()
+
+    def group_label(cols: Sequence[int]) -> str:
+        if len(cols) == 1:
+            return _column_label(int(cols[0]), feat_names)
+        return _logical_feature_label(
+            estimator,
+            {"features": list(cols)},
+            feat_names,
+            prefer_logical_name=feature_names is None,
+        )
+
+    names: Any = class_names
+    if names is None:
+        names = getattr(estimator, "classes_", None)
+    names_per_output: list[Any] = [names] if tree["num_outputs"] == 1 else names
+    return tree, feat_names, group_label, names_per_output
+
+
+def _majority_class(counts: Sequence[Sequence[float]], names_per_output: list) -> str:
+    return _per_output(
+        [str(names_per_output[o][int(np.argmax(c))]) for o, c in enumerate(counts)]
+    )
+
+
+def _node_feature_label(
+    node: dict, feat_names: list[str], group_label: Callable[[Sequence[int]], str]
+) -> str:
+    if _is_pair_node(node):
+        return " & ".join(group_label(a["columns"]) for a in node["pair_axes"])
+    if _is_categorical_node(node):
+        return group_label(node["features"])
+    return _column_label(int(node["feature"]), feat_names)
+
+
+def _first_value(node: dict) -> float | None:
+    value = node.get("value")
+    if isinstance(value, (list, tuple)):
+        return float(value[0])
+    return None if value is None else float(value)
+
+
+def _blend_white(color: str, alpha: float) -> str:
+    """Mix a ``#rrggbb`` color with white; ``alpha=1`` keeps the color."""
+    rgb = [int(color[i : i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(alpha * c + (1 - alpha) * 255):02x}" for c in rgb)
+
+
+def _dot_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _per_output(items: Sequence[str]) -> str:
@@ -162,7 +887,7 @@ def _child_regions(node: dict) -> list[list[list[tuple]]]:
     - ``("none", cols)``: no column of ``cols`` is active (missing category)
 
     The rules replay the native router on float32 input, so ``export_text``
-    (and ``export_graphviz``, #69) describe exactly what ``predict`` does.
+    and ``export_graphviz`` describe exactly what ``predict`` does.
     """
     regions: list[list[list[tuple]]] = [[] for _ in node["children"]]
     if _is_pair_node(node):
@@ -1451,22 +2176,8 @@ def plot_tree(
 
     tree = estimator.tree_export()
 
-    reach: dict[int, Any] = {}
-    if X is not None:
-        X_arr = np.asarray(X, dtype=np.float64)
-        if X_arr.ndim != 2:
-            raise ValueError(
-                f"X must be 2-D (n_samples, n_features); got shape {X_arr.shape}"
-            )
-        n_features = estimator.n_features_in_ or 0
-        if X_arr.shape[1] != n_features:
-            raise ValueError(
-                f"X has {X_arr.shape[1]} features, but estimator was fit on "
-                f"{n_features}"
-            )
-        reach = _route_samples(tree, X_arr)
-    else:
-        X_arr = None
+    X_arr = _validate_X(estimator, X)
+    reach: dict[int, Any] = _route_samples(tree, X_arr) if X_arr is not None else {}
 
     if ax is None:
         n_leaves_est = sum(1 for n in tree["nodes"] if n["is_leaf"]) or 1
