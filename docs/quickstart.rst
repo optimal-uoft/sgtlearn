@@ -21,6 +21,11 @@ Train and visualize an SGT classifier on the built-in "Plus Sign" dataset:
    plot_tree(model, X=X_train)
    plt.show()
 
+The default constructors use the shared regularized settings, with TAO and
+bivariate branching off. See :doc:`tuning` for the defaults and useful search
+ranges, or run :doc:`tutorials/hyperparameter-tuning` for a complete Optuna
+example with independent TAO and bivariate switches.
+
 Inner vs. outer depth
 ---------------------
 
@@ -159,7 +164,7 @@ univariate training path unchanged:
 
    model = SGTClassifier(
        max_depth=3,
-       pairwise_candidates=8,  # or a fraction such as 0.5
+       pairwise_candidates=0.5,  # study-recommended opt-in starting budget
        pairwise_penalty=0.0,
        random_state=42,
    ).fit(X_train, y_train)

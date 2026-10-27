@@ -28,7 +28,9 @@ returns keyword arguments for `SGTClassifier` or `SGTRegressor`.
 Pass `use_tao=True` and/or `use_bivariate=True` to `suggest_params` to enable
 those features during tuning. Both flags default to `False`.
 See the [tuning guide](docs/tuning.rst) for a complete objective and the
-default-selection protocol.
+default-selection protocol, and the executable
+[tuning notebook](docs/tutorials/hyperparameter-tuning.ipynb) for classification
+and regression examples, optional TAO/bivariate branching, and held-out evaluation.
 
 The [12-dataset default-selection report](docs/research/2026-10-26-tuning-defaults.md)
 records the Pareto compromise, held-out results, and useful parameter ranges.

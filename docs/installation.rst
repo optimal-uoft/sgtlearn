@@ -11,6 +11,16 @@ From PyPI
 Wheels are published for CPython 3.11–3.14 on Linux, macOS, and Windows
 (x86_64 + arm64); no compiler is needed for a binary install.
 
+For Optuna parameter suggestions, install the optional tuning extra:
+
+.. code-block:: bash
+
+   pip install 'sgtlearn[tune]'
+
+The :doc:`tuning` guide and :doc:`tutorials/hyperparameter-tuning` notebook
+show how to use ``suggest_params(trial, use_tao=False, use_bivariate=False)``.
+Optuna is not required for ordinary estimator fitting.
+
 Requirements
 ------------
 

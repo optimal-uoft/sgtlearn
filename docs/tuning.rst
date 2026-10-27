@@ -1,11 +1,55 @@
 Hyperparameter tuning
 =====================
 
+Start with the estimator defaults
+-------------------------------------
+
+``SGTClassifier()`` and ``SGTRegressor()`` already use the shared regularized
+settings selected from the study. Ordinary fitting runs ShapeCART with TAO
+and bivariate branching disabled. No parameter helper is needed for a default fit.
+
+.. list-table:: Shared tree defaults (also used by forest base trees)
+   :header-rows: 1
+   :widths: 65 35
+
+   * - Parameter
+     - Default
+   * - ``max_depth`` / ``max_leaf_nodes``
+     - ``4`` / ``None``
+   * - ``num_partitions``
+     - ``7``
+   * - ``inner_max_depth`` / ``inner_max_leaf_nodes``
+     - ``None`` / ``4``
+   * - ``min_samples_leaf`` / ``inner_min_samples_leaf``
+     - ``4`` / ``13``
+   * - ``min_impurity_decrease`` / ``inner_min_impurity_decrease``
+     - ``1.0`` / ``0.01``
+   * - ``coordinate_descent_max_iters`` / ``coordinate_descent_patience``
+     - ``5`` / ``5``
+   * - ``pairwise_candidates`` / ``pairwise_penalty`` / ``branching_penalty``
+     - ``0`` / ``0.0`` / ``0.0``
+   * - ``tao_n_runs`` / ``tao_lambda`` / ``tao_pair_scale``
+     - ``0`` / ``1e-4`` / ``2.0``
+
+Classifier criterion is ``gini``; regressor criterion is ``squared_error``.
+Use ``pairwise_candidates=0.5`` as the study-recommended starting point when
+enabling bivariate branching directly. Very small datasets may need lower
+minimum leaf sizes or impurity penalties to grow beyond a constant tree.
+The study's reported scores used both bivariate branching and TAO; they are
+not measurements of the final default preset.
+
+Tune with Optuna
+----------------
+
 Install the optional Optuna dependency:
 
 .. code-block:: console
 
    pip install 'sgtlearn[tune]'
+
+The :doc:`tutorials/hyperparameter-tuning` notebook runs small classification
+and regression searches, reconstructs the winning dictionaries, and evaluates
+on held-out test data. It includes executed outputs and needs no data download.
 
 Pass an Optuna trial to :func:`sgtlearn.tune.suggest_params` to obtain a
 dictionary for either single-tree estimator. The helper only suggests parameters;
@@ -54,6 +98,18 @@ use a separate study when changing the flags:
        use_tao=True,
        use_bivariate=True,
    )
+
+The flags belong to ``suggest_params``, not the estimator constructors. Pass
+the resulting dictionary with ``SGTClassifier(**params)`` or
+``SGTRegressor(**params)``. Keep the same flags throughout each study and
+when reconstructing its winning trial. TAO controls remain fixed rather than
+being searched. ``use_bivariate=True`` searches budgets ``[.25, .5, 1, 2]``;
+it does not fix the budget at ``0.5``.
+
+For forests, pass the same dictionary to ``RandomSGForestClassifier`` or
+``RandomSGForestRegressor``. It supplies tree parameters and preserves the
+forest's feature-sampling defaults. Tree tuning does not establish optimal
+forest settings; validate the final forest separately on your own data.
 
 Regression target units
 -----------------------

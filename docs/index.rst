@@ -55,6 +55,7 @@ Highlights
    tutorials/forests
    tutorials/regression
    tutorials/tao
+   tutorials/hyperparameter-tuning
 
 .. toctree::
    :maxdepth: 2
