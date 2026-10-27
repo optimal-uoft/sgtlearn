@@ -28,6 +28,7 @@ def test_regular_import_does_not_require_or_load_optuna():
             "-c",
             (
                 "import sys; import sgtlearn; import sgtlearn.tune; "
+                "sgtlearn.tune.suggested_params(); "
                 "assert 'optuna' not in sys.modules"
             ),
         ],

@@ -27,6 +27,25 @@ For Optuna tuning, install `pip install 'sgtlearn[tune]'` and use
 returns keyword arguments for `SGTClassifier` or `SGTRegressor`.
 Pass `use_tao=True` and/or `use_bivariate=True` to `suggest_params` to enable
 those features during tuning. Both flags default to `False`.
+For sklearn searches, `from sgtlearn.tune import suggested_params` provides
+lists of candidate values for `GridSearchCV` or `RandomizedSearchCV`, with the
+same optional flags. Prefer randomized search for the full space, or narrow
+the lists before running an exhaustive grid search.
+
+```python
+from sklearn.model_selection import RandomizedSearchCV
+from sgtlearn import SGTClassifier
+from sgtlearn.tune import suggested_params
+
+search = RandomizedSearchCV(
+    SGTClassifier(),
+    suggested_params(use_tao=True, use_bivariate=True),
+    n_iter=30, cv=3, scoring="balanced_accuracy", random_state=42,
+)
+search.fit(X_train, y_train)
+model = search.best_estimator_
+```
+
 Follow the [tuning tutorial](docs/tutorials/hyperparameter-tuning.ipynb) to train
 a model, tune its parameters, and make predictions for classification or regression.
 
