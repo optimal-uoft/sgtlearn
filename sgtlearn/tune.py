@@ -36,7 +36,7 @@ def suggested_params(
         "tao_lambda": [0.01, 0.001, 0.0001] if use_tao else [1e-4],
         "tao_n_runs": [10 if use_tao else 0],
         "tao_pair_scale": [2.0],
-        "coordinate_descent_max_iters": [5],
+        "coordinate_descent_max_iters": [10],
         "coordinate_descent_patience": [5],
         "max_depth": [4, 6, 8, 10],
         "num_partitions": [2, 3],
@@ -79,7 +79,7 @@ def suggest_params(
         ),
         "tao_n_runs": 10 if use_tao else 0,
         "tao_pair_scale": 2.0,
-        "coordinate_descent_max_iters": 5,
+        "coordinate_descent_max_iters": 10,
         "coordinate_descent_patience": 5,
         "max_depth": trial.suggest_int("max_depth", 4, 10),
         "inner_max_leaf_nodes": trial.suggest_int(

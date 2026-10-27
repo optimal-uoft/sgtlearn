@@ -333,7 +333,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Minimum samples per inner-tree leaf.
     inner_min_impurity_decrease : float, default=0.01
         Minimum impurity decrease required to accept an inner split.
-    coordinate_descent_max_iters : int, default=5
+    coordinate_descent_max_iters : int, default=10
         Maximum coordinate-descent iterations used to refine the bin-to-branch
         assignment after the inner tree is built.
     coordinate_descent_patience : int, default=5
@@ -466,7 +466,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         inner_max_leaf_nodes: int = 4,
         inner_min_samples_leaf: int = 13,
         inner_min_impurity_decrease: float = 0.01,
-        coordinate_descent_max_iters: int = 5,
+        coordinate_descent_max_iters: int = 10,
         coordinate_descent_patience: int = 5,
         random_state: int | None = 42,
         max_features: float | str | None = None,
@@ -810,7 +810,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Minimum samples per inner-tree leaf.
     inner_min_impurity_decrease : float, default=0.01
         Minimum impurity decrease required to accept an inner split.
-    coordinate_descent_max_iters : int, default=5
+    coordinate_descent_max_iters : int, default=10
         Maximum coordinate-descent iterations used to refine the bin-to-branch
         assignment after the inner tree is built.
     coordinate_descent_patience : int, default=5
@@ -929,7 +929,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         inner_max_leaf_nodes: int = 4,
         inner_min_samples_leaf: int = 13,
         inner_min_impurity_decrease: float = 0.01,
-        coordinate_descent_max_iters: int = 5,
+        coordinate_descent_max_iters: int = 10,
         coordinate_descent_patience: int = 5,
         random_state: int | None = 42,
         max_features: float | str | None = None,

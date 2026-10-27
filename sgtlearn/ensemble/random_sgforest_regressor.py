@@ -147,7 +147,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         inner_max_leaf_nodes: int = 4,
         inner_min_samples_leaf: int = 13,
         inner_min_impurity_decrease: float = 0.01,
-        coordinate_descent_max_iters: int = 5,
+        coordinate_descent_max_iters: int = 10,
         coordinate_descent_patience: int = 5,
         max_features: float | str | None = 1.0,
         bootstrap: bool = True,

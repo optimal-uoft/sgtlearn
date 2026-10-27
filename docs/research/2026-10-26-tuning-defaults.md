@@ -2,7 +2,7 @@
 
 Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29](https://github.com/optimal-uoft/sgtlearn/issues/29).
 
-**Decision:** use trial 381 as the shared classifier/regressor starting point, with production-default overrides `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Bivariate splits and TAO remain opt-in; `0.5` is the study-recommended bivariate starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled and one TAO sweep; these scores do not measure the final binary, univariate, ShapeCART-only defaults.
+**Decision:** use trial 381 as the shared classifier/regressor starting point, with production-default overrides `coordinate_descent_max_iters=10`, `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Bivariate splits and TAO remain opt-in; `0.5` is the study-recommended bivariate starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled and one TAO sweep; these scores do not measure the final binary, univariate, ShapeCART-only defaults.
 
 ![Classification–regression Pareto front](../../benchmarks/results/tuning-29-expanded/pareto.png)
 
@@ -31,7 +31,7 @@ Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29]
 }
 ```
 
-Public tree and forest constructors use these settings except `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Ordinary fitting runs binary ShapeCART; bivariate routing and TAO are explicit opt-ins. To reproduce the measured configuration, set `num_partitions=7`, enable pairs at `0.5`, and use one TAO sweep. Removing TAO-specific estimator parameters is tracked separately in [#93](https://github.com/optimal-uoft/sgtlearn/issues/93) for v1.0.0. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
+Public tree and forest constructors use these settings except `coordinate_descent_max_iters=10`, `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Ordinary fitting runs binary ShapeCART; bivariate routing and TAO are explicit opt-ins. To reproduce the measured configuration, set `num_partitions=7`, enable pairs at `0.5`, and use one TAO sweep. Removing TAO-specific estimator parameters is tracked separately in [#93](https://github.com/optimal-uoft/sgtlearn/issues/93) for v1.0.0. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
 
 ## Protocol and reproducibility
 
@@ -123,7 +123,7 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Next | `num_partitions` | integer 2–3 | Public helpers search binary and ternary branching. The study covered 2–8; its recorded results retain that original range. |
 | Secondary | `pairwise_penalty` | `{0, .01, .1, 1}` | Low global importance, but some local changes matter; omit when pairs are disabled. |
 | Secondary | `branching_penalty` | `{0, .01, .1, 1}` | Can help concrete or credit-g locally; omit for binary-only branching. |
-| Fix initially | CD iterations / patience | `5 / 5` | Raising either gives no local improvement from the selected configuration. |
+| Fixed controls | CD iterations / patience | `10 / 5` | Production defaults allow ten iterations with patience five. The study-selected configuration used `5 / 5`; raising either gave no local improvement in its sweeps. |
 | Opt-in refinement | TAO sweeps / pair multiplier | `10 / 2` when enabled | Public helpers allow up to ten sweeps. The selected study configuration used one; extra sweeps changed churn by at most about 0.18 percentage points locally. Ordinary fitting leaves TAO disabled. |
 | Opt-in refinement | `tao_lambda` | `1e-4`–`1e-2`, log; sklearn values `{.01, .001, .0001}` | Public helpers search lambda only when TAO is enabled. The study fixed it at `1e-4`; no importance or optimality claim is made for it. |
 | Fixed by design | `inner_max_depth` | `None` | Inner leaf count controls shape-function complexity. |
