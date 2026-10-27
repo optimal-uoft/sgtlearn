@@ -302,7 +302,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Impurity criterion used both to grow each node's inner shape-function
         tree and to score outer-tree splits (``"log_loss"`` is an alias of
         ``"entropy"``).
-    num_partitions : int, default=7
+    num_partitions : int, default=2
         Maximum number of branches each outer split fans out into; a split may
         have fewer children. Must be at least ``2``. ``2`` reproduces a
         standard binary tree; larger values yield the ``SGT_K`` multi-way
@@ -457,7 +457,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self,
         *,
         criterion: str = "gini",
-        num_partitions: int = 7,
+        num_partitions: int = 2,
         max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 4,
@@ -779,7 +779,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Loss used both to grow each node's inner shape-function tree and to
         score outer-tree splits. ``"mse"`` and ``"mae"`` are accepted as
         aliases.
-    num_partitions : int, default=7
+    num_partitions : int, default=2
         Maximum number of branches each outer split fans out into; a split may
         have fewer children. Must be at least ``2``. ``2`` reproduces a
         standard binary tree; larger values yield the ``SGT_K`` multi-way
@@ -920,7 +920,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self,
         *,
         criterion: str = "squared_error",
-        num_partitions: int = 7,
+        num_partitions: int = 2,
         max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 4,

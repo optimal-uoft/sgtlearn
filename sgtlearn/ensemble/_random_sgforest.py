@@ -95,7 +95,7 @@ class RandomSGForest(BaseEstimator, ABC):
         n_estimators: int = 100,
         *,
         criterion: str,
-        num_partitions: int = 7,
+        num_partitions: int = 2,
         max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 4,

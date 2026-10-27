@@ -31,7 +31,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         ``"mae"``, coordinate descent is disabled unless
         ``SGTLEARN_MAE_CD=1`` is set; while it is disabled, :meth:`fit` warns
         once.
-    num_partitions : int, default=7
+    num_partitions : int, default=2
         Maximum number of children per outer split (a split may have fewer).
         See :class:`sgtlearn.SGTRegressor`.
     max_depth, max_leaf_nodes, min_samples_leaf, min_impurity_decrease : \
@@ -138,7 +138,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         n_estimators: int = 100,
         *,
         criterion: str = "squared_error",
-        num_partitions: int = 7,
+        num_partitions: int = 2,
         max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 4,

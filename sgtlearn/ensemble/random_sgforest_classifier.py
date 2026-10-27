@@ -38,7 +38,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         Impurity criterion forwarded to each base tree, which uses it for its
         inner shape-function trees and outer splits (``"log_loss"`` is an
         alias of ``"entropy"``).
-    num_partitions : int, default=7
+    num_partitions : int, default=2
         Maximum number of children per outer split (a split may have fewer).
         See :class:`sgtlearn.SGTClassifier`.
     max_depth, max_leaf_nodes, min_samples_leaf, min_impurity_decrease : \
@@ -155,7 +155,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         n_estimators: int = 100,
         *,
         criterion: str = "gini",
-        num_partitions: int = 7,
+        num_partitions: int = 2,
         max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
         min_samples_leaf: int = 4,

@@ -2,7 +2,7 @@
 
 Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29](https://github.com/optimal-uoft/sgtlearn/issues/29).
 
-**Decision:** use trial 381 as the shared classifier/regressor starting point, with production-default overrides `pairwise_candidates=0` and `tao_n_runs=0`. Bivariate splits and TAO remain opt-in; `0.5` is the study-recommended bivariate starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled and one TAO sweep; these scores do not measure the final univariate, ShapeCART-only defaults.
+**Decision:** use trial 381 as the shared classifier/regressor starting point, with production-default overrides `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Bivariate splits and TAO remain opt-in; `0.5` is the study-recommended bivariate starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled and one TAO sweep; these scores do not measure the final binary, univariate, ShapeCART-only defaults.
 
 ![Classification–regression Pareto front](../../benchmarks/results/tuning-29-expanded/pareto.png)
 
@@ -31,7 +31,7 @@ Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29]
 }
 ```
 
-Public tree and forest constructors use these settings except `pairwise_candidates=0` and `tao_n_runs=0`. Ordinary fitting runs ShapeCART; bivariate routing and TAO are explicit opt-ins. To reproduce the measured configuration, enable pairs at `0.5` and one TAO sweep. Removing TAO-specific estimator parameters is tracked separately in [#93](https://github.com/optimal-uoft/sgtlearn/issues/93) for v1.0.0. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
+Public tree and forest constructors use these settings except `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Ordinary fitting runs binary ShapeCART; bivariate routing and TAO are explicit opt-ins. To reproduce the measured configuration, set `num_partitions=7`, enable pairs at `0.5`, and use one TAO sweep. Removing TAO-specific estimator parameters is tracked separately in [#93](https://github.com/optimal-uoft/sgtlearn/issues/93) for v1.0.0. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
 
 ## Protocol and reproducibility
 
