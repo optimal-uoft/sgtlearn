@@ -127,7 +127,7 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Opt-in refinement | TAO sweeps / pair multiplier | `1 / 2` when enabled | More sweeps change churn by at most about 0.18 percentage points locally; pair-multiplier effects are tiny here. Ordinary fitting leaves TAO disabled. |
 | Fixed by design | `tao_lambda`, `inner_max_depth` | `1e-4`, `None` | Lambda was not searched; no importance or optimality claim is made for it. |
 
-The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls. Both TAO and bivariate branching are disabled unless requested with `use_tao=True` and `use_bivariate=True`, respectively. Reconstruct trials using the same flags. The companion `recommended_params` returns the fixed study-based preset without Optuna, accepting those same flags. Both helpers return tree-parameter dictionaries without fitting a model or overriding task-specific criterion or forest-specific feature sampling.
+The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls. Both TAO and bivariate branching are disabled unless requested with `use_tao=True` and `use_bivariate=True`, respectively. Reconstruct trials using the same flags. The helper returns a tree-parameter dictionary without fitting a model or overriding task-specific criterion or forest-specific feature sampling.
 
 ## Dataset-specific priorities and promising tested values
 

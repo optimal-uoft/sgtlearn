@@ -11,7 +11,7 @@ from sgtlearn import (
     SGTClassifier,
     SGTRegressor,
 )
-from sgtlearn.tune import recommended_params, suggest_params
+from sgtlearn.tune import suggest_params
 
 
 @pytest.mark.parametrize("use_tao", [False, True])
@@ -35,15 +35,10 @@ def test_suggestions_reconstruct_from_stored_trial_params(use_tao, use_bivariate
 @pytest.mark.parametrize("regression", [False, True])
 @pytest.mark.parametrize("use_tao", [False, True])
 @pytest.mark.parametrize("use_bivariate", [False, True])
-@pytest.mark.parametrize("tune", [False, True])
-def test_parameter_dict_fits_single_tree_and_forest(
-    regression, use_tao, use_bivariate, tune
-):
+def test_parameter_dict_fits_single_tree_and_forest(regression, use_tao, use_bivariate):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=5))
     flags = {"use_tao": use_tao, "use_bivariate": use_bivariate}
-    params = (
-        suggest_params(study.ask(), **flags) if tune else recommended_params(**flags)
-    )
+    params = suggest_params(study.ask(), **flags)
     X = np.arange(240.0).reshape(120, 2)
     y = np.sin(X[:, 0]) if regression else (X[:, 0] > 120).astype(int)
     tree_type = SGTRegressor if regression else SGTClassifier

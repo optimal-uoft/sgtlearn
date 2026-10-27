@@ -27,9 +27,7 @@ def test_regular_import_does_not_require_or_load_optuna():
             sys.executable,
             "-c",
             (
-                "import sys; from sgtlearn.tune import recommended_params; "
-                "from sgtlearn import SGTClassifier; "
-                "SGTClassifier(**recommended_params(use_tao=True, use_bivariate=True)); "
+                "import sys; import sgtlearn; import sgtlearn.tune; "
                 "assert 'optuna' not in sys.modules"
             ),
         ],

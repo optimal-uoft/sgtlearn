@@ -1,24 +1,5 @@
-Recommended settings and tuning
-================================
-
-Use the fixed study-based preset without installing Optuna:
-
-.. code-block:: python
-
-   from sgtlearn import SGTClassifier
-   from sgtlearn.tune import recommended_params
-
-   params = recommended_params(use_tao=True, use_bivariate=True)
-   model = SGTClassifier(**params).fit(X_train, y_train)
-
-Both flags default to ``False``, matching ordinary estimator fitting. Enable
-either independently: ``use_tao=True`` selects one sweep with lambda ``1e-4``;
-``use_bivariate=True`` selects the recommended pair budget ``0.5``. The preset
-also works with regressors and forests, retaining task-specific and forest-only
-defaults. The study measured the combination with both enabled.
-
-Optuna suggestions
-------------------
+Hyperparameter tuning
+=====================
 
 Install the optional Optuna dependency:
 
@@ -56,10 +37,12 @@ so reconstruct it with ``FixedTrial`` instead of using ``study.best_params``
 alone. Override entries in the dictionary when exploring outside the suggested
 ranges. Estimator parameters outside the helper remain available directly.
 
-``suggest_params`` accepts the same ``use_tao`` and ``use_bivariate`` flags.
+``suggest_params`` accepts ``use_tao`` and ``use_bivariate`` flags, both
+defaulting to ``False``. Either can be enabled independently.
 With bivariate branching enabled it searches positive pair budgets and pair
 penalties; otherwise neither is sampled. TAO uses the fixed recommended
-settings when enabled. Reconstruct a winning trial with the same flags, and
+settings (one sweep, lambda ``1e-4``, pair multiplier ``2.0``) when enabled.
+Reconstruct a winning trial with the same flags, and
 use a separate study when changing the flags:
 
 .. code-block:: python
@@ -104,8 +87,8 @@ Public constructors keep bivariate splits and TAO off by default
 to opt into the study-recommended bivariate starting point. The other settings
 match the selected configuration. The reported study scores used bivariate
 splits and one TAO sweep; they do not measure the final univariate,
-ShapeCART-only defaults. Both helpers leave TAO and bivariate branching disabled
-unless their respective flags are enabled. Refinement can also be applied
+ShapeCART-only defaults. The tuning helper leaves TAO and bivariate branching
+disabled unless their respective flags are enabled. Refinement can also be applied
 explicitly with ``TAO_refine``.
 
 Forest base trees inherit these settings. Existing forest-specific defaults
@@ -182,5 +165,3 @@ tested values, and the Pareto plot are recorded in the repository's
 ``docs/research/2026-10-26-tuning-defaults.md`` report.
 
 .. autofunction:: sgtlearn.tune.suggest_params
-
-.. autofunction:: sgtlearn.tune.recommended_params
