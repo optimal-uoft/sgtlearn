@@ -14,8 +14,13 @@ from sgtlearn.tune import suggested_params
 @pytest.mark.parametrize("use_bivariate", [False, True])
 def test_sklearn_search_fits_and_refits(randomized, regression, use_tao, use_bivariate):
     space = suggested_params(use_tao=use_tao, use_bivariate=use_bivariate)
-    assert (len(space["tao_pair_scale"]) > 1) == (use_tao and use_bivariate)
-    assert all(1.5 <= value <= 2.0 for value in space["tao_pair_scale"])
+    assert all(
+        len(values) > 1 or (name == "tao_n_runs" and use_tao)
+        for name, values in space.items()
+    )
+    assert ("tao_pair_scale" in space) == (use_tao and use_bivariate)
+    if use_tao and use_bivariate:
+        assert all(1.5 <= value <= 2.0 for value in space["tao_pair_scale"])
     X = np.arange(240.0).reshape(120, 2)
     y = np.sin(X[:, 0]) if regression else (X[:, 0] > 120).astype(int)
     model = SGTRegressor() if regression else SGTClassifier()

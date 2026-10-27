@@ -28,17 +28,15 @@ def suggested_params(
     With both enabled, pair scales are 1.5, 1.75, and 2.0. Both options default
     to off, as in ``suggest_params``.
 
+    Only tunable parameters are included, except ``tao_n_runs=[10]`` when TAO
+    is enabled. That override activates refinement; other constants use the
+    estimator defaults.
+
     The full Cartesian grid is large: prefer randomized search, or narrow the
     lists before an exhaustive grid search. Criterion and forest-specific
     settings retain their estimator defaults. Optuna is not required here.
     """
-    return {
-        "inner_max_depth": [None],
-        "tao_lambda": [0.01, 0.001, 0.0001] if use_tao else [1e-4],
-        "tao_n_runs": [10 if use_tao else 0],
-        "tao_pair_scale": [1.5, 1.75, 2.0] if use_tao and use_bivariate else [2.0],
-        "coordinate_descent_max_iters": [10],
-        "coordinate_descent_patience": [5],
+    params = {
         "max_depth": [4, 6, 8, 10],
         "num_partitions": [2, 3],
         "inner_max_leaf_nodes": [2, 4, 8, 16, 32, 64],
@@ -46,10 +44,18 @@ def suggested_params(
         "inner_min_samples_leaf": [1, 2, 4, 8, 16, 32],
         "min_impurity_decrease": [0.0, 0.01, 0.1, 1.0, 10.0],
         "inner_min_impurity_decrease": [0.0, 0.001, 0.01, 0.1],
-        "pairwise_candidates": [0.25, 0.5, 1.0, 2.0] if use_bivariate else [0.0],
-        "pairwise_penalty": [0.0, 0.01, 0.1, 1.0] if use_bivariate else [0.0],
         "branching_penalty": [0.0, 0.01, 0.1, 1.0],
     }
+    if use_tao:
+        params.update(tao_lambda=[0.01, 0.001, 0.0001], tao_n_runs=[10])
+    if use_bivariate:
+        params.update(
+            pairwise_candidates=[0.25, 0.5, 1.0, 2.0],
+            pairwise_penalty=[0.0, 0.01, 0.1, 1.0],
+        )
+    if use_tao and use_bivariate:
+        params["tao_pair_scale"] = [1.5, 1.75, 2.0]
+    return params
 
 
 def suggest_params(
@@ -58,9 +64,11 @@ def suggest_params(
     """Return suggested keyword arguments for an SGT classifier or regressor.
 
     Accepts an Optuna ``Trial`` or ``FixedTrial``. No estimator is fitted and no
-    study is created. The returned dictionary includes fixed settings as well
-    as sampled ones; reconstruct it using ``FixedTrial(best_trial.params)``
-    with the same feature flags. ``use_tao`` enables up to ten refinement sweeps
+    study is created. The returned dictionary includes only sampled parameters
+    and the required ``tao_n_runs=10`` override when TAO is enabled. Other
+    constants use estimator defaults. Reconstruct using
+    ``FixedTrial(best_trial.params)`` with the same feature flags.
+    ``use_tao`` enables up to ten refinement sweeps
     and searches lambda logarithmically between 1e-4 and 1e-2;
     ``use_bivariate`` searches positive pair budgets and their penalties.
     With both enabled, pair scale is sampled uniformly between 1.5 and 2.0.
@@ -69,24 +77,7 @@ def suggest_params(
     See the hyperparameter-tuning tutorial for a complete example.
     """
     num_partitions = trial.suggest_int("num_partitions", 2, 3)
-    pairs = (
-        trial.suggest_categorical("pairwise_candidates", [0.25, 0.5, 1.0, 2.0])
-        if use_bivariate
-        else 0.0
-    )
-    return {
-        "inner_max_depth": None,
-        "tao_lambda": (
-            trial.suggest_float("tao_lambda", 1e-4, 1e-2, log=True) if use_tao else 1e-4
-        ),
-        "tao_n_runs": 10 if use_tao else 0,
-        "tao_pair_scale": (
-            trial.suggest_float("tao_pair_scale", 1.5, 2.0)
-            if use_tao and use_bivariate
-            else 2.0
-        ),
-        "coordinate_descent_max_iters": 10,
-        "coordinate_descent_patience": 5,
+    params = {
         "max_depth": trial.suggest_int("max_depth", 4, 10),
         "inner_max_leaf_nodes": trial.suggest_int(
             "inner_max_leaf_nodes", 2, 64, log=True
@@ -102,15 +93,21 @@ def suggest_params(
         "inner_min_impurity_decrease": trial.suggest_categorical(
             "inner_min_impurity_decrease", [0.0, 0.001, 0.01, 0.1]
         ),
-        "pairwise_candidates": pairs,
-        "pairwise_penalty": (
-            trial.suggest_categorical("pairwise_penalty", [0.0, 0.01, 0.1, 1.0])
-            if pairs > 0
-            else 0.0
-        ),
-        "branching_penalty": (
-            trial.suggest_categorical("branching_penalty", [0.0, 0.01, 0.1, 1.0])
-            if num_partitions > 2
-            else 0.0
-        ),
     }
+    if use_bivariate:
+        params["pairwise_candidates"] = trial.suggest_categorical(
+            "pairwise_candidates", [0.25, 0.5, 1.0, 2.0]
+        )
+        params["pairwise_penalty"] = trial.suggest_categorical(
+            "pairwise_penalty", [0.0, 0.01, 0.1, 1.0]
+        )
+    if num_partitions > 2:
+        params["branching_penalty"] = trial.suggest_categorical(
+            "branching_penalty", [0.0, 0.01, 0.1, 1.0]
+        )
+    if use_tao:
+        params["tao_n_runs"] = 10
+        params["tao_lambda"] = trial.suggest_float("tao_lambda", 1e-4, 1e-2, log=True)
+    if use_tao and use_bivariate:
+        params["tao_pair_scale"] = trial.suggest_float("tao_pair_scale", 1.5, 2.0)
+    return params

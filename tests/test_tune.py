@@ -22,17 +22,16 @@ def test_suggestions_reconstruct_from_stored_trial_params(use_tao, use_bivariate
     flags = {"use_tao": use_tao, "use_bivariate": use_bivariate}
     params = suggest_params(trial, **flags)
     assert params == suggest_params(optuna.trial.FixedTrial(trial.params), **flags)
-    assert (params["pairwise_candidates"] > 0) == use_bivariate
+    assert set(params) == set(trial.params) | ({"tao_n_runs"} if use_tao else set())
     assert ("pairwise_candidates" in trial.params) == use_bivariate
     assert ("pairwise_penalty" in trial.params) == use_bivariate
-    assert params["inner_max_depth"] is None
-    assert 1e-4 <= params["tao_lambda"] <= 1e-2
     assert ("tao_lambda" in trial.params) == use_tao
     if use_tao:
+        assert 1e-4 <= params["tao_lambda"] <= 1e-2
         assert trial.distributions["tao_lambda"].log
     assert ("tao_pair_scale" in trial.params) == (use_tao and use_bivariate)
-    assert 1.5 <= params["tao_pair_scale"] <= 2.0
     if use_tao and use_bivariate:
+        assert 1.5 <= params["tao_pair_scale"] <= 2.0
         assert not trial.distributions["tao_pair_scale"].log
     assert 4 <= params["max_depth"] <= 10
     assert "max_features" not in params
@@ -78,7 +77,8 @@ def test_inactive_costs_are_not_suggested_for_binary_univariate_tree():
     study.enqueue_trial({"num_partitions": 2, "pairwise_candidates": 0.0})
     trial = study.ask()
     params = suggest_params(trial)
-    assert params["branching_penalty"] == params["pairwise_penalty"] == 0.0
+    assert "branching_penalty" not in params
+    assert "pairwise_penalty" not in params
     assert "branching_penalty" not in trial.params
     assert "pairwise_penalty" not in trial.params
     assert params == suggest_params(optuna.trial.FixedTrial(trial.params))
