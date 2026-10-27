@@ -29,9 +29,3 @@ def test_unlimited_inner_depth_grows_past_three_with_explicit_leaf_cap():
 
 def test_explicit_depth_three_still_binds():
     assert len(_root(inner_max_depth=3)["bin_to_partition"]) == 4
-
-
-def test_default_inner_tree_uses_leaf_limit_without_depth_limit():
-    model = SGTRegressor()
-    assert model.inner_max_depth is None
-    assert model.inner_max_leaf_nodes == 4

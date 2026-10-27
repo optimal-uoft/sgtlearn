@@ -110,7 +110,7 @@ class RandomSGForest(BaseEstimator, ABC):
         bootstrap: bool = True,
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
-        pairwise_candidates: float = 0.5,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
         tao_n_runs: int = 1,

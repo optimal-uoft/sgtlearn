@@ -54,10 +54,12 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         Per-split feature subsampling for each base tree. Defaults to
         ``"sqrt"`` to follow ``RandomForestClassifier`` convention. See
         :class:`sgtlearn.SGTClassifier` for the full semantics.
-    pairwise_candidates : int or float, default=0.5
+    pairwise_candidates : int or float, default=0
         Maximum retained feature pairs fitted per node. An integer is an
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
-        Zero preserves univariate-only training.
+        Zero (default) disables bivariate splits. ``0.5`` is the recommended
+        opt-in starting point from the single-tree default-selection study;
+        forest performance was not benchmarked.
     pairwise_penalty : float, default=0.0
         Constant nonnegative cost subtracted from a fitted pair's total
         sample-weighted, output-averaged impurity improvement.
@@ -169,7 +171,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
-        pairwise_candidates: float = 0.5,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
         tao_n_runs: int = 1,

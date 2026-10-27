@@ -2,11 +2,11 @@
 
 Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29](https://github.com/optimal-uoft/sgtlearn/issues/29).
 
-**Decision:** adopt trial 381 as one shared classifier/regressor configuration. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff; this is a practical starting point, not a universal optimum.
+**Decision:** use trial 381 as the shared classifier/regressor starting point, with the user's subsequent production-default override `pairwise_candidates=0`. Bivariate splits remain opt-in; `0.5` is the study-recommended starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled; these scores do not measure the final univariate defaults.
 
 ![Classification–regression Pareto front](../../benchmarks/results/tuning-29-expanded/pareto.png)
 
-## Selected defaults
+## Study-selected configuration
 
 ```python
 {
@@ -31,7 +31,7 @@ Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29]
 }
 ```
 
-These tree settings also become forest base-tree defaults, as requested. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
+Public tree and forest constructors use these settings except `pairwise_candidates=0`, preserving bivariate routing as opt-in. Set it to `0.5` to use the measured configuration. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
 
 ## Protocol and reproducibility
 
@@ -157,7 +157,7 @@ Loss in this table is `1 - balanced_accuracy` for classification and normalized 
 - 512 trials include repeated parameter dictionaries; only 325 are distinct. The guided sampler concentrates on its promising region, so fANOVA estimates and the Pareto front are conditional on this finite search. No statistical-significance claim is made.
 - The shared compromise gives up some classification test performance to improve regression. Classifier-specific tuning remains useful; the two unseen tasks do not erase the regressions in the search panel.
 - The helper’s narrower ranges were chosen from validation sensitivity, not from final test results. Large inner-leaf plateaus can reflect interactions with minimum-leaf constraints; outside this panel, larger counts may still help.
-- Regression targets, impurities, and penalties now use standardized training units. Predictions and exported leaf values remain in original units, including after later TAO or forest refinement. Existing nonzero penalties can need retuning. New constructor defaults enable pair candidates and regularization; very small datasets may fit a constant tree.
+- Regression targets, impurities, and penalties now use standardized training units. Predictions and exported leaf values remain in original units, including after later TAO or forest refinement. Existing nonzero penalties can need retuning. New constructor defaults use regularization and leave pair candidates disabled; very small datasets may fit a constant tree.
 - Forest quality was deliberately not benchmarked. Reusing tree settings is the user-requested transfer assumption; only constructor forwarding and normal integration are tested.
 - This branch adds the optional `tune` extra; it has not been published to PyPI. Install from the branch or local checkout until a release includes it.
 
@@ -165,6 +165,6 @@ The preliminary five-dataset artifacts remain in `benchmarks/results/tuning-29/`
 
 ## Implementation validation
 
-The final Python suite passes **1,512 tests**, with two skips. This includes independent target-scaling tests, explicit selected-default contracts for all four estimators, forest forwarding and integration, conditional Optuna suggestions, and benchmark split/aggregation integrity. Existing growth and routing tests use an explicit unrestricted configuration so their mathematical fixtures do not depend on empirical production defaults.
+The Python suite covers independent target-scaling tests, forest forwarding and integration, conditional Optuna suggestions, and benchmark split/aggregation integrity. Existing growth and routing tests use an explicit unrestricted configuration so their mathematical fixtures do not depend on empirical production defaults.
 
 Production modules pass Ruff and Black checks. Sphinx HTML documentation builds with warnings treated as errors. A native macOS arm64 / CPython 3.14 wheel builds successfully; an isolated environment verifies that the base wheel works without Optuna, and installing its `tune` extra installs Optuna and reconstructs suggested dictionaries correctly. Other OS/Python build combinations and tutorial notebook reexecution were not run locally. The wheel and source changes are not published.

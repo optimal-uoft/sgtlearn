@@ -352,10 +352,11 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         - ``"log2"``: use ``max(1, int(log2(n_logical_features)))`` features.
 
         String values are case-insensitive in the native binding.
-    pairwise_candidates : int or float, default=0.5
+    pairwise_candidates : int or float, default=0
         Maximum retained feature pairs fitted per node. An integer is an
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
-        Zero preserves univariate-only training.
+        Zero (default) disables bivariate splits. ``0.5`` is the recommended
+        opt-in starting point from the default-selection study.
     pairwise_penalty : float, default=0.0
         Constant nonnegative cost subtracted from a fitted pair's total
         sample-weighted, output-averaged impurity improvement.
@@ -469,7 +470,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         coordinate_descent_patience: int = 5,
         random_state: int | None = 42,
         max_features: float | str | None = None,
-        pairwise_candidates: float = 0.5,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
@@ -820,10 +821,11 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     max_features : int, float, {"sqrt", "log2"} or None, default=None
         Per-split feature subsampling. Same semantics as
         :class:`SGTClassifier`.
-    pairwise_candidates : int or float, default=0.5
+    pairwise_candidates : int or float, default=0
         Maximum retained feature pairs fitted per node. An integer is an
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
-        Zero preserves univariate-only training.
+        Zero (default) disables bivariate splits. ``0.5`` is the recommended
+        opt-in starting point from the default-selection study.
     pairwise_penalty : float, default=0.0
         Constant nonnegative cost subtracted from a fitted pair's total
         sample-weighted, output-averaged impurity improvement.
@@ -931,7 +933,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         coordinate_descent_patience: int = 5,
         random_state: int | None = 42,
         max_features: float | str | None = None,
-        pairwise_candidates: float = 0.5,
+        pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
         tao_n_runs: int = 1,

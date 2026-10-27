@@ -56,7 +56,7 @@ The supported finite float32 input range remains unchanged.
 Default-selection study
 -----------------------
 
-The selected shared configuration is outer depth 4, at most 7 branches,
+The study-selected shared configuration is outer depth 4, at most 7 branches,
 4 inner leaves with unlimited inner depth, outer/inner minimum leaf sizes
 4/13, outer/inner impurity penalties 1.0/0.01, and a pair-candidate budget of
 ``0.5 * n_logical_features`` (rounded up). Coordinate descent uses 5 iterations
@@ -64,13 +64,20 @@ and patience 5. TAO uses one sweep, ``tao_lambda=1e-4``, and pair multiplier 2.0
 Pair and extra-branch penalties are zero. Classifier criterion stays ``gini``;
 regressor criterion stays ``squared_error``.
 
+Public constructors keep bivariate splits off by default
+(``pairwise_candidates=0``). Set ``pairwise_candidates=0.5`` to opt into the
+study-recommended starting point. The other settings match the selected
+configuration. The reported study scores use ``0.5``; they are not measurements
+of the final univariate defaults. The Optuna helper still explores bivariate
+settings when users choose to tune.
+
 Forest base trees inherit these settings. Existing forest-specific defaults
 match sklearn: 100 trees, bootstrap enabled, all rows per bootstrap sample,
 ``max_features="sqrt"`` for classification and ``1.0`` for regression,
 ``random_state=None``, ``n_jobs=None``, and ``verbose=0``. Forest performance
 was not measured in this study.
 
-This changes previous constructor behavior, including enabling pair candidates.
+This changes previous constructor behavior through the regularized tree settings.
 Very small datasets can produce a constant tree under the regularized defaults;
 lower the outer/inner minimum leaf sizes and impurity penalties when needed.
 
