@@ -2,7 +2,7 @@
 
 Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29](https://github.com/optimal-uoft/sgtlearn/issues/29).
 
-**Decision:** use trial 381 as the shared classifier/regressor starting point, with the user's subsequent production-default override `pairwise_candidates=0`. Bivariate splits remain opt-in; `0.5` is the study-recommended starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled; these scores do not measure the final univariate defaults.
+**Decision:** use trial 381 as the shared classifier/regressor starting point, with production-default overrides `pairwise_candidates=0` and `tao_n_runs=0`. Bivariate splits and TAO remain opt-in; `0.5` is the study-recommended bivariate starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled and one TAO sweep; these scores do not measure the final univariate, ShapeCART-only defaults.
 
 ![Classification–regression Pareto front](../../benchmarks/results/tuning-29-expanded/pareto.png)
 
@@ -31,7 +31,7 @@ Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29]
 }
 ```
 
-Public tree and forest constructors use these settings except `pairwise_candidates=0`, preserving bivariate routing as opt-in. Set it to `0.5` to use the measured configuration. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
+Public tree and forest constructors use these settings except `pairwise_candidates=0` and `tao_n_runs=0`. Ordinary fitting runs ShapeCART; bivariate routing and TAO are explicit opt-ins. To reproduce the measured configuration, enable pairs at `0.5` and one TAO sweep. Removing TAO-specific estimator parameters is tracked separately in [#93](https://github.com/optimal-uoft/sgtlearn/issues/93) for v1.0.0. Existing forest-specific defaults follow sklearn: 100 trees, bootstrap on, all rows per bootstrap sample, `max_features="sqrt"` for classification and `1.0` for regression, `n_jobs=None`, `random_state=None`, and `verbose=0`. **No forest performance claim is supported by this experiment.**
 
 ## Protocol and reproducibility
 
@@ -124,10 +124,10 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Secondary | `pairwise_penalty` | `{0, .01, .1, 1}` | Low global importance, but some local changes matter; omit when pairs are disabled. |
 | Secondary | `branching_penalty` | `{0, .01, .1, 1}` | Can help concrete or credit-g locally; omit for binary-only branching. |
 | Fix initially | CD iterations / patience | `5 / 5` | Raising either gives no local improvement from the selected configuration. |
-| Fix initially | TAO sweeps / pair multiplier | `1 / 2` | More sweeps change churn by at most about 0.18 percentage points locally; pair-multiplier effects are tiny here. |
+| Opt-in refinement | TAO sweeps / pair multiplier | `1 / 2` when enabled | More sweeps change churn by at most about 0.18 percentage points locally; pair-multiplier effects are tiny here. Ordinary fitting leaves TAO disabled. |
 | Fixed by design | `tao_lambda`, `inner_max_depth` | `1e-4`, `None` | Lambda was not searched; no importance or optimality claim is made for it. |
 
-The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls. It returns a complete tree-parameter dictionary without fitting a model or defining the objective. It does not override task-specific criterion or forest-specific feature sampling.
+The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls, with `tao_n_runs=0` to keep refinement opt-in. It returns a complete tree-parameter dictionary without fitting a model or defining the objective. It does not override task-specific criterion or forest-specific feature sampling.
 
 ## Dataset-specific priorities and promising tested values
 

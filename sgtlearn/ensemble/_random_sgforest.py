@@ -113,7 +113,7 @@ class RandomSGForest(BaseEstimator, ABC):
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
-        tao_n_runs: int = 1,
+        tao_n_runs: int = 0,
         tao_lambda: float = 0.0001,
         tao_pair_scale: float = 2.0,
         n_jobs: int | None = None,

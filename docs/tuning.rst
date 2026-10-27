@@ -64,12 +64,13 @@ and patience 5. TAO uses one sweep, ``tao_lambda=1e-4``, and pair multiplier 2.0
 Pair and extra-branch penalties are zero. Classifier criterion stays ``gini``;
 regressor criterion stays ``squared_error``.
 
-Public constructors keep bivariate splits off by default
-(``pairwise_candidates=0``). Set ``pairwise_candidates=0.5`` to opt into the
-study-recommended starting point. The other settings match the selected
-configuration. The reported study scores use ``0.5``; they are not measurements
-of the final univariate defaults. The Optuna helper still explores bivariate
-settings when users choose to tune.
+Public constructors keep bivariate splits and TAO off by default
+(``pairwise_candidates=0``, ``tao_n_runs=0``). Set ``pairwise_candidates=0.5``
+to opt into the study-recommended bivariate starting point. The other settings
+match the selected configuration. The reported study scores used bivariate
+splits and one TAO sweep; they do not measure the final univariate,
+ShapeCART-only defaults. The Optuna helper explores bivariate settings but
+leaves TAO disabled; refinement can be applied explicitly with ``TAO_refine``.
 
 Forest base trees inherit these settings. Existing forest-specific defaults
 match sklearn: 100 trees, bootstrap enabled, all rows per bootstrap sample,
@@ -127,7 +128,8 @@ Outer impurity regularization and minimum leaf sizes were the strongest
 classification dimensions. Inner minimum leaf size, outer impurity cost, and
 inner leaf count were the strongest regression dimensions. Iteration count,
 patience, TAO sweep count, and TAO pair multiplier showed little local benefit
-around the selected configuration, so the helper fixes them at the defaults.
+around the selected configuration. The helper fixes these controls, with TAO
+disabled to keep ordinary fitting limited to ShapeCART.
 The original broad search covered inner leaves up to 256; the local sweeps
 showed plateaus at larger values, so the public helper uses 64 as its upper
 bound. Users can still override the returned dictionary.

@@ -65,7 +65,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant cost per additional occupied child beyond two.
-    tao_n_runs : int, default=1
+    tao_n_runs : int, default=0
         Maximum number of bottom-up TAO sweeps run on each base tree at the
         end of its ``fit`` (stopping early once a sweep changes nothing), on
         that tree's bootstrap sample (or the full training set when
@@ -122,8 +122,8 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     mean_feature_importances_ : ndarray of shape (n_logical_features,)
         Mean of per-tree :attr:`~sgtlearn.SGTClassifier.feature_importances_`,
         aligned with :attr:`processed_features_`. Accessing it raises
-        ``AttributeError`` if any base tree was TAO-refined, which happens by
-        default (``tao_n_runs=1``); fit with ``tao_n_runs=0`` to use it.
+        ``AttributeError`` if any base tree was TAO-refined. Ordinary fitting
+        leaves TAO disabled and makes this attribute available.
     std_feature_importance_ : ndarray of shape (n_logical_features,)
         Population standard deviation of per-tree importances across the
         forest (same alignment and TAO restriction as
@@ -174,7 +174,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
-        tao_n_runs: int = 1,
+        tao_n_runs: int = 0,
         tao_lambda: float = 0.0001,
         tao_pair_scale: float = 2.0,
         n_jobs: int | None = None,

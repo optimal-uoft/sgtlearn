@@ -13,11 +13,12 @@ bivariate candidates are limited to the node's retained pairs.
 
 There are two ways to use TAO:
 
-1. **During fit** — pass ``tao_n_runs``, ``tao_lambda``, and ``tao_pair_scale``
-   to any supported estimator (see below). TAO runs automatically after the
-   native trainer finishes.
-2. **After fit** — call :func:`~sgtlearn.tao.TAO_refine` on a fitted model to
-   refine it further (or to run TAO when ``tao_n_runs=0`` was used at fit time).
+1. **After fit (recommended)** — call :func:`~sgtlearn.tao.TAO_refine` on a fitted
+   model. Ordinary ``fit`` runs ShapeCART only because ``tao_n_runs=0`` by default.
+2. **During fit (explicit opt-in)** — a positive ``tao_n_runs`` still enables
+   refinement after the native trainer, using ``tao_lambda`` and ``tao_pair_scale``.
+   Moving these parameters out of estimator constructors is planned for v1.0.0
+   in `issue #93 <https://github.com/optimal-uoft/sgtlearn/issues/93>`_.
 
 Import the post-hoc entry point from the dedicated module (also re-exported on the
 package root as ``sgtlearn.tao``):
@@ -32,7 +33,7 @@ TAO parameters on estimators
 All four public tree estimators accept the same three constructor / ``fit``-time
 TAO knobs:
 
-``tao_n_runs`` : int, default=1
+``tao_n_runs`` : int, default=0
     Maximum number of bottom-up TAO passes to run after the native trainer
     finishes (TAO may stop earlier).
     Set to ``0`` to skip TAO entirely during ``fit``.

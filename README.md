@@ -30,8 +30,8 @@ default-selection protocol.
 
 The [12-dataset default-selection report](docs/research/2026-10-26-tuning-defaults.md)
 records the Pareto compromise, held-out results, and useful parameter ranges.
-The common defaults use outer depth 4, four inner leaves, regularization,
-and one TAO sweep. Bivariate splits are off by default; set
+The common defaults use outer depth 4, four inner leaves, and regularization.
+Ordinary fitting runs ShapeCART with TAO disabled. Bivariate splits are also off by default; set
 `pairwise_candidates=0.5` for the study-recommended opt-in starting point.
 Existing parameter-free calls change behavior;
 the report documents the classification/regression tradeoff.

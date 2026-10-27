@@ -81,17 +81,16 @@ Bootstrap-aggregate SGTs into a random forest:
 TAO refinement
 --------------
 
-TAO (Tree-Alternating Optimization) improves routing rules after the native
-trainer finishes. All tree estimators run TAO automatically at the end of
-``fit`` unless you disable it:
+TAO (Tree-Alternating Optimization) refines routing rules after ShapeCART
+training. It is disabled by default; use the separate refinement step when needed:
 
 .. code-block:: python
 
-   # Default: one TAO sweep with a per-sample complexity rate of 1e-4.
+   # Default: ShapeCART only, with TAO disabled.
    model = SGTClassifier(max_depth=4, random_state=42).fit(X_train, y_train)
 
-   # Skip fit-time TAO
-   model = SGTClassifier(max_depth=4, tao_n_runs=0, random_state=42).fit(
+   # Explicit fit-time TAO remains available until the v1.0.0 API separation.
+   model = SGTClassifier(max_depth=4, tao_n_runs=1, random_state=42).fit(
        X_train, y_train
    )
 

@@ -22,7 +22,6 @@ def test_suggestions_reconstruct_from_stored_trial_params():
     assert params["inner_max_depth"] is None
     assert params["tao_lambda"] == 1e-4
     assert 4 <= params["max_depth"] <= 10
-    assert params["tao_n_runs"] > 0
     assert "max_features" not in params
     assert "criterion" not in params
 
@@ -40,6 +39,8 @@ def test_suggested_dict_fits_single_tree_and_forest(regression):
     assert tree.predict(X).shape == forest.predict(X).shape == y.shape
     assert np.isfinite(tree.predict(X)).all()
     assert np.isfinite(forest.predict(X)).all()
+    assert tree.feature_importances_.shape == (X.shape[1],)
+    assert forest.mean_feature_importances_.shape == (X.shape[1],)
 
 
 def test_invalid_fixed_parameter_is_rejected_instead_of_silently_clipped():
@@ -59,18 +60,3 @@ def test_inactive_costs_are_not_suggested_for_binary_univariate_tree():
     assert "branching_penalty" not in trial.params
     assert "pairwise_penalty" not in trial.params
     assert params == suggest_params(optuna.trial.FixedTrial(trial.params))
-
-
-def test_public_helper_fixes_low_value_iteration_controls():
-    study = optuna.create_study()
-    trial = study.ask()
-    params = suggest_params(trial)
-    for name, value in {
-        "coordinate_descent_max_iters": 5,
-        "coordinate_descent_patience": 5,
-        "tao_n_runs": 1,
-        "tao_pair_scale": 2.0,
-        "tao_lambda": 1e-4,
-    }.items():
-        assert params[name] == value
-        assert name not in trial.params

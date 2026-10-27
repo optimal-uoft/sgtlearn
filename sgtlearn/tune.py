@@ -28,7 +28,7 @@ def suggest_params(trial: Trial | FixedTrial) -> dict[str, Any]:
     return {
         "inner_max_depth": None,
         "tao_lambda": 1e-4,
-        "tao_n_runs": 1,
+        "tao_n_runs": 0,
         "tao_pair_scale": 2.0,
         "coordinate_descent_max_iters": 5,
         "coordinate_descent_patience": 5,

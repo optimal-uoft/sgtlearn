@@ -195,7 +195,7 @@ class BaseShapeCART(BaseEstimator):
 
         Length matches the number of logical features passed to ``fit``
         (one-to-one with :attr:`processed_features_`). Available only after
-        training with ``tao_n_runs=0`` (the default ``tao_n_runs=1`` runs TAO)
+        training without TAO (``tao_n_runs=0``, the default)
         and no later TAO refinement; otherwise raises ``AttributeError``. Warns
         when the tree has pair nodes, whose gain is split equally between both
         features.
@@ -362,7 +362,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant nonnegative cost per additional occupied child beyond two.
-    tao_n_runs : int, default=1
+    tao_n_runs : int, default=0
         Maximum number of Tree Alternating Optimization (TAO) sweeps run at the
         end of :meth:`fit` (see :func:`~sgtlearn.tao.TAO_refine`); sweeps stop
         early once one makes no change. ``0`` disables TAO; any positive value
@@ -399,8 +399,8 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Normalized impurity-based importances from the fitted tree. Index
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
         order as the logical features passed to the native trainer). Raises
-        ``AttributeError`` after TAO refinement, which runs by default
-        (``tao_n_runs=1``); fit with ``tao_n_runs=0`` to use it.
+        ``AttributeError`` after TAO refinement. Ordinary fitting leaves
+        TAO disabled and makes this attribute available.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
@@ -474,7 +474,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
-        tao_n_runs: int = 1,
+        tao_n_runs: int = 0,
         tao_lambda: float = 0.0001,
         tao_pair_scale: float = 2.0,
     ) -> None:
@@ -831,7 +831,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant nonnegative cost per additional occupied child beyond two.
-    tao_n_runs : int, default=1
+    tao_n_runs : int, default=0
         Maximum number of Tree Alternating Optimization (TAO) sweeps run at the
         end of :meth:`fit` (see :func:`~sgtlearn.tao.TAO_refine`); sweeps stop
         early once one makes no change. ``0`` disables TAO; any positive value
@@ -857,8 +857,8 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Normalized impurity-based importances from the fitted tree. Index
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
         order as the logical features passed to the native trainer). Raises
-        ``AttributeError`` after TAO refinement, which runs by default
-        (``tao_n_runs=1``); fit with ``tao_n_runs=0`` to use it.
+        ``AttributeError`` after TAO refinement. Ordinary fitting leaves
+        TAO disabled and makes this attribute available.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
@@ -936,7 +936,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         pairwise_candidates: float = 0,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
-        tao_n_runs: int = 1,
+        tao_n_runs: int = 0,
         tao_lambda: float = 0.0001,
         tao_pair_scale: float = 2.0,
     ) -> None:

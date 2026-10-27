@@ -7,7 +7,7 @@ Single Shape Generalized Tree estimators following the scikit-learn API.
 
 Both estimators accept ``tao_n_runs``, ``tao_lambda``, and ``tao_pair_scale``;
 TAO runs automatically at the end of :meth:`SGTClassifier.fit` /
-:meth:`SGTRegressor.fit` when ``tao_n_runs > 0`` (the default is ``1``).
+:meth:`SGTRegressor.fit` only when ``tao_n_runs > 0`` (the default is ``0``).
 See :doc:`tao` for behaviour and post-hoc :func:`~sgtlearn.tao.TAO_refine`.
 
 After fitting with TAO disabled, :attr:`~sgtlearn.BaseShapeCART.feature_importances_`
@@ -145,7 +145,7 @@ Without TAO, pair gains are divided equally between the two logical features. Ac
 because this attribution is intentionally a symmetric convention rather than
 a unique or fully trustworthy decomposition.
 
-Pair-aware TAO is available through ``tao_pair_scale`` (default ``1.1``): it
+Pair-aware TAO is available through ``tao_pair_scale`` (default ``2.0``): it
 is finite and non-negative, affects only the TAO complexity penalty, and TAO
 only reconsiders pairs retained during initial screening. After TAO,
 ``feature_importances_`` is unavailable. The existing ``plot_tree`` API renders
