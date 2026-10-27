@@ -16,6 +16,7 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from TreeAlternatingOptimization import TreeAlternatingOptimization
 
 from sgtlearn._multioutput import (
+    as_output_matrix,
     encode_classification_targets,
     label_encoders_as_list,
     native_y_array,
@@ -186,9 +187,9 @@ def TAO_refine(
     y: np.ndarray,
     *,
     sample_weight: np.ndarray | None = None,
-    n_runs: int = 10,
-    lambda_: float = 0.0,
-    tao_pair_scale: float = 1.1,
+    n_runs: int = 1,
+    lambda_: float = 1e-4,
+    tao_pair_scale: float = 2.0,
     check_input: bool = True,
     n_jobs: int | None = None,
 ) -> TaoModel:
@@ -227,13 +228,13 @@ def TAO_refine(
         Finite, non-negative per-sample weights with at least one positive
         value; ``None`` means uniform weights. For classifiers the model's
         ``class_weight`` is multiplied in automatically, so pass raw weights.
-    n_runs : int, default=10
+    n_runs : int, default=1
         Maximum number of bottom-up sweeps (a non-negative int); refinement can
         stop early once a sweep makes no change. ``0`` leaves the model
         unchanged.
-    lambda_ : float, default=0.0
+    lambda_ : float, default=0.0001
         Per-sample complexity rate (see above).
-    tao_pair_scale : float, default=1.1
+    tao_pair_scale : float, default=2.0
         Finite, non-negative multiplier on the complexity cost of pair routers.
     check_input : bool, default=True
         Validate ``X`` and ``y`` with scikit-learn checks. Set to ``False`` only
@@ -263,17 +264,28 @@ def TAO_refine(
     targets = _tao_targets(model)
     X, y = _validate_X_y(model, X, y, check_input=check_input)
     X32, y_native, sw = _prepare_tao_arrays(model, X, y, sample_weight)
+    # Each bootstrapped regressor retains its own training-target scale.
+    targets_y = [
+        (
+            _as_native_y(
+                tree._target_scaler.transform(as_output_matrix(np.asarray(y))[0])
+            )
+            if isinstance(tree, SGTRegressor) and hasattr(tree, "_target_scaler")
+            else y_native
+        )
+        for tree in targets
+    ]
 
     if isinstance(model, RandomSGForest) and n_jobs is None:
         n_jobs = model.n_jobs
 
     n_jobs_eff = effective_n_jobs(1 if n_jobs is None else n_jobs)
     if len(targets) == 1 or n_jobs_eff == 1:
-        for tree in targets:
+        for tree, tree_y in zip(targets, targets_y):
             TreeAlternatingOptimization(
                 tree._est,
                 X32,
-                y_native,
+                tree_y,
                 sw,
                 n_runs=n_runs,
                 lambda_=lambda_,
@@ -284,13 +296,13 @@ def TAO_refine(
             delayed(TreeAlternatingOptimization)(
                 tree._est,
                 X32,
-                y_native,
+                tree_y,
                 sw,
                 n_runs=n_runs,
                 lambda_=lambda_,
                 tao_pair_scale=tao_pair_scale,
             )
-            for tree in targets
+            for tree, tree_y in zip(targets, targets_y)
         )
 
     if n_runs > 0:

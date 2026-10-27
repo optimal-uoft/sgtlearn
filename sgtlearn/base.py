@@ -18,7 +18,7 @@ from ShapeGeneralizedTrees import (
 )
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from sgtlearn._features import ProcessedFeatures, configure_feature_dict
@@ -195,7 +195,7 @@ class BaseShapeCART(BaseEstimator):
 
         Length matches the number of logical features passed to ``fit``
         (one-to-one with :attr:`processed_features_`). Available only after
-        training with ``tao_n_runs=0`` (the default ``tao_n_runs=10`` runs TAO)
+        training with ``tao_n_runs=0`` (the default ``tao_n_runs=1`` runs TAO)
         and no later TAO refinement; otherwise raises ``AttributeError``. Warns
         when the tree has pair nodes, whose gain is split equally between both
         features.
@@ -302,19 +302,19 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         Impurity criterion used both to grow each node's inner shape-function
         tree and to score outer-tree splits (``"log_loss"`` is an alias of
         ``"entropy"``).
-    num_partitions : int, default=2
+    num_partitions : int, default=7
         Maximum number of branches each outer split fans out into; a split may
         have fewer children. Must be at least ``2``. ``2`` reproduces a
         standard binary tree; larger values yield the ``SGT_K`` multi-way
         variant.
-    max_depth : int, optional
-        Maximum depth of the *outer* tree. ``None`` (default) means grow until
+    max_depth : int or None, default=4
+        Maximum depth of the *outer* tree. ``None`` means grow until
         another stopping criterion fires.
     max_leaf_nodes : int, optional
         Maximum number of leaves in the outer tree. ``None`` means unlimited.
-    min_samples_leaf : int, default=1
+    min_samples_leaf : int, default=4
         Minimum number of training samples required at an outer leaf.
-    min_impurity_decrease : float, default=0.0
+    min_impurity_decrease : float, default=1.0
         Constant nonnegative cost subtracted from total sample-weighted,
         output-averaged impurity improvement. An outer split must have finite
         improvement after all costs strictly greater than double epsilon.
@@ -323,17 +323,17 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         each feature. ``1`` corresponds to a standard CART threshold split;
         larger values produce richer shapes. ``None`` means unlimited depth,
         so ``inner_max_leaf_nodes`` alone controls the inner tree size.
-    inner_max_leaf_nodes : int, default=8
+    inner_max_leaf_nodes : int, default=4
         Maximum number of bins (leaves) the inner tree may form on a feature.
         The inner tree grows best-first until this limit. Both limits apply
         together: depth ``d`` allows at most ``2**d`` leaves, so setting
         ``inner_max_depth`` with ``2**d <= inner_max_leaf_nodes`` makes the
         leaf limit ineffective.
-    inner_min_samples_leaf : int, default=1
+    inner_min_samples_leaf : int, default=13
         Minimum samples per inner-tree leaf.
-    inner_min_impurity_decrease : float, default=0.0
+    inner_min_impurity_decrease : float, default=0.01
         Minimum impurity decrease required to accept an inner split.
-    coordinate_descent_max_iters : int, default=20
+    coordinate_descent_max_iters : int, default=5
         Maximum coordinate-descent iterations used to refine the bin-to-branch
         assignment after the inner tree is built.
     coordinate_descent_patience : int, default=5
@@ -352,7 +352,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         - ``"log2"``: use ``max(1, int(log2(n_logical_features)))`` features.
 
         String values are case-insensitive in the native binding.
-    pairwise_candidates : int or float, default=0
+    pairwise_candidates : int or float, default=0.5
         Maximum retained feature pairs fitted per node. An integer is an
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
@@ -361,16 +361,16 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant nonnegative cost per additional occupied child beyond two.
-    tao_n_runs : int, default=10
+    tao_n_runs : int, default=1
         Maximum number of Tree Alternating Optimization (TAO) sweeps run at the
         end of :meth:`fit` (see :func:`~sgtlearn.tao.TAO_refine`); sweeps stop
         early once one makes no change. ``0`` disables TAO; any positive value
         makes ``feature_importances_`` unavailable.
-    tao_lambda : float, default=0.0
+    tao_lambda : float, default=0.0001
         TAO per-sample complexity rate: at each internal node a non-constant
         routing rule must beat the constant rule by more than ``tao_lambda``
         times the number of samples reaching the node (weighted reward units).
-    tao_pair_scale : float, default=1.1
+    tao_pair_scale : float, default=2.0
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     class_weight : dict, list of dict, or None, default=None
         Per-class multipliers. A single mapping applies to every output; for
@@ -399,7 +399,7 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
         order as the logical features passed to the native trainer). Raises
         ``AttributeError`` after TAO refinement, which runs by default
-        (``tao_n_runs=10``); fit with ``tao_n_runs=0`` to use it.
+        (``tao_n_runs=1``); fit with ``tao_n_runs=0`` to use it.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
@@ -456,26 +456,26 @@ class SGTClassifier(ClassifierMixin, BaseShapeCART):
         self,
         *,
         criterion: str = "gini",
-        num_partitions: int = 2,
-        max_depth: int | None = None,
+        num_partitions: int = 7,
+        max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
-        min_samples_leaf: int = 1,
-        min_impurity_decrease: float = 0.0,
+        min_samples_leaf: int = 4,
+        min_impurity_decrease: float = 1.0,
         inner_max_depth: int | None = None,
-        inner_max_leaf_nodes: int = 8,
-        inner_min_samples_leaf: int = 1,
-        inner_min_impurity_decrease: float = 0.0,
-        coordinate_descent_max_iters: int = 20,
+        inner_max_leaf_nodes: int = 4,
+        inner_min_samples_leaf: int = 13,
+        inner_min_impurity_decrease: float = 0.01,
+        coordinate_descent_max_iters: int = 5,
         coordinate_descent_patience: int = 5,
         random_state: int | None = 42,
         max_features: float | str | None = None,
-        pairwise_candidates: float = 0,
+        pairwise_candidates: float = 0.5,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
         class_weight: Mapping[Any, float] | Sequence[Mapping[Any, float]] | None = None,
-        tao_n_runs: int = 10,
-        tao_lambda: float = 0.0,
-        tao_pair_scale: float = 1.1,
+        tao_n_runs: int = 1,
+        tao_lambda: float = 0.0001,
+        tao_pair_scale: float = 2.0,
     ) -> None:
         """Store hyperparameters; training happens in :meth:`fit`."""
         self.criterion = criterion
@@ -764,7 +764,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     """Shape Generalized Tree regressor.
 
     Regression analogue of :class:`SGTClassifier`. Each internal node applies a
-    learnable shape function: an inner univariate tree by default, or an
+    learnable shape function: an inner univariate tree, or an
     ordinary axis-aligned two-feature CART when bivariate branching is enabled.
     The outer tree routes samples through the resulting bins. Training is
     performed by the native ShapeCART C++ trainer exposed through
@@ -778,19 +778,19 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         Loss used both to grow each node's inner shape-function tree and to
         score outer-tree splits. ``"mse"`` and ``"mae"`` are accepted as
         aliases.
-    num_partitions : int, default=2
+    num_partitions : int, default=7
         Maximum number of branches each outer split fans out into; a split may
         have fewer children. Must be at least ``2``. ``2`` reproduces a
         standard binary tree; larger values yield the ``SGT_K`` multi-way
         variant.
-    max_depth : int, optional
+    max_depth : int or None, default=4
         Maximum depth of the outer tree. ``None`` means grow until another
         stopping criterion fires.
     max_leaf_nodes : int, optional
         Maximum number of leaves in the outer tree. ``None`` means unlimited.
-    min_samples_leaf : int, default=1
+    min_samples_leaf : int, default=4
         Minimum number of samples required at an outer leaf.
-    min_impurity_decrease : float, default=0.0
+    min_impurity_decrease : float, default=1.0
         Constant nonnegative cost subtracted from total sample-weighted,
         output-averaged impurity improvement. An outer split must have finite
         improvement after all costs strictly greater than double epsilon.
@@ -799,17 +799,17 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         each feature. ``1`` corresponds to a standard CART threshold split;
         larger values produce richer shapes. ``None`` means unlimited depth,
         so ``inner_max_leaf_nodes`` alone controls the inner tree size.
-    inner_max_leaf_nodes : int, default=8
+    inner_max_leaf_nodes : int, default=4
         Maximum number of bins (leaves) the inner tree may form on a feature.
         The inner tree grows best-first until this limit. Both limits apply
         together: depth ``d`` allows at most ``2**d`` leaves, so setting
         ``inner_max_depth`` with ``2**d <= inner_max_leaf_nodes`` makes the
         leaf limit ineffective.
-    inner_min_samples_leaf : int, default=1
+    inner_min_samples_leaf : int, default=13
         Minimum samples per inner-tree leaf.
-    inner_min_impurity_decrease : float, default=0.0
+    inner_min_impurity_decrease : float, default=0.01
         Minimum impurity decrease required to accept an inner split.
-    coordinate_descent_max_iters : int, default=20
+    coordinate_descent_max_iters : int, default=5
         Maximum coordinate-descent iterations used to refine the bin-to-branch
         assignment after the inner tree is built.
     coordinate_descent_patience : int, default=5
@@ -820,7 +820,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     max_features : int, float, {"sqrt", "log2"} or None, default=None
         Per-split feature subsampling. Same semantics as
         :class:`SGTClassifier`.
-    pairwise_candidates : int or float, default=0
+    pairwise_candidates : int or float, default=0.5
         Maximum retained feature pairs fitted per node. An integer is an
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
@@ -829,16 +829,16 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant nonnegative cost per additional occupied child beyond two.
-    tao_n_runs : int, default=10
+    tao_n_runs : int, default=1
         Maximum number of Tree Alternating Optimization (TAO) sweeps run at the
         end of :meth:`fit` (see :func:`~sgtlearn.tao.TAO_refine`); sweeps stop
         early once one makes no change. ``0`` disables TAO; any positive value
         makes ``feature_importances_`` unavailable.
-    tao_lambda : float, default=0.0
+    tao_lambda : float, default=0.0001
         TAO per-sample complexity rate: at each internal node a non-constant
         routing rule must beat the constant rule by more than ``tao_lambda``
         times the number of samples reaching the node (weighted reward units).
-    tao_pair_scale : float, default=1.1
+    tao_pair_scale : float, default=2.0
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
 
     Attributes
@@ -856,7 +856,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         ``i`` corresponds to :attr:`processed_features_` entry ``i`` (same
         order as the logical features passed to the native trainer). Raises
         ``AttributeError`` after TAO refinement, which runs by default
-        (``tao_n_runs=10``); fit with ``tao_n_runs=0`` to use it.
+        (``tao_n_runs=1``); fit with ``tao_n_runs=0`` to use it.
     processed_features_ : ProcessedFeatures
         Resolved logical features used at :meth:`fit`. ``features[i]`` and
         ``logical_names[i]`` align with ``feature_importances_[i]``.
@@ -866,8 +866,12 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
     Notes
     -----
     Internally, single- and multi-output training share one path: ``y`` is
-    always handled as ``(n_samples, n_outputs)``. Outer impurity averages across
-    outputs. ``X`` and ``y`` are cast to C-contiguous ``float32`` before the
+    always handled as ``(n_samples, n_outputs)``. Each target column is
+    standardized using its sample-weighted training mean and variance. Outer
+    impurity and regression penalties use standardized units and average across
+    outputs. Predictions and exported leaf values use original target units;
+    later TAO reuses the fitted transformation. ``X`` and standardized ``y``
+    are cast to C-contiguous ``float32`` before the
     native trainer. Sparse input is not supported. NaN in ``X`` is handled by
     the native trainer: shape functions are fit on finite values, and each
     univariate outer node learns a ``nan_prediction_partition``, the child
@@ -914,25 +918,25 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         self,
         *,
         criterion: str = "squared_error",
-        num_partitions: int = 2,
-        max_depth: int | None = None,
+        num_partitions: int = 7,
+        max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
-        min_samples_leaf: int = 1,
-        min_impurity_decrease: float = 0.0,
+        min_samples_leaf: int = 4,
+        min_impurity_decrease: float = 1.0,
         inner_max_depth: int | None = None,
-        inner_max_leaf_nodes: int = 8,
-        inner_min_samples_leaf: int = 1,
-        inner_min_impurity_decrease: float = 0.0,
-        coordinate_descent_max_iters: int = 20,
+        inner_max_leaf_nodes: int = 4,
+        inner_min_samples_leaf: int = 13,
+        inner_min_impurity_decrease: float = 0.01,
+        coordinate_descent_max_iters: int = 5,
         coordinate_descent_patience: int = 5,
         random_state: int | None = 42,
         max_features: float | str | None = None,
-        pairwise_candidates: float = 0,
+        pairwise_candidates: float = 0.5,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
-        tao_n_runs: int = 10,
-        tao_lambda: float = 0.0,
-        tao_pair_scale: float = 1.1,
+        tao_n_runs: int = 1,
+        tao_lambda: float = 0.0001,
+        tao_pair_scale: float = 2.0,
     ) -> None:
         self.criterion = criterion
         self.num_partitions = num_partitions
@@ -1014,8 +1018,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 raise ValueError("Input y contains NaN.")
         X32 = _as_native_X(X)
         y2, n_outputs = as_output_matrix(np.asarray(y))
-        y32 = _as_native_y(y2)
+        _as_native_y(y2)  # Preserve native-range validation before scaling.
         sw = normalize_sample_weight(sample_weight, X.shape[0])
+        target_scaler = StandardScaler().fit(y2, sample_weight=sw)
+        y32 = _as_native_y(target_scaler.transform(y2))
         n_features = X.shape[1]
         if column_names is None:
             column_names = _column_names_from_X(X)
@@ -1068,6 +1074,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
 
         with _restore_on_error(self):
             self.n_outputs_ = n_outputs
+            self._target_scaler = target_scaler
             self.n_features_in_ = n_features
             self.feature_names_in_ = (
                 np.asarray(column_names, dtype=object)
@@ -1083,7 +1090,7 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
                 TAO_refine(
                     self,
                     X32,
-                    y32,
+                    y2,
                     sample_weight=sw,
                     check_input=check_input,
                     n_runs=tao_n_runs,
@@ -1109,6 +1116,10 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
             )
         X32 = _as_native_X(X)
         preds = np.asarray(self._est.predict(X32), dtype=np.float64)
+        if hasattr(self, "_target_scaler"):
+            preds = self._target_scaler.inverse_transform(
+                preds.reshape(-1, self.n_outputs_)
+            )
         return squeeze_outputs(preds, self.n_outputs_)
 
     def tree_export(self) -> dict:
@@ -1122,4 +1133,14 @@ class SGTRegressor(RegressorMixin, BaseShapeCART):
         check_is_fitted(self, attributes=("_est",))
         if self._est is None:
             raise NotFittedError("This SGTRegressor instance is not fitted yet.")
-        return _normalize_tree_export(self._est.tree_export())
+        tree = _normalize_tree_export(self._est.tree_export())
+        if hasattr(self, "_target_scaler"):
+            for node in tree["nodes"]:
+                if node["value"] is not None:
+                    value = self._target_scaler.inverse_transform(
+                        np.asarray(node["value"]).reshape(1, -1)
+                    )[0]
+                    node["value"] = (
+                        value.item() if self.n_outputs_ == 1 else value.tolist()
+                    )
+        return tree

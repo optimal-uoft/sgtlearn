@@ -31,7 +31,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         ``"mae"``, coordinate descent is disabled unless
         ``SGTLEARN_MAE_CD=1`` is set; while it is disabled, :meth:`fit` warns
         once.
-    num_partitions : int, default=2
+    num_partitions : int, default=7
         Maximum number of children per outer split (a split may have fewer).
         See :class:`sgtlearn.SGTRegressor`.
     max_depth, max_leaf_nodes, min_samples_leaf, min_impurity_decrease : \
@@ -43,11 +43,11 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
     coordinate_descent_max_iters, coordinate_descent_patience : \
         see :class:`sgtlearn.SGTRegressor`
         Coordinate-descent controls forwarded to each base estimator.
-    max_features : int, float, {"sqrt", "log2"} or None, default="sqrt"
+    max_features : int, float, {"sqrt", "log2"} or None, default=1.0
         Per-split feature subsampling for each base tree. Defaults to
-        ``"sqrt"`` (``RandomForestRegressor`` defaults to ``1.0``). See
+        ``1.0``, matching ``RandomForestRegressor``. See
         :class:`sgtlearn.SGTRegressor` for the full semantics.
-    pairwise_candidates : int or float, default=0
+    pairwise_candidates : int or float, default=0.5
         Maximum retained feature pairs fitted per node. An integer is an
         absolute limit; a float resolves to ``ceil(value * n_logical_features)``.
         Zero preserves univariate-only training.
@@ -56,19 +56,19 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         sample-weighted, output-averaged impurity improvement.
     branching_penalty : float, default=0.0
         Constant cost per additional occupied child beyond two.
-    tao_n_runs : int, default=10
+    tao_n_runs : int, default=1
         Maximum number of bottom-up TAO sweeps run on each base tree at the
         end of its ``fit`` (stopping early once a sweep changes nothing), on
         that tree's bootstrap sample (or the full training set when
         ``bootstrap=False``). ``0`` disables TAO; any positive value makes
         :attr:`mean_feature_importances_` and :attr:`std_feature_importance_`
         unavailable.
-    tao_lambda : float, default=0.0
+    tao_lambda : float, default=0.0001
         Per-sample complexity rate for TAO: at each internal node, a
         non-constant routing rule must beat the constant dummy rule by more
         than ``tao_lambda`` times the node's sample count, in weighted reward
         units. See :func:`~sgtlearn.tao.TAO_refine`.
-    tao_pair_scale : float, default=1.1
+    tao_pair_scale : float, default=2.0
         Multiplier applied to ``tao_lambda`` for pair routers during TAO.
     bootstrap : bool, default=True
         If ``True``, each tree is fit on a bootstrap resample (with
@@ -104,7 +104,7 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         Mean of per-tree :attr:`~sgtlearn.SGTRegressor.feature_importances_`,
         aligned with :attr:`processed_features_`. Accessing it raises
         ``AttributeError`` if any base tree was TAO-refined, which happens by
-        default (``tao_n_runs=10``); fit with ``tao_n_runs=0`` to use it.
+        default (``tao_n_runs=1``); fit with ``tao_n_runs=0`` to use it.
     std_feature_importance_ : ndarray of shape (n_logical_features,)
         Population standard deviation of per-tree importances across the
         forest (same alignment and TAO restriction as
@@ -136,27 +136,27 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         n_estimators: int = 100,
         *,
         criterion: str = "squared_error",
-        num_partitions: int = 2,
-        max_depth: int | None = None,
+        num_partitions: int = 7,
+        max_depth: int | None = 4,
         max_leaf_nodes: int | None = None,
-        min_samples_leaf: int = 1,
-        min_impurity_decrease: float = 0.0,
+        min_samples_leaf: int = 4,
+        min_impurity_decrease: float = 1.0,
         inner_max_depth: int | None = None,
-        inner_max_leaf_nodes: int = 8,
-        inner_min_samples_leaf: int = 1,
-        inner_min_impurity_decrease: float = 0.0,
-        coordinate_descent_max_iters: int = 20,
+        inner_max_leaf_nodes: int = 4,
+        inner_min_samples_leaf: int = 13,
+        inner_min_impurity_decrease: float = 0.01,
+        coordinate_descent_max_iters: int = 5,
         coordinate_descent_patience: int = 5,
-        max_features: float | str | None = "sqrt",
+        max_features: float | str | None = 1.0,
         bootstrap: bool = True,
         max_samples: float | None = None,
         random_state: int | np.random.RandomState | None = None,
-        pairwise_candidates: float = 0,
+        pairwise_candidates: float = 0.5,
         pairwise_penalty: float = 0.0,
         branching_penalty: float = 0.0,
-        tao_n_runs: int = 10,
-        tao_lambda: float = 0.0,
-        tao_pair_scale: float = 1.1,
+        tao_n_runs: int = 1,
+        tao_lambda: float = 0.0001,
+        tao_pair_scale: float = 2.0,
         n_jobs: int | None = None,
         verbose: int = 0,
     ) -> None:
@@ -200,9 +200,10 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             y_numeric=True,
             multi_output=True,
         )
+        as_native_float32(y, "y")  # Validate without rounding before target scaling.
         return (
             _as_native_X(X),
-            as_native_float32(y, "y"),
+            np.ascontiguousarray(y, dtype=np.float64),
             normalize_sample_weight(sample_weight, X.shape[0]),
         )
 

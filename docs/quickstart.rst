@@ -87,7 +87,7 @@ trainer finishes. All tree estimators run TAO automatically at the end of
 
 .. code-block:: python
 
-   # Default: tao_n_runs=10, tao_lambda=0.0 (training score does not decrease)
+   # Default: one TAO sweep with a per-sample complexity rate of 1e-4.
    model = SGTClassifier(max_depth=4, random_state=42).fit(X_train, y_train)
 
    # Skip fit-time TAO

@@ -24,6 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+tune = ["optuna>=4"]
 dev = [
     "pytest>=7",
     "pybind11-stubgen",

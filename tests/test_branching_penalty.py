@@ -10,6 +10,7 @@ from sgtlearn import (
     SGTClassifier,
     SGTRegressor,
 )
+from tests.constants import algorithm_params
 
 
 @pytest.mark.parametrize(
@@ -17,7 +18,7 @@ from sgtlearn import (
     [SGTClassifier, SGTRegressor, RandomSGForestClassifier, RandomSGForestRegressor],
 )
 def test_branching_penalty_is_cloneable(estimator):
-    model = estimator(branching_penalty=1.25)
+    model = estimator(**algorithm_params(branching_penalty=1.25))
     assert model.get_params()["branching_penalty"] == 1.25
     assert clone(model).get_params()["branching_penalty"] == 1.25
 
@@ -32,13 +33,13 @@ def test_forest_forwards_branching_penalty(estimator):
         else np.array([0.0, 0.0, 1.0, 1.0])
     )
     forest = estimator(
-        branching_penalty=1.25,
+        **algorithm_params(branching_penalty=1.25,
         n_estimators=2,
         bootstrap=False,
         tao_n_runs=0,
         max_depth=1,
         n_jobs=1,
-    ).fit(np.array([[0.0], [0.0], [1.0], [1.0]]), y)
+    )).fit(np.array([[0.0], [0.0], [1.0], [1.0]]), y)
     assert forest.branching_penalty == 1.25
     assert all(tree.branching_penalty == 1.25 for tree in forest.estimators_)
 
@@ -58,8 +59,8 @@ def test_branching_penalty_charges_only_extra_ternary_child(estimator):
         inner_max_leaf_nodes=3,
         tao_n_runs=0,
     )
-    binary = estimator(**common, branching_penalty=0.0).fit(X, y).tree_export()
-    penalized = estimator(**common, branching_penalty=10.0).fit(X, y).tree_export()
+    binary = estimator(**algorithm_params(**common, branching_penalty=0.0)).fit(X, y).tree_export()
+    penalized = estimator(**algorithm_params(**common, branching_penalty=10.0)).fit(X, y).tree_export()
     assert binary["num_nodes"] == 4
     assert len(binary["nodes"][0]["children"]) == 3
     assert penalized["num_nodes"] == 3

@@ -17,6 +17,8 @@ from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.datasets import load_breast_cancer, load_diabetes
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
+from tests.constants import algorithm_params
+
 pytest.importorskip("sklearn")
 
 from sgtlearn import (
@@ -26,7 +28,6 @@ from sgtlearn import (
     SGTRegressor,
     tao,
 )
-
 from tests.constants import TEST_TAO_N_RUNS
 
 
@@ -66,20 +67,20 @@ def _make_inner_depth_one_pair(
         sk_criterion = _sklearn_classification_criterion(criterion)
         return (
             SGTClassifier(
-                criterion=criterion,
+                **algorithm_params(criterion=criterion,
                 inner_max_depth=1,
                 tao_n_runs=TEST_TAO_N_RUNS,
                 **common,
-            ),
+            )),
             DecisionTreeClassifier(criterion=sk_criterion, **common),
         )
     return (
         SGTRegressor(
-            criterion=criterion,
+            **algorithm_params(criterion=criterion,
             inner_max_depth=1,
             tao_n_runs=TEST_TAO_N_RUNS,
             **common,
-        ),
+        )),
         DecisionTreeRegressor(criterion=criterion, **common),
     )
 
@@ -213,7 +214,7 @@ def test_nan_routes_to_nan_prediction_partition_not_last_bin() -> None:
     X = np.concatenate([x, np.full(20, np.nan)])[:, None]
     y = np.concatenate([np.where(x < 5.0, 0.0, 10.0), np.zeros(20)])
 
-    sgt = SGTRegressor(max_depth=1, tao_n_runs=0, random_state=0).fit(X, y)
+    sgt = SGTRegressor(**algorithm_params(max_depth=1, tao_n_runs=0, random_state=0)).fit(X, y)
     tree = sgt.tree_export()
     root = tree["nodes"][tree["root_index"]]
     nan_part = root["nan_prediction_partition"]
@@ -232,18 +233,18 @@ def test_sgt_classifier_still_rejects_inf_in_x() -> None:
     X, y = load_breast_cancer(return_X_y=True)
     X = np.asarray(X, dtype=np.float32)
     X[0, 0] = np.inf
-    clf = SGTClassifier(inner_max_depth=1, random_state=42, tao_n_runs=TEST_TAO_N_RUNS)
+    clf = SGTClassifier(**algorithm_params(inner_max_depth=1, random_state=42, tao_n_runs=TEST_TAO_N_RUNS))
     with pytest.raises(ValueError, match="infinity"):
         clf.fit(X, y)
 
 
 _FLOAT32_ESTIMATORS = [
-    SGTClassifier(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
-    SGTRegressor(random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+    SGTClassifier(**algorithm_params(random_state=0, tao_n_runs=TEST_TAO_N_RUNS)),
+    SGTRegressor(**algorithm_params(random_state=0, tao_n_runs=TEST_TAO_N_RUNS)),
     RandomSGForestClassifier(
-        n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
-    ),
-    RandomSGForestRegressor(n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS),
+        **algorithm_params(n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS
+    )),
+    RandomSGForestRegressor(**algorithm_params(n_estimators=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS)),
 ]
 
 
@@ -286,7 +287,7 @@ def test_rejected_unchecked_refit_keeps_fitted_tree(estimator_cls) -> None:
     rng = np.random.default_rng(0)
     X = rng.normal(size=(60, 2))
     y = (X[:, 0] > 0).astype(int)
-    model = estimator_cls(random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(X, y)
+    model = estimator_cls(**algorithm_params(random_state=0, tao_n_runs=TEST_TAO_N_RUNS)).fit(X, y)
     before = model.predict(X)
     X_bad = X.copy()
     X_bad[0, 0] = 1e39

@@ -1,0 +1,98 @@
+{
+  "datasets": [
+    [
+      "credit-g",
+      363626,
+      "classification"
+    ],
+    [
+      "diabetes",
+      363629,
+      "classification"
+    ],
+    [
+      "maternal_health_risk",
+      363685,
+      "classification"
+    ],
+    [
+      "airfoil_self_noise",
+      363612,
+      "regression"
+    ],
+    [
+      "concrete_compressive_strength",
+      363625,
+      "regression"
+    ],
+    [
+      "blood-transfusion-service-center",
+      363621,
+      "classification"
+    ],
+    [
+      "website_phishing",
+      363707,
+      "classification"
+    ],
+    [
+      "churn",
+      363623,
+      "classification"
+    ],
+    [
+      "QSAR_fish_toxicity",
+      363698,
+      "regression"
+    ],
+    [
+      "healthcare_insurance_expenses",
+      363675,
+      "regression"
+    ],
+    [
+      "Another-Dataset-on-used-Fiat-500",
+      363615,
+      "regression"
+    ],
+    [
+      "miami_housing",
+      363686,
+      "regression"
+    ]
+  ],
+  "seed": 42,
+  "inner_folds": 3,
+  "configuration_timeout_seconds": 600,
+  "classification": "mean(1 - balanced_accuracy)",
+  "regression": "mean(MSE / train_variance)",
+  "sources": {
+    "/Users/upadhyan/.codex/worktrees/29-tuning-defaults/sgtlearn/benchmarks/tune_defaults.py": "ab6400c6085aa6e0db89902d84f21d84d7faab3d09bcf29eebc90038191015d4",
+    "sgtlearn/base.py": "16b8b5478e82fa089d16b186d0b3c5013711a1d57817c4cddf92a2e891ce6455",
+    "sgtlearn/tao.py": "25887f8c064ea60ea7724987d2469027c8ef4922043054a0b96607de767b8396"
+  },
+  "packages": {
+    "sgtlearn": "0.3.2",
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1",
+    "optuna": "5.0.0",
+    "openml": "0.15.1"
+  },
+  "python": "3.14.5",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "git_head": "2be1648bd8a796b84b852a351ea4a005f34a1dcb",
+  "data_sha256": {
+    "Another-Dataset-on-used-Fiat-500-validation.npz": "27b9945827cd953a5e359409570cec56c2e1a08cf56f0949e83a9774f49a3d08",
+    "QSAR_fish_toxicity-validation.npz": "8f08aa7fb4123b09f212261c11377a8dbb5d1335d9a1d0b56e78fc2f1dcc5742",
+    "airfoil_self_noise-validation.npz": "f441d6a393461cdfd32a38c42ffeca772cfae381975e95f9791456d4f352b224",
+    "blood-transfusion-service-center-validation.npz": "d37f53f2d4d554b4d928097d383a9dfcd83d43d5d4aab7abfc3c65f497c9d816",
+    "churn-validation.npz": "9dc337af5a1de3a8fedd33c6fcb408c0dd8ed901b9f6a2df5e6d96c4620d30c1",
+    "concrete_compressive_strength-validation.npz": "8235c532324ca735fdf895f24a5772c7c1d76f99686bc65e16630e47de372fc8",
+    "credit-g-validation.npz": "a9ef0787aa52e6c3f942ae1d520ef2c8e4fc354b15f5026bb1788688dcb1c6ad",
+    "diabetes-validation.npz": "8c59bcb6ca718446b530285f7066ce620890e4f80701457087223cdd4a9bb048",
+    "healthcare_insurance_expenses-validation.npz": "6826e41051fc1c80adcdf9ee6207effb7f578d5154905f0c2f8dee0060209af3",
+    "maternal_health_risk-validation.npz": "202a4a53c50aa04aecabbca6eb86acccd1f35ed422c4cf685c4f36ef358a4f31",
+    "miami_housing-validation.npz": "ec218dd32698084c70d9d6674f606bc9af4dfb08b6c44fcbadad05ca22dc2e9a",
+    "website_phishing-validation.npz": "56bfacdea0e9c9320304268d8a8183145cf76c53dbc60049e72ebb45918ff629"
+  }
+}

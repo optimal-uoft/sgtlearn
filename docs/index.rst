@@ -39,6 +39,7 @@ Highlights
 
    installation
    quickstart
+   tuning
 
 .. toctree::
    :maxdepth: 2

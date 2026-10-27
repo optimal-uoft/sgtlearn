@@ -7,7 +7,7 @@ Single Shape Generalized Tree estimators following the scikit-learn API.
 
 Both estimators accept ``tao_n_runs``, ``tao_lambda``, and ``tao_pair_scale``;
 TAO runs automatically at the end of :meth:`SGTClassifier.fit` /
-:meth:`SGTRegressor.fit` when ``tao_n_runs > 0`` (the default is ``10``).
+:meth:`SGTRegressor.fit` when ``tao_n_runs > 0`` (the default is ``1``).
 See :doc:`tao` for behaviour and post-hoc :func:`~sgtlearn.tao.TAO_refine`.
 
 After fitting with TAO disabled, :attr:`~sgtlearn.BaseShapeCART.feature_importances_`

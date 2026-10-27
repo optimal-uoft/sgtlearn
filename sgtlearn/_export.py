@@ -74,7 +74,7 @@ def export_text(
             value = node["value"]
             if isinstance(value, (list, tuple)):
                 return f"value: {_fmt_list(value, decimals)}"
-            return f"value: {value:.{decimals}f}"
+            return f"value: {value:z.{decimals}f}"
         counts = node["class_counts"]
         text = "class: " + _majority_class(counts, names_per_output)
         if show_weights:
@@ -185,7 +185,7 @@ def export_graphviz(
         elif isinstance(node["value"], (list, tuple)):
             lines.append(f"value = {_fmt_list(node['value'], decimals)}")
         elif node["value"] is not None:
-            lines.append(f"value = {node['value']:.{decimals}f}")
+            lines.append(f"value = {node['value']:z.{decimals}f}")
         return lines
 
     leaf_style = '"filled, rounded"' if filled else '"rounded"'
@@ -1454,7 +1454,7 @@ def _draw_leaf_text(
     elif isinstance(node["value"], (list, tuple)):
         primary = _fmt_list(node["value"], precision)
     else:
-        primary = f"{node['value']:.{precision}f}"
+        primary = f"{node['value']:z.{precision}f}"
 
     bold = host_ax.text(
         x,

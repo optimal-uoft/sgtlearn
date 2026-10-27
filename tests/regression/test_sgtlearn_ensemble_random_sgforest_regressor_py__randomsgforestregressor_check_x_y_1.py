@@ -1,6 +1,7 @@
-from sgtlearn import RandomSGForestRegressor
 import numpy as np
 import pytest
+
+from sgtlearn import RandomSGForestRegressor
 
 
 def _make_estimator() -> RandomSGForestRegressor:
@@ -51,7 +52,7 @@ def test_list_inputs_are_accepted_as_array_like() -> None:
 
     assert X_out.dtype == np.float32
     assert X_out.shape == (3, 2)
-    assert y_out.dtype == np.float32
+    assert y_out.dtype == np.float64
     assert y_out.shape == (3,)
 
 
@@ -67,15 +68,15 @@ def test_nan_in_x_is_preserved() -> None:
     np.testing.assert_array_equal(X_out, X.astype(np.float32))  # NaN-aware equality
 
 
-def test_one_dimensional_y_stays_one_dimensional_float32() -> None:
+def test_one_dimensional_y_retains_float64_precision() -> None:
     X, y = _make_data()
     _, y_out, _ = _make_estimator()._check_X_y(X, y, None)
 
-    assert y_out.dtype == np.float32
+    assert y_out.dtype == np.float64
     assert y_out.flags["C_CONTIGUOUS"]
     assert y_out.ndim == 1
     assert y_out.shape == y.shape
-    np.testing.assert_array_equal(y_out, y.astype(np.float32))
+    np.testing.assert_array_equal(y_out, y.astype(np.float64))
 
 
 def test_column_vector_y_stays_two_dimensional() -> None:
@@ -83,10 +84,10 @@ def test_column_vector_y_stays_two_dimensional() -> None:
     y_col = y.reshape(-1, 1)
     _, y_out, _ = _make_estimator()._check_X_y(X, y_col, None)
 
-    assert y_out.dtype == np.float32
+    assert y_out.dtype == np.float64
     assert y_out.flags["C_CONTIGUOUS"]
     assert y_out.shape == (X.shape[0], 1)
-    np.testing.assert_array_equal(y_out, y_col.astype(np.float32))
+    np.testing.assert_array_equal(y_out, y_col.astype(np.float64))
 
 
 def test_multi_output_y_keeps_its_shape() -> None:
@@ -94,19 +95,19 @@ def test_multi_output_y_keeps_its_shape() -> None:
     y2 = np.asfortranarray(np.column_stack([y, y * 2.0, y + 1.0]))
     _, y_out, _ = _make_estimator()._check_X_y(X, y2, None)
 
-    assert y_out.dtype == np.float32
+    assert y_out.dtype == np.float64
     assert y_out.flags["C_CONTIGUOUS"]
     assert y_out.shape == (X.shape[0], 3)
-    np.testing.assert_array_equal(y_out, y2.astype(np.float32))
+    np.testing.assert_array_equal(y_out, y2.astype(np.float64))
 
 
-def test_integer_y_is_converted_to_float32() -> None:
+def test_integer_y_is_converted_to_float64() -> None:
     X, _ = _make_data()
     y_int = np.arange(X.shape[0], dtype=np.int64)
     _, y_out, _ = _make_estimator()._check_X_y(X, y_int, None)
 
-    assert y_out.dtype == np.float32
-    np.testing.assert_array_equal(y_out, y_int.astype(np.float32))
+    assert y_out.dtype == np.float64
+    np.testing.assert_array_equal(y_out, y_int.astype(np.float64))
 
 
 def test_none_sample_weight_returns_none() -> None:

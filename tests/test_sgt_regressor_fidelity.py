@@ -17,6 +17,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from tests.constants import algorithm_params
+
 pytest.importorskip("sklearn")
 
 from sklearn.datasets import load_diabetes
@@ -62,7 +64,7 @@ def test_sgt_train_error_at_most_sklearn_decision_tree(
     inner_max_leaf_nodes = 48
     
     sgt = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         max_depth=max_depth,
         min_samples_leaf=min_samples_leaf,
         min_impurity_decrease=1e-7,
@@ -72,7 +74,7 @@ def test_sgt_train_error_at_most_sklearn_decision_tree(
         coordinate_descent_patience=6,
         random_state=42,
         tao_n_runs=tao_n_runs,
-    )
+    ))
     sgt.fit(X, y)
     dt = DecisionTreeRegressor(
         criterion=criterion,
@@ -107,8 +109,8 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one(
     """``inner_max_depth=1``: in-sample predictions match sklearn for MSE and MAE."""
     X, y = _load_xy(n_outputs)
     sgt = SGTRegressor(
-        criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
-    )
+        **algorithm_params(criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
+    ))
     sgt.fit(X, y)
     dt = DecisionTreeRegressor(criterion=criterion, random_state=0)
     dt.fit(X, y)
@@ -117,6 +119,7 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one(
     assert pred.shape == expected_shape
     assert np.all(np.isfinite(pred))
 
-    np.testing.assert_allclose(pred, dt.predict(X))
+    # Inverse-transforming native float32 predictions adds rounding in target units.
+    np.testing.assert_allclose(pred, dt.predict(X), atol=1e-5)
 
 

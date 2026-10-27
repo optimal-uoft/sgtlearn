@@ -22,6 +22,18 @@ Wheels are published for CPython 3.11–3.14 on Linux, macOS, and Windows
 (x86_64 + arm64); no compiler is needed for a binary install. To build from
 source instead, see [Developer Setup](#developer-setup).
 
+For Optuna tuning, install `pip install 'sgtlearn[tune]'` and use
+`from sgtlearn.tune import suggest_params`. Calling `suggest_params(trial)`
+returns keyword arguments for `SGTClassifier` or `SGTRegressor`.
+See the [tuning guide](docs/tuning.rst) for a complete objective and the
+default-selection protocol.
+
+The [12-dataset default-selection report](docs/research/2026-10-26-tuning-defaults.md)
+records the Pareto compromise, held-out results, and useful parameter ranges.
+The common defaults use outer depth 4, four inner leaves, regularization,
+pair candidates, and one TAO sweep. Existing parameter-free calls change behavior;
+the report documents the classification/regression tradeoff.
+
 ## Quick Start
 
 ```python
@@ -49,6 +61,11 @@ improvement uses total sample weight and the mean across target outputs.
 `pairwise_penalty` subtract constant costs in these units; existing positive
 penalties may need retuning. Inner CART and TAO retain their separate settings.
 See [outer-growth semantics](docs/api/estimators.rst) for the scoring formula.
+
+Regressors now standardize each target using training-only, sample-weighted
+statistics. Predictions and exported leaf values remain in original units;
+regression impurities and penalties use standardized units. Supply original
+targets to later `TAO_refine` calls, which reuse the fitted transformation.
 
 For `SGTRegressor` and `RandomSGForestRegressor`, MAE (`criterion="absolute_error"`
 or `"mae"`) leaves coordinate descent disabled by default. Each top-level fit

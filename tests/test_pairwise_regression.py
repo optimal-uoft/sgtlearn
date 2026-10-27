@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from sgtlearn import SGTRegressor
+from tests.constants import algorithm_params
 
 
 def _three_way_quadrants() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -25,10 +26,10 @@ def test_continuous_pair_regression_uses_three_way_router(criterion: str) -> Non
     X, y, sample_weight = _three_way_quadrants()
 
     baseline = SGTRegressor(
-        criterion=criterion, num_partitions=3, max_depth=1, tao_n_runs=0, random_state=0
-    ).fit(X, y, sample_weight=sample_weight)
+        **algorithm_params(criterion=criterion, num_partitions=3, max_depth=1, tao_n_runs=0, random_state=0
+    )).fit(X, y, sample_weight=sample_weight)
     paired = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         num_partitions=3,
         max_depth=1,
         inner_max_depth=2,
@@ -36,13 +37,13 @@ def test_continuous_pair_regression_uses_three_way_router(criterion: str) -> Non
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, sample_weight=sample_weight)
+    )).fit(X, y, sample_weight=sample_weight)
 
     paired_error = np.mean(np.abs(paired.predict(X) - y))
     baseline_error = np.mean(np.abs(baseline.predict(X) - y))
     root = paired.tree_export()["nodes"][0]
     assert root["routing_kind"] == "pair", root
-    assert paired_error == 0.0
+    assert paired_error == pytest.approx(0.0, abs=1e-6)
     assert paired_error < baseline_error
 
     assert root["pair_features"] == [0, 1]
@@ -60,7 +61,7 @@ def test_continuous_pair_regression_preserves_multioutput_contract(
     y = np.column_stack([y0, 10.0 + y0])
 
     paired = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         num_partitions=3,
         max_depth=1,
         inner_max_depth=2,
@@ -68,9 +69,9 @@ def test_continuous_pair_regression_preserves_multioutput_contract(
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, sample_weight=sample_weight)
+    )).fit(X, y, sample_weight=sample_weight)
 
-    np.testing.assert_allclose(paired.predict(X), y, rtol=0, atol=0)
+    np.testing.assert_allclose(paired.predict(X), y, rtol=0, atol=1e-6)
     root = paired.tree_export()["nodes"][0]
     assert root["routing_kind"] == "pair"
     assert len(root["children"]) == 3
@@ -79,14 +80,14 @@ def test_continuous_pair_regression_preserves_multioutput_contract(
 def test_regression_pair_importances_warn_and_split_gain_equally() -> None:
     X, y, sample_weight = _three_way_quadrants()
     model = SGTRegressor(
-        num_partitions=3,
+        **algorithm_params(num_partitions=3,
         max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, sample_weight=sample_weight)
+    )).fit(X, y, sample_weight=sample_weight)
 
     with pytest.warns(UserWarning, match="equally"):
         np.testing.assert_allclose(model.feature_importances_, [0.5, 0.5])

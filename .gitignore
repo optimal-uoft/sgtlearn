@@ -243,3 +243,12 @@ docs/superpowers/
 .test-checker/bundles/
 .test-checker/generated/
 .test-checker/worktrees/
+
+# Local tuning databases, process state, and redundant uncompressed exports.
+benchmarks/results/tuning-*/study.sqlite3*
+benchmarks/results/tuning-*/run.log
+benchmarks/results/tuning-*/runner.json
+benchmarks/results/tuning-*/trials.csv
+benchmarks/results/tuning-*/per_dataset_trials.csv
+benchmarks/results/tuning-*/sensitivity.json
+benchmarks/results/tuning-*/pareto.svg
