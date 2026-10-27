@@ -124,8 +124,9 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Secondary | `pairwise_penalty` | `{0, .01, .1, 1}` | Low global importance, but some local changes matter; omit when pairs are disabled. |
 | Secondary | `branching_penalty` | `{0, .01, .1, 1}` | Can help concrete or credit-g locally; omit for binary-only branching. |
 | Fix initially | CD iterations / patience | `5 / 5` | Raising either gives no local improvement from the selected configuration. |
-| Opt-in refinement | TAO sweeps / pair multiplier | `1 / 2` when enabled | More sweeps change churn by at most about 0.18 percentage points locally; pair-multiplier effects are tiny here. Ordinary fitting leaves TAO disabled. |
-| Fixed by design | `tao_lambda`, `inner_max_depth` | `1e-4`, `None` | Lambda was not searched; no importance or optimality claim is made for it. |
+| Opt-in refinement | TAO sweeps / pair multiplier | `10 / 2` when enabled | Public helpers allow up to ten sweeps. The selected study configuration used one; extra sweeps changed churn by at most about 0.18 percentage points locally. Ordinary fitting leaves TAO disabled. |
+| Opt-in refinement | `tao_lambda` | `1e-4`–`1e-2`, log; sklearn values `{.01, .001, .0001}` | Public helpers search lambda only when TAO is enabled. The study fixed it at `1e-4`; no importance or optimality claim is made for it. |
+| Fixed by design | `inner_max_depth` | `None` | Inner leaf count controls shape-function complexity. |
 
 The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls. Both TAO and bivariate branching are disabled unless requested with `use_tao=True` and `use_bivariate=True`, respectively. Reconstruct trials using the same flags. The helper returns a tree-parameter dictionary without fitting a model or overriding task-specific criterion or forest-specific feature sampling.
 

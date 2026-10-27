@@ -23,7 +23,8 @@ def suggested_params(
     ``RandomizedSearchCV(param_distributions=...)``. Depth and branching limits
     use evenly spaced values; leaf counts use powers of two. Impurity and
     complexity costs include zero and geometrically spaced positive values.
-    TAO uses one sweep when enabled; bivariate branching searches positive pair
+    TAO uses up to ten sweeps and lambda values 0.01, 0.001, and 0.0001 when
+    enabled; bivariate branching searches positive pair
     budgets when enabled. Both options default to off, as in ``suggest_params``.
 
     The full Cartesian grid is large: prefer randomized search, or narrow the
@@ -32,8 +33,8 @@ def suggested_params(
     """
     return {
         "inner_max_depth": [None],
-        "tao_lambda": [1e-4],
-        "tao_n_runs": [1 if use_tao else 0],
+        "tao_lambda": [0.01, 0.001, 0.0001] if use_tao else [1e-4],
+        "tao_n_runs": [10 if use_tao else 0],
         "tao_pair_scale": [2.0],
         "coordinate_descent_max_iters": [5],
         "coordinate_descent_patience": [5],
@@ -58,7 +59,8 @@ def suggest_params(
     Accepts an Optuna ``Trial`` or ``FixedTrial``. No estimator is fitted and no
     study is created. The returned dictionary includes fixed settings as well
     as sampled ones; reconstruct it using ``FixedTrial(best_trial.params)``
-    with the same feature flags. ``use_tao`` enables one refinement sweep;
+    with the same feature flags. ``use_tao`` enables up to ten refinement sweeps
+    and searches lambda logarithmically between 1e-4 and 1e-2;
     ``use_bivariate`` searches positive pair budgets and their penalties.
     Both are disabled by default.
     Criterion and forest-specific settings use the estimator's own defaults.
@@ -72,8 +74,10 @@ def suggest_params(
     )
     return {
         "inner_max_depth": None,
-        "tao_lambda": 1e-4,
-        "tao_n_runs": 1 if use_tao else 0,
+        "tao_lambda": (
+            trial.suggest_float("tao_lambda", 1e-4, 1e-2, log=True) if use_tao else 1e-4
+        ),
+        "tao_n_runs": 10 if use_tao else 0,
         "tao_pair_scale": 2.0,
         "coordinate_descent_max_iters": 5,
         "coordinate_descent_patience": 5,
