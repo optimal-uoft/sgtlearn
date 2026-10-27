@@ -38,7 +38,7 @@ def suggested_params(
         "coordinate_descent_max_iters": [5],
         "coordinate_descent_patience": [5],
         "max_depth": [4, 6, 8, 10],
-        "num_partitions": [2, 4, 6, 8],
+        "num_partitions": [2, 3],
         "inner_max_leaf_nodes": [2, 4, 8, 16, 32, 64],
         "min_samples_leaf": [1, 2, 4, 8, 16, 32],
         "inner_min_samples_leaf": [1, 2, 4, 8, 16, 32],
@@ -64,7 +64,7 @@ def suggest_params(
     Criterion and forest-specific settings use the estimator's own defaults.
     See the hyperparameter-tuning tutorial for a complete example.
     """
-    num_partitions = trial.suggest_int("num_partitions", 2, 8)
+    num_partitions = trial.suggest_int("num_partitions", 2, 3)
     pairs = (
         trial.suggest_categorical("pairwise_candidates", [0.25, 0.5, 1.0, 2.0])
         if use_bivariate

@@ -120,7 +120,7 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Next | `inner_min_impurity_decrease` | `{0, .001, .01, .1}` | Especially important for churn; 0.1 can hurt other tasks. |
 | Next | `pairwise_candidates` | `{.25, .5, 1, 2}` when enabled; otherwise `0` | Disabling interactions harms several tasks; higher budgets cost more and are not universally better. |
 | Next | `max_depth` | integer 4–10 | Deeper trees help airfoil and churn locally; shallower trees suit several small classification tasks. |
-| Next | `num_partitions` | integer 2–8 | Binary-only branching can lose useful structure; values above effective inner-bin count often plateau. |
+| Next | `num_partitions` | integer 2–3 | Public helpers search binary and ternary branching. The study covered 2–8; its recorded results retain that original range. |
 | Secondary | `pairwise_penalty` | `{0, .01, .1, 1}` | Low global importance, but some local changes matter; omit when pairs are disabled. |
 | Secondary | `branching_penalty` | `{0, .01, .1, 1}` | Can help concrete or credit-g locally; omit for binary-only branching. |
 | Fix initially | CD iterations / patience | `5 / 5` | Raising either gives no local improvement from the selected configuration. |
