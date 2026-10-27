@@ -17,8 +17,8 @@ For Optuna parameter suggestions, install the optional tuning extra:
 
    pip install 'sgtlearn[tune]'
 
-The :doc:`tuning` guide and :doc:`tutorials/hyperparameter-tuning` notebook
-show how to use ``suggest_params(trial, use_tao=False, use_bivariate=False)``.
+The :doc:`tutorials/hyperparameter-tuning` tutorial shows how to tune a model
+with ``suggest_params``.
 Optuna is not required for ordinary estimator fitting.
 
 Requirements

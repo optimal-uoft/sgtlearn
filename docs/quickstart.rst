@@ -21,10 +21,9 @@ Train and visualize an SGT classifier on the built-in "Plus Sign" dataset:
    plot_tree(model, X=X_train)
    plt.show()
 
-The default constructors use the shared regularized settings, with TAO and
-bivariate branching off. See :doc:`tuning` for the defaults and useful search
-ranges, or run :doc:`tutorials/hyperparameter-tuning` for a complete Optuna
-example with independent TAO and bivariate switches.
+TAO and bivariate branching are off by default. Follow
+:doc:`tutorials/hyperparameter-tuning` to tune a model with Optuna and try
+these optional features.
 
 Inner vs. outer depth
 ---------------------

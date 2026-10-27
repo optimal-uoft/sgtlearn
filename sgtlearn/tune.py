@@ -26,7 +26,7 @@ def suggest_params(
     ``use_bivariate`` searches positive pair budgets and their penalties.
     Both are disabled by default.
     Criterion and forest-specific settings use the estimator's own defaults.
-    See the tuning guide for the study and limitations behind these ranges.
+    See the hyperparameter-tuning tutorial for a complete example.
     """
     num_partitions = trial.suggest_int("num_partitions", 2, 8)
     pairs = (
