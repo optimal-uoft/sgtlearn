@@ -25,6 +25,10 @@ source instead, see [Developer Setup](#developer-setup).
 For Optuna tuning, install `pip install 'sgtlearn[tune]'` and use
 `from sgtlearn.tune import suggest_params`. Calling `suggest_params(trial)`
 returns keyword arguments for `SGTClassifier` or `SGTRegressor`.
+For a fixed preset without Optuna, use
+`from sgtlearn.tune import recommended_params` and pass
+`**recommended_params(use_tao=True, use_bivariate=True)` to an estimator.
+Both helpers accept these opt-in flags, which default to `False`.
 See the [tuning guide](docs/tuning.rst) for a complete objective and the
 default-selection protocol.
 

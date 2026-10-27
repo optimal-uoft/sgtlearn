@@ -11,27 +11,63 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from optuna.trial import FixedTrial, Trial
 
-__all__ = ["suggest_params"]
+__all__ = ["recommended_params", "suggest_params"]
 
 
-def suggest_params(trial: Trial | FixedTrial) -> dict[str, Any]:
+def recommended_params(
+    *, use_tao: bool = False, use_bivariate: bool = False
+) -> dict[str, Any]:
+    """Return the shared study-based settings without requiring Optuna.
+
+    Works with both single-tree tasks and forest base trees. ``use_tao`` enables
+    one refinement sweep with lambda 1e-4; ``use_bivariate`` enables a pair budget
+    of 0.5 per logical feature. Both are opt-in. The reported reserved-test
+    results use both enabled; forests were not benchmarked. Criterion and
+    forest-specific settings retain their defaults.
+    """
+    return {
+        "max_depth": 4,
+        "max_leaf_nodes": None,
+        "num_partitions": 7,
+        "inner_max_depth": None,
+        "inner_max_leaf_nodes": 4,
+        "min_samples_leaf": 4,
+        "inner_min_samples_leaf": 13,
+        "min_impurity_decrease": 1.0,
+        "inner_min_impurity_decrease": 0.01,
+        "coordinate_descent_max_iters": 5,
+        "coordinate_descent_patience": 5,
+        "pairwise_candidates": 0.5 if use_bivariate else 0.0,
+        "pairwise_penalty": 0.0,
+        "branching_penalty": 0.0,
+        "tao_n_runs": 1 if use_tao else 0,
+        "tao_lambda": 1e-4,
+        "tao_pair_scale": 2.0,
+    }
+
+
+def suggest_params(
+    trial: Trial | FixedTrial, *, use_tao: bool = False, use_bivariate: bool = False
+) -> dict[str, Any]:
     """Return suggested keyword arguments for an SGT classifier or regressor.
 
     Accepts an Optuna ``Trial`` or ``FixedTrial``. No estimator is fitted and no
     study is created. The returned dictionary includes fixed settings as well
-    as sampled ones; reconstruct it using ``FixedTrial(best_trial.params)``.
+    as sampled ones; reconstruct it using ``FixedTrial(best_trial.params)``
+    with the same feature flags. ``use_tao`` enables one refinement sweep;
+    ``use_bivariate`` searches positive pair budgets and their penalties.
+    Both are disabled by default.
     Criterion and forest-specific settings use the estimator's own defaults.
     See the tuning guide for the study and limitations behind these ranges.
     """
     num_partitions = trial.suggest_int("num_partitions", 2, 8)
-    pairs = trial.suggest_categorical("pairwise_candidates", [0.0, 0.25, 0.5, 1.0, 2.0])
+    pairs = (
+        trial.suggest_categorical("pairwise_candidates", [0.25, 0.5, 1.0, 2.0])
+        if use_bivariate
+        else 0.0
+    )
     return {
-        "inner_max_depth": None,
-        "tao_lambda": 1e-4,
-        "tao_n_runs": 0,
-        "tao_pair_scale": 2.0,
-        "coordinate_descent_max_iters": 5,
-        "coordinate_descent_patience": 5,
+        **recommended_params(use_tao=use_tao, use_bivariate=use_bivariate),
         "max_depth": trial.suggest_int("max_depth", 4, 10),
         "inner_max_leaf_nodes": trial.suggest_int(
             "inner_max_leaf_nodes", 2, 64, log=True

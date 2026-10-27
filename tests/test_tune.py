@@ -11,14 +11,20 @@ from sgtlearn import (
     SGTClassifier,
     SGTRegressor,
 )
-from sgtlearn.tune import suggest_params
+from sgtlearn.tune import recommended_params, suggest_params
 
 
-def test_suggestions_reconstruct_from_stored_trial_params():
+@pytest.mark.parametrize("use_tao", [False, True])
+@pytest.mark.parametrize("use_bivariate", [False, True])
+def test_suggestions_reconstruct_from_stored_trial_params(use_tao, use_bivariate):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=42))
     trial = study.ask()
-    params = suggest_params(trial)
-    assert params == suggest_params(optuna.trial.FixedTrial(trial.params))
+    flags = {"use_tao": use_tao, "use_bivariate": use_bivariate}
+    params = suggest_params(trial, **flags)
+    assert params == suggest_params(optuna.trial.FixedTrial(trial.params), **flags)
+    assert (params["pairwise_candidates"] > 0) == use_bivariate
+    assert ("pairwise_candidates" in trial.params) == use_bivariate
+    assert ("pairwise_penalty" in trial.params) == use_bivariate
     assert params["inner_max_depth"] is None
     assert params["tao_lambda"] == 1e-4
     assert 4 <= params["max_depth"] <= 10
@@ -27,9 +33,17 @@ def test_suggestions_reconstruct_from_stored_trial_params():
 
 
 @pytest.mark.parametrize("regression", [False, True])
-def test_suggested_dict_fits_single_tree_and_forest(regression):
+@pytest.mark.parametrize("use_tao", [False, True])
+@pytest.mark.parametrize("use_bivariate", [False, True])
+@pytest.mark.parametrize("tune", [False, True])
+def test_parameter_dict_fits_single_tree_and_forest(
+    regression, use_tao, use_bivariate, tune
+):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=5))
-    params = suggest_params(study.ask())
+    flags = {"use_tao": use_tao, "use_bivariate": use_bivariate}
+    params = (
+        suggest_params(study.ask(), **flags) if tune else recommended_params(**flags)
+    )
     X = np.arange(240.0).reshape(120, 2)
     y = np.sin(X[:, 0]) if regression else (X[:, 0] > 120).astype(int)
     tree_type = SGTRegressor if regression else SGTClassifier
@@ -39,8 +53,14 @@ def test_suggested_dict_fits_single_tree_and_forest(regression):
     assert tree.predict(X).shape == forest.predict(X).shape == y.shape
     assert np.isfinite(tree.predict(X)).all()
     assert np.isfinite(forest.predict(X)).all()
-    assert tree.feature_importances_.shape == (X.shape[1],)
-    assert forest.mean_feature_importances_.shape == (X.shape[1],)
+    if use_tao:
+        with pytest.raises(AttributeError):
+            _ = tree.feature_importances_
+        with pytest.raises(AttributeError):
+            _ = forest.mean_feature_importances_
+    else:
+        assert tree.feature_importances_.shape == (X.shape[1],)
+        assert forest.mean_feature_importances_.shape == (X.shape[1],)
 
 
 def test_invalid_fixed_parameter_is_rejected_instead_of_silently_clipped():

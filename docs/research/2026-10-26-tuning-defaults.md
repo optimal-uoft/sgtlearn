@@ -118,7 +118,7 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | First | `inner_min_samples_leaf` | integer 1–32, log | Largest regression importance; dataset-specific preferred sizes vary markedly. |
 | First | `inner_max_leaf_nodes` | integer 2–64, log | Broad search covered 2–256. Local curves plateau at large counts; 64 retains that plateau while reducing cost. |
 | Next | `inner_min_impurity_decrease` | `{0, .001, .01, .1}` | Especially important for churn; 0.1 can hurt other tasks. |
-| Next | `pairwise_candidates` | `{0, .25, .5, 1, 2}` | Disabling interactions harms several tasks; higher budgets cost more and are not universally better. |
+| Next | `pairwise_candidates` | `{.25, .5, 1, 2}` when enabled; otherwise `0` | Disabling interactions harms several tasks; higher budgets cost more and are not universally better. |
 | Next | `max_depth` | integer 4–10 | Deeper trees help airfoil and churn locally; shallower trees suit several small classification tasks. |
 | Next | `num_partitions` | integer 2–8 | Binary-only branching can lose useful structure; values above effective inner-bin count often plateau. |
 | Secondary | `pairwise_penalty` | `{0, .01, .1, 1}` | Low global importance, but some local changes matter; omit when pairs are disabled. |
@@ -127,7 +127,7 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Opt-in refinement | TAO sweeps / pair multiplier | `1 / 2` when enabled | More sweeps change churn by at most about 0.18 percentage points locally; pair-multiplier effects are tiny here. Ordinary fitting leaves TAO disabled. |
 | Fixed by design | `tao_lambda`, `inner_max_depth` | `1e-4`, `None` | Lambda was not searched; no importance or optimality claim is made for it. |
 
-The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls, with `tao_n_runs=0` to keep refinement opt-in. It returns a complete tree-parameter dictionary without fitting a model or defining the objective. It does not override task-specific criterion or forest-specific feature sampling.
+The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fixed controls. Both TAO and bivariate branching are disabled unless requested with `use_tao=True` and `use_bivariate=True`, respectively. Reconstruct trials using the same flags. The companion `recommended_params` returns the fixed study-based preset without Optuna, accepting those same flags. Both helpers return tree-parameter dictionaries without fitting a model or overriding task-specific criterion or forest-specific feature sampling.
 
 ## Dataset-specific priorities and promising tested values
 

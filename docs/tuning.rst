@@ -1,5 +1,24 @@
-Hyperparameter tuning
-=====================
+Recommended settings and tuning
+================================
+
+Use the fixed study-based preset without installing Optuna:
+
+.. code-block:: python
+
+   from sgtlearn import SGTClassifier
+   from sgtlearn.tune import recommended_params
+
+   params = recommended_params(use_tao=True, use_bivariate=True)
+   model = SGTClassifier(**params).fit(X_train, y_train)
+
+Both flags default to ``False``, matching ordinary estimator fitting. Enable
+either independently: ``use_tao=True`` selects one sweep with lambda ``1e-4``;
+``use_bivariate=True`` selects the recommended pair budget ``0.5``. The preset
+also works with regressors and forests, retaining task-specific and forest-only
+defaults. The study measured the combination with both enabled.
+
+Optuna suggestions
+------------------
 
 Install the optional Optuna dependency:
 
@@ -37,6 +56,22 @@ so reconstruct it with ``FixedTrial`` instead of using ``study.best_params``
 alone. Override entries in the dictionary when exploring outside the suggested
 ranges. Estimator parameters outside the helper remain available directly.
 
+``suggest_params`` accepts the same ``use_tao`` and ``use_bivariate`` flags.
+With bivariate branching enabled it searches positive pair budgets and pair
+penalties; otherwise neither is sampled. TAO uses the fixed recommended
+settings when enabled. Reconstruct a winning trial with the same flags, and
+use a separate study when changing the flags:
+
+.. code-block:: python
+
+   params = suggest_params(trial, use_tao=True, use_bivariate=True)
+   # After optimizing with those same flags:
+   params = suggest_params(
+       optuna.trial.FixedTrial(study.best_trial.params),
+       use_tao=True,
+       use_bivariate=True,
+   )
+
 Regression target units
 -----------------------
 
@@ -69,8 +104,9 @@ Public constructors keep bivariate splits and TAO off by default
 to opt into the study-recommended bivariate starting point. The other settings
 match the selected configuration. The reported study scores used bivariate
 splits and one TAO sweep; they do not measure the final univariate,
-ShapeCART-only defaults. The Optuna helper explores bivariate settings but
-leaves TAO disabled; refinement can be applied explicitly with ``TAO_refine``.
+ShapeCART-only defaults. Both helpers leave TAO and bivariate branching disabled
+unless their respective flags are enabled. Refinement can also be applied
+explicitly with ``TAO_refine``.
 
 Forest base trees inherit these settings. Existing forest-specific defaults
 match sklearn: 100 trees, bootstrap enabled, all rows per bootstrap sample,
@@ -121,7 +157,8 @@ The public helper explores outer depth 4--10, inner leaves 2--64 (log scale),
 outer branches 2--8, and outer/inner minimum leaf sizes 1--32 (log scale).
 It also samples outer impurity penalties from ``[0, .01, .1, 1, 10]``, inner
 penalties from ``[0, .001, .01, .1]``, pair-candidate budgets from
-``[0, .25, .5, 1, 2]``, and pair/extra-branch costs from ``[0, .01, .1, 1]``.
+``[.25, .5, 1, 2]`` when enabled, and pair/extra-branch costs from
+``[0, .01, .1, 1]``.
 Inactive costs are not sampled for univariate or binary-only settings.
 
 Outer impurity regularization and minimum leaf sizes were the strongest
@@ -129,7 +166,7 @@ classification dimensions. Inner minimum leaf size, outer impurity cost, and
 inner leaf count were the strongest regression dimensions. Iteration count,
 patience, TAO sweep count, and TAO pair multiplier showed little local benefit
 around the selected configuration. The helper fixes these controls, with TAO
-disabled to keep ordinary fitting limited to ShapeCART.
+disabled unless requested with ``use_tao=True``.
 The original broad search covered inner leaves up to 256; the local sweeps
 showed plateaus at larger values, so the public helper uses 64 as its upper
 bound. Users can still override the returned dictionary.
@@ -145,3 +182,5 @@ tested values, and the Pareto plot are recorded in the repository's
 ``docs/research/2026-10-26-tuning-defaults.md`` report.
 
 .. autofunction:: sgtlearn.tune.suggest_params
+
+.. autofunction:: sgtlearn.tune.recommended_params
