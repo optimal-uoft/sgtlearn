@@ -124,7 +124,7 @@ Controlled one-parameter sweeps around trial 381 supplement those estimates. The
 | Secondary | `pairwise_penalty` | `{0, .01, .1, 1}` | Low global importance, but some local changes matter; omit when pairs are disabled. |
 | Secondary | `branching_penalty` | `{0, .01, .1, 1}` | Can help concrete or credit-g locally; omit for binary-only branching. |
 | Fixed controls | CD iterations / patience | `10 / 5` | Production defaults allow ten iterations with patience five. The study-selected configuration used `5 / 5`; raising either gave no local improvement in its sweeps. |
-| Opt-in refinement | TAO sweeps / pair multiplier | `10 / 2` when enabled | Public helpers allow up to ten sweeps. The selected study configuration used one; extra sweeps changed churn by at most about 0.18 percentage points locally. Ordinary fitting leaves TAO disabled. |
+| Opt-in refinement | TAO sweeps / pair multiplier | `10` sweeps; multiplier `1.5`–`2.0` with both TAO and bivariate branching | Public helpers allow up to ten sweeps and search pair scale only when both flags are enabled (sklearn values `{1.5, 1.75, 2.0}`). The selected study configuration used one sweep and multiplier `2`; extra sweeps changed churn by at most about 0.18 percentage points locally. Ordinary fitting leaves TAO disabled. |
 | Opt-in refinement | `tao_lambda` | `1e-4`–`1e-2`, log; sklearn values `{.01, .001, .0001}` | Public helpers search lambda only when TAO is enabled. The study fixed it at `1e-4`; no importance or optimality claim is made for it. |
 | Fixed by design | `inner_max_depth` | `None` | Inner leaf count controls shape-function complexity. |
 

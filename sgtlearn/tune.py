@@ -24,8 +24,9 @@ def suggested_params(
     use evenly spaced values; leaf counts use powers of two. Impurity and
     complexity costs include zero and geometrically spaced positive values.
     TAO uses up to ten sweeps and lambda values 0.01, 0.001, and 0.0001 when
-    enabled; bivariate branching searches positive pair
-    budgets when enabled. Both options default to off, as in ``suggest_params``.
+    enabled; bivariate branching searches positive pair budgets when enabled.
+    With both enabled, pair scales are 1.5, 1.75, and 2.0. Both options default
+    to off, as in ``suggest_params``.
 
     The full Cartesian grid is large: prefer randomized search, or narrow the
     lists before an exhaustive grid search. Criterion and forest-specific
@@ -35,7 +36,7 @@ def suggested_params(
         "inner_max_depth": [None],
         "tao_lambda": [0.01, 0.001, 0.0001] if use_tao else [1e-4],
         "tao_n_runs": [10 if use_tao else 0],
-        "tao_pair_scale": [2.0],
+        "tao_pair_scale": [1.5, 1.75, 2.0] if use_tao and use_bivariate else [2.0],
         "coordinate_descent_max_iters": [10],
         "coordinate_descent_patience": [5],
         "max_depth": [4, 6, 8, 10],
@@ -62,6 +63,7 @@ def suggest_params(
     with the same feature flags. ``use_tao`` enables up to ten refinement sweeps
     and searches lambda logarithmically between 1e-4 and 1e-2;
     ``use_bivariate`` searches positive pair budgets and their penalties.
+    With both enabled, pair scale is sampled uniformly between 1.5 and 2.0.
     Both are disabled by default.
     Criterion and forest-specific settings use the estimator's own defaults.
     See the hyperparameter-tuning tutorial for a complete example.
@@ -78,7 +80,11 @@ def suggest_params(
             trial.suggest_float("tao_lambda", 1e-4, 1e-2, log=True) if use_tao else 1e-4
         ),
         "tao_n_runs": 10 if use_tao else 0,
-        "tao_pair_scale": 2.0,
+        "tao_pair_scale": (
+            trial.suggest_float("tao_pair_scale", 1.5, 2.0)
+            if use_tao and use_bivariate
+            else 2.0
+        ),
         "coordinate_descent_max_iters": 10,
         "coordinate_descent_patience": 5,
         "max_depth": trial.suggest_int("max_depth", 4, 10),

@@ -30,6 +30,10 @@ def test_suggestions_reconstruct_from_stored_trial_params(use_tao, use_bivariate
     assert ("tao_lambda" in trial.params) == use_tao
     if use_tao:
         assert trial.distributions["tao_lambda"].log
+    assert ("tao_pair_scale" in trial.params) == (use_tao and use_bivariate)
+    assert 1.5 <= params["tao_pair_scale"] <= 2.0
+    if use_tao and use_bivariate:
+        assert not trial.distributions["tao_pair_scale"].log
     assert 4 <= params["max_depth"] <= 10
     assert "max_features" not in params
     assert "criterion" not in params
