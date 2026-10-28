@@ -1,0 +1,229 @@
+{
+  "selected_trial": 96,
+  "params": {
+    "max_depth": 10,
+    "max_leaf_nodes": null,
+    "num_partitions": 6,
+    "inner_max_depth": null,
+    "inner_max_leaf_nodes": 4,
+    "min_samples_leaf": 2,
+    "inner_min_samples_leaf": 2,
+    "min_impurity_decrease": 0.0,
+    "inner_min_impurity_decrease": 0.01,
+    "coordinate_descent_max_iters": 40,
+    "coordinate_descent_patience": 5,
+    "pairwise_candidates": 2.0,
+    "pairwise_penalty": 10.0,
+    "branching_penalty": 0.1,
+    "max_features": null,
+    "tao_n_runs": 10,
+    "tao_lambda": 0.0001,
+    "tao_pair_scale": 1.1
+  },
+  "selected": [
+    {
+      "name": "credit-g",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.5811111111111111,
+          "loss": 0.41888888888888887,
+          "fold": 0,
+          "fit_seconds": 0.9408979160361923
+        }
+      ],
+      "loss": 0.41888888888888887,
+      "fit_seconds": 0.9408979160361923
+    },
+    {
+      "name": "diabetes",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6709504685408301,
+          "loss": 0.32904953145916993,
+          "fold": 0,
+          "fit_seconds": 0.22960429202066734
+        }
+      ],
+      "loss": 0.32904953145916993,
+      "fit_seconds": 0.22960429202066734
+    },
+    {
+      "name": "maternal_health_risk",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.8051159352629941,
+          "loss": 0.19488406473700592,
+          "fold": 0,
+          "fit_seconds": 0.20330925000598654
+        }
+      ],
+      "loss": 0.19488406473700592,
+      "fit_seconds": 0.20330925000598654
+    },
+    {
+      "name": "airfoil_self_noise",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 8.781268937046997,
+          "training_variance": 47.18689391723639,
+          "loss": 0.18609550678306847,
+          "fold": 0,
+          "fit_seconds": 1.1544757920200936
+        }
+      ],
+      "loss": 0.18609550678306847,
+      "fit_seconds": 1.1544757920200936
+    },
+    {
+      "name": "concrete_compressive_strength",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 68.59816247463718,
+          "training_variance": 274.05764225752375,
+          "loss": 0.25030559961607474,
+          "fold": 0,
+          "fit_seconds": 0.7309569169883616
+        }
+      ],
+      "loss": 0.25030559961607474,
+      "fit_seconds": 0.7309569169883616
+    },
+    {
+      "name": "qsar-biodeg",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.7444909294189779,
+          "loss": 0.2555090705810221,
+          "fold": 0,
+          "fit_seconds": 1.2312090419582091
+        }
+      ],
+      "loss": 0.2555090705810221,
+      "fit_seconds": 1.2312090419582091
+    },
+    {
+      "name": "wine_quality",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 0.6804398002050482,
+          "training_variance": 0.7797884810290635,
+          "loss": 0.8725953470190945,
+          "fold": 0,
+          "fit_seconds": 9.117527374997735
+        }
+      ],
+      "loss": 0.8725953470190945,
+      "fit_seconds": 9.117527374997735
+    }
+  ],
+  "baseline": [
+    {
+      "name": "credit-g",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.5717521367521368,
+          "loss": 0.42824786324786324,
+          "fold": 0,
+          "fit_seconds": 0.06177924998337403
+        }
+      ],
+      "loss": 0.42824786324786324,
+      "fit_seconds": 0.06177924998337403
+    },
+    {
+      "name": "diabetes",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6621820615796519,
+          "loss": 0.33781793842034813,
+          "fold": 0,
+          "fit_seconds": 0.016902250004932284
+        }
+      ],
+      "loss": 0.33781793842034813,
+      "fit_seconds": 0.016902250004932284
+    },
+    {
+      "name": "maternal_health_risk",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.8404139433551198,
+          "loss": 0.15958605664488024,
+          "fold": 0,
+          "fit_seconds": 0.08848179195774719
+        }
+      ],
+      "loss": 0.15958605664488024,
+      "fit_seconds": 0.08848179195774719
+    },
+    {
+      "name": "airfoil_self_noise",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 15.424421074252251,
+          "training_variance": 47.18689391723639,
+          "loss": 0.32687934707688043,
+          "fold": 0,
+          "fit_seconds": 1.2748140419716947
+        }
+      ],
+      "loss": 0.32687934707688043,
+      "fit_seconds": 1.2748140419716947
+    },
+    {
+      "name": "concrete_compressive_strength",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 78.33022323604108,
+          "training_variance": 274.05764225752375,
+          "loss": 0.2858165989855394,
+          "fold": 0,
+          "fit_seconds": 0.7115029580309056
+        }
+      ],
+      "loss": 0.2858165989855394,
+      "fit_seconds": 0.7115029580309056
+    },
+    {
+      "name": "qsar-biodeg",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6783279835539366,
+          "loss": 0.32167201644606336,
+          "fold": 0,
+          "fit_seconds": 0.07136550004361197
+        }
+      ],
+      "loss": 0.32167201644606336,
+      "fit_seconds": 0.07136550004361197
+    },
+    {
+      "name": "wine_quality",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 0.7968605878681335,
+          "training_variance": 0.7797884810290635,
+          "loss": 1.0218932534327008,
+          "fold": 0,
+          "fit_seconds": 0.4634112080093473
+        }
+      ],
+      "loss": 1.0218932534327008,
+      "fit_seconds": 0.4634112080093473
+    }
+  ]
+}

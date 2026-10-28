@@ -1,0 +1,497 @@
+{
+  "baseline": {
+    "params": {
+      "max_depth": null,
+      "max_leaf_nodes": null,
+      "num_partitions": 2,
+      "inner_max_depth": null,
+      "inner_max_leaf_nodes": 8,
+      "min_samples_leaf": 1,
+      "inner_min_samples_leaf": 1,
+      "min_impurity_decrease": 0.0,
+      "inner_min_impurity_decrease": 0.0,
+      "coordinate_descent_max_iters": 20,
+      "coordinate_descent_patience": 5,
+      "pairwise_candidates": 0,
+      "pairwise_penalty": 0.0,
+      "branching_penalty": 0.0,
+      "max_features": null,
+      "tao_n_runs": 10,
+      "tao_lambda": 0.0001,
+      "tao_pair_scale": 1.1
+    },
+    "datasets": [
+      {
+        "name": "credit-g",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.5935314685314685,
+            "loss": 0.40646853146853146,
+            "fold": 0,
+            "fit_seconds": 0.04087204101961106
+          },
+          {
+            "balanced_accuracy": 0.5621569571497351,
+            "loss": 0.4378430428502649,
+            "fold": 1,
+            "fit_seconds": 0.034516457992140204
+          },
+          {
+            "balanced_accuracy": 0.601299951853635,
+            "loss": 0.39870004814636495,
+            "fold": 2,
+            "fit_seconds": 0.03402100002858788
+          }
+        ],
+        "loss": 0.4143372074883871,
+        "fit_seconds": 0.10940949904033914
+      },
+      {
+        "name": "diabetes",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6412162162162163,
+            "loss": 0.3587837837837837,
+            "fold": 0,
+            "fit_seconds": 0.0194088330026716
+          },
+          {
+            "balanced_accuracy": 0.5953389830508474,
+            "loss": 0.4046610169491526,
+            "fold": 1,
+            "fit_seconds": 0.008328415977302939
+          },
+          {
+            "balanced_accuracy": 0.6162009467094213,
+            "loss": 0.38379905329057873,
+            "fold": 2,
+            "fit_seconds": 0.009157041960861534
+          }
+        ],
+        "loss": 0.3824146180078383,
+        "fit_seconds": 0.03689429094083607
+      },
+      {
+        "name": "maternal_health_risk",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6766363084395871,
+            "loss": 0.3233636915604129,
+            "fold": 0,
+            "fit_seconds": 0.054327874968294054
+          },
+          {
+            "balanced_accuracy": 0.7603703703703704,
+            "loss": 0.23962962962962964,
+            "fold": 1,
+            "fit_seconds": 0.046520415984559804
+          },
+          {
+            "balanced_accuracy": 0.7637686867195064,
+            "loss": 0.23623131328049363,
+            "fold": 2,
+            "fit_seconds": 0.04301775002386421
+          }
+        ],
+        "loss": 0.26640821149017874,
+        "fit_seconds": 0.14386604097671807
+      },
+      {
+        "name": "airfoil_self_noise",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 26.11745750410992,
+            "training_variance": 46.255445739814526,
+            "loss": 0.5646353004794251,
+            "fold": 0,
+            "fit_seconds": 0.6044747910345905
+          },
+          {
+            "mse": 23.90246322418937,
+            "training_variance": 47.11706242549931,
+            "loss": 0.5072995215264859,
+            "fold": 1,
+            "fit_seconds": 0.6098707499913871
+          },
+          {
+            "mse": 23.666728772338473,
+            "training_variance": 48.12047637167656,
+            "loss": 0.4918224123456221,
+            "fold": 2,
+            "fit_seconds": 0.6612068340182304
+          }
+        ],
+        "loss": 0.521252411450511,
+        "fit_seconds": 1.875552375044208
+      },
+      {
+        "name": "concrete_compressive_strength",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 80.42514976055344,
+            "training_variance": 275.6447441650081,
+            "loss": 0.291771025796918,
+            "fold": 0,
+            "fit_seconds": 0.3156467500375584
+          },
+          {
+            "mse": 87.56394477870732,
+            "training_variance": 283.70735295957905,
+            "loss": 0.30864178832609573,
+            "fold": 1,
+            "fit_seconds": 0.2893365839845501
+          },
+          {
+            "mse": 85.77578982071479,
+            "training_variance": 262.490522065353,
+            "loss": 0.3267767123391943,
+            "fold": 2,
+            "fit_seconds": 0.2884861249476671
+          }
+        ],
+        "loss": 0.3090631754874027,
+        "fit_seconds": 0.8934694589697756
+      }
+    ],
+    "objectives": [
+      0.354386678995468,
+      0.41515779346895687
+    ],
+    "wall_seconds": 2.783573334047105
+  },
+  "small": {
+    "params": {
+      "max_depth": 4,
+      "max_leaf_nodes": null,
+      "num_partitions": 2,
+      "inner_max_depth": null,
+      "inner_max_leaf_nodes": 2,
+      "min_samples_leaf": 1,
+      "inner_min_samples_leaf": 1,
+      "min_impurity_decrease": 0.0,
+      "inner_min_impurity_decrease": 0.0,
+      "coordinate_descent_max_iters": 20,
+      "coordinate_descent_patience": 5,
+      "pairwise_candidates": 0,
+      "pairwise_penalty": 0.0,
+      "branching_penalty": 0.0,
+      "max_features": null,
+      "tao_n_runs": 1,
+      "tao_lambda": 0.0001,
+      "tao_pair_scale": 1.1
+    },
+    "datasets": [
+      {
+        "name": "credit-g",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.590034965034965,
+            "loss": 0.409965034965035,
+            "fold": 0,
+            "fit_seconds": 0.01121166703524068
+          },
+          {
+            "balanced_accuracy": 0.632354357246028,
+            "loss": 0.36764564275397205,
+            "fold": 1,
+            "fit_seconds": 0.010809708037413657
+          },
+          {
+            "balanced_accuracy": 0.6172363986519018,
+            "loss": 0.38276360134809817,
+            "fold": 2,
+            "fit_seconds": 0.011998875008430332
+          }
+        ],
+        "loss": 0.38679142635570174,
+        "fit_seconds": 0.03402025008108467
+      },
+      {
+        "name": "diabetes",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.643918918918919,
+            "loss": 0.35608108108108105,
+            "fold": 0,
+            "fit_seconds": 0.003330083971377462
+          },
+          {
+            "balanced_accuracy": 0.6756204600484261,
+            "loss": 0.32437953995157387,
+            "fold": 1,
+            "fit_seconds": 0.0027804580167867243
+          },
+          {
+            "balanced_accuracy": 0.7200335929149488,
+            "loss": 0.27996640708505116,
+            "fold": 2,
+            "fit_seconds": 0.002539707988034934
+          }
+        ],
+        "loss": 0.320142342705902,
+        "fit_seconds": 0.00865024997619912
+      },
+      {
+        "name": "maternal_health_risk",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6253430479659988,
+            "loss": 0.3746569520340012,
+            "fold": 0,
+            "fit_seconds": 0.002834582992363721
+          },
+          {
+            "balanced_accuracy": 0.6833333333333332,
+            "loss": 0.31666666666666676,
+            "fold": 1,
+            "fit_seconds": 0.0021496249828487635
+          },
+          {
+            "balanced_accuracy": 0.7353632320845436,
+            "loss": 0.26463676791545643,
+            "fold": 2,
+            "fit_seconds": 0.0019330829964019358
+          }
+        ],
+        "loss": 0.31865346220537477,
+        "fit_seconds": 0.00691729097161442
+      },
+      {
+        "name": "airfoil_self_noise",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 20.20992724651995,
+            "training_variance": 46.255445739814526,
+            "loss": 0.43691995446763554,
+            "fold": 0,
+            "fit_seconds": 0.009558499965351075
+          },
+          {
+            "mse": 20.852653033512183,
+            "training_variance": 47.11706242549931,
+            "loss": 0.44257116127483626,
+            "fold": 1,
+            "fit_seconds": 0.008933125005569309
+          },
+          {
+            "mse": 23.420331837089357,
+            "training_variance": 48.12047637167656,
+            "loss": 0.4867019947224469,
+            "fold": 2,
+            "fit_seconds": 0.009024124999996275
+          }
+        ],
+        "loss": 0.45539770348830627,
+        "fit_seconds": 0.02751574997091666
+      },
+      {
+        "name": "concrete_compressive_strength",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 88.19144755444951,
+            "training_variance": 275.6447441650081,
+            "loss": 0.31994605165283263,
+            "fold": 0,
+            "fit_seconds": 0.004330708004999906
+          },
+          {
+            "mse": 98.870096673702,
+            "training_variance": 283.70735295957905,
+            "loss": 0.348493247151717,
+            "fold": 1,
+            "fit_seconds": 0.004110792011488229
+          },
+          {
+            "mse": 90.52110769726964,
+            "training_variance": 262.490522065353,
+            "loss": 0.34485476650746405,
+            "fold": 2,
+            "fit_seconds": 0.004022208973765373
+          }
+        ],
+        "loss": 0.3377646884373379,
+        "fit_seconds": 0.012463708990253508
+      }
+    ],
+    "objectives": [
+      0.3418624104223262,
+      0.3965811959628221
+    ],
+    "wall_seconds": 0.03710220800712705
+  },
+  "rich": {
+    "params": {
+      "max_depth": 10,
+      "max_leaf_nodes": null,
+      "num_partitions": 8,
+      "inner_max_depth": null,
+      "inner_max_leaf_nodes": 256,
+      "min_samples_leaf": 1,
+      "inner_min_samples_leaf": 1,
+      "min_impurity_decrease": 0.0,
+      "inner_min_impurity_decrease": 0.0,
+      "coordinate_descent_max_iters": 20,
+      "coordinate_descent_patience": 5,
+      "pairwise_candidates": 2.0,
+      "pairwise_penalty": 0.0,
+      "branching_penalty": 0.0,
+      "max_features": null,
+      "tao_n_runs": 30,
+      "tao_lambda": 0.0001,
+      "tao_pair_scale": 1.1
+    },
+    "datasets": [
+      {
+        "name": "credit-g",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.4857226107226107,
+            "loss": 0.5142773892773893,
+            "fold": 0,
+            "fit_seconds": 0.539733832993079
+          },
+          {
+            "balanced_accuracy": 0.47948964853153586,
+            "loss": 0.5205103514684641,
+            "fold": 1,
+            "fit_seconds": 0.515147749974858
+          },
+          {
+            "balanced_accuracy": 0.5486759749638902,
+            "loss": 0.4513240250361098,
+            "fold": 2,
+            "fit_seconds": 0.5235461660195142
+          }
+        ],
+        "loss": 0.4953705885939878,
+        "fit_seconds": 1.5784277489874512
+      },
+      {
+        "name": "diabetes",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6159909909909911,
+            "loss": 0.3840090090090089,
+            "fold": 0,
+            "fit_seconds": 0.5164237499702722
+          },
+          {
+            "balanced_accuracy": 0.5690072639225181,
+            "loss": 0.4309927360774819,
+            "fold": 1,
+            "fit_seconds": 0.5234231670037843
+          },
+          {
+            "balanced_accuracy": 0.5428309665597801,
+            "loss": 0.45716903344021986,
+            "fold": 2,
+            "fit_seconds": 0.4969673329615034
+          }
+        ],
+        "loss": 0.4240569261755702,
+        "fit_seconds": 1.53681424993556
+      },
+      {
+        "name": "maternal_health_risk",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.7331268973891926,
+            "loss": 0.26687310261080743,
+            "fold": 0,
+            "fit_seconds": 0.17182625003624707
+          },
+          {
+            "balanced_accuracy": 0.7425925925925926,
+            "loss": 0.2574074074074074,
+            "fold": 1,
+            "fit_seconds": 0.24161545798415318
+          },
+          {
+            "balanced_accuracy": 0.6886854067181937,
+            "loss": 0.31131459328180633,
+            "fold": 2,
+            "fit_seconds": 2.010436375043355
+          }
+        ],
+        "loss": 0.2785317011000071,
+        "fit_seconds": 2.423878083063755
+      },
+      {
+        "name": "airfoil_self_noise",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 20.050817267898804,
+            "training_variance": 46.255445739814526,
+            "loss": 0.4334801437366757,
+            "fold": 0,
+            "fit_seconds": 28.924640207958873
+          },
+          {
+            "mse": 16.841908212710766,
+            "training_variance": 47.11706242549931,
+            "loss": 0.3574481800375586,
+            "fold": 1,
+            "fit_seconds": 28.12884599994868
+          },
+          {
+            "mse": 21.137424358970584,
+            "training_variance": 48.12047637167656,
+            "loss": 0.43926049683522983,
+            "fold": 2,
+            "fit_seconds": 27.590574875008315
+          }
+        ],
+        "loss": 0.41006294020315476,
+        "fit_seconds": 84.64406108291587
+      },
+      {
+        "name": "concrete_compressive_strength",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 111.91009030657304,
+            "training_variance": 275.6447441650081,
+            "loss": 0.4059939203469113,
+            "fold": 0,
+            "fit_seconds": 18.694053291983437
+          },
+          {
+            "mse": 126.39349092301612,
+            "training_variance": 283.70735295957905,
+            "loss": 0.4455065743080121,
+            "fold": 1,
+            "fit_seconds": 17.519746708974708
+          },
+          {
+            "mse": 138.81783593199833,
+            "training_variance": 262.490522065353,
+            "loss": 0.5288489460104638,
+            "fold": 2,
+            "fit_seconds": 17.452755250036716
+          }
+        ],
+        "loss": 0.4601164802217957,
+        "fit_seconds": 53.66655525099486
+      }
+    ],
+    "objectives": [
+      0.39931973862318837,
+      0.4350897102124752
+    ],
+    "wall_seconds": 84.64733112498652
+  }
+}

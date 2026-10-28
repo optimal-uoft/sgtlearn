@@ -22,6 +22,43 @@ Wheels are published for CPython 3.11–3.14 on Linux, macOS, and Windows
 (x86_64 + arm64); no compiler is needed for a binary install. To build from
 source instead, see [Developer Setup](#developer-setup).
 
+For Optuna tuning, install `pip install 'sgtlearn[tune]'` and use
+`from sgtlearn.tune import suggest_params`. Calling `suggest_params(trial)`
+returns keyword arguments for `SGTClassifier` or `SGTRegressor`.
+Pass `use_tao=True` and/or `use_bivariate=True` to `suggest_params` to enable
+those features during tuning. Both flags default to `False`.
+For sklearn searches, `from sgtlearn.tune import suggested_params` provides
+lists of candidate values for `GridSearchCV` or `RandomizedSearchCV`, with the
+same optional flags. Prefer randomized search for the full space, or narrow
+the lists before running an exhaustive grid search.
+Both helpers omit constants and inactive parameters, except the required
+`tao_n_runs=10` override when TAO is enabled.
+
+```python
+from sklearn.model_selection import RandomizedSearchCV
+from sgtlearn import SGTClassifier
+from sgtlearn.tune import suggested_params
+
+search = RandomizedSearchCV(
+    SGTClassifier(),
+    suggested_params(use_tao=True, use_bivariate=True),
+    n_iter=30, cv=3, scoring="balanced_accuracy", random_state=42,
+)
+search.fit(X_train, y_train)
+model = search.best_estimator_
+```
+
+Follow the [tuning tutorial](docs/tutorials/hyperparameter-tuning.ipynb) to train
+a model, tune its parameters, and make predictions for classification or regression.
+
+The [12-dataset default-selection report](docs/research/2026-10-26-tuning-defaults.md)
+records the Pareto compromise, held-out results, and useful parameter ranges.
+The common defaults use binary branching, outer depth 4, four inner leaves, and regularization.
+Ordinary fitting runs ShapeCART with TAO disabled. Bivariate splits are also off by default; set
+`pairwise_candidates=0.5` for the study-recommended opt-in starting point.
+Existing parameter-free calls change behavior;
+the report documents the classification/regression tradeoff.
+
 ## Quick Start
 
 ```python
@@ -49,6 +86,11 @@ improvement uses total sample weight and the mean across target outputs.
 `pairwise_penalty` subtract constant costs in these units; existing positive
 penalties may need retuning. Inner CART and TAO retain their separate settings.
 See [outer-growth semantics](docs/api/estimators.rst) for the scoring formula.
+
+Regressors now standardize each target using training-only, sample-weighted
+statistics. Predictions and exported leaf values remain in original units;
+regression impurities and penalties use standardized units. Supply original
+targets to later `TAO_refine` calls, which reuse the fitted transformation.
 
 For `SGTRegressor` and `RandomSGForestRegressor`, MAE (`criterion="absolute_error"`
 or `"mae"`) leaves coordinate descent disabled by default. Each top-level fit

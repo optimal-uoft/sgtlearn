@@ -15,6 +15,7 @@ from sgtlearn._multioutput import (
     squeeze_outputs,
     unwrap_classifier_public_attrs,
 )
+from tests.constants import algorithm_params
 
 
 @pytest.mark.parametrize(
@@ -79,16 +80,16 @@ def test_native_and_public_arrays_flatten_only_one_output() -> None:
 
 
 @pytest.mark.parametrize("n_outputs", [1, 2])
-@pytest.mark.parametrize(("penalty", "splits"), [(0.9, True), (1.1, False)])
+@pytest.mark.parametrize(("penalty", "splits"), [(3.9, True), (4.1, False)])
 def test_regressor_min_impurity_decrease_uses_output_mean(
     n_outputs: int, penalty: float, splits: bool
 ) -> None:
-    """Duplicating a target keeps the root gain at 1.0; a sum would double it."""
+    """Duplicating a standardized target keeps gain at 4; a sum doubles it."""
     X = np.arange(4.0)[:, None]
-    y = np.array([0.0, 0.0, 1.0, 1.0])  # total root gain: 4 * 0.25 - 0 = 1.0
+    y = np.array([0.0, 0.0, 1.0, 1.0])  # standardized gain: 4 * 1 - 0 = 4
     target = np.column_stack([y] * n_outputs) if n_outputs > 1 else y
     model = SGTRegressor(
-        max_leaf_nodes=2, min_impurity_decrease=penalty, tao_n_runs=0, random_state=0
-    ).fit(X, target)
+        **algorithm_params(max_leaf_nodes=2, min_impurity_decrease=penalty, tao_n_runs=0, random_state=0
+    )).fit(X, target)
     n_leaves = sum(node["is_leaf"] for node in model.tree_export()["nodes"])
     assert n_leaves == (2 if splits else 1)

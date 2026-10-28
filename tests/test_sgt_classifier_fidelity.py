@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 
 from sgtlearn import SGTClassifier
+from tests.constants import algorithm_params
 from tests.discretizer_grid import n_outputs_params
 
 pytest.importorskip("sklearn")
@@ -45,7 +46,7 @@ def test_sgt_train_accuracy_at_least_sklearn_decision_tree(
     min_samples_leaf = 5
 
     sgt = SGTClassifier(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         max_depth=max_depth,
         min_samples_leaf=min_samples_leaf,
         min_impurity_decrease=1e-7,
@@ -55,7 +56,7 @@ def test_sgt_train_accuracy_at_least_sklearn_decision_tree(
         coordinate_descent_patience=6,
         random_state=42,
         tao_n_runs=tao_n_runs,
-    )
+    ))
     sgt.fit(X, y)
 
     dt = DecisionTreeClassifier(
@@ -94,8 +95,8 @@ def test_sgt_matches_sklearn_decision_tree_inner_depth_one_defaults(
     sk_criterion = "entropy" if criterion == "log_loss" else criterion
 
     sgt = SGTClassifier(
-        criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
-    )
+        **algorithm_params(criterion=criterion, inner_max_depth=1, tao_n_runs=tao_n_runs
+    ))
     sgt.fit(X, y)
 
     dt = DecisionTreeClassifier(criterion=sk_criterion)

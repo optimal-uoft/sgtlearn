@@ -1,0 +1,48 @@
+{
+  "datasets": [
+    [
+      "credit-g",
+      363626,
+      "classification"
+    ],
+    [
+      "diabetes",
+      363629,
+      "classification"
+    ],
+    [
+      "maternal_health_risk",
+      363685,
+      "classification"
+    ],
+    [
+      "airfoil_self_noise",
+      363612,
+      "regression"
+    ],
+    [
+      "concrete_compressive_strength",
+      363625,
+      "regression"
+    ]
+  ],
+  "seed": 42,
+  "inner_folds": 3,
+  "classification": "mean(1 - balanced_accuracy)",
+  "regression": "mean(MSE / train_variance)",
+  "sources": {
+    "/Users/upadhyan/.codex/worktrees/29-tuning-defaults/sgtlearn/benchmarks/tune_defaults.py": "8860537f2f62af46782ba17a6b6189d7b157365d037b9c7eee1e9990e2b2bcfd",
+    "sgtlearn/base.py": "16b8b5478e82fa089d16b186d0b3c5013711a1d57817c4cddf92a2e891ce6455",
+    "sgtlearn/tao.py": "25887f8c064ea60ea7724987d2469027c8ef4922043054a0b96607de767b8396"
+  },
+  "packages": {
+    "sgtlearn": "0.3.2",
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1",
+    "optuna": "5.0.0",
+    "openml": "0.15.1"
+  },
+  "python": "3.14.5",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "git_head": "2be1648bd8a796b84b852a351ea4a005f34a1dcb"
+}

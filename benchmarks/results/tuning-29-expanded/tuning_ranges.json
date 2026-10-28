@@ -1,0 +1,2037 @@
+{
+  "credit-g": {
+    "max_depth": {
+      "fanova_importance": 0.05815036551606931,
+      "best_values": [
+        4,
+        5
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.4219278167400459,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.05856439643178673,
+      "best_values": [
+        2
+      ],
+      "best_loss": 0.385702372040841,
+      "worst_loss": 0.40844813454346435,
+      "improvement_over_shared": 0.020932249422860927
+    },
+    "num_partitions": {
+      "fanova_importance": 0.014173275757763485,
+      "best_values": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.42109395312332243,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.034918848634736536,
+      "best_values": [
+        8,
+        16
+      ],
+      "best_loss": 0.3736790425644543,
+      "worst_loss": 0.40798425348256834,
+      "improvement_over_shared": 0.03295557889924766
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.13147322038967416,
+      "best_values": [
+        1,
+        2,
+        8,
+        32
+      ],
+      "best_loss": 0.39052090850357574,
+      "worst_loss": 0.4347313455281679,
+      "improvement_over_shared": 0.016113712960126203
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.35942840562046535,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.4279730380356283,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.04679932094316236,
+      "best_values": [
+        0.0,
+        0.001,
+        0.1
+      ],
+      "best_loss": 0.385702372040841,
+      "worst_loss": 0.40663462146370194,
+      "improvement_over_shared": 0.020932249422860927
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.042011665538304085,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.4101974524699609,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.06005087643174131,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.4101974524699609,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.04053922442085223,
+      "best_values": [
+        0.0,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.40017718198989266,
+      "worst_loss": 0.4225710682619686,
+      "improvement_over_shared": 0.006457439473809279
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.022375762030575553,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        10.0
+      ],
+      "best_loss": 0.40437377179071926,
+      "worst_loss": 0.41666025089231634,
+      "improvement_over_shared": 0.002260849672982679
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.04960033177826128,
+      "best_values": [
+        0.01,
+        1.0
+      ],
+      "best_loss": 0.3959624858637858,
+      "worst_loss": 0.41618302389847894,
+      "improvement_over_shared": 0.010672135599916144
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.048699381192031446,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.40663462146370194,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.033214925314576225,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.40663462146370194,
+      "worst_loss": 0.40663462146370194,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "diabetes": {
+    "max_depth": {
+      "fanova_importance": 0.01823699824653503,
+      "best_values": [
+        4,
+        5
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.3273012873648467,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.21934775960392824,
+      "best_values": [
+        4
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.32736863679660294,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.009942013279010908,
+      "best_values": [
+        3
+      ],
+      "best_loss": 0.3015817573020963,
+      "worst_loss": 0.37130232532774904,
+      "improvement_over_shared": 0.01556530804412165
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.09718724788875784,
+      "best_values": [
+        32
+      ],
+      "best_loss": 0.28039686175279394,
+      "worst_loss": 0.3383686349788045,
+      "improvement_over_shared": 0.03675020359342401
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.10560045911988458,
+      "best_values": [
+        4,
+        8,
+        13,
+        16,
+        32
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.3481463000530797,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.05391645553910117,
+      "best_values": [
+        10.0
+      ],
+      "best_loss": 0.2812747220586203,
+      "worst_loss": 0.31737229057144317,
+      "improvement_over_shared": 0.03587234328759764
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.027109506793215322,
+      "best_values": [
+        0.01
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.33676974492652456,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.04060231474786427,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.31714706534621795,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.00459638700342398,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.31714706534621795,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.1836722206656918,
+      "best_values": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.35226115946454933,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.059830638445429775,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.3372863632397531,
+      "improvement_over_shared": 0.0
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.10171170727573794,
+      "best_values": [
+        0.0,
+        0.01
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.387546535639756,
+      "improvement_over_shared": 0.0
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.030593138886247276,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.31714706534621795,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.04765315250517192,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.31714706534621795,
+      "worst_loss": 0.31714706534621795,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "maternal_health_risk": {
+    "max_depth": {
+      "fanova_importance": 0.013786160544867154,
+      "best_values": [
+        4
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.3102443974028673,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.01394706967734753,
+      "best_values": [
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.28118167347675543,
+      "worst_loss": 0.325042857064715,
+      "improvement_over_shared": 0.012099421826197776
+    },
+    "num_partitions": {
+      "fanova_importance": 0.09987434495778655,
+      "best_values": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.32064282862097077,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.2631844851737839,
+      "best_values": [
+        4
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.33177855451079497,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.020568009582274577,
+      "best_values": [
+        1,
+        4
+      ],
+      "best_loss": 0.2678603193357291,
+      "worst_loss": 0.31127745231570375,
+      "improvement_over_shared": 0.025420775967224085
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.22407615118603394,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.3239146797070294,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.06112126251343376,
+      "best_values": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.3339317459536038,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.016274173965259226,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.2932810953029532,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.0022160233239968776,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.2932810953029532,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.16020299656764245,
+      "best_values": [
+        0.25,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.2819430906316152,
+      "worst_loss": 0.3093498416449236,
+      "improvement_over_shared": 0.011338004671337998
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.013938087562407704,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.2889580837668269,
+      "worst_loss": 0.3151736435889441,
+      "improvement_over_shared": 0.004323011536126298
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.04513510658356116,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.2860254790309435,
+      "worst_loss": 0.31553870810701407,
+      "improvement_over_shared": 0.007255616272009713
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.05801474468428023,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.2932810953029532,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.0076613836773251,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.2932810953029532,
+      "worst_loss": 0.3021699841918421,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "airfoil_self_noise": {
+    "max_depth": {
+      "fanova_importance": 0.015095914677676526,
+      "best_values": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.2753852415084578,
+      "worst_loss": 0.29530123103275047,
+      "improvement_over_shared": 0.019915989524292688
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.016064646905275596,
+      "best_values": [
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.26601822052748836,
+      "worst_loss": 0.45842118015967576,
+      "improvement_over_shared": 0.029283010505262108
+    },
+    "num_partitions": {
+      "fanova_importance": 0.02229495050863468,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.35742674130178137,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.14766097041100226,
+      "best_values": [
+        2,
+        4
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.46952755932005497,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.09598701941968535,
+      "best_values": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "best_loss": 0.27174740040363665,
+      "worst_loss": 0.3150793365389781,
+      "improvement_over_shared": 0.023553830629113814
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.48196526533442524,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1
+      ],
+      "best_loss": 0.27910195038540936,
+      "worst_loss": 0.39753696496152585,
+      "improvement_over_shared": 0.016199280647341108
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.022912548324633485,
+      "best_values": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "best_loss": 0.28698783001902295,
+      "worst_loss": 0.4217348540516869,
+      "improvement_over_shared": 0.008313401013727517
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.018103189785504775,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.29530123103275047,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.024996541479251497,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.29530123103275047,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.06687960019200302,
+      "best_values": [
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.28991586293202015,
+      "worst_loss": 0.3132954422339558,
+      "improvement_over_shared": 0.0053853681007303145
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.023680310742159764,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.29523320462117114,
+      "worst_loss": 0.30700477036387464,
+      "improvement_over_shared": 6.802641157932499e-05
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.017350824210713076,
+      "best_values": [
+        0.0,
+        0.01
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.3343519960899933,
+      "improvement_over_shared": 0.0
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.023810625009231673,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.29530123103275047,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.023197592999803066,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.29530123103275047,
+      "worst_loss": 0.29530123103275047,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "concrete_compressive_strength": {
+    "max_depth": {
+      "fanova_importance": 0.04026584127877735,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.2520920053017179,
+      "worst_loss": 0.2523436748816969,
+      "improvement_over_shared": 0.0002516695799790192
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.11173540578566162,
+      "best_values": [
+        4,
+        8
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.3327993749916403,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.009814149147414684,
+      "best_values": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.24679678188863532,
+      "worst_loss": 0.32889512486294964,
+      "improvement_over_shared": 0.005546892993061575
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.06610584673750221,
+      "best_values": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "best_loss": 0.24812305559435907,
+      "worst_loss": 0.34897292604195046,
+      "improvement_over_shared": 0.004220619287337829
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.2227026633967081,
+      "best_values": [
+        1,
+        2,
+        4,
+        16
+      ],
+      "best_loss": 0.23893982465719987,
+      "worst_loss": 0.2621751378311719,
+      "improvement_over_shared": 0.013403850224497027
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.4027413364890627,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.33004344195153745,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.02138390898825212,
+      "best_values": [
+        0.01
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.29138521077019436,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.015476586750907144,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.2523436748816969,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.04188665634782867,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.2523436748816969,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.007129673864307752,
+      "best_values": [
+        0.0,
+        0.5,
+        2.0
+      ],
+      "best_loss": 0.2439634339218788,
+      "worst_loss": 0.2633742291210271,
+      "improvement_over_shared": 0.008380240959818097
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.01692006848518214,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.2506810768417686,
+      "worst_loss": 0.26362431804725917,
+      "improvement_over_shared": 0.001662598039928298
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.01606025118579925,
+      "best_values": [
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.23023964241418046,
+      "worst_loss": 0.27088823221087693,
+      "improvement_over_shared": 0.022104032467516438
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.021581616590134006,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.2523436748816969,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.0061959949524624915,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.2523436748816969,
+      "worst_loss": 0.2523436748816969,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "blood-transfusion-service-center": {
+    "max_depth": {
+      "fanova_importance": 0.009385372221830139,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.36548155839494423,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.025552731884235687,
+      "best_values": [
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.36252039007944514,
+      "worst_loss": 0.41457742461679475,
+      "improvement_over_shared": 0.0029611683154990853
+    },
+    "num_partitions": {
+      "fanova_importance": 0.01956777279776938,
+      "best_values": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.37641873291479594,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.0038073647427458216,
+      "best_values": [
+        1,
+        2,
+        4
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.4417524732485362,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.013129379262580364,
+      "best_values": [
+        13
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.40460399180871615,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.787188410649378,
+      "best_values": [
+        1.0
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.4772864930345245,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.02236271331247427,
+      "best_values": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "best_loss": 0.3595536535497166,
+      "worst_loss": 0.41457742461679475,
+      "improvement_over_shared": 0.0059279048452276495
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.0359441254278727,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.36548155839494423,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.0023804305835230517,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.36548155839494423,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.027096691750686634,
+      "best_values": [
+        0.25,
+        0.5
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.38627807741980974,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.008904486312104325,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.38935165155637597,
+      "improvement_over_shared": 0.0
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.010645462564884165,
+      "best_values": [
+        0.0
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.37641873291479594,
+      "improvement_over_shared": 0.0
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.021519309893567835,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.36548155839494423,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.012515748596347501,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.36548155839494423,
+      "worst_loss": 0.36548155839494423,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "website_phishing": {
+    "max_depth": {
+      "fanova_importance": 0.009170528570928307,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.15540931850139386,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.010895697121622465,
+      "best_values": [
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.39517819152368494,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.002827784579954866,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.2536205661813126,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.5056223248217118,
+      "best_values": [
+        1,
+        2,
+        4
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.408774878596041,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.006182960518515137,
+      "best_values": [
+        8,
+        13
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.19868654495752278,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.3821091461754225,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.15398481707689246,
+      "worst_loss": 0.3838930519744361,
+      "improvement_over_shared": 0.001424501424501401
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.018342405132281706,
+      "best_values": [
+        0.01
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.39478119932341404,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.01441594597125643,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.15540931850139386,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.0038843553831842395,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.15540931850139386,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.006184760680742085,
+      "best_values": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.32058974609029683,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.009310309005488612,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.24444990454515503,
+      "improvement_over_shared": 0.0
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.005283672851680066,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1
+      ],
+      "best_loss": 0.15010569956141137,
+      "worst_loss": 0.26149898300484703,
+      "improvement_over_shared": 0.005303618939982491
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.01736373309810429,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.15540931850139386,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.008406376089107782,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.15540931850139386,
+      "worst_loss": 0.15540931850139386,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "churn": {
+    "max_depth": {
+      "fanova_importance": 0.00718095889512846,
+      "best_values": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.16157468609097023,
+      "worst_loss": 0.17999750742209583,
+      "improvement_over_shared": 0.018422821331125605
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.30197043986029937,
+      "best_values": [
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.17999750742209583,
+      "worst_loss": 0.2538100833678288,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.03899341696473546,
+      "best_values": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.17999750742209583,
+      "worst_loss": 0.22970329420876234,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.012471977178389776,
+      "best_values": [
+        1,
+        2,
+        4,
+        8,
+        16
+      ],
+      "best_loss": 0.17804906817645672,
+      "worst_loss": 0.21642697859498727,
+      "improvement_over_shared": 0.0019484392456391164
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.04568790172681289,
+      "best_values": [
+        1,
+        2,
+        4,
+        8,
+        13,
+        16
+      ],
+      "best_loss": 0.1757645760169496,
+      "worst_loss": 0.19256165792038885,
+      "improvement_over_shared": 0.004232931405146245
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.015227265452667702,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.17964810141231247,
+      "worst_loss": 0.1906399248665803,
+      "improvement_over_shared": 0.0003494060097833651
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.482928322971927,
+      "best_values": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "best_loss": 0.17451494879087717,
+      "worst_loss": 0.2113472383572131,
+      "improvement_over_shared": 0.005482558631218659
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.023386117619071767,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.17999750742209583,
+      "worst_loss": 0.17999750742209583,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.01474547039586959,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.17999750742209583,
+      "worst_loss": 0.17999750742209583,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.015266756768946265,
+      "best_values": [
+        0.25,
+        0.5,
+        1.0
+      ],
+      "best_loss": 0.17999750742209583,
+      "worst_loss": 0.2298913503095693,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.008289565685866232,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.17876123329193871,
+      "worst_loss": 0.18248340877832525,
+      "improvement_over_shared": 0.0012362741301571167
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.020668409134827103,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.1782371242772637,
+      "worst_loss": 0.22633052473215917,
+      "improvement_over_shared": 0.0017603831448321228
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.006786223468922167,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.17822377118134838,
+      "worst_loss": 0.17999750742209583,
+      "improvement_over_shared": 0.0017737362407474477
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.006397173876536394,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.17999750742209583,
+      "worst_loss": 0.17999750742209583,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "QSAR_fish_toxicity": {
+    "max_depth": {
+      "fanova_importance": 0.010295754496202143,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5101684712607157,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.2725952476752644,
+      "best_values": [
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5188572096792426,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.001382203599552715,
+      "best_values": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5482117288690513,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.09402252901375742,
+      "best_values": [
+        4,
+        32
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.57960513726451,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.47276784186688403,
+      "best_values": [
+        13,
+        32
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.6649270904164697,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.03181993691902852,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5413187884308858,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.008560564337449577,
+      "best_values": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "best_loss": 0.48871364015455826,
+      "worst_loss": 0.5245293819272187,
+      "improvement_over_shared": 0.017383086235472633
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.03289904542616085,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5060967263900309,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.0025249935312459276,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5060967263900309,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.030013657243719738,
+      "best_values": [
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5630903386141778,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.004112794630999994,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5671545685807745,
+      "improvement_over_shared": 0.0
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.01909417678825631,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.504790073976634,
+      "worst_loss": 0.5391868303476524,
+      "improvement_over_shared": 0.0013066524133968915
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.014737017764544889,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5060967263900309,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.005174236706933626,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.5060967263900309,
+      "worst_loss": 0.5060967263900309,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "healthcare_insurance_expenses": {
+    "max_depth": {
+      "fanova_importance": 0.0002996781670639576,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.16128441490449752,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.4321767858861771,
+      "best_values": [
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.1623829764782627,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.006244987754086922,
+      "best_values": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.15745268448555902,
+      "worst_loss": 0.16488277448214042,
+      "improvement_over_shared": 0.00013192827834090926
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.2689051883036797,
+      "best_values": [
+        2,
+        4,
+        8,
+        16
+      ],
+      "best_loss": 0.1558733026348819,
+      "worst_loss": 0.17461423559781752,
+      "improvement_over_shared": 0.00171131012901804
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.16782813104719002,
+      "best_values": [
+        4,
+        8,
+        13,
+        16,
+        32
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.17205730283458967,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.010970375481429855,
+      "best_values": [
+        1.0
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.18154913774237258,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.01517155389329189,
+      "best_values": [
+        0.01,
+        0.1
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.1787309186610353,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.006574594698483144,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.15758461276389993,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.001359865362885793,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.15758461276389993,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.003625060496393484,
+      "best_values": [
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.1657207645347972,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.016464707020128602,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.15873800166072366,
+      "improvement_over_shared": 0.0
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.03892473364276934,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.15999832503172784,
+      "improvement_over_shared": 0.0
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.019147343085543778,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.15758461276389993,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.012306995160876586,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.15758461276389993,
+      "worst_loss": 0.15758461276389993,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "Another-Dataset-on-used-Fiat-500": {
+    "max_depth": {
+      "fanova_importance": 0.0168716360750481,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19256230391383333,
+      "improvement_over_shared": 0.0
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.04934940751389533,
+      "best_values": [
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "best_loss": 0.18955553831799307,
+      "worst_loss": 0.19751277912570778,
+      "improvement_over_shared": 0.0005013974898429585
+    },
+    "num_partitions": {
+      "fanova_importance": 0.004805161953647439,
+      "best_values": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19783525193289156,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.051259748398809875,
+      "best_values": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19864002294695807,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.5616309017086559,
+      "best_values": [
+        13,
+        16,
+        32
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.22158730833195106,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.19737758409630246,
+      "best_values": [
+        1.0
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.20932457187925002,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.04443514717572818,
+      "best_values": [
+        0.01,
+        0.1
+      ],
+      "best_loss": 0.18955553831799307,
+      "worst_loss": 0.20223200988798454,
+      "improvement_over_shared": 0.0005013974898429585
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.013085910167606688,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19005693580783603,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.0052089864188876595,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19005693580783603,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.013071299619665794,
+      "best_values": [
+        0.0,
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.1889614033317868,
+      "worst_loss": 0.19824492627846046,
+      "improvement_over_shared": 0.001095532476049238
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.017329671669194368,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.1894041361273666,
+      "worst_loss": 0.1941574423574717,
+      "improvement_over_shared": 0.0006527996804694403
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.01418910907620925,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.18829624192229122,
+      "worst_loss": 0.19529761567665652,
+      "improvement_over_shared": 0.0017606938855448118
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.004557545794786691,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19005693580783603,
+      "improvement_over_shared": 0.0
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.006827890331562243,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.19005693580783603,
+      "worst_loss": 0.19005693580783603,
+      "improvement_over_shared": 0.0
+    }
+  },
+  "miami_housing": {
+    "max_depth": {
+      "fanova_importance": 0.019166318158950226,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "best_loss": 0.1887855593345563,
+      "worst_loss": 0.19425684787312525,
+      "improvement_over_shared": 0.003990413512243385
+    },
+    "inner_max_leaf_nodes": {
+      "fanova_importance": 0.15344394694062774,
+      "best_values": [
+        4
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.2993648828360524,
+      "improvement_over_shared": 0.0
+    },
+    "num_partitions": {
+      "fanova_importance": 0.003420304067085653,
+      "best_values": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.2789908516596226,
+      "improvement_over_shared": 0.0
+    },
+    "min_samples_leaf": {
+      "fanova_importance": 0.052511441498743046,
+      "best_values": [
+        4,
+        8
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.22709360921058375,
+      "improvement_over_shared": 0.0
+    },
+    "inner_min_samples_leaf": {
+      "fanova_importance": 0.6415793195786667,
+      "best_values": [
+        13,
+        16
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.21246593572880135,
+      "improvement_over_shared": 0.0
+    },
+    "min_impurity_decrease": {
+      "fanova_importance": 0.026125718602798068,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "best_loss": 0.19260577327663922,
+      "worst_loss": 0.20195518535485477,
+      "improvement_over_shared": 0.0001701995701604564
+    },
+    "inner_min_impurity_decrease": {
+      "fanova_importance": 0.011908412187806021,
+      "best_values": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "best_loss": 0.1914079154135262,
+      "worst_loss": 0.2650405253726057,
+      "improvement_over_shared": 0.0013680574332734785
+    },
+    "coordinate_descent_max_iters": {
+      "fanova_importance": 0.019336159867033353,
+      "best_values": [
+        5,
+        10,
+        20,
+        40
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.19277597284679968,
+      "improvement_over_shared": 0.0
+    },
+    "coordinate_descent_patience": {
+      "fanova_importance": 0.013903137397063536,
+      "best_values": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.19277597284679968,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_candidates": {
+      "fanova_importance": 0.026248571868354987,
+      "best_values": [
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.24597458919485193,
+      "improvement_over_shared": 0.0
+    },
+    "pairwise_penalty": {
+      "fanova_importance": 0.014326362028621076,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.19277597284679968,
+      "worst_loss": 0.2049045321331808,
+      "improvement_over_shared": 0.0
+    },
+    "branching_penalty": {
+      "fanova_importance": 0.005028429396704869,
+      "best_values": [
+        0.0,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "best_loss": 0.1927439901696494,
+      "worst_loss": 0.20849497860353713,
+      "improvement_over_shared": 3.198267715026626e-05
+    },
+    "tao_n_runs": {
+      "fanova_importance": 0.001870163294070029,
+      "best_values": [
+        1,
+        3,
+        10,
+        30
+      ],
+      "best_loss": 0.19242537577666016,
+      "worst_loss": 0.19277597284679968,
+      "improvement_over_shared": 0.00035059707013951336
+    },
+    "tao_pair_scale": {
+      "fanova_importance": 0.01113171511347512,
+      "best_values": [
+        1.0,
+        1.1,
+        2.0,
+        5.0
+      ],
+      "best_loss": 0.19270460365615605,
+      "worst_loss": 0.19277597284679968,
+      "improvement_over_shared": 7.136919064362757e-05
+    }
+  }
+}

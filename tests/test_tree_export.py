@@ -8,17 +8,16 @@ from sklearn.exceptions import NotFittedError
 
 from sgtlearn import SGTClassifier, SGTRegressor
 from sgtlearn._export import _route_samples
-
-from tests.constants import TEST_TAO_N_RUNS
+from tests.constants import TEST_TAO_N_RUNS, algorithm_params
 
 
 def _fitted_classifier(num_partitions: int = 2) -> SGTClassifier:
     X, y = make_classification(n_samples=200, n_features=5, n_informative=3,
                                n_redundant=0, random_state=0)
     return SGTClassifier(
-        num_partitions=num_partitions, max_depth=3, inner_max_depth=2,
+        **algorithm_params(num_partitions=num_partitions, max_depth=3, inner_max_depth=2,
         inner_max_leaf_nodes=8, random_state=0, tao_n_runs=TEST_TAO_N_RUNS,
-    ).fit(X, y)
+    )).fit(X, y)
 
 
 def _fitted_regressor(criterion: str = "squared_error",
@@ -26,10 +25,10 @@ def _fitted_regressor(criterion: str = "squared_error",
     X, y = make_regression(n_samples=200, n_features=5, n_informative=3,
                            random_state=0)
     return SGTRegressor(
-        criterion=criterion, num_partitions=num_partitions, max_depth=3,
+        **algorithm_params(criterion=criterion, num_partitions=num_partitions, max_depth=3,
         inner_max_depth=2, inner_max_leaf_nodes=8, random_state=0,
         tao_n_runs=TEST_TAO_N_RUNS,
-    ).fit(X, y)
+    )).fit(X, y)
 
 
 def _replay_classifier_export(estimator: SGTClassifier, X: np.ndarray) -> np.ndarray:
@@ -119,13 +118,13 @@ def test_regressor_mae_has_empty_bin_counts_but_full_sample_counts():
 
 
 def test_classifier_unfitted_raises():
-    est = SGTClassifier()
+    est = SGTClassifier(**algorithm_params())
     with pytest.raises(NotFittedError):
         est.tree_export()
 
 
 def test_regressor_unfitted_raises():
-    est = SGTRegressor()
+    est = SGTRegressor(**algorithm_params())
     with pytest.raises(NotFittedError):
         est.tree_export()
 
@@ -144,7 +143,7 @@ def test_classifier_multiway_partitions():
 def test_univariate_classifier_export_replays_predictions():
     X = np.arange(20, dtype=np.float32).reshape(-1, 1)
     y = np.repeat([0, 1], 10)
-    estimator = SGTClassifier(max_depth=2, tao_n_runs=0, random_state=0).fit(X, y)
+    estimator = SGTClassifier(**algorithm_params(max_depth=2, tao_n_runs=0, random_state=0)).fit(X, y)
 
     np.testing.assert_array_equal(_replay_classifier_export(estimator, X), y)
 
@@ -155,10 +154,10 @@ def test_route_samples_matches_predict_at_threshold_ties(pairwise_candidates):
     states = np.array([[1.0, 1.0], [1.0, 3.0], [3.0, 1.0], [3.0, 3.0]])
     X = np.tile(states, (16, 1))
     y = np.tile([0.0, 1.0, 2.0, 3.0], 16)
-    est = SGTRegressor(num_partitions=4, max_depth=1, inner_max_depth=2,
+    est = SGTRegressor(**algorithm_params(num_partitions=4, max_depth=1, inner_max_depth=2,
                        inner_max_leaf_nodes=4,
                        pairwise_candidates=pairwise_candidates,
-                       tao_n_runs=0, random_state=0).fit(X, y)
+                       tao_n_runs=0, random_state=0)).fit(X, y)
     tree = est.tree_export()
     assert (tree["nodes"][0].get("routing_kind") == "pair") == bool(pairwise_candidates)
     below = float(np.nextafter(np.float32(2.0), np.float32(0.0)))
@@ -179,7 +178,7 @@ def test_categorical_classifier_export_replays_predictions_and_missing_route():
     categories = np.eye(3, dtype=np.float32)
     X = np.vstack([np.repeat(categories, 8, axis=0), np.zeros((3, 3))])
     y = np.concatenate([np.repeat([0, 1, 0], 8), np.zeros(3, dtype=int)])
-    estimator = SGTClassifier(max_depth=2, tao_n_runs=0, random_state=0).fit(
+    estimator = SGTClassifier(**algorithm_params(max_depth=2, tao_n_runs=0, random_state=0)).fit(
         X, y, feature_dict={0: [0, 1, 2]}
     )
 
@@ -190,8 +189,8 @@ def test_pair_classifier_export_replays_predictions():
     states = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
     X = np.repeat(states, [40, 30, 30, 28], axis=0)
     y = np.repeat([0, 1, 1, 0], [40, 30, 30, 28])
-    est = SGTClassifier(max_depth=1, inner_max_depth=2, inner_max_leaf_nodes=4,
-                        pairwise_candidates=1, tao_n_runs=0, random_state=0).fit(X, y)
+    est = SGTClassifier(**algorithm_params(max_depth=1, inner_max_depth=2, inner_max_leaf_nodes=4,
+                        pairwise_candidates=1, tao_n_runs=0, random_state=0)).fit(X, y)
     tree = est.tree_export()
     assert tree["nodes"][0]["routing_kind"] == "pair"
     assert "nan_prediction_partition" not in tree["nodes"][0]
@@ -202,9 +201,9 @@ def test_pair_regressor_export_replays_predictions():
     states = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
     X = np.tile(states, (32, 1))
     y = np.tile([0.0, 1.0, 2.0, 0.0], 32)
-    est = SGTRegressor(num_partitions=3, max_depth=1, inner_max_depth=2,
+    est = SGTRegressor(**algorithm_params(num_partitions=3, max_depth=1, inner_max_depth=2,
                        inner_max_leaf_nodes=4, pairwise_candidates=1,
-                       tao_n_runs=0, random_state=0).fit(X, y)
+                       tao_n_runs=0, random_state=0)).fit(X, y)
     tree = est.tree_export()
     assert tree["nodes"][0]["routing_kind"] == "pair"
     assert "nan_prediction_partition" not in tree["nodes"][0]

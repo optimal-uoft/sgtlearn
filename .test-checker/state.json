@@ -1,10 +1,10 @@
 {
   "verified": {
     "sgtlearn/base.py": {
-      "sha": "a4072b8eaadf34d83a0f10c96f01dc674d6a300d",
+      "sha": "29d6709942d7149a2b055c026d31a318e7ea9202",
       "run": null,
-      "at": "2026-10-02T20:22:31.572Z",
-      "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
+      "at": "2026-10-27T00:14:56.156Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
     },
     "sgtlearn/_features.py": {
       "sha": "14bbcf7ce569621eee5c019b13ef84360340b7d4",
@@ -17,26 +17,40 @@
       "at": "2026-09-29T00:33:23.839Z"
     },
     "sgtlearn/ensemble/_random_sgforest.py": {
-      "sha": "9357cc710c769925454d42308f5540230fa4037d",
+      "sha": "0b906cdc444b88783fd6ae5c0985505751e7ef8b",
       "run": null,
-      "at": "2026-10-02T20:22:31.572Z",
-      "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
+      "at": "2026-10-27T00:14:56.599Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
     },
     "sgtlearn/tao.py": {
-      "sha": "bef20092ac111217b1f1efe2831962417b670ead",
+      "sha": "bc5fd966e980359bfaffc63699a24b9be61ee586",
       "run": null,
-      "at": "2026-10-02T20:22:31.572Z",
-      "waived": "User-approved: behaviour-neutral ponytail refactor after blind verification (shared _validate_int and _restore_on_error helpers, redundant as_output_matrix call removed); full suite incl. all promoted blind tests passes and valid-input predictions are bit-identical to HEAD."
+      "at": "2026-10-27T00:14:56.316Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
     },
     "sgtlearn/ensemble/random_sgforest_regressor.py": {
-      "sha": "b2ad723f36c9520fda0013c7951e257e4907ba73",
-      "run": "r-20261002-162723-b8b5",
-      "at": "2026-10-02T20:30:43.728Z"
+      "sha": "1266b0e7fbfafd7be4dc27884a6ef4342f949a88",
+      "run": null,
+      "at": "2026-10-27T00:14:56.874Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
     },
     "sgtlearn/_export.py": {
-      "sha": "9af0b3c1a90f76795010d09eac3d2257bab5af37",
-      "run": "r-20261002-215733-b7b8",
-      "at": "2026-10-03T02:02:15.801Z"
+      "sha": "86dd165a666ad64c5076f6f4a838fa1b207f646b",
+      "run": null,
+      "at": "2026-10-27T00:14:56.459Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
+    },
+    "sgtlearn/ensemble/random_sgforest_classifier.py": {
+      "sha": "a15ab6aaf2b8a5c8d38c84fc7951c56b2dab01e1",
+      "run": null,
+      "at": "2026-10-27T00:14:56.740Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
+    },
+    "sgtlearn/tune.py": {
+      "sha": "90a340c85ca1e1a83fe56ba94b26d880d65436e5",
+      "run": null,
+      "at": "2026-10-27T00:14:57.019Z",
+      "waived": "User explicitly authorized normal tests and updates to affected assertions. The final suite passes 1512 tests with two skips; 68 independent target-scaling cases were also verified before default adoption. New tests cover common selected defaults, sklearn forest parameters, optional Optuna import, conditional suggestions, and benchmark split integrity."
     }
   },
   "protected": {
@@ -766,6 +780,12 @@
       "run": "r-20261002-215733-b7b8"
     }
   },
-  "quarantined": [],
-  "hooks_seen_at": "2026-09-29T00:03:43.833Z"
+  "quarantined": [
+    "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_list_inputs_are_accepted_as_array_like",
+    "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_one_dimensional_y_stays_one_dimensional_float32",
+    "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_column_vector_y_stays_two_dimensional",
+    "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_multi_output_y_keeps_its_shape",
+    "sgtlearn-ensemble-random-sgforest-regressor-py--randomsgforestregressor-check-x-y::tests.tcheck.test_sgtlearn_ensemble_random_sgforest_regressor_py__randomsgforestregressor_check_x_y_1::test_integer_y_is_converted_to_float32"
+  ],
+  "hooks_seen_at": "2026-10-26T23:27:45.628Z"
 }

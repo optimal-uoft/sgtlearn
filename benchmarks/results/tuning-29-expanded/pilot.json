@@ -1,0 +1,744 @@
+{
+  "baseline": {
+    "params": {
+      "max_depth": null,
+      "max_leaf_nodes": null,
+      "num_partitions": 2,
+      "inner_max_depth": null,
+      "inner_max_leaf_nodes": 8,
+      "min_samples_leaf": 1,
+      "inner_min_samples_leaf": 1,
+      "min_impurity_decrease": 0.0,
+      "inner_min_impurity_decrease": 0.0,
+      "coordinate_descent_max_iters": 20,
+      "coordinate_descent_patience": 5,
+      "pairwise_candidates": 0,
+      "pairwise_penalty": 0.0,
+      "branching_penalty": 0.0,
+      "max_features": null,
+      "tao_n_runs": 10,
+      "tao_lambda": 0.0001,
+      "tao_pair_scale": 1.1
+    },
+    "datasets": [
+      {
+        "name": "credit-g",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.5935314685314685,
+            "loss": 0.40646853146853146,
+            "fold": 0,
+            "fit_seconds": 0.049481375026516616
+          },
+          {
+            "balanced_accuracy": 0.5621569571497351,
+            "loss": 0.4378430428502649,
+            "fold": 1,
+            "fit_seconds": 0.043574583949521184
+          },
+          {
+            "balanced_accuracy": 0.601299951853635,
+            "loss": 0.39870004814636495,
+            "fold": 2,
+            "fit_seconds": 0.04398387501714751
+          }
+        ],
+        "loss": 0.4143372074883871,
+        "fit_seconds": 0.1370398339931853
+      },
+      {
+        "name": "diabetes",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6412162162162163,
+            "loss": 0.3587837837837837,
+            "fold": 0,
+            "fit_seconds": 0.020706334034912288
+          },
+          {
+            "balanced_accuracy": 0.5953389830508474,
+            "loss": 0.4046610169491526,
+            "fold": 1,
+            "fit_seconds": 0.010198833013419062
+          },
+          {
+            "balanced_accuracy": 0.6162009467094213,
+            "loss": 0.38379905329057873,
+            "fold": 2,
+            "fit_seconds": 0.011562083032913506
+          }
+        ],
+        "loss": 0.3824146180078383,
+        "fit_seconds": 0.042467250081244856
+      },
+      {
+        "name": "maternal_health_risk",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6766363084395871,
+            "loss": 0.3233636915604129,
+            "fold": 0,
+            "fit_seconds": 0.06410770799266174
+          },
+          {
+            "balanced_accuracy": 0.7603703703703704,
+            "loss": 0.23962962962962964,
+            "fold": 1,
+            "fit_seconds": 0.057703041995409876
+          },
+          {
+            "balanced_accuracy": 0.7637686867195064,
+            "loss": 0.23623131328049363,
+            "fold": 2,
+            "fit_seconds": 0.057585874979849905
+          }
+        ],
+        "loss": 0.26640821149017874,
+        "fit_seconds": 0.17939662496792153
+      },
+      {
+        "name": "airfoil_self_noise",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 26.11745750410992,
+            "training_variance": 46.255445739814526,
+            "loss": 0.5646353004794251,
+            "fold": 0,
+            "fit_seconds": 0.8611612500390038
+          },
+          {
+            "mse": 23.90246322418937,
+            "training_variance": 47.11706242549931,
+            "loss": 0.5072995215264859,
+            "fold": 1,
+            "fit_seconds": 0.7873939590062946
+          },
+          {
+            "mse": 23.666728772338473,
+            "training_variance": 48.12047637167656,
+            "loss": 0.4918224123456221,
+            "fold": 2,
+            "fit_seconds": 0.7459187919739634
+          }
+        ],
+        "loss": 0.521252411450511,
+        "fit_seconds": 2.3944740010192618
+      },
+      {
+        "name": "concrete_compressive_strength",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 80.42514976055344,
+            "training_variance": 275.6447441650081,
+            "loss": 0.291771025796918,
+            "fold": 0,
+            "fit_seconds": 0.40246154100168496
+          },
+          {
+            "mse": 87.56394477870732,
+            "training_variance": 283.70735295957905,
+            "loss": 0.30864178832609573,
+            "fold": 1,
+            "fit_seconds": 0.40937195799779147
+          },
+          {
+            "mse": 85.77578982071479,
+            "training_variance": 262.490522065353,
+            "loss": 0.3267767123391943,
+            "fold": 2,
+            "fit_seconds": 0.3784687909646891
+          }
+        ],
+        "loss": 0.3090631754874027,
+        "fit_seconds": 1.1903022899641655
+      },
+      {
+        "name": "blood-transfusion-service-center",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.5730870179689077,
+            "loss": 0.4269129820310923,
+            "fold": 0,
+            "fit_seconds": 0.026574499963317066
+          },
+          {
+            "balanced_accuracy": 0.5356349687058348,
+            "loss": 0.4643650312941652,
+            "fold": 1,
+            "fit_seconds": 0.026005874969996512
+          },
+          {
+            "balanced_accuracy": 0.5956349206349206,
+            "loss": 0.40436507936507937,
+            "fold": 2,
+            "fit_seconds": 0.026298417011275887
+          }
+        ],
+        "loss": 0.43188103089677893,
+        "fit_seconds": 0.07887879194458947
+      },
+      {
+        "name": "website_phishing",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.7935528872806136,
+            "loss": 0.20644711271938643,
+            "fold": 0,
+            "fit_seconds": 0.10381241695722565
+          },
+          {
+            "balanced_accuracy": 0.8921648360351141,
+            "loss": 0.1078351639648859,
+            "fold": 1,
+            "fit_seconds": 0.10313533298904076
+          },
+          {
+            "balanced_accuracy": 0.6763308057774461,
+            "loss": 0.3236691942225539,
+            "fold": 2,
+            "fit_seconds": 0.10310720797860995
+          }
+        ],
+        "loss": 0.21265049030227542,
+        "fit_seconds": 0.31005495792487636
+      },
+      {
+        "name": "churn",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.7959747092363365,
+            "loss": 0.2040252907636635,
+            "fold": 0,
+            "fit_seconds": 0.37603754200972617
+          },
+          {
+            "balanced_accuracy": 0.7970229272656866,
+            "loss": 0.20297707273431342,
+            "fold": 1,
+            "fit_seconds": 0.43612575001316145
+          },
+          {
+            "balanced_accuracy": 0.7737618341812549,
+            "loss": 0.22623816581874512,
+            "fold": 2,
+            "fit_seconds": 0.5086875000270084
+          }
+        ],
+        "loss": 0.21108017643890734,
+        "fit_seconds": 1.320850792049896
+      },
+      {
+        "name": "QSAR_fish_toxicity",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 1.5438339057370758,
+            "training_variance": 2.1122116741417294,
+            "loss": 0.7309087079846736,
+            "fold": 0,
+            "fit_seconds": 0.27698491601040587
+          },
+          {
+            "mse": 1.8524193237428384,
+            "training_variance": 1.9067850444495071,
+            "loss": 0.9714882803046295,
+            "fold": 1,
+            "fit_seconds": 0.28935216704849154
+          },
+          {
+            "mse": 1.3346111144264539,
+            "training_variance": 2.1247982085968142,
+            "loss": 0.6281119350659711,
+            "fold": 2,
+            "fit_seconds": 0.26936099998420104
+          }
+        ],
+        "loss": 0.7768363077850914,
+        "fit_seconds": 0.8356980830430984
+      },
+      {
+        "name": "healthcare_insurance_expenses",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 48726311.896000855,
+            "training_variance": 154872353.92459917,
+            "loss": 0.3146224013597911,
+            "fold": 0,
+            "fit_seconds": 0.9915033330325969
+          },
+          {
+            "mse": 45728087.7962469,
+            "training_variance": 158694122.73470798,
+            "loss": 0.2881523714188926,
+            "fold": 1,
+            "fit_seconds": 0.9793960410170257
+          },
+          {
+            "mse": 46149138.11416968,
+            "training_variance": 145647929.64560968,
+            "loss": 0.31685406189061316,
+            "fold": 2,
+            "fit_seconds": 0.8791805000510067
+          }
+        ],
+        "loss": 0.3065429448897656,
+        "fit_seconds": 2.8500798741006292
+      },
+      {
+        "name": "Another-Dataset-on-used-Fiat-500",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 1048256.5898566421,
+            "training_variance": 3711650.7698359443,
+            "loss": 0.2824232814077428,
+            "fold": 0,
+            "fit_seconds": 0.42605495802126825
+          },
+          {
+            "mse": 1142654.7103436561,
+            "training_variance": 3974146.076246171,
+            "loss": 0.2875220710112812,
+            "fold": 1,
+            "fit_seconds": 0.40763970802072436
+          },
+          {
+            "mse": 1031897.947701466,
+            "training_variance": 3784213.8361803633,
+            "loss": 0.2726848937117738,
+            "fold": 2,
+            "fit_seconds": 0.4159477499779314
+          }
+        ],
+        "loss": 0.2808767487102659,
+        "fit_seconds": 1.249642416019924
+      },
+      {
+        "name": "miami_housing",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 29227532529.77782,
+            "training_variance": 99368844716.85626,
+            "loss": 0.2941317533987578,
+            "fold": 0,
+            "fit_seconds": 70.32286837499123
+          },
+          {
+            "mse": 26758363521.63181,
+            "training_variance": 99460982904.0153,
+            "loss": 0.269033773248098,
+            "fold": 1,
+            "fit_seconds": 75.75426229200093
+          },
+          {
+            "mse": 32889056259.39355,
+            "training_variance": 99753518244.45174,
+            "loss": 0.32970322088086185,
+            "fold": 2,
+            "fit_seconds": 73.72814187500626
+          }
+        ],
+        "loss": 0.29762291584257256,
+        "fit_seconds": 219.80527254199842
+      }
+    ],
+    "objectives": [
+      0.31979528910406096,
+      0.4153657506942681
+    ],
+    "wall_seconds": 222.23949541698676
+  },
+  "small": {
+    "params": {
+      "max_depth": 4,
+      "max_leaf_nodes": null,
+      "num_partitions": 2,
+      "inner_max_depth": null,
+      "inner_max_leaf_nodes": 2,
+      "min_samples_leaf": 1,
+      "inner_min_samples_leaf": 1,
+      "min_impurity_decrease": 0.0,
+      "inner_min_impurity_decrease": 0.0,
+      "coordinate_descent_max_iters": 20,
+      "coordinate_descent_patience": 5,
+      "pairwise_candidates": 0,
+      "pairwise_penalty": 0.0,
+      "branching_penalty": 0.0,
+      "max_features": null,
+      "tao_n_runs": 1,
+      "tao_lambda": 0.0001,
+      "tao_pair_scale": 1.1
+    },
+    "datasets": [
+      {
+        "name": "credit-g",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.590034965034965,
+            "loss": 0.409965034965035,
+            "fold": 0,
+            "fit_seconds": 0.02273258299101144
+          },
+          {
+            "balanced_accuracy": 0.632354357246028,
+            "loss": 0.36764564275397205,
+            "fold": 1,
+            "fit_seconds": 0.014315165986772627
+          },
+          {
+            "balanced_accuracy": 0.6172363986519018,
+            "loss": 0.38276360134809817,
+            "fold": 2,
+            "fit_seconds": 0.013977332971990108
+          }
+        ],
+        "loss": 0.38679142635570174,
+        "fit_seconds": 0.051025081949774176
+      },
+      {
+        "name": "diabetes",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.643918918918919,
+            "loss": 0.35608108108108105,
+            "fold": 0,
+            "fit_seconds": 0.01162454200675711
+          },
+          {
+            "balanced_accuracy": 0.6756204600484261,
+            "loss": 0.32437953995157387,
+            "fold": 1,
+            "fit_seconds": 0.004304083995521069
+          },
+          {
+            "balanced_accuracy": 0.7200335929149488,
+            "loss": 0.27996640708505116,
+            "fold": 2,
+            "fit_seconds": 0.0036025840090587735
+          }
+        ],
+        "loss": 0.320142342705902,
+        "fit_seconds": 0.019531210011336952
+      },
+      {
+        "name": "maternal_health_risk",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6253430479659988,
+            "loss": 0.3746569520340012,
+            "fold": 0,
+            "fit_seconds": 0.01038433302892372
+          },
+          {
+            "balanced_accuracy": 0.6833333333333332,
+            "loss": 0.31666666666666676,
+            "fold": 1,
+            "fit_seconds": 0.003088707977440208
+          },
+          {
+            "balanced_accuracy": 0.7353632320845436,
+            "loss": 0.26463676791545643,
+            "fold": 2,
+            "fit_seconds": 0.0028077089809812605
+          }
+        ],
+        "loss": 0.31865346220537477,
+        "fit_seconds": 0.01628074998734519
+      },
+      {
+        "name": "airfoil_self_noise",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 20.20992724651995,
+            "training_variance": 46.255445739814526,
+            "loss": 0.43691995446763554,
+            "fold": 0,
+            "fit_seconds": 0.018600875046104193
+          },
+          {
+            "mse": 20.852653033512183,
+            "training_variance": 47.11706242549931,
+            "loss": 0.44257116127483626,
+            "fold": 1,
+            "fit_seconds": 0.012790500011760741
+          },
+          {
+            "mse": 23.420331837089357,
+            "training_variance": 48.12047637167656,
+            "loss": 0.4867019947224469,
+            "fold": 2,
+            "fit_seconds": 0.011822667031083256
+          }
+        ],
+        "loss": 0.45539770348830627,
+        "fit_seconds": 0.04321404208894819
+      },
+      {
+        "name": "concrete_compressive_strength",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 88.19144755444951,
+            "training_variance": 275.6447441650081,
+            "loss": 0.31994605165283263,
+            "fold": 0,
+            "fit_seconds": 0.012135124998167157
+          },
+          {
+            "mse": 98.870096673702,
+            "training_variance": 283.70735295957905,
+            "loss": 0.348493247151717,
+            "fold": 1,
+            "fit_seconds": 0.0055781659903004766
+          },
+          {
+            "mse": 90.52110769726964,
+            "training_variance": 262.490522065353,
+            "loss": 0.34485476650746405,
+            "fold": 2,
+            "fit_seconds": 0.005685833981260657
+          }
+        ],
+        "loss": 0.3377646884373379,
+        "fit_seconds": 0.02339912496972829
+      },
+      {
+        "name": "blood-transfusion-service-center",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.4980819705229154,
+            "loss": 0.5019180294770846,
+            "fold": 0,
+            "fit_seconds": 0.0017719169845804572
+          },
+          {
+            "balanced_accuracy": 0.5888350494649708,
+            "loss": 0.4111649505350292,
+            "fold": 1,
+            "fit_seconds": 0.002973875030875206
+          },
+          {
+            "balanced_accuracy": 0.6456349206349207,
+            "loss": 0.3543650793650793,
+            "fold": 2,
+            "fit_seconds": 0.0020242499886080623
+          }
+        ],
+        "loss": 0.42248268645906445,
+        "fit_seconds": 0.0067700420040637255
+      },
+      {
+        "name": "website_phishing",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.6196489817302362,
+            "loss": 0.3803510182697638,
+            "fold": 0,
+            "fit_seconds": 0.0066288329544477165
+          },
+          {
+            "balanced_accuracy": 0.6142987249544626,
+            "loss": 0.3857012750455374,
+            "fold": 1,
+            "fit_seconds": 0.0072345000226050615
+          },
+          {
+            "balanced_accuracy": 0.5877834286925196,
+            "loss": 0.41221657130748035,
+            "fold": 2,
+            "fit_seconds": 0.006031374970916659
+          }
+        ],
+        "loss": 0.39275628820759384,
+        "fit_seconds": 0.019894707947969437
+      },
+      {
+        "name": "churn",
+        "kind": "classification",
+        "folds": [
+          {
+            "balanced_accuracy": 0.7463512665411476,
+            "loss": 0.2536487334588524,
+            "fold": 0,
+            "fit_seconds": 0.05018020898569375
+          },
+          {
+            "balanced_accuracy": 0.7734814191670338,
+            "loss": 0.22651858083296617,
+            "fold": 1,
+            "fit_seconds": 0.04519245895789936
+          },
+          {
+            "balanced_accuracy": 0.7458271575264726,
+            "loss": 0.25417284247352745,
+            "fold": 2,
+            "fit_seconds": 0.04489183297846466
+          }
+        ],
+        "loss": 0.24478005225511534,
+        "fit_seconds": 0.14026450092205778
+      },
+      {
+        "name": "QSAR_fish_toxicity",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 1.1293753340315789,
+            "training_variance": 2.1122116741417294,
+            "loss": 0.5346885200274666,
+            "fold": 0,
+            "fit_seconds": 0.004670166003052145
+          },
+          {
+            "mse": 1.3728218158668377,
+            "training_variance": 1.9067850444495071,
+            "loss": 0.7199667418532614,
+            "fold": 1,
+            "fit_seconds": 0.004452709050383419
+          },
+          {
+            "mse": 0.9504818736900678,
+            "training_variance": 2.1247982085968142,
+            "loss": 0.44732806618740145,
+            "fold": 2,
+            "fit_seconds": 0.0031932920101098716
+          }
+        ],
+        "loss": 0.5673277760227098,
+        "fit_seconds": 0.012316167063545436
+      },
+      {
+        "name": "healthcare_insurance_expenses",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 25922830.45048381,
+            "training_variance": 154872353.92459917,
+            "loss": 0.16738191028661284,
+            "fold": 0,
+            "fit_seconds": 0.005535917007364333
+          },
+          {
+            "mse": 30271735.792435937,
+            "training_variance": 158694122.73470798,
+            "loss": 0.19075524203906266,
+            "fold": 1,
+            "fit_seconds": 0.005246834014542401
+          },
+          {
+            "mse": 21743069.763450354,
+            "training_variance": 145647929.64560968,
+            "loss": 0.14928512761118926,
+            "fold": 2,
+            "fit_seconds": 0.004498750029597431
+          }
+        ],
+        "loss": 0.16914075997895492,
+        "fit_seconds": 0.015281501051504165
+      },
+      {
+        "name": "Another-Dataset-on-used-Fiat-500",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 696560.6888520397,
+            "training_variance": 3711650.7698359443,
+            "loss": 0.18766870377808412,
+            "fold": 0,
+            "fit_seconds": 0.006370582967065275
+          },
+          {
+            "mse": 836755.6361434632,
+            "training_variance": 3974146.076246171,
+            "loss": 0.21054979361348267,
+            "fold": 1,
+            "fit_seconds": 0.0068132079904899
+          },
+          {
+            "mse": 684764.8864243802,
+            "training_variance": 3784213.8361803633,
+            "loss": 0.18095301060353264,
+            "fold": 2,
+            "fit_seconds": 0.006024000002071261
+          }
+        ],
+        "loss": 0.1930571693316998,
+        "fit_seconds": 0.019207790959626436
+      },
+      {
+        "name": "miami_housing",
+        "kind": "regression",
+        "folds": [
+          {
+            "mse": 31353530124.549953,
+            "training_variance": 99368844716.85626,
+            "loss": 0.3155267650931173,
+            "fold": 0,
+            "fit_seconds": 0.07062141597270966
+          },
+          {
+            "mse": 29008357575.623928,
+            "training_variance": 99460982904.0153,
+            "loss": 0.29165564956882045,
+            "fold": 1,
+            "fit_seconds": 0.06787454197183251
+          },
+          {
+            "mse": 29897783165.57046,
+            "training_variance": 99753518244.45174,
+            "loss": 0.2997165783396654,
+            "fold": 2,
+            "fit_seconds": 0.06706516700796783
+          }
+        ],
+        "loss": 0.30229966433386773,
+        "fit_seconds": 0.20556112495251
+      }
+    ],
+    "objectives": [
+      0.3476010430314587,
+      0.33749796026547935
+    ],
+    "wall_seconds": 1.5442171250469983
+  },
+  "rich": {
+    "params": {
+      "max_depth": 10,
+      "max_leaf_nodes": null,
+      "num_partitions": 8,
+      "inner_max_depth": null,
+      "inner_max_leaf_nodes": 256,
+      "min_samples_leaf": 1,
+      "inner_min_samples_leaf": 1,
+      "min_impurity_decrease": 0.0,
+      "inner_min_impurity_decrease": 0.0,
+      "coordinate_descent_max_iters": 20,
+      "coordinate_descent_patience": 5,
+      "pairwise_candidates": 2.0,
+      "pairwise_penalty": 0.0,
+      "branching_penalty": 0.0,
+      "max_features": null,
+      "tao_n_runs": 30,
+      "tao_lambda": 0.0001,
+      "tao_pair_scale": 1.1
+    },
+    "timeout_seconds": 600,
+    "wall_seconds": 600.0450033340021
+  }
+}

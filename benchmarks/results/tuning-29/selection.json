@@ -1,0 +1,38 @@
+{
+  "trial": 96,
+  "values": [
+    0.3194831290911779,
+    0.2424029194954927
+  ],
+  "params": {
+    "max_depth": 10,
+    "max_leaf_nodes": null,
+    "num_partitions": 6,
+    "inner_max_depth": null,
+    "inner_max_leaf_nodes": 4,
+    "min_samples_leaf": 2,
+    "inner_min_samples_leaf": 2,
+    "min_impurity_decrease": 0.0,
+    "inner_min_impurity_decrease": 0.01,
+    "coordinate_descent_max_iters": 40,
+    "coordinate_descent_patience": 5,
+    "pairwise_candidates": 2.0,
+    "pairwise_penalty": 10.0,
+    "branching_penalty": 0.1,
+    "max_features": null,
+    "tao_n_runs": 10,
+    "tao_lambda": 0.0001,
+    "tao_pair_scale": 1.1
+  },
+  "pareto_trials": [
+    96,
+    191,
+    420,
+    423,
+    453,
+    474,
+    475,
+    476,
+    481
+  ]
+}

@@ -1,0 +1,433 @@
+{
+  "selected_trial": 381,
+  "params": {
+    "max_depth": 4,
+    "max_leaf_nodes": null,
+    "num_partitions": 7,
+    "inner_max_depth": null,
+    "inner_max_leaf_nodes": 4,
+    "min_samples_leaf": 4,
+    "inner_min_samples_leaf": 13,
+    "min_impurity_decrease": 1.0,
+    "inner_min_impurity_decrease": 0.01,
+    "coordinate_descent_max_iters": 5,
+    "coordinate_descent_patience": 5,
+    "pairwise_candidates": 0.5,
+    "pairwise_penalty": 0.0,
+    "branching_penalty": 0.0,
+    "max_features": null,
+    "tao_n_runs": 1,
+    "tao_lambda": 0.0001,
+    "tao_pair_scale": 2.0
+  },
+  "selected": [
+    {
+      "name": "credit-g",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.5645299145299145,
+          "loss": 0.4354700854700855,
+          "fold": 0,
+          "fit_seconds": 0.03881954203825444
+        }
+      ],
+      "loss": 0.4354700854700855,
+      "fit_seconds": 0.03881954203825444
+    },
+    {
+      "name": "diabetes",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6890227576974566,
+          "loss": 0.3109772423025434,
+          "fold": 0,
+          "fit_seconds": 0.017649083980359137
+        }
+      ],
+      "loss": 0.3109772423025434,
+      "fit_seconds": 0.017649083980359137
+    },
+    {
+      "name": "maternal_health_risk",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.7439075630252101,
+          "loss": 0.2560924369747899,
+          "fold": 0,
+          "fit_seconds": 0.01312991592567414
+        }
+      ],
+      "loss": 0.2560924369747899,
+      "fit_seconds": 0.01312991592567414
+    },
+    {
+      "name": "airfoil_self_noise",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 11.18667417583853,
+          "training_variance": 47.18689391723639,
+          "loss": 0.23707163678667711,
+          "fold": 0,
+          "fit_seconds": 0.037288084044121206
+        }
+      ],
+      "loss": 0.23707163678667711,
+      "fit_seconds": 0.037288084044121206
+    },
+    {
+      "name": "concrete_compressive_strength",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 61.778270301998376,
+          "training_variance": 274.05764225752375,
+          "loss": 0.225420717310073,
+          "fold": 0,
+          "fit_seconds": 0.04014724993612617
+        }
+      ],
+      "loss": 0.225420717310073,
+      "fit_seconds": 0.04014724993612617
+    },
+    {
+      "name": "blood-transfusion-service-center",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6013157894736842,
+          "loss": 0.39868421052631575,
+          "fold": 0,
+          "fit_seconds": 0.003354916931129992
+        }
+      ],
+      "loss": 0.39868421052631575,
+      "fit_seconds": 0.003354916931129992
+    },
+    {
+      "name": "website_phishing",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.8591666735350438,
+          "loss": 0.14083332646495617,
+          "fold": 0,
+          "fit_seconds": 0.014245540951378644
+        }
+      ],
+      "loss": 0.14083332646495617,
+      "fit_seconds": 0.014245540951378644
+    },
+    {
+      "name": "churn",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.8617003636191356,
+          "loss": 0.1382996363808644,
+          "fold": 0,
+          "fit_seconds": 0.21289183292537928
+        }
+      ],
+      "loss": 0.1382996363808644,
+      "fit_seconds": 0.21289183292537928
+    },
+    {
+      "name": "QSAR_fish_toxicity",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 1.2255656260818923,
+          "training_variance": 2.0509068249939695,
+          "loss": 0.5975725523686314,
+          "fold": 0,
+          "fit_seconds": 0.028415458044037223
+        }
+      ],
+      "loss": 0.5975725523686314,
+      "fit_seconds": 0.028415458044037223
+    },
+    {
+      "name": "healthcare_insurance_expenses",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 18494520.458080783,
+          "training_variance": 153123172.49873337,
+          "loss": 0.12078198326405346,
+          "fold": 0,
+          "fit_seconds": 0.022513458039611578
+        }
+      ],
+      "loss": 0.12078198326405346,
+      "fit_seconds": 0.022513458039611578
+    },
+    {
+      "name": "Another-Dataset-on-used-Fiat-500",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 717889.8320878426,
+          "training_variance": 3826683.024196074,
+          "loss": 0.1876010705743416,
+          "fold": 0,
+          "fit_seconds": 0.04670066700782627
+        }
+      ],
+      "loss": 0.1876010705743416,
+      "fit_seconds": 0.04670066700782627
+    },
+    {
+      "name": "miami_housing",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 18614268411.1046,
+          "training_variance": 99527970574.4169,
+          "loss": 0.1870254995020394,
+          "fold": 0,
+          "fit_seconds": 11.667559167020954
+        }
+      ],
+      "loss": 0.1870254995020394,
+      "fit_seconds": 11.667559167020954
+    },
+    {
+      "name": "qsar-biodeg",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.785966747213907,
+          "loss": 0.21403325278609298,
+          "fold": 0,
+          "fit_seconds": 0.08096987497992814
+        }
+      ],
+      "loss": 0.21403325278609298,
+      "fit_seconds": 0.08096987497992814
+    },
+    {
+      "name": "wine_quality",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 0.5139930245762041,
+          "training_variance": 0.7797884810290635,
+          "loss": 0.6591441616294497,
+          "fold": 0,
+          "fit_seconds": 0.3677817080169916
+        }
+      ],
+      "loss": 0.6591441616294497,
+      "fit_seconds": 0.3677817080169916
+    }
+  ],
+  "baseline": [
+    {
+      "name": "credit-g",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.5717521367521368,
+          "loss": 0.42824786324786324,
+          "fold": 0,
+          "fit_seconds": 0.06349549989681691
+        }
+      ],
+      "loss": 0.42824786324786324,
+      "fit_seconds": 0.06349549989681691
+    },
+    {
+      "name": "diabetes",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6621820615796519,
+          "loss": 0.33781793842034813,
+          "fold": 0,
+          "fit_seconds": 0.01909287495072931
+        }
+      ],
+      "loss": 0.33781793842034813,
+      "fit_seconds": 0.01909287495072931
+    },
+    {
+      "name": "maternal_health_risk",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.8404139433551198,
+          "loss": 0.15958605664488024,
+          "fold": 0,
+          "fit_seconds": 0.08185641700401902
+        }
+      ],
+      "loss": 0.15958605664488024,
+      "fit_seconds": 0.08185641700401902
+    },
+    {
+      "name": "airfoil_self_noise",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 15.424421074252251,
+          "training_variance": 47.18689391723639,
+          "loss": 0.32687934707688043,
+          "fold": 0,
+          "fit_seconds": 1.2064101659925655
+        }
+      ],
+      "loss": 0.32687934707688043,
+      "fit_seconds": 1.2064101659925655
+    },
+    {
+      "name": "concrete_compressive_strength",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 78.33022323604108,
+          "training_variance": 274.05764225752375,
+          "loss": 0.2858165989855394,
+          "fold": 0,
+          "fit_seconds": 0.6680139580275863
+        }
+      ],
+      "loss": 0.2858165989855394,
+      "fit_seconds": 0.6680139580275863
+    },
+    {
+      "name": "blood-transfusion-service-center",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.611842105263158,
+          "loss": 0.38815789473684204,
+          "fold": 0,
+          "fit_seconds": 0.0367322500096634
+        }
+      ],
+      "loss": 0.38815789473684204,
+      "fit_seconds": 0.0367322500096634
+    },
+    {
+      "name": "website_phishing",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.905734270729449,
+          "loss": 0.09426572927055099,
+          "fold": 0,
+          "fit_seconds": 0.13655762490816414
+        }
+      ],
+      "loss": 0.09426572927055099,
+      "fit_seconds": 0.13655762490816414
+    },
+    {
+      "name": "churn",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.7916133674448353,
+          "loss": 0.20838663255516465,
+          "fold": 0,
+          "fit_seconds": 0.7613087079953402
+        }
+      ],
+      "loss": 0.20838663255516465,
+      "fit_seconds": 0.7613087079953402
+    },
+    {
+      "name": "QSAR_fish_toxicity",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 1.797016232800475,
+          "training_variance": 2.0509068249939695,
+          "loss": 0.8762056915022256,
+          "fold": 0,
+          "fit_seconds": 0.4114248340483755
+        }
+      ],
+      "loss": 0.8762056915022256,
+      "fit_seconds": 0.4114248340483755
+    },
+    {
+      "name": "healthcare_insurance_expenses",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 50519229.41913511,
+          "training_variance": 153123172.49873337,
+          "loss": 0.32992543580922085,
+          "fold": 0,
+          "fit_seconds": 1.8903726669959724
+        }
+      ],
+      "loss": 0.32992543580922085,
+      "fit_seconds": 1.8903726669959724
+    },
+    {
+      "name": "Another-Dataset-on-used-Fiat-500",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 1073532.8658284564,
+          "training_variance": 3826683.024196074,
+          "loss": 0.28053874832080944,
+          "fold": 0,
+          "fit_seconds": 0.7002738330047578
+        }
+      ],
+      "loss": 0.28053874832080944,
+      "fit_seconds": 0.7002738330047578
+    },
+    {
+      "name": "miami_housing",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 25849391741.851295,
+          "training_variance": 99527970574.4169,
+          "loss": 0.25971987163672494,
+          "fold": 0,
+          "fit_seconds": 151.4796242499724
+        }
+      ],
+      "loss": 0.25971987163672494,
+      "fit_seconds": 151.4796242499724
+    },
+    {
+      "name": "qsar-biodeg",
+      "kind": "classification",
+      "folds": [
+        {
+          "balanced_accuracy": 0.6783279835539366,
+          "loss": 0.32167201644606336,
+          "fold": 0,
+          "fit_seconds": 0.06381262501236051
+        }
+      ],
+      "loss": 0.32167201644606336,
+      "fit_seconds": 0.06381262501236051
+    },
+    {
+      "name": "wine_quality",
+      "kind": "regression",
+      "folds": [
+        {
+          "mse": 0.7968605878681335,
+          "training_variance": 0.7797884810290635,
+          "loss": 1.0218932534327008,
+          "fold": 0,
+          "fit_seconds": 0.4210705409059301
+        }
+      ],
+      "loss": 1.0218932534327008,
+      "fit_seconds": 0.4210705409059301
+    }
+  ]
+}

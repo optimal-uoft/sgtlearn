@@ -1,0 +1,113 @@
+"""Search spaces for single trees and their forest base estimators.
+
+Install ``sgtlearn[tune]`` for Optuna. This module does not import Optuna during
+ordinary estimator use. Users own the objective, data splits, and trial budget.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from optuna.trial import FixedTrial, Trial
+
+__all__ = ["suggest_params", "suggested_params"]
+
+
+def suggested_params(
+    *, use_tao: bool = False, use_bivariate: bool = False
+) -> dict[str, list[Any]]:
+    """Return a finite search space for sklearn grid or randomized search.
+
+    Pass the dictionary as ``GridSearchCV(param_grid=...)`` or
+    ``RandomizedSearchCV(param_distributions=...)``. Depth and branching limits
+    use evenly spaced values; leaf counts use powers of two. Impurity and
+    complexity costs include zero and geometrically spaced positive values.
+    TAO uses up to ten sweeps and lambda values 0.01, 0.001, and 0.0001 when
+    enabled; bivariate branching searches positive pair budgets when enabled.
+    With both enabled, pair scales are 1.5, 1.75, and 2.0. Both options default
+    to off, as in ``suggest_params``.
+
+    Only tunable parameters are included, except ``tao_n_runs=[10]`` when TAO
+    is enabled. That override activates refinement; other constants use the
+    estimator defaults.
+
+    The full Cartesian grid is large: prefer randomized search, or narrow the
+    lists before an exhaustive grid search. Criterion and forest-specific
+    settings retain their estimator defaults. Optuna is not required here.
+    """
+    params = {
+        "max_depth": [4, 6, 8, 10],
+        "num_partitions": [2, 3],
+        "inner_max_leaf_nodes": [2, 4, 8, 16, 32, 64],
+        "min_samples_leaf": [1, 2, 4, 8, 16, 32],
+        "inner_min_samples_leaf": [1, 2, 4, 8, 16, 32],
+        "min_impurity_decrease": [0.0, 0.01, 0.1, 1.0, 10.0],
+        "inner_min_impurity_decrease": [0.0, 0.001, 0.01, 0.1],
+        "branching_penalty": [0.0, 0.01, 0.1, 1.0],
+    }
+    if use_tao:
+        params.update(tao_lambda=[0.01, 0.001, 0.0001], tao_n_runs=[10])
+    if use_bivariate:
+        params.update(
+            pairwise_candidates=[0.25, 0.5, 1.0, 2.0],
+            pairwise_penalty=[0.0, 0.01, 0.1, 1.0],
+        )
+    if use_tao and use_bivariate:
+        params["tao_pair_scale"] = [1.5, 1.75, 2.0]
+    return params
+
+
+def suggest_params(
+    trial: Trial | FixedTrial, *, use_tao: bool = False, use_bivariate: bool = False
+) -> dict[str, Any]:
+    """Return suggested keyword arguments for an SGT classifier or regressor.
+
+    Accepts an Optuna ``Trial`` or ``FixedTrial``. No estimator is fitted and no
+    study is created. The returned dictionary includes only sampled parameters
+    and the required ``tao_n_runs=10`` override when TAO is enabled. Other
+    constants use estimator defaults. Reconstruct using
+    ``FixedTrial(best_trial.params)`` with the same feature flags.
+    ``use_tao`` enables up to ten refinement sweeps
+    and searches lambda logarithmically between 1e-4 and 1e-2;
+    ``use_bivariate`` searches positive pair budgets and their penalties.
+    With both enabled, pair scale is sampled uniformly between 1.5 and 2.0.
+    Both are disabled by default.
+    Criterion and forest-specific settings use the estimator's own defaults.
+    See the hyperparameter-tuning tutorial for a complete example.
+    """
+    num_partitions = trial.suggest_int("num_partitions", 2, 3)
+    params = {
+        "max_depth": trial.suggest_int("max_depth", 4, 10),
+        "inner_max_leaf_nodes": trial.suggest_int(
+            "inner_max_leaf_nodes", 2, 64, log=True
+        ),
+        "num_partitions": num_partitions,
+        "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 32, log=True),
+        "inner_min_samples_leaf": trial.suggest_int(
+            "inner_min_samples_leaf", 1, 32, log=True
+        ),
+        "min_impurity_decrease": trial.suggest_categorical(
+            "min_impurity_decrease", [0.0, 0.01, 0.1, 1.0, 10.0]
+        ),
+        "inner_min_impurity_decrease": trial.suggest_categorical(
+            "inner_min_impurity_decrease", [0.0, 0.001, 0.01, 0.1]
+        ),
+    }
+    if use_bivariate:
+        params["pairwise_candidates"] = trial.suggest_categorical(
+            "pairwise_candidates", [0.25, 0.5, 1.0, 2.0]
+        )
+        params["pairwise_penalty"] = trial.suggest_categorical(
+            "pairwise_penalty", [0.0, 0.01, 0.1, 1.0]
+        )
+    if num_partitions > 2:
+        params["branching_penalty"] = trial.suggest_categorical(
+            "branching_penalty", [0.0, 0.01, 0.1, 1.0]
+        )
+    if use_tao:
+        params["tao_n_runs"] = 10
+        params["tao_lambda"] = trial.suggest_float("tao_lambda", 1e-4, 1e-2, log=True)
+    if use_tao and use_bivariate:
+        params["tao_pair_scale"] = trial.suggest_float("tao_pair_scale", 1.5, 2.0)
+    return params

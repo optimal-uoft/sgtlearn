@@ -6,6 +6,8 @@ import matplotlib
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 
+from tests.constants import algorithm_params
+
 matplotlib.use("Agg")  # headless
 
 import matplotlib.pyplot as plt
@@ -13,8 +15,8 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
 from sklearn.exceptions import NotFittedError
-from sgtlearn import SGTClassifier, SGTRegressor, plot_tree
 
+from sgtlearn import SGTClassifier, SGTRegressor, plot_tree
 from tests.constants import TEST_TAO_N_RUNS
 
 
@@ -22,24 +24,24 @@ from tests.constants import TEST_TAO_N_RUNS
 def fitted_classifier():
     X, y = make_classification(n_samples=200, n_features=4, random_state=0)
     return SGTClassifier(
-        max_depth=3,
+        **algorithm_params(max_depth=3,
         inner_max_depth=2,
         inner_max_leaf_nodes=8,
         random_state=0,
         tao_n_runs=TEST_TAO_N_RUNS,
-    ).fit(X, y)
+    )).fit(X, y)
 
 
 @pytest.fixture
 def fitted_regressor():
     X, y = make_regression(n_samples=200, n_features=4, random_state=0)
     return SGTRegressor(
-        max_depth=3,
+        **algorithm_params(max_depth=3,
         inner_max_depth=2,
         inner_max_leaf_nodes=8,
         random_state=0,
         tao_n_runs=TEST_TAO_N_RUNS,
-    ).fit(X, y)
+    )).fit(X, y)
 
 
 def test_plot_tree_classifier_returns_artists(fitted_classifier):
@@ -58,12 +60,12 @@ def test_plot_tree_regressor_returns_artists(fitted_regressor):
 
 def test_plot_tree_unfitted_classifier_raises():
     with pytest.raises(NotFittedError):
-        plot_tree(SGTClassifier())
+        plot_tree(SGTClassifier(**algorithm_params()))
 
 
 def test_plot_tree_unfitted_regressor_raises():
     with pytest.raises(NotFittedError):
-        plot_tree(SGTRegressor())
+        plot_tree(SGTRegressor(**algorithm_params()))
 
 
 def test_plot_tree_rejects_non_sgt_estimator():
@@ -132,7 +134,7 @@ def test_plot_tree_custom_feature_names(fitted_classifier):
 def test_plot_tree_explicit_feature_names_override_stored_names():
     X = pd.DataFrame({"stored_name": np.arange(20, dtype=float)})
     y = np.repeat([0, 1], 10)
-    estimator = SGTClassifier(max_depth=1, tao_n_runs=0, random_state=0).fit(
+    estimator = SGTClassifier(**algorithm_params(max_depth=1, tao_n_runs=0, random_state=0)).fit(
         X, y, feature_dict={"stored_name": ["stored_name"]}
     )
 
@@ -200,7 +202,7 @@ def test_plot_tree_univariate_panel_missing_margin(make_X, has_margin):
     X = rng.normal(size=(500, 2))
     y = (X[:, 0] > 0) + rng.normal(0, 0.1, 500)
     X[:10, 0] = np.nan
-    est = SGTRegressor(max_depth=2, random_state=0).fit(X, y)
+    est = SGTRegressor(**algorithm_params(max_depth=2, random_state=0)).fit(X, y)
     assert est.tree_export()["nodes"][0]["feature"] == 0
     artists = plot_tree(est, X=make_X(X))
     labels = [
@@ -227,13 +229,13 @@ def test_plot_tree_pair_heatmap_reuses_exported_router_and_axes():
     X = np.repeat(states, [40, 30, 30, 28], axis=0)
     y = np.repeat([0, 1, 1, 0], [40, 30, 30, 28])
     est = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
     fig, ax = plt.subplots()
     artists = plot_tree(
         est,
@@ -270,14 +272,14 @@ def test_plot_tree_pair_heatmap_renders_categories_and_missing_cells(pair_kind):
     X = np.repeat(states, [40, 31, 30, 29, 28, 27, 26, 25, 24], axis=0)
     y = np.repeat(np.arange(9), [40, 31, 30, 29, 28, 27, 26, 25, 24])
     est = SGTClassifier(
-        num_partitions=9,
+        **algorithm_params(num_partitions=9,
         max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=5,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, feature_dict=feature_dict)
+    )).fit(X, y, feature_dict=feature_dict)
 
     fig, ax = plt.subplots()
     artists = plot_tree(est, X=X, ax=ax)
@@ -297,13 +299,13 @@ def test_plot_tree_pair_heatmap_renders_without_training_data():
     X = np.repeat(states, [40, 30, 30, 28], axis=0)
     y = np.repeat([0, 1, 1, 0], [40, 30, 30, 28])
     est = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
 
     fig, ax = plt.subplots()
     artists = plot_tree(est, ax=ax)
@@ -339,7 +341,7 @@ def test_plot_tree_regressor_leaf_labels(n_outputs, max_depth):
     X = rng.normal(size=(300, 3))
     y = X[:, 0] + np.sin(X[:, 1])
     Y = y if n_outputs == 1 else np.column_stack([y, -y])
-    est = SGTRegressor(max_depth=3, random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(
+    est = SGTRegressor(**algorithm_params(max_depth=3, random_state=0, tao_n_runs=TEST_TAO_N_RUNS)).fit(
         X, Y
     )
 
@@ -359,7 +361,7 @@ def test_plot_tree_multi_output_classifier_labels_every_output():
     rng = np.random.default_rng(0)
     X = rng.normal(size=(300, 3))
     Y = np.column_stack([X[:, 0] > 0, np.digitize(X[:, 1], [-1.0, 1.0])])
-    est = SGTClassifier(max_depth=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS).fit(
+    est = SGTClassifier(**algorithm_params(max_depth=2, random_state=0, tao_n_runs=TEST_TAO_N_RUNS)).fit(
         X, Y
     )
 
