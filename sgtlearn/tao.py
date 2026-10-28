@@ -264,45 +264,36 @@ def TAO_refine(
     targets = _tao_targets(model)
     X, y = _validate_X_y(model, X, y, check_input=check_input)
     X32, y_native, sw = _prepare_tao_arrays(model, X, y, sample_weight)
-    # Each bootstrapped regressor retains its own training-target scale.
-    targets_y = [
-        (
+
+    def refine_tree(tree: SGTClassifier | SGTRegressor) -> None:
+        # Allocate scaled targets only while this tree is being refined.
+        tree_y = (
             _as_native_y(
                 tree._target_scaler.transform(as_output_matrix(np.asarray(y))[0])
             )
             if isinstance(tree, SGTRegressor) and hasattr(tree, "_target_scaler")
             else y_native
         )
-        for tree in targets
-    ]
+        TreeAlternatingOptimization(
+            tree._est,
+            X32,
+            tree_y,
+            sw,
+            n_runs=n_runs,
+            lambda_=lambda_,
+            tao_pair_scale=tao_pair_scale,
+        )
 
     if isinstance(model, RandomSGForest) and n_jobs is None:
         n_jobs = model.n_jobs
 
     n_jobs_eff = effective_n_jobs(1 if n_jobs is None else n_jobs)
     if len(targets) == 1 or n_jobs_eff == 1:
-        for tree, tree_y in zip(targets, targets_y):
-            TreeAlternatingOptimization(
-                tree._est,
-                X32,
-                tree_y,
-                sw,
-                n_runs=n_runs,
-                lambda_=lambda_,
-                tao_pair_scale=tao_pair_scale,
-            )
+        for tree in targets:
+            refine_tree(tree)
     else:
         Parallel(n_jobs=n_jobs_eff, prefer="threads")(
-            delayed(TreeAlternatingOptimization)(
-                tree._est,
-                X32,
-                tree_y,
-                sw,
-                n_runs=n_runs,
-                lambda_=lambda_,
-                tao_pair_scale=tao_pair_scale,
-            )
-            for tree, tree_y in zip(targets, targets_y)
+            delayed(refine_tree)(tree) for tree in targets
         )
 
     if n_runs > 0:
