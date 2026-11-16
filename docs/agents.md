@@ -64,12 +64,13 @@ or `RandomizedSearchCV`. In an Optuna objective, pass
 `suggest_params(trial)` as estimator keyword arguments. Both helpers accept
 `use_tao=True` and `use_bivariate=True` to include those options. The
 [tuning tutorial](tutorials/hyperparameter-tuning.ipynb) shows both workflows.
+We suggest the Optuna workflow.
 
 ## Choose the smallest model that works
 
 | Step | Settings |
 | --- | --- |
-| Binary SGT | Start with `num_partitions=2`, `tao_n_runs=0`, and `pairwise_candidates=0`. Tune `max_depth` for outer depth and `inner_max_leaf_nodes` or `inner_max_depth` for shape complexity. |
+| Binary SGT | Start with `num_partitions=2`, `tao_n_runs=0`, and `pairwise_candidates=0`. |
 | Binary SGT with TAO | Try `tao_n_runs=10` for up to ten refinement sweeps. |
 | Ternary SGT (SGT₃) | Try `num_partitions=3`, with and without TAO. Use it when a third branch improves validation performance. |
 | Bivariate SGT (S²GT) | Try `pairwise_candidates=0.5` and `num_partitions=2` with TAO off. Allow more runtime before adding TAO. |
@@ -99,7 +100,7 @@ representative fit before starting cross-validation on a large or wide dataset.
 | --- | --- |
 | `SGTClassifier`, `SGTRegressor` | Fit an individual classifier or regressor. |
 | `RandomSGForestClassifier`, `RandomSGForestRegressor` | Fit bootstrap ensembles of SGTs. |
-| `plot_tree` | Plot a fitted tree and its node shape functions. Use `max_depth=1` to focus on the root split. |
+| `plot_tree` | Plot a fitted tree and its node shape functions. If possible, run a loop to really make sure the tree is legible to users. |
 | `export_text`, `export_graphviz` | Export routing rules or Graphviz DOT. Check for `export_graphviz` on older releases. |
 | `tao.TAO_refine` | Refine a fitted tree or forest in place using the training data. |
 | `configure_feature_dict`, `ProcessedFeatures` | Resolve and reuse logical feature groups. |
