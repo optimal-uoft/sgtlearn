@@ -146,10 +146,10 @@ Loss in this table is `1 - balanced_accuracy` for classification and normalized 
 - The helper’s narrower ranges were chosen from validation sensitivity, not from final test results. Large inner-leaf plateaus can reflect interactions with minimum-leaf constraints; outside this panel, larger counts may still help.
 - Regression targets, impurities, and penalties now use standardized training units. Predictions and exported leaf values remain in original units, including after later TAO or forest refinement. Existing nonzero penalties can need retuning. New constructor defaults use regularization and leave pair candidates disabled; very small datasets may fit a constant tree.
 - Forest quality was deliberately not benchmarked. Reusing tree settings is the user-requested transfer assumption; only constructor forwarding and normal integration are tested.
-- This branch adds the optional `tune` extra; it has not been published to PyPI. Install from the branch or local checkout until a release includes it.
+- The optional `tune` extra is included starting with v0.4.0.
 
 ## Implementation validation
 
 The Python suite covers independent target-scaling tests, forest forwarding and integration, and conditional Optuna suggestions. Existing growth and routing tests use an explicit unrestricted configuration so their mathematical fixtures do not depend on empirical production defaults.
 
-Production modules pass Ruff and Black checks. Sphinx HTML documentation builds with warnings treated as errors. A native macOS arm64 / CPython 3.14 wheel builds successfully; an isolated environment verifies that the base wheel works without Optuna, and installing its `tune` extra installs Optuna and reconstructs suggested dictionaries correctly. Other OS/Python build combinations and tutorial notebook reexecution were not run locally. The wheel and source changes are not published.
+During study development, production modules passed Ruff and Black checks, and Sphinx HTML documentation built with warnings treated as errors. An isolated environment verified that the macOS arm64 / CPython 3.14 wheel worked without Optuna and that installing its `tune` extra installed Optuna and reconstructed suggested dictionaries correctly.

@@ -35,6 +35,12 @@ and the umbrella issue [#27](https://github.com/optimal-uoft/sgtlearn/issues/27)
 ## v0.3.2
 - [x] Text export of fitted trees with `export_text`
 
+## v0.4.0
+- [x] Graphviz DOT export with node shape-function panels
+- [x] Recommended scikit-learn and Optuna search spaces and regularized estimator defaults
+- [x] Regression target standardization with predictions in the original units
+- [x] Coding-agent guide and `llms.txt`
+
 ## v1.0.0
 - [ ] Cross-Feature Tree Binning (Similar to [DPDT](https://github.com/KohlerHECTOR/DPDTreeEstimator)) 
 - [ ] Boosting

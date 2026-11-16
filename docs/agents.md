@@ -5,8 +5,8 @@ node can learn a nonlinear, axis-aligned shape function over one feature or an
 opt-in pair of features. Plot these functions to interpret which inputs route
 to each child.
 
-The recipe below runs on **sgtlearn 0.3.2** and the current development branch.
-Set the model options explicitly because defaults vary across versions.
+The recipe below runs on **sgtlearn 0.4.0** and also works on 0.3.2.
+It sets model options explicitly because defaults vary across versions.
 Install with `python -m pip install sgtlearn`. Wheels cover CPython 3.11–3.14
 on Linux, macOS, and Windows (x86-64 and Arm64), with no compiler needed.
 Install `pandas` for the DataFrame example.
@@ -58,8 +58,8 @@ estimators. Fit preprocessing within each CV fold and evaluate the selected
 model on held-out data. For regression use `SGTRegressor` with a regression
 metric.
 
-If the installed version includes `sgtlearn.tune`, start with its recommended
-search spaces. Pass `suggested_params()` directly to sklearn's `GridSearchCV`
+Starting in v0.4.0, use the recommended search spaces from `sgtlearn.tune`.
+Pass `suggested_params()` directly to sklearn's `GridSearchCV`
 or `RandomizedSearchCV`. In an Optuna objective, pass
 `suggest_params(trial)` as estimator keyword arguments. Both helpers accept
 `use_tao=True` and `use_bivariate=True` to include those options. The

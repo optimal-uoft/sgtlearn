@@ -54,6 +54,15 @@ v0.3.2
 
 - ✅ Text export of fitted trees with :func:`~sgtlearn.export_text`
 
+v0.4.0
+------
+
+- ✅ Graphviz DOT export with node shape-function panels
+- ✅ Recommended scikit-learn and Optuna search spaces and regularized
+  estimator defaults. See :doc:`tutorials/hyperparameter-tuning`.
+- ✅ Regression target standardization with predictions in the original units
+- ✅ :doc:`agents` and a published ``llms.txt``
+
 v1.0.0
 ------
 
