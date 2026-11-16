@@ -90,15 +90,15 @@ Example — TAO during ``fit``:
 
    from sgtlearn import SGTClassifier, RandomSGForestClassifier
 
-   # Default: up to 10 TAO passes after native training (tao_lambda=0.0)
+   # Opt in to up to 10 TAO passes after native training.
+   tree = SGTClassifier(max_depth=4, tao_n_runs=10, random_state=42).fit(X, y)
+
+   # Default: fit ShapeCART only.
    tree = SGTClassifier(max_depth=4, random_state=42).fit(X, y)
 
-   # Disable fit-time TAO
-   tree = SGTClassifier(max_depth=4, tao_n_runs=0, random_state=42).fit(X, y)
-
-   # Stronger complexity penalty; fewer passes
+   # Stronger complexity penalty and fewer passes.
    tree = SGTClassifier(
-       max_depth=4, tao_n_runs=5, tao_lambda=1e-4, random_state=42
+       max_depth=4, tao_n_runs=5, tao_lambda=1e-3, random_state=42
    ).fit(X, y)
 
    # Forest: same params apply to every base tree
@@ -187,8 +187,8 @@ Choosing fit-time vs. post-hoc TAO
    * - Approach
      - When to use it
    * - ``tao_n_runs`` / ``tao_lambda`` on the estimator
-     - Default workflow: every model is TAO-refined once at the end of ``fit``
-       with no extra call. Use ``tao_n_runs=0`` to match raw native training only.
+     - Set ``tao_n_runs`` to a positive value to refine each tree at the end
+       of ``fit``. The default ``tao_n_runs=0`` fits ShapeCART only.
    * - :func:`~sgtlearn.tao.TAO_refine` after ``fit``
      - Extra refinement passes, different ``lambda_``, or refining a forest on
        the full ``(X, y)`` instead of per-tree bootstrap data. Safe to call

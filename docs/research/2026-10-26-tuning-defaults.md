@@ -4,8 +4,6 @@ Date: 2026-10-26. Branch: `codex/feat-29-tuning-defaults`. Related ticket: [#29]
 
 **Decision:** use trial 381 as the shared classifier/regressor starting point, with production-default overrides `coordinate_descent_max_iters=10`, `num_partitions=2`, `pairwise_candidates=0`, and `tao_n_runs=0`. Bivariate splits and TAO remain opt-in; `0.5` is the study-recommended bivariate starting value. The expanded study completed 512 trials (325 distinct parameter dictionaries), with 36 validation fits per trial and no failed trials. The fixed selection rule chose the normalized compromise on the classification–regression Pareto front. Reserved tests show a regression improvement and a classification tradeoff for the measured configuration with pairs enabled and one TAO sweep; these scores do not measure the final binary, univariate, ShapeCART-only defaults.
 
-![Classification–regression Pareto front](../../benchmarks/results/tuning-29-expanded/pareto.png)
-
 ## Study-selected configuration
 
 ```python
@@ -68,18 +66,6 @@ The Pareto front contains five distinct objective points (repeated trials can ha
 | 381 (selected) | 0.713675 | 0.265693 |
 | 397 | 0.721089 | 0.269393 |
 
-Exact package versions, source hashes, dataset cache hashes, dataset/task identifiers, and the starting Git revision are recorded in [manifest.json](../../benchmarks/results/tuning-29-expanded/manifest.json). Exact source files used by the search are preserved in [search-sources.zip](../../benchmarks/results/tuning-29-expanded/search-sources.zip). The local NPZ caches include exact split row indices and are ignored by Git; OpenML also caches the source data. The native C++ source was unchanged from the recorded revision.
-
-```bash
-pip install -e '.[tune]' openml pandas
-python -m benchmarks.tune_defaults --output benchmarks/results/new-study --pilot
-python -m benchmarks.tune_defaults --output benchmarks/results/new-study --trials 512 --hours 10
-python -m benchmarks.analyze_tuning --output benchmarks/results/new-study
-python -m benchmarks.tune_defaults --output benchmarks/results/new-study --confirm
-```
-
-Use a new output directory when sources or datasets change. The study rejects mismatched manifests instead of combining incompatible objectives. To reproduce the precise recorded source hashes, use the source archive and recorded package versions. The example above starts afresh; the expanded run additionally used `--warm-start benchmarks/results/tuning-29`.
-
 ## Reserved test outcomes
 
 The comparison is against **previous tree hyperparameters with the new target scaling and fixed `tao_lambda=1e-4`**, not against an unchanged released binary. This isolates the hyperparameter choice after the requested scaling change. Only one official outer test split is evaluated per dataset.
@@ -132,7 +118,7 @@ The public `sgtlearn.tune.suggest_params(trial)` implements these ranges and fix
 
 ## Dataset-specific priorities and promising tested values
 
-The three strongest fANOVA dimensions for each dataset are below. Parentheses contain their importance fraction; braces list promising values from the corresponding controlled local sweep. Full per-dataset winning configurations are in [dataset_best.json](../../benchmarks/results/tuning-29-expanded/dataset_best.json), and all 14 dimensions are recorded in [tuning_ranges.json](../../benchmarks/results/tuning-29-expanded/tuning_ranges.json).
+The three strongest fANOVA dimensions for each dataset are below. Parentheses contain their importance fraction; braces list promising values from the corresponding controlled local sweep.
 
 | Dataset | Strongest dimensions: importance and promising tested values | Best single-dataset validation loss | Shared validation loss |
 |---|---|---:|---:|
@@ -162,10 +148,8 @@ Loss in this table is `1 - balanced_accuracy` for classification and normalized 
 - Forest quality was deliberately not benchmarked. Reusing tree settings is the user-requested transfer assumption; only constructor forwarding and normal integration are tested.
 - This branch adds the optional `tune` extra; it has not been published to PyPI. Install from the branch or local checkout until a release includes it.
 
-The preliminary five-dataset artifacts remain in `benchmarks/results/tuning-29/`; they are not pooled with the expanded objectives. The expanded [trial archive](../../benchmarks/results/tuning-29-expanded/trials.jsonl.gz) contains every trial’s parameters, objective values, and all dataset/fold records. The local SQLite study is retained for resuming and inspection but excluded from Git.
-
 ## Implementation validation
 
-The Python suite covers independent target-scaling tests, forest forwarding and integration, conditional Optuna suggestions, and benchmark split/aggregation integrity. Existing growth and routing tests use an explicit unrestricted configuration so their mathematical fixtures do not depend on empirical production defaults.
+The Python suite covers independent target-scaling tests, forest forwarding and integration, and conditional Optuna suggestions. Existing growth and routing tests use an explicit unrestricted configuration so their mathematical fixtures do not depend on empirical production defaults.
 
 Production modules pass Ruff and Black checks. Sphinx HTML documentation builds with warnings treated as errors. A native macOS arm64 / CPython 3.14 wheel builds successfully; an isolated environment verifies that the base wheel works without Optuna, and installing its `tune` extra installs Optuna and reconstructs suggested dictionaries correctly. Other OS/Python build combinations and tutorial notebook reexecution were not run locally. The wheel and source changes are not published.

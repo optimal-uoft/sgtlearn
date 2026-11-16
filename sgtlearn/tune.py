@@ -16,10 +16,10 @@ __all__ = ["suggest_params", "suggested_params"]
 
 def suggested_params(
     *, use_tao: bool = False, use_bivariate: bool = False
-) -> dict[str, list[Any]]:
+) -> list[dict[str, list[Any]]]:
     """Return a finite search space for sklearn grid or randomized search.
 
-    Pass the dictionary as ``GridSearchCV(param_grid=...)`` or
+    Pass the list of dictionaries as ``GridSearchCV(param_grid=...)`` or
     ``RandomizedSearchCV(param_distributions=...)``. Depth and branching limits
     use evenly spaced values; leaf counts use powers of two. Impurity and
     complexity costs include zero and geometrically spaced positive values.
@@ -30,7 +30,8 @@ def suggested_params(
 
     Only tunable parameters are included, except ``tao_n_runs=[10]`` when TAO
     is enabled. That override activates refinement; other constants use the
-    estimator defaults.
+    estimator defaults. The binary and ternary grids are separate so only
+    ternary trees search ``branching_penalty``.
 
     The full Cartesian grid is large: prefer randomized search, or narrow the
     lists before an exhaustive grid search. Criterion and forest-specific
@@ -38,13 +39,11 @@ def suggested_params(
     """
     params = {
         "max_depth": [4, 6, 8, 10],
-        "num_partitions": [2, 3],
         "inner_max_leaf_nodes": [2, 4, 8, 16, 32, 64],
         "min_samples_leaf": [1, 2, 4, 8, 16, 32],
         "inner_min_samples_leaf": [1, 2, 4, 8, 16, 32],
         "min_impurity_decrease": [0.0, 0.01, 0.1, 1.0, 10.0],
         "inner_min_impurity_decrease": [0.0, 0.001, 0.01, 0.1],
-        "branching_penalty": [0.0, 0.01, 0.1, 1.0],
     }
     if use_tao:
         params.update(tao_lambda=[0.01, 0.001, 0.0001], tao_n_runs=[10])
@@ -55,7 +54,14 @@ def suggested_params(
         )
     if use_tao and use_bivariate:
         params["tao_pair_scale"] = [1.5, 1.75, 2.0]
-    return params
+    return [
+        {**params, "num_partitions": [2]},
+        {
+            **params,
+            "num_partitions": [3],
+            "branching_penalty": [0.0, 0.01, 0.1, 1.0],
+        },
+    ]
 
 
 def suggest_params(

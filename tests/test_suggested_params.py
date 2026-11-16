@@ -14,13 +14,15 @@ from sgtlearn.tune import suggested_params
 @pytest.mark.parametrize("use_bivariate", [False, True])
 def test_sklearn_search_fits_and_refits(randomized, regression, use_tao, use_bivariate):
     space = suggested_params(use_tao=use_tao, use_bivariate=use_bivariate)
-    assert all(
-        len(values) > 1 or (name == "tao_n_runs" and use_tao)
-        for name, values in space.items()
-    )
-    assert ("tao_pair_scale" in space) == (use_tao and use_bivariate)
-    if use_tao and use_bivariate:
-        assert all(1.5 <= value <= 2.0 for value in space["tao_pair_scale"])
+    binary, ternary = space
+    assert binary["num_partitions"] == [2]
+    assert "branching_penalty" not in binary
+    assert ternary["num_partitions"] == [3]
+    assert len(ternary["branching_penalty"]) > 1
+    for grid in space:
+        assert ("tao_pair_scale" in grid) == (use_tao and use_bivariate)
+        if use_tao and use_bivariate:
+            assert all(1.5 <= value <= 2.0 for value in grid["tao_pair_scale"])
     X = np.arange(240.0).reshape(120, 2)
     y = np.sin(X[:, 0]) if regression else (X[:, 0] > 120).astype(int)
     model = SGTRegressor() if regression else SGTClassifier()
@@ -30,9 +32,10 @@ def test_sklearn_search_fits_and_refits(randomized, regression, use_tao, use_biv
         )
     else:
         # Exercise exhaustive search on a small slice, not the whole product.
-        grid = {name: values[:1] for name, values in space.items()}
-        grid["max_depth"] = [space["max_depth"][0], space["max_depth"][-1]]
-        search = GridSearchCV(model, grid, cv=2, error_score="raise")
+        small_grids = [
+            {name: values[:1] for name, values in grid.items()} for grid in space
+        ]
+        search = GridSearchCV(model, small_grids, cv=2, error_score="raise")
     search.fit(X, y)
     assert np.isfinite(search.predict(X)).all()
     assert (search.best_estimator_.tao_n_runs > 0) == use_tao

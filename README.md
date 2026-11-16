@@ -28,9 +28,10 @@ returns keyword arguments for `SGTClassifier` or `SGTRegressor`.
 Pass `use_tao=True` and/or `use_bivariate=True` to `suggest_params` to enable
 those features during tuning. Both flags default to `False`.
 For sklearn searches, `from sgtlearn.tune import suggested_params` provides
-lists of candidate values for `GridSearchCV` or `RandomizedSearchCV`, with the
-same optional flags. Prefer randomized search for the full space, or narrow
-the lists before running an exhaustive grid search.
+a list of parameter grids for `GridSearchCV` or `RandomizedSearchCV`, with the
+same optional flags. The binary and ternary grids are separate so only
+ternary trees search `branching_penalty`. Prefer randomized search for the full
+space, or narrow the candidate lists before running an exhaustive grid search.
 Both helpers omit constants and inactive parameters, except the required
 `tao_n_runs=10` override when TAO is enabled.
 
