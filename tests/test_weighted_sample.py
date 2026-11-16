@@ -20,8 +20,7 @@ from sgtlearn._weights import (
     effective_sample_weight_classification,
     normalize_sample_weight,
 )
-
-from tests.constants import TEST_TAO_N_RUNS
+from tests.constants import TEST_TAO_N_RUNS, algorithm_params
 from tests.discretizer_grid import n_outputs_params
 
 pytest.importorskip("sklearn")
@@ -181,11 +180,11 @@ def test_sgt_classifier_weighted_inner_depth_one_matches_sklearn(
     sk.fit(X, y, sample_weight=sample_weight)
 
     sgt = SGTClassifier(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         inner_max_depth=1,
         random_state=42,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     sgt.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_array_equal(sgt.predict(X), sk.predict(X))
@@ -215,12 +214,12 @@ def test_sgt_classifier_class_weight_times_sample_weight_matches_sklearn() -> No
     sk.fit(X, y, sample_weight=sample_weight)
 
     sgt = SGTClassifier(
-        criterion="gini",
+        **algorithm_params(criterion="gini",
         inner_max_depth=1,
         class_weight=class_weight,
         random_state=7,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     sgt.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_array_equal(sgt.predict(X), sk.predict(X))
@@ -254,11 +253,11 @@ def test_sgt_regressor_weighted_inner_depth_one_matches_sklearn(
     sk.fit(X, y, sample_weight=sample_weight)
 
     sgt = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         inner_max_depth=1,
         max_depth=3,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     sgt.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_allclose(sgt.predict(X), sk.predict(X), rtol=0, atol=1e-5)
@@ -284,14 +283,14 @@ def test_random_sg_forest_classifier_weighted_inner_depth_one_matches_sklearn(
     sk.fit(X, y, sample_weight=sample_weight)
 
     forest = RandomSGForestClassifier(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         n_estimators=1,
         bootstrap=False,
         inner_max_depth=1,
         max_features=None,
         random_state=42,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     forest.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_array_equal(forest.predict(X), sk.predict(X))
@@ -309,12 +308,12 @@ def test_random_sg_forest_classifier_applies_class_weight_once() -> None:
     class_weight = {0: 1.0, 1: 2.0}
 
     forest = RandomSGForestClassifier(
-        n_estimators=2,
+        **algorithm_params(n_estimators=2,
         bootstrap=False,
         class_weight=class_weight,
         random_state=0,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     forest.fit(X, y)
 
     from sgtlearn.base import _IdentityLabelEncoder
@@ -344,7 +343,7 @@ def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sk
     sk.fit(X, y, sample_weight=sample_weight)
 
     forest = RandomSGForestClassifier(
-        criterion="gini",
+        **algorithm_params(criterion="gini",
         n_estimators=1,
         bootstrap=False,
         inner_max_depth=1,
@@ -352,7 +351,7 @@ def test_random_sg_forest_classifier_class_weight_times_sample_weight_matches_sk
         class_weight=class_weight,
         random_state=7,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     forest.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_array_equal(forest.predict(X), sk.predict(X))
@@ -374,14 +373,14 @@ def test_random_sg_forest_regressor_weighted_inner_depth_one_matches_sklearn(
     sk.fit(X, y, sample_weight=sample_weight)
 
     forest = RandomSGForestRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         n_estimators=1,
         bootstrap=False,
         inner_max_depth=1,
         max_depth=3,
         max_features=None,
         tao_n_runs=TEST_TAO_N_RUNS,
-    )
+    ))
     forest.fit(X, y, sample_weight=sample_weight)
 
     np.testing.assert_allclose(forest.predict(X), sk.predict(X), rtol=0, atol=1e-5)
@@ -428,8 +427,8 @@ def test_zero_weight_row_has_no_regressor_contribution() -> None:
     y = np.array([0.0, 0.0, 1.0, 100.0])
     params = {"max_depth": 2, "tao_n_runs": 0, "random_state": 0}
 
-    weighted = SGTRegressor(**params).fit(X, y, sample_weight=[1.0, 1.0, 1.0, 0.0])
-    omitted = SGTRegressor(**params).fit(X[:3], y[:3])
+    weighted = SGTRegressor(**algorithm_params(**params)).fit(X, y, sample_weight=[1.0, 1.0, 1.0, 0.0])
+    omitted = SGTRegressor(**algorithm_params(**params)).fit(X[:3], y[:3])
 
     np.testing.assert_allclose(weighted.predict(X[:3]), omitted.predict(X[:3]))
 

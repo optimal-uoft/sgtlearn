@@ -21,7 +21,6 @@ from sklearn.utils import check_random_state
 pytest.importorskip("sklearn")
 
 from sgtlearn import RandomSGForestRegressor, SGTRegressor
-
 from tests.constants import TEST_TAO_N_RUNS
 from tests.discretizer_grid import n_outputs_params
 
@@ -167,7 +166,7 @@ def test_random_sg_forest_inner_depth_one_matches_sklearn_decision_tree(
     dt = DecisionTreeRegressor(criterion=criterion, random_state=0)
     dt.fit(X, y)
     np.testing.assert_allclose(
-        forest.predict(X), dt.predict(X)
+        forest.predict(X), dt.predict(X), atol=1e-5
     )
 
 

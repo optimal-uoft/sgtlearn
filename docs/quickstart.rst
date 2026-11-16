@@ -21,6 +21,10 @@ Train and visualize an SGT classifier on the built-in "Plus Sign" dataset:
    plot_tree(model, X=X_train)
    plt.show()
 
+TAO and bivariate branching are off by default. Follow
+:doc:`tutorials/hyperparameter-tuning` to tune a model with Optuna and try
+these optional features.
+
 Inner vs. outer depth
 ---------------------
 
@@ -81,17 +85,16 @@ Bootstrap-aggregate SGTs into a random forest:
 TAO refinement
 --------------
 
-TAO (Tree-Alternating Optimization) improves routing rules after the native
-trainer finishes. All tree estimators run TAO automatically at the end of
-``fit`` unless you disable it:
+TAO (Tree-Alternating Optimization) refines routing rules after ShapeCART
+training. It is disabled by default; use the separate refinement step when needed:
 
 .. code-block:: python
 
-   # Default: tao_n_runs=10, tao_lambda=0.0 (training score does not decrease)
+   # Default: ShapeCART only, with TAO disabled.
    model = SGTClassifier(max_depth=4, random_state=42).fit(X_train, y_train)
 
-   # Skip fit-time TAO
-   model = SGTClassifier(max_depth=4, tao_n_runs=0, random_state=42).fit(
+   # Explicit fit-time TAO remains available until the v1.0.0 API separation.
+   model = SGTClassifier(max_depth=4, tao_n_runs=1, random_state=42).fit(
        X_train, y_train
    )
 
@@ -160,7 +163,7 @@ univariate training path unchanged:
 
    model = SGTClassifier(
        max_depth=3,
-       pairwise_candidates=8,  # or a fraction such as 0.5
+       pairwise_candidates=0.5,  # study-recommended opt-in starting budget
        pairwise_penalty=0.0,
        random_state=42,
    ).fit(X_train, y_train)

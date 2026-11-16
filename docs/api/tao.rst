@@ -13,11 +13,12 @@ bivariate candidates are limited to the node's retained pairs.
 
 There are two ways to use TAO:
 
-1. **During fit** — pass ``tao_n_runs``, ``tao_lambda``, and ``tao_pair_scale``
-   to any supported estimator (see below). TAO runs automatically after the
-   native trainer finishes.
-2. **After fit** — call :func:`~sgtlearn.tao.TAO_refine` on a fitted model to
-   refine it further (or to run TAO when ``tao_n_runs=0`` was used at fit time).
+1. **After fit (recommended)** — call :func:`~sgtlearn.tao.TAO_refine` on a fitted
+   model. Ordinary ``fit`` runs ShapeCART only because ``tao_n_runs=0`` by default.
+2. **During fit (explicit opt-in)** — a positive ``tao_n_runs`` still enables
+   refinement after the native trainer, using ``tao_lambda`` and ``tao_pair_scale``.
+   Moving these parameters out of estimator constructors is planned for v1.0.0
+   in `issue #93 <https://github.com/optimal-uoft/sgtlearn/issues/93>`_.
 
 Import the post-hoc entry point from the dedicated module (also re-exported on the
 package root as ``sgtlearn.tao``):
@@ -32,21 +33,21 @@ TAO parameters on estimators
 All four public tree estimators accept the same three constructor / ``fit``-time
 TAO knobs:
 
-``tao_n_runs`` : int, default=10
+``tao_n_runs`` : int, default=0
     Maximum number of bottom-up TAO passes to run after the native trainer
     finishes (TAO may stop earlier).
     Set to ``0`` to skip TAO entirely during ``fit``.
 
-``tao_lambda`` : float, default=0.0
+``tao_lambda`` : float, default=0.0001
     Per-sample complexity rate (cost-complexity style). At each internal node, a
     non-constant routing rule must beat the constant dummy rule by more than
     ``tao_lambda * n_node`` in weighted reward units to be accepted
     (``n_node``: unweighted count of training samples reaching the node).
-    With the default ``0.0``, weighted training loss does not increase for
-    regression, and weighted training accuracy (mean over outputs) does not
+    With an explicit ``0.0``, weighted training loss does not increase for
+    regression in standardized target units, and weighted training accuracy (mean over outputs) does not
     decrease for classifiers.
 
-``tao_pair_scale`` : float, default=1.1
+``tao_pair_scale`` : float, default=2.0
     Finite, non-negative multiplier for the TAO complexity penalty of a
     retained bivariate candidate. It applies only to that TAO penalty and
     never reuses ``pairwise_penalty``. TAO only reconsiders pairs retained by
@@ -89,15 +90,15 @@ Example — TAO during ``fit``:
 
    from sgtlearn import SGTClassifier, RandomSGForestClassifier
 
-   # Default: up to 10 TAO passes after native training (tao_lambda=0.0)
+   # Opt in to up to 10 TAO passes after native training.
+   tree = SGTClassifier(max_depth=4, tao_n_runs=10, random_state=42).fit(X, y)
+
+   # Default: fit ShapeCART only.
    tree = SGTClassifier(max_depth=4, random_state=42).fit(X, y)
 
-   # Disable fit-time TAO
-   tree = SGTClassifier(max_depth=4, tao_n_runs=0, random_state=42).fit(X, y)
-
-   # Stronger complexity penalty; fewer passes
+   # Stronger complexity penalty and fewer passes.
    tree = SGTClassifier(
-       max_depth=4, tao_n_runs=5, tao_lambda=1e-4, random_state=42
+       max_depth=4, tao_n_runs=5, tao_lambda=1e-3, random_state=42
    ).fit(X, y)
 
    # Forest: same params apply to every base tree
@@ -137,8 +138,8 @@ Single tree
 
 ``y`` must be in the same label space used for :meth:`~sgtlearn.SGTClassifier.fit`.
 Pass the **same** ``(X, y)`` used to fit the model (per-sample partitions are not
-stored after fit). With ``lambda_=0`` (the default), weighted training loss does not
-increase for regression, and weighted training accuracy (mean over outputs)
+stored after fit). With an explicit ``lambda_=0``, weighted training loss does not
+increase for regression in standardized target units, and weighted training accuracy (mean over outputs)
 does not decrease for classifiers. When ``lambda_ > 0``, non-constant routing
 rules must improve weighted training reward by more than ``lambda_ * n_node``
 to beat the constant dummy rule at each node (``n_node``: unweighted count of
@@ -186,8 +187,8 @@ Choosing fit-time vs. post-hoc TAO
    * - Approach
      - When to use it
    * - ``tao_n_runs`` / ``tao_lambda`` on the estimator
-     - Default workflow: every model is TAO-refined once at the end of ``fit``
-       with no extra call. Use ``tao_n_runs=0`` to match raw native training only.
+     - Set ``tao_n_runs`` to a positive value to refine each tree at the end
+       of ``fit``. The default ``tao_n_runs=0`` fits ShapeCART only.
    * - :func:`~sgtlearn.tao.TAO_refine` after ``fit``
      - Extra refinement passes, different ``lambda_``, or refining a forest on
        the full ``(X, y)`` instead of per-tree bootstrap data. Safe to call

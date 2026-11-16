@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from sgtlearn import SGTClassifier, SGTRegressor
+from tests.constants import algorithm_params
 
 
 def test_or_pair_survives_unprofitable_univariate_growth():
@@ -11,9 +12,9 @@ def test_or_pair_survives_unprofitable_univariate_growth():
     y = np.array([0, 1, 1, 1])
     # Each feature improves total Gini by 0.5; the pair improves it by 1.5.
     model = SGTClassifier(
-        max_depth=1, inner_max_depth=2, inner_max_leaf_nodes=4,
+        **algorithm_params(max_depth=1, inner_max_depth=2, inner_max_leaf_nodes=4,
         min_impurity_decrease=0.8, pairwise_candidates=1, tao_n_runs=0,
-    ).fit(X, y)
+    )).fit(X, y)
     assert model.tree_export()["nodes"][0]["features"] == [0, 1]
     np.testing.assert_array_equal(model.predict(X), y)
 
@@ -33,17 +34,21 @@ def test_weighted_pair_screening_is_independent_of_growth_costs(
     y = np.array([0, 1, 2, 0] if criterion == "absolute_error" else [0, 1, 1, 1])
     if outputs == 2:
         y = np.column_stack([y, y.max() - y])
+    weights = np.array([1., 2., 2., 1.])
+    if estimator is SGTRegressor:
+        target = y[:, 0] if outputs == 2 else y
+        variance = np.average((target - np.average(target, weights=weights)) ** 2, weights=weights)
+        alpha /= variance if criterion == "squared_error" else np.sqrt(variance)
     kwargs = dict(
         criterion=criterion, num_partitions=3, max_leaf_nodes=3, max_depth=1,
         inner_max_depth=2, inner_max_leaf_nodes=4, min_impurity_decrease=alpha,
         pairwise_candidates=1, tao_n_runs=0,
     )
-    weights = np.array([1., 2., 2., 1.])
-    model = estimator(**kwargs).fit(X, y, sample_weight=weights)
+    model = estimator(**algorithm_params(**kwargs)).fit(X, y, sample_weight=weights)
     assert model.tree_export()["nodes"][0]["features"] == [0, 1]
-    np.testing.assert_allclose(model.predict(X), y)
+    np.testing.assert_allclose(model.predict(X), y, atol=1e-6)
     # Admission does not authorize growth: gamma still must be paid afterward.
-    penalized = estimator(**kwargs, pairwise_penalty=100.).fit(X, y, sample_weight=weights)
+    penalized = estimator(**algorithm_params(**kwargs, pairwise_penalty=100.)).fit(X, y, sample_weight=weights)
     assert penalized.tree_export()["nodes"][0]["is_leaf"]
 
 
@@ -56,7 +61,7 @@ def test_raw_zero_gain_or_infeasible_features_do_not_create_pairs(minimum_leaf):
     if minimum_leaf == 3:
         X, y = np.repeat(X, [4, 2, 2, 0], axis=0), np.repeat(y, [4, 2, 2, 0])
     model = SGTClassifier(
-        max_depth=1, min_samples_leaf=minimum_leaf, pairwise_candidates=1,
+        **algorithm_params(max_depth=1, min_samples_leaf=minimum_leaf, pairwise_candidates=1,
         inner_max_depth=2, inner_max_leaf_nodes=4, tao_n_runs=0,
-    ).fit(X, y)
+    )).fit(X, y)
     assert model.tree_export()["nodes"][0]["is_leaf"]

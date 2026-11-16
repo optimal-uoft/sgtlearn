@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from sgtlearn import SGTClassifier, SGTRegressor
+from tests.constants import algorithm_params
 
 
 def test_classifier_continuous_categorical_pair_routes_joint_interaction() -> None:
@@ -24,13 +25,13 @@ def test_classifier_continuous_categorical_pair_routes_joint_interaction() -> No
     y = np.repeat([0, 1, 1, 0], counts)
 
     model = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, feature_dict={0: [0], 1: [1, 2]})
+    )).fit(X, y, feature_dict={0: [0], 1: [1, 2]})
 
     assert model.score(X, y) == 1.0
     root = model.tree_export()["nodes"][0]
@@ -63,16 +64,16 @@ def test_continuous_pair_routes_each_joint_missing_state(estimator: type) -> Non
     y = np.repeat(np.arange(len(states)), counts)
 
     model = estimator(
-        num_partitions=9,
+        **algorithm_params(num_partitions=9,
         max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=5,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
 
-    np.testing.assert_array_equal(model.predict(states), np.arange(len(states)))
+    np.testing.assert_allclose(model.predict(states), np.arange(len(states)), atol=1e-6)
     inner = model.tree_export()["nodes"][0]["pair_inner_tree"]
     assert all("missing" in node for node in inner if not node["is_leaf"])
     assert any(
@@ -113,16 +114,16 @@ def test_categorical_pairs_route_no_active_as_axis_specific_missing(
     y = np.repeat(np.arange(len(states)), counts)
 
     model = estimator(
-        num_partitions=9,
+        **algorithm_params(num_partitions=9,
         max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=5,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, feature_dict=feature_dict)
+    )).fit(X, y, feature_dict=feature_dict)
 
-    np.testing.assert_array_equal(model.predict(states), np.arange(len(states)))
+    np.testing.assert_allclose(model.predict(states), np.arange(len(states)), atol=1e-6)
     root = model.tree_export()["nodes"][0]
     assert root["routing_kind"] == "pair"
     assert [axis["kind"] for axis in root["pair_axes"]] == expected_kinds
@@ -144,7 +145,7 @@ def test_missing_only_pair_bin_is_not_rejected_by_inner_min_leaf(
     y = np.concatenate([np.repeat([0, 1, 1, 0], [40, 30, 30, 28]), [2]])
 
     model = estimator(
-        num_partitions=3,
+        **algorithm_params(num_partitions=3,
         max_depth=1,
         inner_min_samples_leaf=10,
         inner_max_depth=2,
@@ -152,9 +153,9 @@ def test_missing_only_pair_bin_is_not_rejected_by_inner_min_leaf(
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
 
-    assert model.predict(np.array([[np.nan, -1.0]])).item() == 2
+    assert model.predict(np.array([[np.nan, -1.0]])).item() == pytest.approx(2, abs=1e-6)
 
 
 @pytest.mark.parametrize("estimator", [SGTClassifier, SGTRegressor])
@@ -165,13 +166,13 @@ def test_pair_predict_time_missing_uses_majority_inner_route(estimator: type) ->
     X = np.repeat(states, [5, 20, 30, 40], axis=0)
     y = np.repeat([0, 1, 1, 0], [5, 20, 30, 40])
     model = estimator(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
 
     assert model.tree_export()["nodes"][0]["routing_kind"] == "pair"
     np.testing.assert_array_equal(

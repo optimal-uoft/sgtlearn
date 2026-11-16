@@ -2,10 +2,12 @@
 
 import numpy as np
 import pytest
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 from sgtlearn import SGTClassifier, SGTRegressor
 from sgtlearn._export import _route_samples
+from tests.constants import algorithm_params
 
 
 @pytest.mark.parametrize("dominant_weight", [1e6, 1e20])
@@ -22,33 +24,33 @@ def test_numeric_fallback_preserves_small_remaining_weights(
     y = np.array([0.0, 0.0, 1.0, 1.0])
     weights = np.array([dominant_weight, 1.0, 1.0, 1.0])
     model = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         inner_min_impurity_decrease=1000,
         max_leaf_nodes=2,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, sample_weight=weights)
+    )).fit(X, y, sample_weight=weights)
     tree = model.tree_export()
     assert tree["nodes"][0]["thresholds"] == [direction * 1.5]
     reached = _route_samples(tree, X)
     leaves = [node for node in tree["nodes"] if node["is_leaf"]]
     assert sorted(tuple(reached[node["id"]]) for node in leaves) == [(0, 1), (2, 3)]
-    np.testing.assert_array_equal(model.predict(X), y)
-    assert np.sum(weights * (model.predict(X) - y) ** 2) == 0
+    np.testing.assert_allclose(model.predict(X), y, atol=1e-6)
+    assert np.sum(weights * (model.predict(X) - y) ** 2) == pytest.approx(0, abs=1e-12)
 
 
 @pytest.mark.parametrize(
-    "weight,penalty,split", [(1000, 0, True), (1, 0, False), (1000, 1e-13, False)]
+    "weight,penalty,split", [(1e-13, 0, True), (1e-17, 0, False), (1e-13, 1e-12, False)]
 )
 def test_numeric_fallback_uses_total_gain_epsilon(weight, penalty, split):
     X = np.array([[0.0], [1.0]])
     y = np.array([0.0, 1e-8], dtype=np.float32)
     model = SGTRegressor(
-        max_leaf_nodes=2,
+        **algorithm_params(max_leaf_nodes=2,
         min_impurity_decrease=penalty,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, sample_weight=np.full(2, weight))
+    )).fit(X, y, sample_weight=np.full(2, weight))
     tree = model.tree_export()
     assert sum(node["is_leaf"] for node in tree["nodes"]) == (2 if split else 1)
     if split:
@@ -94,13 +96,13 @@ def test_numeric_fallback_matches_direct_partition_loss(
                 expected.append(loss(left) + loss(~left))
     estimator = SGTClassifier if classification else SGTRegressor
     model = estimator(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=minimum,
         inner_min_impurity_decrease=1000,
         max_leaf_nodes=2,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y if multioutput else y[:, 0], sample_weight=weights)
+    )).fit(X, y if multioutput else y[:, 0], sample_weight=weights)
     tree = model.tree_export()
     reached = _route_samples(tree, X)
     leaves = [node for node in tree["nodes"] if node["is_leaf"]]
@@ -133,21 +135,21 @@ def test_numeric_fallback_counts_missing_samples_in_threshold_feasibility(
         weights = np.array([1.0, 0.0, 1.0, 2.0])
         y = np.column_stack([y, 1 - y if estimator is SGTClassifier else 2 * y + 3])
     model = estimator(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=2,
         inner_min_samples_leaf=1,
         inner_min_impurity_decrease=100,
         max_leaf_nodes=2,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, sample_weight=weights)
+    )).fit(X, y, sample_weight=weights)
     tree = model.tree_export()
     assert tree["nodes"][0]["thresholds"] == [1.5]
     reached = _route_samples(tree, X)
     leaves = [node for node in tree["nodes"] if node["is_leaf"]]
     assert sorted(tuple(reached[node["id"]]) for node in leaves) == [(0, 1), (2, 3)]
     assert all(node["impurity"] == 0 for node in leaves)
-    np.testing.assert_array_equal(model.predict(X), y)
+    np.testing.assert_allclose(model.predict(X), y, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -172,14 +174,14 @@ def test_numeric_fallback_optimizes_loss_including_missing_samples(
     )
     estimator = SGTClassifier if criterion in {"gini", "entropy"} else SGTRegressor
     model = estimator(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=2,
         inner_min_samples_leaf=1,
         inner_min_impurity_decrease=100,
         max_leaf_nodes=2,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
     # Finite-only fitting prefers 1.5. Including the missing target makes 3.5
     # strictly better, so lowering only finite minimum-leaf size is insufficient.
     tree = model.tree_export()
@@ -196,6 +198,9 @@ def test_numeric_fallback_optimizes_loss_including_missing_samples(
         "squared_error": 0.75,
         "absolute_error": 1.0,
     }[criterion]
+    if estimator is SGTRegressor:
+        scale = np.std(y)
+        expected_loss /= scale**2 if criterion == "squared_error" else scale
     assert sum(
         node["n_samples"] * node["impurity"] for node in leaves
     ) == pytest.approx(expected_loss)
@@ -206,28 +211,28 @@ def test_numeric_fallback_optimizes_loss_including_missing_samples(
 def test_numeric_fallback_matches_inner_adjacent_value_tolerance(estimator, gap):
     X = np.array([0.0, gap, 2.0, np.nan], dtype=np.float32)[:, None]
     model = estimator(
-        inner_min_impurity_decrease=100,
+        **algorithm_params(inner_min_impurity_decrease=100,
         max_leaf_nodes=2,
         tao_n_runs=0,
-    ).fit(X, [0, 1, 1, 1])
+    )).fit(X, [0, 1, 1, 1])
     split_allowed = gap > 1e-7
     threshold = float(X[1, 0]) / 2 if split_allowed else 1 + float(X[1, 0]) / 2
     assert model.tree_export()["nodes"][0]["thresholds"] == [threshold]
     expected = [0, 1, 1, 1] if split_allowed else [0, 0, 1, 1]
     if estimator is SGTRegressor and not split_allowed:
         expected = [0.5, 0.5, 1, 1]
-    np.testing.assert_allclose(model.predict(X), expected)
+    np.testing.assert_allclose(model.predict(X), expected, atol=1e-6)
 
 
 @pytest.mark.parametrize("estimator", [SGTClassifier, SGTRegressor])
 def test_numeric_fallback_preserves_missing_only_split(estimator):
     X = np.array([0.0, 0.0, np.nan, np.nan])[:, None]
     model = estimator(
-        inner_min_impurity_decrease=100,
+        **algorithm_params(inner_min_impurity_decrease=100,
         min_samples_leaf=2,
         max_leaf_nodes=2,
         tao_n_runs=0,
-    ).fit(X, [0, 0, 1, 1])
+    )).fit(X, [0, 0, 1, 1])
     tree = model.tree_export()
     assert tree["nodes"][0]["thresholds"] == []
     assert len(tree["nodes"][0]["children"]) == 2
@@ -238,7 +243,7 @@ def test_numeric_fallback_preserves_missing_only_split(estimator):
 def test_numeric_fallback_retains_outer_feasible_cart_threshold(size, threshold, loss):
     X = np.arange(size, dtype=np.float32).reshape(-1, 1)
     model = SGTClassifier(
-        num_partitions=2,
+        **algorithm_params(num_partitions=2,
         max_leaf_nodes=2,
         min_samples_leaf=size // 2,
         inner_min_samples_leaf=1,
@@ -246,7 +251,7 @@ def test_numeric_fallback_retains_outer_feasible_cart_threshold(size, threshold,
         inner_max_leaf_nodes=8,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, [0] * (size - 1) + [1])
+    )).fit(X, [0] * (size - 1) + [1])
     tree = model.tree_export()
     leaves = [node for node in tree["nodes"] if node["is_leaf"]]
     assert [node["n_samples"] for node in leaves] == [size // 2, size // 2]
@@ -281,20 +286,22 @@ def test_numeric_regression_fallback_can_split_inside_an_inner_bin(
     X = np.arange(4, dtype=np.float32).reshape(-1, 1)
     # The inner stump isolates 3 at 2.5. Outer minimum two requires 1.5.
     model = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=2,
         inner_min_samples_leaf=1,
         inner_max_depth=1,
         max_leaf_nodes=2,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, [0, 0, 1, 3])
+    )).fit(X, [0, 0, 1, 3])
     tree = model.tree_export()
     leaves = [node for node in tree["nodes"] if node["is_leaf"]]
     assert [node["n_samples"] for node in leaves] == [2, 2]
-    assert sum(node["n_samples"] * node["impurity"] for node in leaves) == 2.0
+    scale = np.std([0, 0, 1, 3])
+    expected_loss = 2 / (scale**2 if criterion == "squared_error" else scale)
+    assert sum(node["n_samples"] * node["impurity"] for node in leaves) == pytest.approx(expected_loss)
     assert tree["nodes"][0]["thresholds"] == [1.5]
-    np.testing.assert_allclose(model.predict(X), [0, 0, 2, 2])
+    np.testing.assert_allclose(model.predict(X), [0, 0, 2, 2], atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -329,11 +336,13 @@ def test_numeric_fallback_recovers_suboptimal_or_suppressed_inner_root(
         y = np.column_stack([y, 1 - y if classifier else 2 * y + 1])
     estimator = SGTClassifier if classifier else SGTRegressor
     cart_type = DecisionTreeClassifier if classifier else DecisionTreeRegressor
+    scaler = None if classifier else StandardScaler().fit(np.asarray(y).reshape(len(X), -1), sample_weight=weights)
+    cart_y = y if classifier else scaler.transform(np.asarray(y).reshape(len(X), -1)).squeeze()
     cart = cart_type(criterion=criterion, max_depth=1, random_state=0).fit(
-        X, y, sample_weight=weights
+        X, cart_y, sample_weight=weights
     )
     model = estimator(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=1,
         max_depth=1,
         num_partitions=4,
@@ -342,7 +351,7 @@ def test_numeric_fallback_recovers_suboptimal_or_suppressed_inner_root(
         tao_n_runs=0,
         random_state=0,
         **inner_settings,
-    ).fit(X, y, sample_weight=weights)
+    )).fit(X, y, sample_weight=weights)
     tree = model.tree_export()
     # Stricter inner minimum chooses feasible 1.5; stopping settings leave no
     # root at all. The outer CART optimum at 2.5 must survive either case.
@@ -357,17 +366,20 @@ def test_numeric_fallback_recovers_suboptimal_or_suppressed_inner_root(
         * cart.tree_.impurity[cart_leaves]
     )
     assert loss == pytest.approx(cart_loss)
-    np.testing.assert_allclose(model.predict(X), cart.predict(X))
+    expected = cart.predict(X)
+    if scaler is not None:
+        expected = scaler.inverse_transform(np.asarray(expected).reshape(len(X), -1)).reshape(y.shape)
+    np.testing.assert_allclose(model.predict(X), expected, atol=1e-6)
 
 
-@pytest.mark.parametrize("estimator,gain", [(SGTClassifier, 0.5), (SGTRegressor, 0.25)])
+@pytest.mark.parametrize("estimator,gain", [(SGTClassifier, 0.5), (SGTRegressor, 0.25 / 0.1875)])
 @pytest.mark.parametrize("cost_fraction,leaf_count", [(0.5, 2), (1.0, 1), (2.0, 1)])
 def test_numeric_fallback_pays_growth_cost_and_respects_binary_budget(
     estimator, gain, cost_fraction, leaf_count
 ):
     X = np.arange(4, dtype=np.float32).reshape(-1, 1)
     model = estimator(
-        num_partitions=4,
+        **algorithm_params(num_partitions=4,
         max_leaf_nodes=2,
         min_samples_leaf=2,
         inner_min_samples_leaf=1,
@@ -375,7 +387,7 @@ def test_numeric_fallback_pays_growth_cost_and_respects_binary_budget(
         branching_penalty=100,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, [0, 0, 0, 1])
+    )).fit(X, [0, 0, 0, 1])
     leaves = [node for node in model.tree_export()["nodes"] if node["is_leaf"]]
     assert len(leaves) == leaf_count
 
@@ -388,16 +400,16 @@ def test_numeric_fallback_keeps_a_better_rich_shape_candidate(estimator, inner_m
     # With either minimum, the inner root at 1.5 is outer-feasible (2 + 4).
     # Its richer bins must still win by grouping the two outer intervals.
     model = estimator(
-        max_leaf_nodes=2,
+        **algorithm_params(max_leaf_nodes=2,
         min_samples_leaf=2,
         inner_min_samples_leaf=inner_minimum,
         inner_max_depth=3,
         inner_max_leaf_nodes=8,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
     assert model.tree_export()["nodes"][0]["thresholds"] == [1.5, 3.5]
-    np.testing.assert_array_equal(model.predict(X), y)
+    np.testing.assert_allclose(model.predict(X), y, atol=1e-6)
 
 
 @pytest.mark.parametrize("inner_gain", [0.0, 100.0])
@@ -427,7 +439,7 @@ def test_regularized_multioutput_budget_preserves_missing_routing(
     classifier = criterion in {"gini", "entropy"}
     estimator = SGTClassifier if classifier else SGTRegressor
     model = estimator(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         num_partitions=4,
         max_leaf_nodes=5,
         max_depth=3,
@@ -441,7 +453,7 @@ def test_regularized_multioutput_budget_preserves_missing_routing(
         inner_min_impurity_decrease=inner_gain,
         tao_n_runs=0,
         random_state=17,
-    )
+    ))
     if criterion == "absolute_error" and mae_cd == "0":
         with pytest.warns(UserWarning, match="Coordinate descent is disabled"):
             model.fit(X, y, sample_weight=weights)

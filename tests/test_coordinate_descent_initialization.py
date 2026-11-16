@@ -5,12 +5,13 @@ import pytest
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 from sgtlearn import (
-    SGTClassifier,
-    SGTRegressor,
     RandomSGForestClassifier,
     RandomSGForestRegressor,
+    SGTClassifier,
+    SGTRegressor,
 )
 from sgtlearn._export import _route_samples
+from tests.constants import algorithm_params
 
 
 def _child_impurity(model, X, y, weights, criterion):
@@ -59,12 +60,12 @@ def test_selected_split_is_no_worse_than_feasible_binary_root(criterion, outputs
     )
     for k in (2, 3, 5):
         model = SGTClassifier(
-            criterion=criterion,
+            **algorithm_params(criterion=criterion,
             num_partitions=k,
             max_depth=1,
             tao_n_runs=0,
             random_state=42,
-        ).fit(X, y, sample_weight=weights)
+        )).fit(X, y, sample_weight=weights)
         assert not model.tree_export()["nodes"][0]["is_leaf"]
         assert _child_impurity(model, X, y, weights, criterion) <= baseline + 1e-7
 
@@ -77,14 +78,14 @@ def test_infeasible_root_uses_feasible_binary_fallback(categorical, criterion):
     y = np.array([1, 0, 0, 0, 0, 0, 0, 0, 1, 1])
     kwargs = {"feature_dict": {"category": [0, 1, 2]}} if categorical else {}
     model = SGTClassifier(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=5,
         max_depth=1,
         inner_max_depth=1 if categorical else 3,
         num_partitions=4,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, **kwargs)
+    )).fit(X, y, **kwargs)
     tree = model.tree_export()
     assert not tree["nodes"][0]["is_leaf"]
     reached = _route_samples(tree, X)
@@ -108,15 +109,15 @@ def test_failed_feature_does_not_make_node_leaf_and_cannot_enter_pairs(failed_va
     X = np.column_stack([np.full(12, failed_value), np.repeat([0, 1], 6)])
     y = np.repeat([0, 1], 6)
     model = SGTClassifier(
-        pairwise_candidates=10, min_samples_leaf=3, max_depth=1, tao_n_runs=0
-    ).fit(X, y)
+        **algorithm_params(pairwise_candidates=10, min_samples_leaf=3, max_depth=1, tao_n_runs=0
+    )).fit(X, y)
     root = model.tree_export()["nodes"][0]
     assert not root["is_leaf"]
     assert root.get("routing_kind") != "pair"
     assert root["feature"] == 1
     np.testing.assert_array_equal(model.predict(X), y)
     assert (
-        SGTClassifier(min_samples_leaf=7, tao_n_runs=0)
+        SGTClassifier(**algorithm_params(min_samples_leaf=7, tao_n_runs=0))
         .fit(X, y)
         .tree_export()["nodes"][0]["is_leaf"]
     )
@@ -127,9 +128,9 @@ def test_failed_feature_does_not_make_node_leaf_and_cannot_enter_pairs(failed_va
     [SGTClassifier, SGTRegressor, RandomSGForestClassifier, RandomSGForestRegressor],
 )
 def test_smart_init_flag_is_removed(estimator):
-    assert "coordinate_descent_smart_init" not in estimator().get_params()
+    assert "coordinate_descent_smart_init" not in estimator(**algorithm_params()).get_params()
     with pytest.raises(TypeError, match="coordinate_descent_smart_init"):
-        estimator(coordinate_descent_smart_init=True)
+        estimator(**algorithm_params(coordinate_descent_smart_init=True))
 
 
 @pytest.mark.parametrize(
@@ -148,9 +149,9 @@ def test_categorical_training_missing_rows_keep_scored_routing(
     weights[-1] = 0
     estimator = SGTClassifier if criterion in ("gini", "entropy") else SGTRegressor
     model = estimator(
-        criterion=criterion, max_depth=1, tao_n_runs=0, random_state=0
-    ).fit(X, y, sample_weight=weights, feature_dict={"cat": [0, 1]})
-    np.testing.assert_allclose(model.predict(X), y)
+        **algorithm_params(criterion=criterion, max_depth=1, tao_n_runs=0, random_state=0
+    )).fit(X, y, sample_weight=weights, feature_dict={"cat": [0, 1]})
+    np.testing.assert_allclose(model.predict(X), y, atol=1e-6)
     tree = model.tree_export()
     reached = _route_samples(tree, X)
     for child in tree["nodes"][0]["children"]:
@@ -180,14 +181,14 @@ def test_regression_retains_feasible_binary_fallback(
     y = np.array([10.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0])
     kwargs = {"feature_dict": {"category": [0, 1, 2]}} if categorical else {}
     model = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         min_samples_leaf=5,
         max_depth=1,
         inner_max_depth=1 if categorical else 3,
         num_partitions=4,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, **kwargs)
+    )).fit(X, y, **kwargs)
     tree = model.tree_export()
     root = tree["nodes"][0]
     assert not root["is_leaf"]
@@ -196,6 +197,7 @@ def test_regression_retains_feasible_binary_fallback(
     np.testing.assert_allclose(
         model.predict(X),
         np.where(categories == 2, 1, 2 if criterion == "squared_error" else 0),
+        atol=1e-6,
     )
 
 
@@ -222,12 +224,12 @@ def test_regression_preserves_binary_root_loss(criterion, outputs, mae_cd, monke
 
     for k in (2, 3, 5):
         model = SGTRegressor(
-            criterion=criterion,
+            **algorithm_params(criterion=criterion,
             num_partitions=k,
             max_depth=1,
             tao_n_runs=0,
             random_state=42,
-        ).fit(X, y, sample_weight=weights)
+        )).fit(X, y, sample_weight=weights)
         assert loss(model.predict(X)) <= loss(stump.predict(X)) + 1e-7
 
 
@@ -249,12 +251,12 @@ def test_regression_missing_root_respects_sample_counts(
     weights[0] = 0
     for scale in (1, 1e-6):
         model = SGTRegressor(
-            criterion=criterion,
+            **algorithm_params(criterion=criterion,
             min_samples_leaf=5,
             max_depth=1,
             num_partitions=3,
             tao_n_runs=0,
-        ).fit(X, y, sample_weight=weights * scale, **kwargs)
+        )).fit(X, y, sample_weight=weights * scale, **kwargs)
         tree = model.tree_export()
         root = tree["nodes"][0]
         assert not root["is_leaf"]
@@ -278,9 +280,9 @@ def test_categorical_fallback_counts_missing_before_rejecting_category(criterion
     y = np.array([1, 0, 0, 0, 0, 1, 1, 1])
     estimator = SGTClassifier if criterion in ("gini", "entropy") else SGTRegressor
     model = estimator(
-        criterion=criterion, min_samples_leaf=4, max_depth=1,
+        **algorithm_params(criterion=criterion, min_samples_leaf=4, max_depth=1,
         inner_max_depth=1, num_partitions=4, tao_n_runs=0, random_state=0,
-    ).fit(X, y, feature_dict={"category": [0, 1, 2]})
+    )).fit(X, y, feature_dict={"category": [0, 1, 2]})
     np.testing.assert_allclose(model.predict(X), y)
     tree = model.tree_export()
     reached = _route_samples(tree, X)
@@ -299,14 +301,14 @@ def test_weighted_missing_multioutput_forest_predictions_are_normalized():
     weights = rng.uniform(0.01, 0.8, len(X))
     weights[::9] = 0
     model = RandomSGForestClassifier(
-        n_estimators=3,
+        **algorithm_params(n_estimators=3,
         num_partitions=4,
         min_samples_leaf=3,
         max_depth=2,
         random_state=0,
         tao_n_runs=0,
         class_weight=[{0: 0.2, 1: 0.4, 2: 0.8}] * 2,
-    ).fit(X, y, sample_weight=weights)
+    )).fit(X, y, sample_weight=weights)
     for probabilities in model.predict_proba(X):
         assert np.isfinite(probabilities).all()
         np.testing.assert_allclose(probabilities.sum(axis=1), 1)

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping, Optional, Tuple
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy as np
 import pytest
@@ -11,7 +12,7 @@ from sklearn.exceptions import NotFittedError
 
 from sgtlearn import SGTClassifier, SGTRegressor, tao
 from sgtlearn.ensemble import RandomSGForestClassifier, RandomSGForestRegressor
-from tests.constants import TEST_TAO_N_RUNS
+from tests.constants import TEST_TAO_N_RUNS, algorithm_params
 
 pytest.importorskip("sklearn")
 
@@ -21,8 +22,8 @@ def _fit_classifier(
     y: np.ndarray,
     *,
     criterion: str = "gini",
-    class_weight: Optional[Mapping[Any, float] | str] = None,
-    sample_weight: Optional[np.ndarray] = None,
+    class_weight: Mapping[Any, float] | str | None = None,
+    sample_weight: np.ndarray | None = None,
     **tree_kwargs: Any,
 ) -> SGTClassifier:
     params = dict(
@@ -36,7 +37,7 @@ def _fit_classifier(
         tao_n_runs=TEST_TAO_N_RUNS,
     )
     params.update(tree_kwargs)
-    est = SGTClassifier(**params)
+    est = SGTClassifier(**algorithm_params(**params))
     est.fit(X, y, sample_weight=sample_weight)
     return est
 
@@ -46,7 +47,7 @@ def _fit_regressor(
     y: np.ndarray,
     *,
     criterion: str = "squared_error",
-    sample_weight: Optional[np.ndarray] = None,
+    sample_weight: np.ndarray | None = None,
     **tree_kwargs: Any,
 ) -> SGTRegressor:
     params = dict(
@@ -59,17 +60,17 @@ def _fit_regressor(
         tao_n_runs=TEST_TAO_N_RUNS,
     )
     params.update(tree_kwargs)
-    est = SGTRegressor(**params)
+    est = SGTRegressor(**algorithm_params(**params))
     est.fit(X, y, sample_weight=sample_weight)
     return est
 
 
-def _classification_data() -> Tuple[np.ndarray, np.ndarray]:
+def _classification_data() -> tuple[np.ndarray, np.ndarray]:
     X, y = load_iris(return_X_y=True)
     return np.asarray(X, dtype=np.float64), y
 
 
-def _regression_data() -> Tuple[np.ndarray, np.ndarray]:
+def _regression_data() -> tuple[np.ndarray, np.ndarray]:
     X, y = make_regression(
         n_samples=400,
         n_features=10,
@@ -82,7 +83,7 @@ def _regression_data() -> Tuple[np.ndarray, np.ndarray]:
 
 def test_feature_importances_are_unavailable_after_tao_and_reset_on_refit() -> None:
     X, y = load_iris(return_X_y=True)
-    clf = SGTClassifier(tao_n_runs=0, random_state=0).fit(X, y)
+    clf = SGTClassifier(**algorithm_params(tao_n_runs=0, random_state=0)).fit(X, y)
 
     tao.TAO_refine(clf, X, y, n_runs=0)
     assert clf.feature_importances_.shape == (X.shape[1],)
@@ -116,7 +117,7 @@ def test_feature_importances_are_unavailable_after_tao_and_reset_on_refit() -> N
 def test_tao_refine_mutates_in_place(
     estimator_cls: type,
     fit_fn: Callable[..., Any],
-    data_fn: Callable[[], Tuple[np.ndarray, np.ndarray]],
+    data_fn: Callable[[], tuple[np.ndarray, np.ndarray]],
 ) -> None:
     """TAO_refine returns the same wrapper and keeps the native handle."""
     X, y = data_fn()
@@ -133,13 +134,13 @@ def test_tao_refine_mutates_in_place(
     ("estimator", "X", "y", "exc_type"),
     [
         pytest.param(
-            SGTClassifier(),
+            SGTClassifier(**algorithm_params()),
             *load_iris(return_X_y=True),
             NotFittedError,
             id="unfitted_classifier",
         ),
         pytest.param(
-            SGTRegressor(),
+            SGTRegressor(**algorithm_params()),
             *make_regression(n_samples=50, n_features=4, random_state=0),
             NotFittedError,
             id="unfitted_regressor",
@@ -190,12 +191,12 @@ def test_tao_accepts_check_input_false() -> None:
     """Callers that pre-validate arrays can skip redundant checks."""
     X, y = _tao_pair_interaction_data()
     tree = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         pairwise_candidates=1,
         pairwise_penalty=1.0,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
     tao.TAO_refine(tree, X, y, n_runs=1, check_input=False)
     assert tree.tree_export()["nodes"][0]["routing_kind"] == "pair"
 
@@ -210,7 +211,7 @@ def test_tao_accepts_check_input_false() -> None:
 def test_tao_refines_every_forest_tree(forest_cls, target) -> None:
     X, labels = _tao_pair_interaction_data()
     y = target(labels.astype(float))
-    forest = forest_cls(
+    forest = forest_cls(**algorithm_params(
         n_estimators=2,
         bootstrap=False,
         max_features=None,
@@ -222,7 +223,7 @@ def test_tao_refines_every_forest_tree(forest_cls, target) -> None:
         tao_n_runs=0,
         random_state=0,
         n_jobs=1,
-    ).fit(X, y)
+    )).fit(X, y)
     handles_before = [est._est for est in forest.estimators_]
 
     result = tao.TAO_refine(forest, X, y, n_runs=1, lambda_=0.0, n_jobs=2)
@@ -244,14 +245,14 @@ def _tao_pair_interaction_data() -> tuple[np.ndarray, np.ndarray]:
 def test_tao_reconsiders_retained_classifier_pair() -> None:
     X, y = _tao_pair_interaction_data()
     clf = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
         pairwise_penalty=85.0,  # Former normalized cost 1.0 × 85 samples.
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
 
     assert clf.tree_export()["nodes"][0].get("routing_kind") != "pair"
     assert clf.score(X, y) == pytest.approx(70 / 85)
@@ -276,14 +277,14 @@ def test_tao_weights_change_the_accepted_classifier_update() -> None:
 
     def refine(weights: np.ndarray | None) -> SGTClassifier:
         clf = SGTClassifier(
-            max_depth=1,
+            **algorithm_params(max_depth=1,
             inner_max_depth=2,
             inner_max_leaf_nodes=4,
             pairwise_candidates=1,
             pairwise_penalty=0.3,
             tao_n_runs=0,
             random_state=0,
-        ).fit(X, y)
+        )).fit(X, y)
         return tao.TAO_refine(
             clf,
             X,
@@ -305,7 +306,7 @@ def test_tao_weights_change_the_accepted_classifier_update() -> None:
 def test_tao_makes_forest_feature_importances_unavailable() -> None:
     X, y = _tao_pair_interaction_data()
     forest = RandomSGForestClassifier(
-        n_estimators=1,
+        **algorithm_params(n_estimators=1,
         bootstrap=False,
         max_features=None,
         max_depth=1,
@@ -316,7 +317,7 @@ def test_tao_makes_forest_feature_importances_unavailable() -> None:
         tao_n_runs=0,
         random_state=0,
         n_jobs=1,
-    ).fit(X, y)
+    )).fit(X, y)
 
     tao.TAO_refine(forest, X, y, n_runs=1, lambda_=0.0)
 
@@ -329,14 +330,14 @@ def test_tao_accepts_improving_retained_regression_pair_multioutput() -> None:
     X, labels = _tao_pair_interaction_data()
     y = np.column_stack([labels.astype(float), 10.0 + labels])
     reg = SGTRegressor(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=4,
         pairwise_candidates=1,
-        pairwise_penalty=42.5,  # Former cost 1.0 × 85 samples / 2 outputs.
+        pairwise_penalty=42.5 / np.var(labels),  # Same cost in standardized units.
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
 
     assert reg.tree_export()["nodes"][0].get("routing_kind") != "pair"
     assert not np.array_equal(reg.predict(X), y)
@@ -349,7 +350,7 @@ def test_tao_accepts_improving_retained_regression_pair_multioutput() -> None:
     assert len(root["bin_sample_counts"]) == len(root["bin_to_partition"])
     assert len(root["bin_counts"]) == len(root["bin_to_partition"])
     assert sum(root["bin_sample_counts"]) == X.shape[0]
-    np.testing.assert_array_equal(reg.predict(X), y)
+    np.testing.assert_allclose(reg.predict(X), y, atol=1e-6)
 
 
 def test_tao_pair_scale_changes_pair_vs_dummy_choice() -> None:
@@ -357,13 +358,13 @@ def test_tao_pair_scale_changes_pair_vs_dummy_choice() -> None:
 
     def fit_pair() -> SGTClassifier:
         return SGTClassifier(
-            max_depth=1,
+            **algorithm_params(max_depth=1,
             inner_max_depth=2,
             inner_max_leaf_nodes=4,
             pairwise_candidates=1,
             tao_n_runs=0,
             random_state=0,
-        ).fit(X, y)
+        )).fit(X, y)
 
     default_scale = fit_pair()
     high_scale = fit_pair()
@@ -386,9 +387,9 @@ def test_tao_pair_scale_changes_pair_vs_dummy_choice() -> None:
 def test_tao_pair_scale_defaults_and_forwards_through_forests(
     forest_cls, target
 ) -> None:
-    assert SGTClassifier().get_params()["tao_pair_scale"] == 1.1
-    assert SGTRegressor().get_params()["tao_pair_scale"] == 1.1
-    assert forest_cls().get_params()["tao_pair_scale"] == 1.1
+    assert SGTClassifier().get_params()["tao_pair_scale"] == 2.0
+    assert SGTRegressor().get_params()["tao_pair_scale"] == 2.0
+    assert forest_cls().get_params()["tao_pair_scale"] == 2.0
 
     X, y = _tao_pair_interaction_data()
     forest = forest_cls(
@@ -410,9 +411,9 @@ def test_tao_pair_scale_defaults_and_forwards_through_forests(
 def test_tao_pair_scale_rejects_invalid_values(bad_scale: float) -> None:
     X, y = _tao_pair_interaction_data()
     with pytest.raises(ValueError, match="tao_pair_scale"):
-        SGTClassifier(tao_n_runs=0, tao_pair_scale=bad_scale).fit(X, y)
+        SGTClassifier(**algorithm_params(tao_n_runs=0, tao_pair_scale=bad_scale)).fit(X, y)
 
-    clf = SGTClassifier(tao_n_runs=0).fit(X, y)
+    clf = SGTClassifier(**algorithm_params(tao_n_runs=0)).fit(X, y)
     with pytest.raises(ValueError, match="tao_pair_scale"):
         tao.TAO_refine(clf, X, y, tao_pair_scale=bad_scale)
 
@@ -420,7 +421,7 @@ def test_tao_pair_scale_rejects_invalid_values(bad_scale: float) -> None:
 def test_fit_with_tao_accepts_string_labels() -> None:
     X, y = load_iris(return_X_y=True)
     labels = np.array(["setosa", "versicolor", "virginica"])[y]
-    clf = SGTClassifier(tao_n_runs=1, max_depth=2).fit(X, labels)
+    clf = SGTClassifier(**algorithm_params(tao_n_runs=1, max_depth=2)).fit(X, labels)
     assert set(clf.predict(X)) <= set(labels)
 
 
@@ -435,7 +436,7 @@ def test_fit_with_tao_applies_class_weight_once(monkeypatch) -> None:
     monkeypatch.setattr(tao, "TreeAlternatingOptimization", spy)
     X, y = load_iris(return_X_y=True)
     y = (y > 0).astype(int)
-    SGTClassifier(class_weight={0: 1.0, 1: 3.0}, tao_n_runs=1, max_depth=2).fit(X, y)
+    SGTClassifier(**algorithm_params(class_weight={0: 1.0, 1: 3.0}, tao_n_runs=1, max_depth=2)).fit(X, y)
     sw = seen[0]
     assert sw[y == 1][0] / sw[y == 0][0] == pytest.approx(3.0)
 
@@ -457,14 +458,14 @@ def _square_in_cross_data(
 def test_tao_lambda0_keeps_accuracy_when_children_share_a_class() -> None:
     X, y = _square_in_cross_data()
     clf = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         inner_max_depth=4,
         inner_max_leaf_nodes=9,
         num_partitions=3,
         pairwise_candidates=0,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
     before = clf.score(X, y)
 
     tao.TAO_refine(clf, X, y, n_runs=10, lambda_=0.0)
@@ -477,7 +478,7 @@ def test_tao_lambda0_keeps_accuracy_when_children_share_a_class() -> None:
 @pytest.mark.parametrize("num_partitions", [2, 3, 4])
 @pytest.mark.parametrize("seed", [0, 1, 2, 3])
 def test_tao_lambda0_never_lowers_weighted_training_accuracy(
-    seed: int, num_partitions: int, weighting: str, tao_n_runs: Optional[int]
+    seed: int, num_partitions: int, weighting: str, tao_n_runs: int | None
 ) -> None:
     X, y = _square_in_cross_data(seed, n_samples=600, n_features=3, noise=0.1)
     sample_weight = None
@@ -504,7 +505,7 @@ def test_tao_lambda0_never_lowers_weighted_training_accuracy(
     )
     if tao_n_runs is not None:
         params["tao_n_runs"] = tao_n_runs
-    clf = SGTClassifier(**params).fit(X, y, sample_weight=sample_weight)
+    clf = SGTClassifier(**algorithm_params(**params)).fit(X, y, sample_weight=sample_weight)
     before = np.average(clf.predict(X) == y, weights=effective)
 
     tao.TAO_refine(clf, X, y, sample_weight=sample_weight, lambda_=0.0)
@@ -551,14 +552,14 @@ def _best_single_threshold_accuracy(
 def test_tao_two_children_reach_the_best_single_threshold(seed: int) -> None:
     X, y = _k2_threshold_data(seed)
     clf = SGTClassifier(
-        max_depth=1,
+        **algorithm_params(max_depth=1,
         num_partitions=2,
         inner_max_depth=1,
         inner_max_leaf_nodes=2,
         pairwise_candidates=0,
         tao_n_runs=0,
         random_state=seed,
-    ).fit(X, y)
+    )).fit(X, y)
     export = clf.tree_export()
     root = export["nodes"][export["root_index"]]
     assert len(root["children"]) == 2
@@ -583,18 +584,18 @@ def test_tao_lambda0_never_raises_regression_training_loss(
         n_samples=300, n_features=4, n_informative=3, noise=15.0, random_state=seed
     )
     reg = SGTRegressor(
-        criterion=criterion,
+        **algorithm_params(criterion=criterion,
         max_depth=2,
         num_partitions=num_partitions,
         inner_max_depth=3,
         inner_max_leaf_nodes=8,
         tao_n_runs=0,
         random_state=seed,
-    ).fit(X, y)
+    )).fit(X, y)
     if criterion == "squared_error":
-        loss = lambda: np.mean((reg.predict(X) - y) ** 2)  # noqa: E731
+        loss = lambda: np.mean((reg.predict(X) - y) ** 2)
     else:
-        loss = lambda: np.mean(np.abs(reg.predict(X) - y))  # noqa: E731
+        loss = lambda: np.mean(np.abs(reg.predict(X) - y))
     before = loss()
 
     tao.TAO_refine(reg, X, y, lambda_=0.0)

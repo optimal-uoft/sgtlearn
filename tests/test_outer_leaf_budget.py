@@ -5,6 +5,7 @@ import pytest
 
 from sgtlearn import SGTClassifier, SGTRegressor
 from sgtlearn._export import _route_samples
+from tests.constants import algorithm_params
 
 
 @pytest.mark.parametrize("estimator", [SGTClassifier, SGTRegressor])
@@ -12,8 +13,8 @@ def test_ternary_search_obeys_a_two_leaf_budget(estimator):
     X = np.arange(18, dtype=float).reshape(-1, 1)
     y = np.repeat([0, 1, 2], 6)
     model = estimator(
-        num_partitions=3, max_leaf_nodes=2, max_depth=2, tao_n_runs=0,
-    ).fit(X, y)
+        **algorithm_params(num_partitions=3, max_leaf_nodes=2, max_depth=2, tao_n_runs=0,
+    )).fit(X, y)
     nodes = model.tree_export()["nodes"]
     assert sum(node["is_leaf"] for node in nodes) == 2
     assert len(nodes) == 3
@@ -41,9 +42,9 @@ def _competing_nodes(errors):
 def test_shrinking_budget_changes_router_and_reorders_competing_nodes(errors, expanded_group):
     X, y = _competing_nodes(errors)
     model = SGTClassifier(
-        num_partitions=3, max_leaf_nodes=6, max_depth=2,
+        **algorithm_params(num_partitions=3, max_leaf_nodes=6, max_depth=2,
         inner_max_depth=3, inner_max_leaf_nodes=8, tao_n_runs=0,
-    ).fit(X, y)
+    )).fit(X, y)
     nodes = model.tree_export()["nodes"]
     assert sum(node["is_leaf"] for node in nodes) == 6
     assert nodes[0]["features"] == [0]
@@ -71,9 +72,9 @@ def test_regression_budget_fallback_uses_best_router_and_rekeys(strength, expand
         32 + 3 * fg[:, 0],
     ])
     model = SGTRegressor(
-        num_partitions=3, max_depth=2, max_leaf_nodes=cap,
+        **algorithm_params(num_partitions=3, max_depth=2, max_leaf_nodes=cap,
         inner_max_depth=2, inner_max_leaf_nodes=3, tao_n_runs=0, random_state=42,
-    ).fit(X, y)
+    )).fit(X, y)
     nodes = model.tree_export()["nodes"]
     assert sum(node["is_leaf"] for node in nodes) == cap
     assert nodes[0]["features"] == [0]

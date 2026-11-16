@@ -1,0 +1,45 @@
+{
+  "run": "r-20261026-121217-e0ed",
+  "mode": "new",
+  "revisions": {
+    "current": {
+      "given": "WORKTREE",
+      "commit": "f16fb3709b04d4d5ac6560a1b67b3fe4337a7748"
+    }
+  },
+  "date": "2026-10-26T16:32:53.799Z",
+  "harness": "codex",
+  "blind_isolation": "medium",
+  "summary": [
+    {
+      "target": "sgtlearn-base-py--sgtregressor-fit",
+      "accepted": 68,
+      "disputed": 0,
+      "flaky": 0,
+      "dropped": 0
+    }
+  ],
+  "likely_bugs": [],
+  "suspicions": [
+    {
+      "target": "sgtlearn-base-py--sgtregressor-fit",
+      "analysis": "Logical mistakes: The scaling must also be applied to subsequent TAO inputs and undone for predictions and exported leaves; fitting alone cannot guarantee the public contract. Forest bootstrap trees can have different training scales. Weighted and multioutput data need per-output training statistics.\nRobustness omissions: Constant target columns need a safe scale. Failed refits must preserve the previous model and its scaling. Target validation must precede fitting and reject NaN, infinity and values outside the supported float32 range. Tests should use well-conditioned datasets rather than demand identical topology for floating-point ties."
+    }
+  ],
+  "needs_decision": [],
+  "misguided": [],
+  "dropped": [],
+  "promotable": [
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__sgtregressor_fit_1.py",
+      "dest": "tests/regression/test_sgtlearn_base_py__sgtregressor_fit_1.py",
+      "tests": 48
+    },
+    {
+      "file": "tests/tcheck/test_sgtlearn_base_py__sgtregressor_fit_2.py",
+      "dest": "tests/regression/test_sgtlearn_base_py__sgtregressor_fit_2.py",
+      "tests": 20
+    }
+  ],
+  "not_promotable": []
+}

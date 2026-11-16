@@ -21,6 +21,7 @@ from sgtlearn._export import (
     _is_categorical_node,
     _is_pair_node,
 )
+from tests.constants import algorithm_params
 
 
 def _holds(cond: tuple, row: np.ndarray) -> bool:
@@ -84,8 +85,8 @@ def _univariate_regressor():
     y = np.sin(2 * X[:, 0]) + (X[:, 1] > 0.3) + rng.normal(0, 0.1, 400)
     X[rng.random(X.shape) < 0.08] = np.nan
     model = SGTRegressor(
-        num_partitions=3, max_depth=3, min_samples_leaf=5, random_state=0
-    ).fit(X, y)
+        **algorithm_params(num_partitions=3, max_depth=3, min_samples_leaf=5, random_state=0
+    )).fit(X, y)
     return model, X
 
 
@@ -100,8 +101,8 @@ def _categorical_classifier():
     y = (np.isin(cat, [0, 2]) ^ (np.nan_to_num(x) > 0.5)).astype(int)
     X = np.column_stack([x, onehot])
     model = SGTClassifier(
-        num_partitions=3, max_depth=3, tao_n_runs=0, random_state=0
-    ).fit(X, y, feature_dict={0: [0], 1: [1, 2, 3, 4]})
+        **algorithm_params(num_partitions=3, max_depth=3, tao_n_runs=0, random_state=0
+    )).fit(X, y, feature_dict={0: [0], 1: [1, 2, 3, 4]})
     return model, X
 
 
@@ -111,14 +112,14 @@ def _pair_classifier():
     X = np.repeat(states, [40, 31, 30, 29, 28, 27, 26, 25, 24], axis=0)
     y = np.repeat(np.arange(9), [40, 31, 30, 29, 28, 27, 26, 25, 24])
     model = SGTClassifier(
-        num_partitions=9,
+        **algorithm_params(num_partitions=9,
         max_depth=1,
         inner_max_depth=2,
         inner_max_leaf_nodes=5,
         pairwise_candidates=1,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y, feature_dict={0: [0], 1: [1, 2]})
+    )).fit(X, y, feature_dict={0: [0], 1: [1, 2]})
     return model, X
 
 
@@ -128,13 +129,13 @@ def _pair_regressor():
     y = np.where(X[:, 0] * X[:, 1] > 0, 1.0, -1.0) + rng.normal(0, 0.05, 600)
     X[rng.random(X.shape) < 0.1] = np.nan
     model = SGTRegressor(
-        num_partitions=3,
+        **algorithm_params(num_partitions=3,
         max_depth=2,
         pairwise_candidates=1,
         min_samples_leaf=5,
         tao_n_runs=0,
         random_state=0,
-    ).fit(X, y)
+    )).fit(X, y)
     return model, X
 
 
@@ -196,7 +197,7 @@ def test_format_region_renders_every_condition():
 
 def test_export_text_regressor_exact():
     X = np.arange(4.0)[:, None]
-    model = SGTRegressor(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
+    model = SGTRegressor(**algorithm_params(max_leaf_nodes=2, tao_n_runs=0, random_state=0)).fit(
         X, np.array([0.0, 0.0, 1.0, 1.0])
     )
     assert export_text(model, feature_names=["x"]) == (
@@ -210,7 +211,7 @@ def test_export_text_regressor_exact():
 def test_export_text_classifier_class_names_and_weights():
     X = np.arange(6.0)[:, None]
     y = np.array(["a", "a", "a", "b", "b", "b"])
-    model = SGTClassifier(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(X, y)
+    model = SGTClassifier(**algorithm_params(max_leaf_nodes=2, tao_n_runs=0, random_state=0)).fit(X, y)
     assert export_text(model, decimals=1) == (
         "|--- X[0] <= 2.5 or X[0] is missing\n"
         "|   |--- class: a\n"
@@ -233,7 +234,7 @@ def test_export_text_categorical_and_pair_labels():
 
 def test_export_text_single_leaf_multioutput():
     X = np.zeros((4, 1))
-    model = SGTRegressor(tao_n_runs=0).fit(X, np.ones((4, 2)))
+    model = SGTRegressor(**algorithm_params(tao_n_runs=0)).fit(X, np.ones((4, 2)))
     assert export_text(model) == "|--- value: [1.00, 1.00]\n"
 
 
@@ -241,8 +242,8 @@ def test_export_text_validates_inputs():
     with pytest.raises(TypeError):
         export_text(DecisionTreeClassifier().fit([[0], [1]], [0, 1]))
     with pytest.raises(NotFittedError):
-        export_text(SGTRegressor())
-    model = SGTRegressor(tao_n_runs=0).fit(np.zeros((4, 2)), np.arange(4.0))
+        export_text(SGTRegressor(**algorithm_params()))
+    model = SGTRegressor(**algorithm_params(tao_n_runs=0)).fit(np.zeros((4, 2)), np.arange(4.0))
     with pytest.raises(ValueError, match="feature_names"):
         export_text(model, feature_names=["only_one"])
 
@@ -344,7 +345,7 @@ def test_export_graphviz_histograms_only_with_X(make):
 
 def test_export_graphviz_panels_and_out_file(tmp_path):
     X = np.array([[0.0], [1.0], [2.0], [3.0], [np.nan]])
-    model = SGTRegressor(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
+    model = SGTRegressor(**algorithm_params(max_leaf_nodes=2, tao_n_runs=0, random_state=0)).fit(
         X, np.array([0.0, 0.0, 1.0, 1.0, 0.0])
     )
     dot = export_graphviz(model, X=X, feature_names=['x "q"'])
@@ -371,7 +372,7 @@ def test_export_graphviz_panels_and_out_file(tmp_path):
     out = export_graphviz(model, out_file=path, X=X, feature_names=['x "q"'])
     assert out is None and path.read_text() == dot
 
-    clf = SGTClassifier(max_leaf_nodes=2, tao_n_runs=0, random_state=0).fit(
+    clf = SGTClassifier(**algorithm_params(max_leaf_nodes=2, tao_n_runs=0, random_state=0)).fit(
         X[:4], ["a", "a", "b", "b"]
     )
     root = _parse_dot(export_graphviz(clf, class_names=["neg", "pos"]))[1][0]
@@ -496,7 +497,7 @@ def test_export_graphviz_is_public_and_validates_inputs():
     assert "export_graphviz" in sgtlearn.__all__
     with pytest.raises(TypeError):
         export_graphviz(DecisionTreeClassifier().fit([[0], [1]], [0, 1]))
-    model = SGTRegressor(tao_n_runs=0).fit(np.zeros((4, 2)), np.arange(4.0))
+    model = SGTRegressor(**algorithm_params(tao_n_runs=0)).fit(np.zeros((4, 2)), np.arange(4.0))
     with pytest.raises(ValueError, match="feature_names"):
         export_graphviz(model, feature_names=["only_one"])
     with pytest.raises(ValueError, match="features"):
