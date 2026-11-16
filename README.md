@@ -4,6 +4,8 @@
 
 `sgtlearn` is a Python package for learning [Shape Generalized Trees (SGTs)](https://neurips.cc/virtual/2025/loc/san-diego/poster/115950).
 
+**Using a coding agent?** Point it at the [sgtlearn agent guide](docs/agents.md) or its [published version](https://sgtlearn.readthedocs.io/en/latest/agents.html) for fitting, tuning, and inspecting a model.
+
 - 🌳 **Shape Generalized Trees (SGTs):** A class of decision trees where each node applies a learnable, axis-aligned shape function to one or two logical features for non-linear and interpretable splits.
 - 👁 **Interpretability:** Each node's shape function can be visualized directly.
 - ⚡ **ShapeCART Algorithm:** An efficient induction method for learning SGTs from data.

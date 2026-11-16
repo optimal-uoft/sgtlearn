@@ -35,10 +35,20 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx_copybutton",
     "nbsphinx",
+    "myst_parser",
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "**.ipynb_checkpoints",
+    "adr",
+    "research",
+    "specs",
+    "superpowers",
+]
 
 # Notebooks are pre-executed and committed with outputs; never execute them at
 # docs-build time (the native C++ extension is mocked and RTD has no compiler).
@@ -86,6 +96,7 @@ intersphinx_mapping = {
 html_theme = "furo"
 html_title = f"sgtlearn {version}"
 html_static_path = ["_static"]
+html_extra_path = ["llms.txt"]
 
 html_theme_options = {
     "source_repository": "https://github.com/optimal-uoft/sgtlearn",
