@@ -45,8 +45,14 @@ plt.show()
 The estimators work with sklearn pipelines, `cross_val_score`, and search
 estimators. Fit preprocessing within each CV fold and evaluate the selected
 model on held-out data. For regression use `SGTRegressor` with a regression
-metric. See the [tuning tutorial](tutorials/hyperparameter-tuning.ipynb) for
-the search helpers on versions that include `sgtlearn.tune`.
+metric.
+
+If the installed version includes `sgtlearn.tune`, start with its recommended
+search spaces. Pass `suggested_params()` directly to sklearn's `GridSearchCV`
+or `RandomizedSearchCV`. In an Optuna objective, pass
+`suggest_params(trial)` as estimator keyword arguments. Both helpers accept
+`use_tao=True` and `use_bivariate=True` to include those options. The
+[tuning tutorial](tutorials/hyperparameter-tuning.ipynb) shows both workflows.
 
 ## Choose the smallest model that works
 

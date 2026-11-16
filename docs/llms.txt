@@ -14,5 +14,9 @@
 - [Shape functions tutorial](https://sgtlearn.readthedocs.io/en/latest/tutorials/shape-functions.html): See how SGT nodes learn and visualize nonlinear splits.
 - [Forests tutorial](https://sgtlearn.readthedocs.io/en/latest/tutorials/forests.html): Compare a single tree, an SG forest, and a CART forest.
 - [Categorical features](https://sgtlearn.readthedocs.io/en/latest/tutorials/categorical-features.html): Group one-hot columns into logical features.
-- [Hyperparameter tuning](https://sgtlearn.readthedocs.io/en/latest/tutorials/hyperparameter-tuning.html): Search with scikit-learn and Optuna.
 - [Roadmap](https://sgtlearn.readthedocs.io/en/latest/roadmap.html): Implemented and planned features.
+
+## Recommended tuning spaces
+
+- [`sgtlearn.tune.suggested_params()`](https://sgtlearn.readthedocs.io/en/latest/tutorials/hyperparameter-tuning.html#1.-Parameter-grids-for-scikit-learn-searches): Pass the recommended binary and ternary grids to `GridSearchCV` or `RandomizedSearchCV`.
+- [`sgtlearn.tune.suggest_params(trial)`](https://sgtlearn.readthedocs.io/en/latest/tutorials/hyperparameter-tuning.html#2.-Suggestions-for-an-Optuna-trial): Sample estimator parameters in an Optuna objective. Install `sgtlearn[tune]` to use Optuna.
