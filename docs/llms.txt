@@ -1,0 +1,22 @@
+# sgtlearn
+
+> Python estimators for Shape Generalized Trees and forests with a scikit-learn API.
+
+## Start here
+
+- [For AI coding agents](https://sgtlearn.readthedocs.io/en/latest/agents.html): Fit, tune, and inspect an SGT using supported APIs.
+- [Installation](https://sgtlearn.readthedocs.io/en/latest/installation.html): Install the package or build from source.
+- [Quick Start](https://sgtlearn.readthedocs.io/en/latest/quickstart.html): Train and plot a tree.
+
+## Reference and tutorials
+
+- [API Reference](https://sgtlearn.readthedocs.io/en/latest/api/index.html): Estimators, TAO, plotting, exports, and datasets.
+- [Shape functions tutorial](https://sgtlearn.readthedocs.io/en/latest/tutorials/shape-functions.html): See how SGT nodes learn and visualize nonlinear splits.
+- [Forests tutorial](https://sgtlearn.readthedocs.io/en/latest/tutorials/forests.html): Compare a single tree, an SG forest, and a CART forest.
+- [Categorical features](https://sgtlearn.readthedocs.io/en/latest/tutorials/categorical-features.html): Group one-hot columns into logical features.
+- [Roadmap](https://sgtlearn.readthedocs.io/en/latest/roadmap.html): Implemented and planned features.
+
+## Recommended tuning spaces
+
+- [`sgtlearn.tune.suggested_params()`](https://sgtlearn.readthedocs.io/en/latest/tutorials/hyperparameter-tuning.html#1.-Parameter-grids-for-scikit-learn-searches): Pass the recommended binary and ternary grids to `GridSearchCV` or `RandomizedSearchCV`.
+- [`sgtlearn.tune.suggest_params(trial)`](https://sgtlearn.readthedocs.io/en/latest/tutorials/hyperparameter-tuning.html#2.-Suggestions-for-an-Optuna-trial): Sample estimator parameters in an Optuna objective. Install `sgtlearn[tune]` to use Optuna.

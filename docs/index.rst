@@ -39,6 +39,7 @@ Highlights
 
    installation
    quickstart
+   agents
 
 .. toctree::
    :maxdepth: 2
