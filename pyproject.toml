@@ -26,6 +26,7 @@ dependencies = [
 tune = ["optuna>=4"]
 dev = [
     "pytest>=7",
+    "pandas",
     "pybind11-stubgen",
     "ruff",
     "black",
