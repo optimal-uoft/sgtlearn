@@ -2,20 +2,18 @@
 
 /**
  * @file algorithms/TAO/TaoAdapter.h
- * @brief Abstract adapter between TAO and fitted shape-generalized trees.
+ * @brief Base adapter between TAO and fitted ``ShapeGeneralizedTree`` estimators.
  *
  * TAO (Tree-Alternating Optimization) refines routing rules on an already-fitted
- * outer tree without changing its topology. The shared driver in
- * ``TreeAlternatingOptimization`` operates only through this interface; task-specific
- * care-set construction, pseudolabeling, and leaf refresh live in concrete
- * adapters (see ``ClassificationTaoAdapter`` and ``RegressionTaoAdapter``).
- *
- * Training data (``X``, targets, sample weights) are supplied again at refinement
- * time because sample partitions are not retained after ``fit``.
+ * outer tree without changing its topology. Shared tree accessors, care-set
+ * construction, and bin-metadata refresh live here; concrete subclasses
+ * (``ClassificationTaoAdapter``, ``RegressionTaoAdapter``) supply task-specific
+ * child rewards, leaf recomputation, and per-bin stats.
  */
 
 #include "Domain/LearningCriterion.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
+#include "Estimators/ShapeGeneralizedTree.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 
 #include <armadillo>
@@ -27,12 +25,6 @@ namespace tao {
 /**
  * Per-node care set: samples whose routing choice matters for scoring and for
  * training the candidate routing discretizer.
- *
- * For each care sample ``i``, ``careRewards[i][c]`` is the reward of sending
- * that sample down child partition ``c``. ``Xexp`` / ``yexp`` / ``wexp`` are the
- * expanded router-training matrices (one or more rows per care sample, depending
- * on task). ``dummyChild`` is the fallback partition when a feature value is NaN
- * or when the best rule routes every care sample to a single child.
  */
 struct NodeCareSet {
   std::vector<arma::uword> careCols;
@@ -50,77 +42,39 @@ struct NodeCareSet {
 };
 
 /**
- * Adapter interface for one TAO refinement pass.
- *
- * Concrete adapters wrap a fitted tree plus refinement-time training data and
- * implement the task-specific hooks:
- *
- * - ``buildCareSet`` — identify care samples at a node, compute per-child
- *   rewards, and build router-training matrices for the discretizer search.
- * - ``recomputeLeafStats`` — refresh leaf predictions / histograms after a
- *   routing change.
- *
- * All other methods expose tree structure, training design matrix, and
- * hyperparameters needed by the shared per-node optimizer.
+ * Base adapter for one TAO refinement pass over a ``ShapeGeneralizedTree``.
  */
 class TaoAdapter {
 public:
+  TaoAdapter(ShapeGeneralizedTree &tree, const arma::fmat &X,
+             const arma::Row<float> &sampleWeights);
   virtual ~TaoAdapter() = default;
 
-  /** Mutable fitted node array; routing fields are updated in place by TAO. */
-  virtual std::vector<ShapeFunctionNode> &nodes() = 0;
+  std::vector<ShapeFunctionNode> &nodes() { return tree_.mutableNodes(); }
+  std::vector<std::vector<size_t>> &childIndices() {
+    return tree_.mutableChildIndices();
+  }
+  size_t rootIndex() const { return tree_.rootIndex(); }
 
-  /** Mutable per-node child index lists (empty at leaves). */
-  virtual std::vector<std::vector<size_t>> &childIndices() = 0;
+  const arma::fmat &X() const { return X_; }
+  size_t numFeatures() const { return static_cast<size_t>(X_.n_rows); }
+  const arma::Row<float> &sampleWeights() const { return w_; }
 
-  /** Root node index (currently always 0 after fit). */
-  virtual size_t rootIndex() const = 0;
+  LearningCriterion criterion() const { return tree_.criterion(); }
+  const TreeBuildingParams &innerParams() const { return tree_.innerParams(); }
 
-  /**
-   * Training design matrix, shape (numFeatures, numSamples); column-major.
-   * Same convention as ``fit``.
-   */
-  virtual const arma::fmat &X() const = 0;
-
-  /** Number of routing features (rows of ``X``). */
-  virtual size_t numFeatures() const = 0;
-
-  /** Per-sample weights from the refinement call, shape (numSamples,). */
-  virtual const arma::Row<float> &sampleWeights() const = 0;
-
-  /** Loss / impurity criterion for this tree (classification or regression). */
-  virtual LearningCriterion criterion() const = 0;
-
-  /**
-   * Criterion for the per-node routing discretizer.
-   *
-   * The discretizer always treats child partitions as class labels; regression
-   * typically uses Gini here even when the tree criterion is MAE.
-   */
+  /** Criterion for the per-node routing discretizer (always over partition labels). */
   virtual LearningCriterion routerCriterion() const = 0;
-
-  /** Inner discretizer hyperparameters (``minLeafSize``, ``maxDepth``, etc.). */
-  virtual const TreeBuildingParams &innerParams() const = 0;
 
   /**
    * Build the care set and router-training data for one internal node.
-   *
-   * @param samples  Column indices of training samples reaching this node.
-   * @param children Node indices of this node's child partitions.
-   * @returns Care samples, reward matrix, expanded training matrices, and
-   *          ``dummyChild``. Returns an empty care set when no sample's routing
-   *          choice affects reward (all children tie).
+   * Shared across classification and regression; delegates reward evaluation
+   * to ``childRewards`` and soft-label vs non-worst policy to ``careSetKeepsOnlyBest``.
    */
-  virtual NodeCareSet
-  buildCareSet(const std::vector<arma::uword> &samples,
-               const std::vector<size_t> &children) const = 0;
+  NodeCareSet buildCareSet(const std::vector<arma::uword> &samples,
+                           const std::vector<size_t> &children) const;
 
-  /**
-   * Refresh task-specific leaf state after routing changes.
-   *
-   * @param nodeSamples  For each node index, column indices of samples routed
-   *                     there under the current routing rules.
-   */
+  /** Refresh task-specific leaf state after routing changes. */
   virtual void recomputeLeafStats(
       const std::vector<std::vector<arma::uword>> &nodeSamples) = 0;
 
@@ -129,6 +83,34 @@ public:
       ShapeFunctionNode &node,
       const std::vector<arma::uword> &samples) = 0;
 
+protected:
+  /** Per-child rewards for one sample at an internal node. */
+  virtual void childRewards(const std::vector<size_t> &childLeaves,
+                            arma::uword col,
+                            std::vector<double> &reward) const = 0;
+
+  /**
+   * If true (single-output classification), keep only children tied with the
+   * best reward and split sample weight across them. Otherwise keep every
+   * child strictly better than the worst reward at full sample weight.
+   */
+  virtual bool careSetKeepsOnlyBest() const { return false; }
+
+  /** Index of the largest entry in ``counts`` (ties: first max wins). */
+  static size_t argMax(const std::vector<double> &counts);
+
+  /** Follow routing from ``startNode`` until a leaf is reached for ``col``. */
+  size_t walkToLeaf(size_t startNode, arma::uword col) const;
+
+  /** Shared transform + count/weight refresh for ``refreshNodeBinMetadata``. */
+  void initBinMetadata(ShapeFunctionNode &node,
+                       const std::vector<arma::uword> &samples,
+                       arma::Row<size_t> &binsOut,
+                       const char *caller) const;
+
+  ShapeGeneralizedTree &tree_;
+  const arma::fmat &X_;
+  const arma::Row<float> &w_;
 };
 
 } // namespace tao

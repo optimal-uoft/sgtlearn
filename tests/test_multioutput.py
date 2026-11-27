@@ -62,7 +62,7 @@ def test_classifier_public_attributes_unwrap_only_one_output() -> None:
     single = unwrap_classifier_public_attrs([encoder], [encoder.classes_], [2], 1)
     assert single[0] is encoder
     assert isinstance(single[1], np.ndarray)
-    assert single[2:] == (2, 2)
+    assert single[2] == 2
 
     multiple = unwrap_classifier_public_attrs(
         [encoder, encoder], [encoder.classes_, encoder.classes_], [2, 2], 2

@@ -150,10 +150,3 @@ Criterion::absoluteError(const std::vector<float> &ys,
   }
   return absoluteErrorPresorted(ysSorted, wsSorted);
 }
-
-double Criterion::gainAndHessian(const std::vector<float> &derivatives,
-                                 double lambda) {
-  const double g = static_cast<double>(derivatives[0]);
-  const double h = static_cast<double>(derivatives[1]);
-  return g * g / (h + lambda);
-}

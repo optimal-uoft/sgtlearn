@@ -170,7 +170,6 @@ std::shared_ptr<InnerDiscretizer<std::vector<double>>> makeFallback(
     disc->keepThreshold(bestCut);
     return disc;
   }
-  std::vector<std::vector<double>> unusedStats;
   size_t bestCut = 0;
   double bestImpurity = std::numeric_limits<double>::infinity();
   // Include finite-vs-missing alone; then test every legal finite threshold.
@@ -197,7 +196,7 @@ std::shared_ptr<InnerDiscretizer<std::vector<double>>> makeFallback(
       // ponytail: sorting three compact bins per trial costs O(n² log n);
       // use range-median queries if missing-data MAE profiling warrants it.
       auto objective = makeBranchAssignment(
-          criterion, labels, 2, unusedStats,
+          criterion, labels, 2,
           compactWeights, compactCounts, &maeYs, &maeWeights);
       if (!objective->partitionCountsMeetMinLeaf(minLeafSize))
         continue;

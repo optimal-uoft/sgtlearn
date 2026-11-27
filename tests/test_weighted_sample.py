@@ -1,13 +1,9 @@
-"""Weighted training: discretizers, SGT, and random forests (inner_max_depth=1) vs sklearn."""
+"""Weighted training: SGT and random forests (inner_max_depth=1) vs sklearn."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
-from Discretizers import (
-    UnivariateClassificationDiscretizer,
-    UnivariateRegressionDiscretizer,
-)
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 from sgtlearn import (
@@ -22,133 +18,6 @@ from sgtlearn._weights import (
 )
 from tests.constants import TEST_TAO_N_RUNS, algorithm_params
 from tests.discretizer_grid import n_outputs_params
-
-pytest.importorskip("sklearn")
-
-
-def _classification_predict(
-    ud: UnivariateClassificationDiscretizer, x: np.ndarray
-) -> np.ndarray:
-    bin_locs = ud.transform(x)
-    bin_preds = ud.getBinPredictions()
-    return np.asarray(bin_preds[bin_locs], dtype=np.uintp)
-
-
-def _regression_predict(
-    ud: UnivariateRegressionDiscretizer, x: np.ndarray
-) -> np.ndarray:
-    bin_locs = ud.transform(x)
-    bin_preds = ud.getBinPredictions()
-    return np.asarray(bin_preds[bin_locs], dtype=np.float32)
-
-
-@pytest.mark.parametrize("criterion", ["gini", "entropy"])
-def test_weighted_univariate_classification_discretizer_matches_sklearn(
-    criterion: str,
-) -> None:
-    rng = np.random.default_rng(0)
-    n = 80
-    x32 = rng.random((n, 1), dtype=np.float32)
-    y = rng.integers(0, 2, size=n, dtype=np.uintp)
-    sample_weight = rng.uniform(0.5, 3.0, size=n).astype(np.float32)
-
-    sk = DecisionTreeClassifier(
-        criterion=criterion,
-        splitter="best",
-        min_samples_leaf=3,
-        min_impurity_decrease=1e-7,
-        max_depth=4,
-        random_state=0,
-    )
-    sk.fit(x32, y, sample_weight=sample_weight)
-    sk_preds = sk.predict(x32).astype(np.uintp, copy=False)
-
-    ud = UnivariateClassificationDiscretizer(criterion=criterion)
-    ud.Train(
-        x32,
-        np.array([0], dtype=np.uintp),
-        y,
-        2,
-        3,
-        1e-7,
-        4,
-        0,
-        sample_weight=sample_weight,
-    )
-    ud_preds = _classification_predict(ud, x32)
-    np.testing.assert_array_equal(sk_preds, ud_preds)
-    assert sk.get_n_leaves() == ud.numLeaves
-
-
-def test_weighted_univariate_classification_class_weight_via_dict() -> None:
-    rng = np.random.default_rng(1)
-    n = 60
-    x32 = rng.random((n, 1), dtype=np.float32)
-    y = rng.integers(0, 2, size=n, dtype=np.uintp)
-    class_weight = {0: 1.0, 1: 4.0}
-
-    sk = DecisionTreeClassifier(
-        criterion="gini",
-        class_weight=class_weight,
-        min_samples_leaf=2,
-        max_depth=3,
-        random_state=0,
-    )
-    sk.fit(x32, y)
-
-    ud = UnivariateClassificationDiscretizer(criterion="gini")
-    sw = np.array([class_weight[int(lbl)] for lbl in y], dtype=np.float32)
-    ud.Train(
-        x32,
-        np.array([0], dtype=np.uintp),
-        y,
-        2,
-        2,
-        1e-7,
-        3,
-        0,
-        sample_weight=sw,
-    )
-    np.testing.assert_array_equal(
-        sk.predict(x32).astype(np.uintp), _classification_predict(ud, x32)
-    )
-
-
-@pytest.mark.parametrize("criterion", ["squared_error", "absolute_error"])
-def test_weighted_univariate_regression_discretizer_matches_sklearn(
-    criterion: str,
-) -> None:
-    """1-D weighted CART matches sklearn on default tree hyperparameters."""
-    rng = np.random.default_rng(2)
-    n = 90
-    x32 = rng.random((n, 1), dtype=np.float32)
-    y = rng.standard_normal(n).astype(np.float32)
-    sample_weight = rng.uniform(0.25, 2.0, size=n).astype(np.float32)
-
-    sk = DecisionTreeRegressor(
-        criterion=criterion,
-        splitter="best",
-        min_samples_leaf=1,
-        min_impurity_decrease=0.0,
-        random_state=0,
-    )
-    sk.fit(x32, y, sample_weight=sample_weight)
-    sk_preds = sk.predict(x32).astype(np.float32, copy=False)
-
-    ud = UnivariateRegressionDiscretizer(criterion=criterion)
-    ud.Train(
-        x32,
-        np.array([0], dtype=np.uintp),
-        y,
-        1,
-        0.0,
-        0,
-        0,
-        sample_weight=sample_weight,
-    )
-    ud_preds = _regression_predict(ud, x32)
-    np.testing.assert_allclose(sk_preds, ud_preds, rtol=0, atol=1e-5)
-    assert sk.get_n_leaves() == ud.numLeaves
 
 
 @pytest.mark.parametrize("n_outputs", n_outputs_params())

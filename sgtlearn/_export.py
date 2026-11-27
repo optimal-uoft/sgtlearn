@@ -13,17 +13,17 @@ from __future__ import annotations
 
 import html
 from collections.abc import Callable, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-from matplotlib.patches import FancyArrowPatch, Rectangle
-
-__all__ = ["export_graphviz", "export_text", "plot_tree"]
-
-import matplotlib.pyplot as plt
 from sklearn.utils.validation import check_is_fitted
 
 from sgtlearn.base import SGTClassifier, SGTRegressor
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
+__all__ = ["export_graphviz", "export_text", "plot_tree"]
 
 
 def export_text(
@@ -1044,6 +1044,8 @@ def _build_palette(cmap: Any, num_partitions: int):
             return [cmap[i] for i in range(num_partitions)]
         return [cmap[i % len(cmap)] for i in range(num_partitions)]
     if isinstance(cmap, str):
+        import matplotlib.pyplot as plt
+
         cm = plt.get_cmap(cmap)
     else:
         cm = cmap
@@ -1323,9 +1325,11 @@ def _compute_layout_leafcounter(
         return bool(max_depth is not None and depth >= max_depth)
 
     x_int: dict[int, float] = {}
+    drawn_depths: dict[int, int] = {}
     counter = [0]
 
     def visit(nid: int, depth: int) -> float:
+        drawn_depths[nid] = depth
         if is_draw_leaf(nid, depth):
             xv = float(counter[0])
             counter[0] += 1
@@ -1337,17 +1341,6 @@ def _compute_layout_leafcounter(
         return xv
 
     visit(root, 0)
-
-    drawn_depths: dict[int, int] = {}
-
-    def assign_depth(nid: int, depth: int) -> None:
-        drawn_depths[nid] = depth
-        if is_draw_leaf(nid, depth):
-            return
-        for cid in nodes_by_id[nid]["children"]:
-            assign_depth(cid, depth + 1)
-
-    assign_depth(root, 0)
     max_drawn_depth = max(drawn_depths.values()) if drawn_depths else 0
 
     n_leaves = counter[0]
@@ -1389,6 +1382,8 @@ def _draw_arrow_edge(
     omitted, the figure's first axes is used. The patch is added to the host
     axes via ``add_patch`` and returned for tracking.
     """
+
+    from matplotlib.patches import FancyArrowPatch
 
     if host_ax is None:
         host_ax = fig.axes[0]
@@ -1526,19 +1521,20 @@ def _draw_internal_panel_categorical(
             if active is None:
                 continue
             counts[_categorical_bin_index(active, bin_categories)] += 1
-    max_count = max(counts) if counts and max(counts) > 0 else 1
+    has_counts = any(counts)
+    max_count = max(counts) if has_counts else 1
 
     for b in range(n_bins):
         inset.axvspan(
             b,
             b + 1,
             ymin=0.0,
-            ymax=counts[b] / max_count if counts else 1.0,
+            ymax=counts[b] / max_count if has_counts else 1.0,
             color=palette[b2p[b]] if b < len(b2p) else palette[0],
             alpha=0.5,
             zorder=0,
         )
-        if counts and counts[b] > 0:
+        if counts[b] > 0:
             inset.bar(
                 b + 0.5,
                 counts[b] / max_count,
@@ -1837,6 +1833,38 @@ def _pair_switch_boundaries(
     return boundaries
 
 
+def _pair_axis_cell_counts(
+    X_rows: np.ndarray,
+    axis: dict,
+    cells: list[tuple[float, float, float | int | None]],
+) -> list[int]:
+    counts = [0] * len(cells)
+    is_cont = axis["kind"] == "continuous"
+    col0 = int(axis["columns"][0])
+    cols = axis["columns"]
+    for row in X_rows:
+        missing = _pair_axis_missing(row, axis)
+        val = row[col0] if (is_cont and not missing) else None
+        cat = (
+            _active_onehot_column(row, cols) if (not is_cont and not missing) else None
+        )
+        for idx, (lo, hi, cell_val) in enumerate(cells):
+            if missing:
+                if cell_val is None:
+                    counts[idx] += 1
+                    break
+            elif cell_val is None:
+                continue
+            elif is_cont:
+                if lo <= val <= hi:
+                    counts[idx] += 1
+                    break
+            elif cat == cell_val:
+                counts[idx] += 1
+                break
+    return counts
+
+
 def _draw_internal_panel_pair(
     host_ax,
     center: tuple[float, float],
@@ -1857,6 +1885,8 @@ def _draw_internal_panel_pair(
     Without ``X_rows`` both margins are drawn; with it, only axes whose rows
     contain missing values get one.
     """
+    from matplotlib.patches import Rectangle
+
     cx, cy = center
     w, h = size
     left, bottom = cx - w / 2, cy - h / 2
@@ -1887,42 +1917,6 @@ def _draw_internal_panel_pair(
     )
     x_cells = _pair_axis_cells(node, 0, x_axis, x_values, include_missing=x_has_missing)
     y_cells = _pair_axis_cells(node, 1, y_axis, y_values, include_missing=y_has_missing)
-    counts: dict[tuple[int, int], int] = {}
-    if X_rows is not None:
-        for row in X_rows:
-            for xi, (x0, x1, xv) in enumerate(x_cells):
-                if _pair_axis_missing(row, x_axis) != (xv is None):
-                    continue
-                if (
-                    xv is not None
-                    and x_axis["kind"] == "continuous"
-                    and not (x0 <= row[int(x_axis["columns"][0])] <= x1)
-                ):
-                    continue
-                if (
-                    xv is not None
-                    and x_axis["kind"] == "categorical"
-                    and _active_onehot_column(row, x_axis["columns"]) != xv
-                ):
-                    continue
-                for yi, (y0, y1, yv) in enumerate(y_cells):
-                    if _pair_axis_missing(row, y_axis) != (yv is None):
-                        continue
-                    if (
-                        yv is not None
-                        and y_axis["kind"] == "continuous"
-                        and not (y0 <= row[int(y_axis["columns"][0])] <= y1)
-                    ):
-                        continue
-                    if (
-                        yv is not None
-                        and y_axis["kind"] == "categorical"
-                        and _active_onehot_column(row, y_axis["columns"]) != yv
-                    ):
-                        continue
-                    counts[(xi, yi)] = counts.get((xi, yi), 0) + 1
-                    break
-                break
     partitions = np.empty((len(x_cells), len(y_cells)), dtype=np.intp)
     for xi, (x0, x1, xv) in enumerate(x_cells):
         for yi, (y0, y1, yv) in enumerate(y_cells):
@@ -1945,6 +1939,7 @@ def _draw_internal_panel_pair(
     inset.set_ylim(y_cells[0][0], y_cells[-1][1])
     histogram_axes = []
     if with_histograms:
+        assert X_rows is not None
         x_hist = host_ax.inset_axes(
             [left, bottom + h * 0.82, heatmap_width, h * 0.18],
             transform=host_ax.transAxes,
@@ -1955,14 +1950,8 @@ def _draw_internal_panel_pair(
         )
         x_hist.set_label("pair-x-histogram")
         y_hist.set_label("pair-y-histogram")
-        x_counts = [
-            sum(counts.get((xi, yi), 0) for yi in range(len(y_cells)))
-            for xi in range(len(x_cells))
-        ]
-        y_counts = [
-            sum(counts.get((xi, yi), 0) for xi in range(len(x_cells)))
-            for yi in range(len(y_cells))
-        ]
+        x_counts = _pair_axis_cell_counts(X_rows, x_axis, x_cells)
+        y_counts = _pair_axis_cell_counts(X_rows, y_axis, y_cells)
         if x_axis["kind"] == "continuous":
             assert x_values is not None
             finite_cells = [cell for cell in x_cells if cell[2] is not None]
@@ -2109,7 +2098,7 @@ def plot_tree(
     proportion: bool = False,
     precision: int = 2,
     cmap: Any = _DEFAULT_PALETTE_COLORS,
-    ax: plt.Axes | None = None,
+    ax: Axes | None = None,
     fontsize: int | None = None,
     node_aspect_ratio: float = 2.5,
     n_hist_bins: int = 20,
@@ -2180,6 +2169,8 @@ def plot_tree(
     reach: dict[int, Any] = _route_samples(tree, X_arr) if X_arr is not None else {}
 
     if ax is None:
+        import matplotlib.pyplot as plt
+
         n_leaves_est = sum(1 for n in tree["nodes"] if n["is_leaf"]) or 1
         max_depth_seen = max(n["depth"] for n in tree["nodes"])
         fig_w = max(n_leaves_est * 1.5, 8.0)

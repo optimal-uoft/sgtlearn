@@ -146,11 +146,6 @@ public:
     return classesPerOutput_.empty() ? numClasses_ : classesPerOutput_;
   }
 
-  /** Number of outputs the tree was fitted on (>= 1). */
-  size_t nOutputs() const { return nOutputs_; }
-
-  bool hasPairNodes() const;
-
   /** Fit-resolved per-output class counts (empty before ``fit``). */
   const std::vector<size_t> &classesPerOutput() const {
     return classesPerOutput_;
@@ -161,18 +156,6 @@ private:
   std::vector<size_t> numClasses_;
   /** Resolved per-output class counts, set at ``fit`` (length ``nOutputs_``). */
   std::vector<size_t> classesPerOutput_;
-  /** Number of outputs, set at ``fit``. */
-  size_t nOutputs_ = 1;
-  CoordinateDescentParams cdParams_;
-  uint64_t random_state_;
-  std::mt19937_64 rng_;
-  FeatureBaggingPickFn featureBagging_;
-  size_t pairwiseCandidates_ = 0;
-  double pairwisePenalty_ = 0.0;
-  std::vector<FeatureInfo> features_;
-
-  /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
-  OuterTreeBuilder outerTreeBuilder_;
 
   /** Resolve ``classesPerOutput_`` from config and ``y``. */
   void resolveOutputLayout(size_t nOutputs);
@@ -187,6 +170,4 @@ private:
   std::vector<std::vector<double>>
   fillLeafHistogram(ShapeFunctionNode &node,
                     const arma::Mat<size_t> &y) const;
-
-  arma::Row<float> fitSampleWeights_;
 };

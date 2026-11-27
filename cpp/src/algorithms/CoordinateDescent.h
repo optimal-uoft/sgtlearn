@@ -7,7 +7,7 @@
 
 #include <cstddef>
 #include <functional>
-#include "BranchAssignmentObjectives/BranchAssignmentVariants.h"
+#include "BranchAssignmentObjectives/BranchAssignment.h"
 #include "algorithms/missing_values.h"
 #include <algorithm>
 #include <armadillo>

@@ -56,7 +56,6 @@ bool CategoricalSplitter<StatsT, PredictT>::findBestSplit(
   size_t bestFeature = 0;
   std::vector<size_t> bestActive;
   std::vector<size_t> bestInactive;
-  std::vector<size_t> bestNextAvailable;
 
   for (size_t feat : node.availableCategoryFeatures) {
     std::vector<size_t> active;
@@ -82,12 +81,6 @@ bool CategoricalSplitter<StatsT, PredictT>::findBestSplit(
       bestFeature = feat;
       bestActive = std::move(active);
       bestInactive = std::move(inactive);
-      bestNextAvailable.clear();
-      bestNextAvailable.reserve(node.availableCategoryFeatures.size() - 1);
-      for (size_t f : node.availableCategoryFeatures) {
-        if (f != feat)
-          bestNextAvailable.push_back(f);
-      }
       found = true;
     }
   }

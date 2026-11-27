@@ -45,26 +45,23 @@ TaoModel = TypeVar("TaoModel", bound=BaseShapeCART | RandomSGForest)
 def _tao_targets(model: TaoModel) -> list[SGTClassifier | SGTRegressor]:
     """Extract base tree estimators to refine (one tree or ``estimators_``)."""
     if isinstance(model, RandomSGForest):
-        check_is_fitted(model, attributes=("estimators_",))
-        if not model.estimators_ or getattr(model, "n_features_in_", None) is None:
+        check_is_fitted(model, attributes=("estimators_", "n_features_in_"))
+        if not model.estimators_:
             raise NotFittedError(
                 f"This {type(model).__name__} instance is not fitted yet."
             )
         return list(model.estimators_)
 
-    if isinstance(model, (SGTClassifier, SGTRegressor)):
-        if isinstance(model, SGTClassifier):
-            check_is_fitted(model, attributes=("_est", "_le"))
-        else:
-            check_is_fitted(model, attributes=("_est",))
-        if model._est is None or getattr(model, "n_features_in_", None) is None:
-            raise NotFittedError(
-                f"This {type(model).__name__} instance is not fitted yet."
-            )
+    if isinstance(model, SGTClassifier):
+        check_is_fitted(model, attributes=("_est", "_le", "n_features_in_"))
+        return [model]
+
+    if isinstance(model, SGTRegressor):
+        check_is_fitted(model, attributes=("_est", "n_features_in_"))
         return [model]
 
     raise TypeError(
-        "tao.TAO_refine expects BaseShapeCART or RandomSGForest; "
+        "tao.TAO_refine expects SGTClassifier, SGTRegressor, or RandomSGForest; "
         f"got {type(model).__name__}"
     )
 
@@ -76,9 +73,7 @@ def _validate_X_y(
     *,
     check_input: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
-    n_features = getattr(model, "n_features_in_", None)
-    if n_features is None:
-        raise NotFittedError(f"This {type(model).__name__} instance is not fitted yet.")
+    n_features = model.n_features_in_
     if issparse(X):
         raise ValueError("Sparse X is not supported; pass a dense array.")
     if check_input:
@@ -118,11 +113,10 @@ def _validate_X_y(
     if y.shape[0] != X.shape[0]:
         raise ValueError("X and y must have the same number of samples.")
     n_outputs = 1 if y.ndim == 1 else y.shape[1]
-    n_outputs_fit = int(getattr(model, "n_outputs_", 1) or 1)
-    if n_outputs != n_outputs_fit:
+    if n_outputs != model.n_outputs_:
         raise ValueError(
             f"y has {n_outputs} outputs, but {type(model).__name__} was fitted "
-            f"with {n_outputs_fit} outputs."
+            f"with {model.n_outputs_} outputs."
         )
     return X, y
 
@@ -132,52 +126,33 @@ def _prepare_tao_arrays(
     X: np.ndarray,
     y: np.ndarray,
     sample_weight: np.ndarray | None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    *,
+    need_raw_y: bool = True,
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
     """Build ``(X32, y_native, sample_weights)`` shared by all trees in ``model``."""
     X32 = _as_native_X(X)
-    if X32.ndim != 2:
-        raise ValueError(f"X must be 2D; got shape {X32.shape}")
-    if np.shape(y)[:1] != X32.shape[:1]:
-        raise ValueError("X and y must have the same number of samples.")
-    not_fitted = NotFittedError(
-        f"This {type(model).__name__} instance is not fitted yet."
-    )
-    if getattr(model, "n_features_in_", None) is None:
-        raise not_fitted
+    n_samples = X32.shape[0]
 
     if isinstance(model, (SGTClassifier, RandomSGForestClassifier)):
-        classes_ = getattr(model, "classes_", None)
-        class_weight = model.class_weight
-        if classes_ is None:
-            raise not_fitted
-        n_outputs = int(getattr(model, "n_outputs_", 1) or 1)
-        y_arr = np.asarray(y)
-
-        if isinstance(model, SGTClassifier):
-            encoders = getattr(model, "_le", None)
-        else:
-            encoders = getattr(model, "_label_encoders_", None)
-            if encoders is None:
-                encoders = getattr(model, "_label_encoder_", None)
-        if encoders is None:
-            raise not_fitted
-
-        enc_list = label_encoders_as_list(encoders, n_outputs)
-        y_enc, _, _, _ = encode_classification_targets(y_arr, encoders=enc_list)
+        encoders = (
+            model._le if isinstance(model, SGTClassifier) else model._label_encoders_
+        )
+        enc_list = label_encoders_as_list(encoders, model.n_outputs_)
+        y_enc, _, _, _ = encode_classification_targets(np.asarray(y), encoders=enc_list)
         y_out = native_y_array(y_enc, dtype=np.uint64)
 
-        if class_weight is not None:
+        if model.class_weight is not None:
             sw = effective_sample_weight_classification(
-                sample_weight, y_enc, class_weight, classes_
+                sample_weight, y_enc, model.class_weight, model.classes_
             )
         else:
-            sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
-            sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
+            sw_opt = normalize_sample_weight(sample_weight, n_samples)
+            sw = sw_opt if sw_opt is not None else np.ones(n_samples, dtype=np.float32)
         return X32, y_out, sw
 
-    y_reg = _as_native_y(y)
-    sw_opt = normalize_sample_weight(sample_weight, X.shape[0])
-    sw = sw_opt if sw_opt is not None else np.ones(X.shape[0], dtype=np.float32)
+    sw_opt = normalize_sample_weight(sample_weight, n_samples)
+    sw = sw_opt if sw_opt is not None else np.ones(n_samples, dtype=np.float32)
+    y_reg = _as_native_y(y) if need_raw_y else None
     return X32, y_reg, sw
 
 
@@ -263,14 +238,25 @@ def TAO_refine(
     tao_pair_scale = _validate_tao_pair_scale(tao_pair_scale)
     targets = _tao_targets(model)
     X, y = _validate_X_y(model, X, y, check_input=check_input)
-    X32, y_native, sw = _prepare_tao_arrays(model, X, y, sample_weight)
+    all_scaled_reg = all(
+        isinstance(t, SGTRegressor) and hasattr(t, "_target_scaler") for t in targets
+    )
+    X32, y_native, sw = _prepare_tao_arrays(
+        model, X, y, sample_weight, need_raw_y=not all_scaled_reg
+    )
+    y2_reg = (
+        as_output_matrix(np.asarray(y))[0]
+        if any(
+            isinstance(t, SGTRegressor) and hasattr(t, "_target_scaler")
+            for t in targets
+        )
+        else None
+    )
 
     def refine_tree(tree: SGTClassifier | SGTRegressor) -> None:
         # Allocate scaled targets only while this tree is being refined.
         tree_y = (
-            _as_native_y(
-                tree._target_scaler.transform(as_output_matrix(np.asarray(y))[0])
-            )
+            _as_native_y(tree._target_scaler.transform(y2_reg))
             if isinstance(tree, SGTRegressor) and hasattr(tree, "_target_scaler")
             else y_native
         )

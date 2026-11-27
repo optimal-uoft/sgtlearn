@@ -1,26 +1,49 @@
 /**
  * @file LeafAggregationBranchAssignment.cpp
- * @brief Template method definitions for aggregated branch-assignment objectives.
+ * @brief Aggregated branch-assignment objective for entropy, Gini, and MSE.
  */
 
-#include <memory>
-#include <utility>
-#include <cstddef>
 #include "LeafAggregationBranchAssignment.h"
 
+#include "Criterion.h"
+
+#include <cstddef>
 #include <stdexcept>
 
-namespace leaf_aggregate {
+namespace {
 
-template <typename T>
-LeafAggregationBranchAssignment<T>::LeafAggregationBranchAssignment(
-    std::vector<size_t> &assignments, size_t numPartitions,
-    std::vector<std::vector<T>> &stats, std::vector<double> &leafWeights,
-    const std::vector<size_t> &leafSampleCounts, size_t statsDim,
-    std::unique_ptr<ILeafAggregateProcessor<T>> processor)
+inline void accumulateStat(std::vector<double> &dst,
+                           const std::vector<double> &src) {
+  if (dst.size() < src.size())
+    dst.resize(src.size(), 0.0);
+  for (size_t i = 0; i < src.size(); ++i)
+    dst[i] += src[i];
+}
+
+inline void subtractStat(std::vector<double> &dst,
+                         const std::vector<double> &src) {
+  if (dst.size() < src.size())
+    dst.resize(src.size(), 0.0);
+  for (size_t i = 0; i < src.size(); ++i)
+    dst[i] -= src[i];
+}
+
+} // namespace
+
+LeafAggregationBranchAssignment::LeafAggregationBranchAssignment(
+    LearningCriterion criterion, std::vector<size_t> &assignments,
+    size_t numPartitions, std::vector<std::vector<std::vector<double>>> &stats,
+    std::vector<double> &leafWeights,
+    const std::vector<size_t> &leafSampleCounts, size_t statsDim)
     : BranchAssignment(assignments, numPartitions, leafSampleCounts),
-      stats(stats), leafWeights(leafWeights), statsDim(statsDim),
-      processor_(std::move(processor)) {
+      criterion_(criterion), stats_(stats), leafWeights_(leafWeights),
+      statsDim_(statsDim) {
+
+  if (criterion_ != LearningCriterion::Entropy &&
+      criterion_ != LearningCriterion::Gini &&
+      criterion_ != LearningCriterion::SquaredError)
+    throw std::invalid_argument(
+        "LeafAggregationBranchAssignment: requires Entropy, Gini, or SquaredError");
 
   if (assignments.size() != stats.size() || stats.size() != leafWeights.size())
     throw std::runtime_error("bin statistics must all be the same length");
@@ -33,79 +56,76 @@ LeafAggregationBranchAssignment<T>::LeafAggregationBranchAssignment(
       throw std::runtime_error("assignments[b] must be a valid partition index");
   }
 
-  partitionStats =
-      std::vector(numPartitions, std::vector<T>(statsDim, T{}));
-
-  partitionWeight = std::vector<double>(numPartitions, 0.0);
-  partitionLoss = std::vector<double>(numPartitions, 0.0);
+  partitionStats_ = std::vector(
+      numPartitions, std::vector<std::vector<double>>(statsDim_));
+  partitionWeight_.assign(numPartitions, 0.0);
+  partitionLoss_.assign(numPartitions, 0.0);
 
   const size_t numLeaves = assignments.size();
-  for (size_t b = 0; b < numLeaves; b++) {
+  for (size_t b = 0; b < numLeaves; ++b) {
     const size_t partition = assignments[b];
-    partitionWeight[partition] += leafWeights[b];
+    partitionWeight_[partition] += leafWeights_[b];
     partitionSampleCount_[partition] += leafSampleCounts_[b];
-    for (size_t d = 0; d < statsDim; d++)
-      detail::accumulateStat(partitionStats[partition][d], stats[b][d]);
+    for (size_t d = 0; d < statsDim_; ++d)
+      accumulateStat(partitionStats_[partition][d], stats_[b][d]);
   }
 
-  for (size_t partition = 0; partition < numPartitions; partition++) {
-    sumNumberOfSamples += partitionWeight[partition];
-    partitionLoss[partition] = computePartitionLoss(partition);
-    weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
+  for (size_t partition = 0; partition < numPartitions; ++partition) {
+    sumNumberOfSamples_ += partitionWeight_[partition];
+    partitionLoss_[partition] = computePartitionLoss(partition);
+    weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
   }
 }
 
-template <typename T>
-double LeafAggregationBranchAssignment<T>::objective() {
-  if (!allLeavesAssigned)
-    throw std::runtime_error(
-        "Cannot compute objective if any leaves have been unassigned");
-
-  return sumNumberOfSamples > 0.0 ? weightedSumLoss / sumNumberOfSamples : 0.0;
+double LeafAggregationBranchAssignment::objective() {
+  return sumNumberOfSamples_ > 0.0 ? weightedSumLoss_ / sumNumberOfSamples_
+                                   : 0.0;
 }
 
-template <typename T>
-void LeafAggregationBranchAssignment<T>::addLeaf(size_t leaf, size_t partition) {
-  weightedSumLoss -= partitionWeight[partition] * partitionLoss[partition];
+void LeafAggregationBranchAssignment::addLeaf(size_t leaf, size_t partition) {
+  weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
 
-  for (size_t d = 0; d < statsDim; d++)
-    detail::accumulateStat(partitionStats[partition][d], stats[leaf][d]);
-  partitionWeight[partition] += leafWeights[leaf];
+  for (size_t d = 0; d < statsDim_; ++d)
+    accumulateStat(partitionStats_[partition][d], stats_[leaf][d]);
+  partitionWeight_[partition] += leafWeights_[leaf];
   partitionSampleCount_[partition] += leafSampleCounts_[leaf];
-  sumNumberOfSamples += leafWeights[leaf];
+  sumNumberOfSamples_ += leafWeights_[leaf];
 
-  partitionLoss[partition] = computePartitionLoss(partition);
-  weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
+  partitionLoss_[partition] = computePartitionLoss(partition);
+  weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
 
   assignments[leaf] = partition;
 }
 
-template <typename T>
-void LeafAggregationBranchAssignment<T>::removeLeaf(size_t leaf) {
+void LeafAggregationBranchAssignment::removeLeaf(size_t leaf) {
   const size_t partition = assignments[leaf];
   if (partition >= numPartitions)
     throw std::runtime_error(
         "removeLeaf: leaf is not assigned to a valid partition");
 
-  weightedSumLoss -= partitionWeight[partition] * partitionLoss[partition];
-  sumNumberOfSamples -= leafWeights[leaf];
-  partitionWeight[partition] -= leafWeights[leaf];
+  weightedSumLoss_ -= partitionWeight_[partition] * partitionLoss_[partition];
+  sumNumberOfSamples_ -= leafWeights_[leaf];
+  partitionWeight_[partition] -= leafWeights_[leaf];
   partitionSampleCount_[partition] -= leafSampleCounts_[leaf];
-  for (size_t d = 0; d < statsDim; d++)
-    detail::subtractStat(partitionStats[partition][d], stats[leaf][d]);
+  for (size_t d = 0; d < statsDim_; ++d)
+    subtractStat(partitionStats_[partition][d], stats_[leaf][d]);
 
-  partitionLoss[partition] = computePartitionLoss(partition);
-  weightedSumLoss += partitionWeight[partition] * partitionLoss[partition];
+  partitionLoss_[partition] = computePartitionLoss(partition);
+  weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
 
   assignments[leaf] = numPartitions;
 }
 
-template <typename T>
-double LeafAggregationBranchAssignment<T>::computePartitionLoss(size_t i) {
-  return processor_->compute(partitionStats[i], partitionWeight[i]);
+double LeafAggregationBranchAssignment::computePartitionLoss(size_t i) const {
+  switch (criterion_) {
+  case LearningCriterion::Entropy:
+    return Criterion::entropy(partitionStats_[i]);
+  case LearningCriterion::Gini:
+    return Criterion::gini(partitionStats_[i]);
+  case LearningCriterion::SquaredError:
+    return Criterion::squaredError(partitionStats_[i], partitionWeight_[i]);
+  default:
+    throw std::invalid_argument(
+        "LeafAggregationBranchAssignment: unsupported learning criterion");
+  }
 }
-
-template class LeafAggregationBranchAssignment<float>;
-template class LeafAggregationBranchAssignment<std::vector<double>>;
-
-} // namespace leaf_aggregate

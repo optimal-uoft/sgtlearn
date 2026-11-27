@@ -2,11 +2,7 @@
 
 /**
  * @file AbsoluteErrorBranchAssignment.h
- * @brief Default MAE branch assignment: sorted bins + merge/filter partitions.
- *
- * Production AbsoluteError backend. Deprecated alternatives:
- * ``AbsoluteErrorBranchAssignmentBst``, ``AbsoluteErrorBranchAssignmentSort``.
- * Hot-swap via ``SGTLEARN_MAE_BACKEND`` (default ``merge``).
+ * @brief MAE branch assignment: sorted bins + merge/filter partitions.
  */
 
 #include <cstddef>
@@ -54,8 +50,3 @@ private:
   void filterLeafFromPartition(size_t leaf, size_t partition);
   double computePartitionMae(size_t partition) const;
 };
-
-/** @deprecated Prefer ``AbsoluteErrorBranchAssignment`` (merge is default). */
-using AbsoluteErrorBranchAssignmentMerge [[deprecated(
-    "Use AbsoluteErrorBranchAssignment; merge is the default backend")]] =
-    AbsoluteErrorBranchAssignment;

@@ -78,8 +78,9 @@ void UnivariateClassificationDiscretizer<Tsplitter>::Train(
   for (arma::uword i = 0; i < n_finite; ++i)
     for (size_t o = 0; o < nOutputs; ++o)
       sortedY(o, i) = y(o, finiteOrder(i));
-  arma::fmat XSorted = X.cols(finiteOrder);
-  arma::frowvec sortedX = XSorted.row(feature);
+  arma::frowvec sortedX(n_finite);
+  for (arma::uword i = 0; i < n_finite; ++i)
+    sortedX(i) = X(feature, finiteOrder(i));
   arma::frowvec sortedWeights =
       sortedSampleWeights(finiteOrder, sampleWeights);
 

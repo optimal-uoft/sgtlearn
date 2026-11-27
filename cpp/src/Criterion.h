@@ -47,6 +47,4 @@ AbsoluteErrorStats absoluteError(const std::vector<float> &ys,
  */
 AbsoluteErrorStats absoluteErrorPresorted(const std::vector<float> &ys,
                                           const std::vector<float> &weights);
-
-double gainAndHessian(const std::vector<float> &derivatives, double lambda);
 } // namespace Criterion

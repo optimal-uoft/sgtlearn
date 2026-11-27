@@ -61,7 +61,6 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
   std::vector<std::vector<float>> maeLeafWsStorage;
   std::vector<std::vector<std::vector<float>>> *maeLeafYs = nullptr;
   std::vector<std::vector<float>> *maeLeafWs = nullptr;
-  std::vector<std::vector<double>> dummyLeafStats;
   if (criterion == LearningCriterion::AbsoluteError) {
     if (!ysub || !wsub)
       throw std::invalid_argument(
@@ -87,15 +86,14 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
     }
     maeLeafYs = &maeLeafYsStorage;
     maeLeafWs = &maeLeafWsStorage;
-    dummyLeafStats.resize(numBins);
   }
 
   ShapeBranchAssignmentSearch search;
   search.byArity.resize(std::min(numBins, treeNumPartitions) + 1);
   const auto makeObjective = [&](std::vector<size_t> &labels, size_t k) {
     if (criterion == LearningCriterion::AbsoluteError)
-      return makeBranchAssignment(criterion, labels, k, dummyLeafStats, weights,
-                                  sizes, maeLeafYs, maeLeafWs);
+      return makeBranchAssignment(criterion, labels, k, weights, sizes,
+                                  maeLeafYs, maeLeafWs);
     return makeBranchAssignment(criterion, labels, k, stats, weights, sizes,
                                 classesPerOutput, nOutputs);
   };
@@ -235,8 +233,8 @@ ShapeBranchAssignmentSearch searchShapeBranchAssignmentFromDiscretizer(
       label = compact[label];
     auto objective = makeObjective(result.assignments, result.chosenK);
     result.partitionSampleCounts = objective->partitionSampleCounts();
-    if (const auto *aggregate = dynamic_cast<const
-            leaf_aggregate::LeafAggregationBranchAssignment<std::vector<double>> *>(
+    if (const auto *aggregate =
+            dynamic_cast<const LeafAggregationBranchAssignment *>(
                 objective.get())) {
       if (criterion == LearningCriterion::SquaredError)
         result.partitionAggStats = aggregate->aggregatedPartitionStats();

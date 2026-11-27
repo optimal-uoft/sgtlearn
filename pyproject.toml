@@ -20,13 +20,13 @@ dependencies = [
   "scikit-learn>=1.9",
   "joblib>=1.2",
   "matplotlib>=3.10.9",
-  "seaborn>=0.13.2",
 ]
 
 [project.optional-dependencies]
 tune = ["optuna>=4"]
 dev = [
     "pytest>=7",
+    "pandas",
     "pybind11-stubgen",
     "ruff",
     "black",
@@ -76,7 +76,5 @@ module = [
   "numpy.*",
   "matplotlib",
   "matplotlib.*",
-  "seaborn",
-  "seaborn.*",
 ]
 ignore_missing_imports = true

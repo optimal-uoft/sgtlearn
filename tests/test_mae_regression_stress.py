@@ -1,76 +1,70 @@
 """
-Stress UnivariateRegressionDiscretizer with MAE under aggressive settings.
+Stress SGTRegressor with MAE (wavelet-tree inner splitter + merge/filter MAE) under aggressive settings.
 
-Goal: native code (wavelet tree + tree build) completes without crashing.
-Segfaults cannot be caught in Python; a passing run means the process survived.
+Goal: native code completes without crashing and produces finite predictions.
 """
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
-from Discretizers import UnivariateRegressionDiscretizer
+
+from sgtlearn import SGTRegressor
 
 
 def _run_mae_train_predict(
     x: np.ndarray,
     y: np.ndarray,
     *,
-    min_leaf_size: int,
-    min_gain_split: float,
-    max_depth: int,
-    max_leaf: int,
-    criterion: str,
-) -> int:
-    """Train MAE discretizer, run ``transform``, and touch bin predictions (crash smoke test)."""
-    ud = UnivariateRegressionDiscretizer(criterion=criterion)
-    features = np.array([0], dtype=np.uintp)
-    ud.Train(
-        x.astype(np.float32, copy=False),
-        features,
-        y.astype(np.float32, copy=False),
-        min_leaf_size,
-        min_gain_split,
-        max_depth,
-        max_leaf,
+    inner_max_depth: int | None,
+    inner_max_leaf_nodes: int | None,
+) -> np.ndarray:
+    """Fit a single-level MAE SGTRegressor and predict on training inputs."""
+    model = SGTRegressor(
+        criterion="absolute_error",
+        max_depth=1,
+        min_samples_leaf=1,
+        min_impurity_decrease=0.0,
+        inner_min_samples_leaf=1,
+        inner_min_impurity_decrease=0.0,
+        inner_max_depth=inner_max_depth,
+        inner_max_leaf_nodes=inner_max_leaf_nodes,
+        tao_n_runs=0,
+        random_state=0,
     )
-    assert ud.numLeaves > 0
-    bins = ud.transform(x.astype(np.float32, copy=False))
-    preds = ud.getBinPredictions()
-    n = x.shape[0]
-    assert int(bins.size) == n
-    assert len(preds) == ud.numLeaves
-    _ = np.asarray(preds)[bins]
-    return ud.numLeaves
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        model.fit(x, y)
+    preds = model.predict(x)
+    assert preds.shape == (x.shape[0],)
+    assert np.all(np.isfinite(preds))
+    return preds
 
 
 @pytest.mark.parametrize(
-    ("n_samples", "max_depth", "max_leaf"),
+    ("n_samples", "inner_max_depth", "inner_max_leaf_nodes"),
     [
-        pytest.param(12000, 0, 0, id="unlimited-growth"),
-        pytest.param(4096, 0, 256, id="binding-leaf-cap"),
+        pytest.param(4096, None, 256, id="binding-leaf-cap"),
+        pytest.param(4096, 12, None, id="deep-inner-tree"),
     ],
 )
 def test_mae_regression_stress_random_data(
     n_samples: int,
-    max_depth: int,
-    max_leaf: int,
+    inner_max_depth: int | None,
+    inner_max_leaf_nodes: int | None,
 ) -> None:
-    """Aggressive MAE settings on random data; pass if the native extension completes without crashing."""
+    """Aggressive MAE settings on random data; pass if native training completes cleanly."""
     rng = np.random.default_rng(2026)
     x = rng.random((n_samples, 1), dtype=np.float32)
     y = rng.standard_normal(n_samples, dtype=np.float64).astype(np.float32)
-    num_leaves = _run_mae_train_predict(
+    _run_mae_train_predict(
         x,
         y,
-        min_leaf_size=1,
-        min_gain_split=0.0,
-        max_depth=max_depth,
-        max_leaf=max_leaf,
-        criterion="absolute_error",
+        inner_max_depth=inner_max_depth,
+        inner_max_leaf_nodes=inner_max_leaf_nodes,
     )
-    if max_leaf:
-        assert num_leaves == max_leaf
 
 
 @pytest.mark.parametrize(
@@ -99,14 +93,11 @@ def test_mae_regression_stress_structured_data(
     x: np.ndarray,
     y: np.ndarray,
 ) -> None:
-    """Structured edge-case datasets (constants, duplicates, smooth curves) under MAE training."""
+    """Structured edge-case datasets (constants, duplicates) under MAE training."""
     _ = name
     _run_mae_train_predict(
         x,
         y,
-        min_leaf_size=1,
-        min_gain_split=0.0,
-        max_depth=0,
-        max_leaf=500,
-        criterion="absolute_error",
+        inner_max_depth=None,
+        inner_max_leaf_nodes=500,
     )

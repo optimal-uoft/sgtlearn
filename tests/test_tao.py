@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Callable, Mapping
+from threading import Lock
 from typing import Any
 
 import numpy as np
@@ -13,8 +15,6 @@ from sklearn.exceptions import NotFittedError
 from sgtlearn import SGTClassifier, SGTRegressor, tao
 from sgtlearn.ensemble import RandomSGForestClassifier, RandomSGForestRegressor
 from tests.constants import TEST_TAO_N_RUNS, algorithm_params
-
-pytest.importorskip("sklearn")
 
 
 def _fit_classifier(
@@ -602,3 +602,38 @@ def test_tao_lambda0_never_raises_regression_training_loss(
 
     # Native targets are float32, so allow float32-level slack.
     assert loss() <= before * (1 + 1e-6)
+
+
+@pytest.mark.parametrize("n_jobs", [1, 2])
+def test_target_copies_are_bounded_by_active_workers(monkeypatch, n_jobs):
+    X = np.arange(480.0).reshape(240, 2)
+    y = np.column_stack([1000 + X[:, 0], -200 + 3 * X[:, 0]])
+    forest = RandomSGForestRegressor(n_estimators=8, max_depth=1, random_state=42).fit(
+        X, y
+    )
+    real_convert = tao._as_native_y
+    target_refs = []
+    peak_live = 0
+    refinements = 0
+    lock = Lock()
+
+    def track_target_array(values):
+        nonlocal peak_live
+        array = real_convert(values)
+        with lock:
+            target_refs.append(weakref.ref(array))
+            peak_live = max(peak_live, sum(ref() is not None for ref in target_refs))
+        return array
+
+    def refine(*args, **kwargs):
+        nonlocal refinements
+        with lock:
+            refinements += 1
+
+    monkeypatch.setattr(tao, "_as_native_y", track_target_array)
+    monkeypatch.setattr(tao, "TreeAlternatingOptimization", refine)
+    tao.TAO_refine(forest, X, y, n_jobs=n_jobs)
+
+    assert refinements == len(forest.estimators_)
+    # One shared raw-target array, plus one transformed copy per active worker.
+    assert peak_live <= 1 + n_jobs

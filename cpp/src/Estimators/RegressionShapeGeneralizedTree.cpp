@@ -31,11 +31,6 @@
 
 namespace {
 
-double meanAbsoluteDeviationFromMedian(const std::vector<float> &ys,
-                                       const std::vector<float> &ws) {
-  return Criterion::absoluteError(ys, ws).mae;
-}
-
 double weightedMeanFromAggregates(double sumWY, double sumW) {
   return sumW > 0.0 ? sumWY / sumW : 0.0;
 }
@@ -134,30 +129,15 @@ RegressionShapeGeneralizedTree::RegressionShapeGeneralizedTree(
     CoordinateDescentParams cdParams, uint64_t random_state,
     FeatureBaggingPickFn featureBagging, size_t pairwiseCandidates,
     double pairwisePenalty)
-    : ShapeGeneralizedTree(criterion, numPartitions, outerParams, innerParams),
-      cdParams_(cdParams),
-      random_state_(random_state), rng_(),
-      featureBagging_(featureBagging
-                          ? std::move(featureBagging)
-                          : FeatureBaggingPickFn(pickAllFeatureIndices)),
-      pairwiseCandidates_(pairwiseCandidates), pairwisePenalty_(pairwisePenalty),
-      outerTreeBuilder_(outerParams_) {
+    : ShapeGeneralizedTree(criterion, numPartitions, std::move(outerParams),
+                           std::move(innerParams), cdParams, random_state,
+                           std::move(featureBagging), pairwiseCandidates,
+                           pairwisePenalty) {
   if (criterion != LearningCriterion::SquaredError &&
       criterion != LearningCriterion::AbsoluteError)
     throw std::invalid_argument(
         "RegressionShapeGeneralizedTree: criterion must be SquaredError or "
         "AbsoluteError");
-  if (numPartitions < 2)
-    throw std::invalid_argument(
-        "RegressionShapeGeneralizedTree: numPartitions must be >= 2");
-  if (!std::isfinite(pairwisePenalty_) || pairwisePenalty_ < 0.0)
-    throw std::invalid_argument("pairwise_penalty must be finite and non-negative");
-}
-
-bool RegressionShapeGeneralizedTree::hasPairNodes() const {
-  return std::any_of(nodes_.begin(), nodes_.end(), [](const ShapeFunctionNode &node) {
-    return !node.isLeaf && node.logicalFeatureIndices.size() == 2;
-  });
 }
 
 
@@ -189,24 +169,7 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
       ys.push_back(y(static_cast<arma::uword>(o), static_cast<arma::uword>(si)));
       ws.push_back(static_cast<float>(fitSampleWeights_(si)));
     }
-    if (ys.size() > 1) {
-      std::vector<size_t> order(ys.size());
-      for (size_t i = 0; i < order.size(); ++i)
-        order[i] = i;
-      std::sort(order.begin(), order.end(),
-                [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
-      std::vector<float> ysSorted;
-      std::vector<float> wsSorted;
-      ysSorted.reserve(ys.size());
-      wsSorted.reserve(ws.size());
-      for (size_t idx : order) {
-        ysSorted.push_back(ys[idx]);
-        wsSorted.push_back(ws[idx]);
-      }
-      total += meanAbsoluteDeviationFromMedian(ysSorted, wsSorted);
-    } else {
-      total += meanAbsoluteDeviationFromMedian(ys, ws);
-    }
+    total += Criterion::absoluteError(ys, ws).mae;
   }
   return total / nOutputs_;
 }
@@ -623,61 +586,16 @@ void RegressionShapeGeneralizedTree::fit(
       nodes_[0], findBestSplit, makeChildren,
       [this](ShapeFunctionNode &parent,
              std::vector<ShapeFunctionNode> &children) {
-        if (parent.logicalFeatureIndices.size() == 2) {
-          sumOfNodeImportancesByFeature_(parent.logicalFeatureIndices[0]) +=
-              parent.informationGain / 2.0;
-          sumOfNodeImportancesByFeature_(parent.logicalFeatureIndices[1]) +=
-              parent.informationGain / 2.0;
-        } else {
-          sumOfNodeImportancesByFeature_(parent.splitFeatureIndex) +=
-              parent.informationGain;
-        }
-        totalNodeImportanceSum_ += parent.informationGain;
-        const size_t pid = parent.nodeIndex;
-        nodes_[pid] = parent;
-        nodes_[pid].isLeaf = false;
-        const size_t numChildPartitions = parent.numPartitions;
-        childIndices_[pid].assign(numChildPartitions, 0);
-        for (size_t p = 0; p < numChildPartitions; ++p) {
-          const size_t cid = nodes_.size();
-          children[p].nodeIndex = cid;
-          nodes_.push_back(children[p]);
-          childIndices_.push_back({});
-          childIndices_[pid][p] = cid;
-        }
-
+        commitSplitAndPushChildren(parent, children);
       });
 
-
-
-  for (auto &node : nodes_) {
-    node.sampleIndices.set_size(0);
-    node.sampleBins.clear();
-  }
-
-  featureImportance_.zeros(sumOfNodeImportancesByFeature_.n_elem);
-  if (totalNodeImportanceSum_ > 0.0)
-    featureImportance_ =
-        sumOfNodeImportancesByFeature_ / totalNodeImportanceSum_;
-  fitted_ = true;
+  finalizeFit();
 }
-
 
 arma::Mat<double>
 RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
-  if (!fitted_)
-    throw std::logic_error(
-        "RegressionShapeGeneralizedTree::predict: model is not fitted");
-  if (nodes_.empty())
-    throw std::logic_error(
-        "RegressionShapeGeneralizedTree::predict: empty tree");
-  if (rootIndex_ >= nodes_.size())
-    throw std::logic_error(
-        "RegressionShapeGeneralizedTree::predict: invalid root index");
-  if (childIndices_.size() != nodes_.size())
-    throw std::logic_error(
-        "RegressionShapeGeneralizedTree::predict: childIndices/nodes size "
-        "mismatch");
+  constexpr const char *kCaller = "RegressionShapeGeneralizedTree::predict";
+  validateFittedForPredict(kCaller);
   if (leafPredictions_.size() != nodes_.size())
     throw std::logic_error(
         "RegressionShapeGeneralizedTree::predict: leafPredictions/nodes size "
@@ -687,31 +605,16 @@ RegressionShapeGeneralizedTree::predict(const arma::fmat &X) const {
   arma::Mat<double> yhat(nOutputs_, n_samples);
 
   for (size_t s = 0; s < n_samples; ++s) {
-    size_t idx = rootIndex_;
-    while (true) {
-      const auto &node = nodes_[idx];
-      if (node.isLeaf) {
-        if (node.nodeIndex >= leafPredictions_.size())
-          throw std::runtime_error(
-              "RegressionShapeGeneralizedTree::predict: leaf prediction index "
-              "out of range");
-        const std::vector<double> &pred = leafPredictions_[node.nodeIndex];
-        for (size_t o = 0; o < nOutputs_; ++o)
-          yhat(static_cast<arma::uword>(o), static_cast<arma::uword>(s)) =
-              o < pred.size() ? pred[o] : 0.0;
-        break;
-      }
-      const size_t part = node.routeSampleToPartition(X, static_cast<arma::uword>(s));
-      if (part >= childIndices_[idx].size())
-        throw std::runtime_error(
-            "RegressionShapeGeneralizedTree::predict: child partition out of "
-            "range");
-      idx = childIndices_[idx][part];
-      if (idx >= nodes_.size())
-        throw std::runtime_error(
-            "RegressionShapeGeneralizedTree::predict: child node index out of "
-            "range");
-    }
+    const auto &leaf =
+        routeSampleToLeaf(X, static_cast<arma::uword>(s), kCaller);
+    if (leaf.nodeIndex >= leafPredictions_.size())
+      throw std::runtime_error(
+          "RegressionShapeGeneralizedTree::predict: leaf prediction index "
+          "out of range");
+    const std::vector<double> &pred = leafPredictions_[leaf.nodeIndex];
+    for (size_t o = 0; o < nOutputs_; ++o)
+      yhat(static_cast<arma::uword>(o), static_cast<arma::uword>(s)) =
+          o < pred.size() ? pred[o] : 0.0;
   }
   return yhat;
 }

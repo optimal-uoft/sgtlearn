@@ -67,18 +67,4 @@ inline size_t partition_with_max_count_min_index_tie(
   return best;
 }
 
-/** Pick the candidate with the lowest score; smallest index on ties. */
-inline size_t pick_lowest_score_min_index_tie(const std::vector<double> &scores,
-                                              double eps = 1e-12) {
-  if (scores.empty())
-    return 0;
-  size_t best = 0;
-  for (size_t p = 1; p < scores.size(); ++p) {
-    if (scores[p] < scores[best] - eps ||
-        (std::abs(scores[p] - scores[best]) <= eps && p < best))
-      best = p;
-  }
-  return best;
-}
-
 } // namespace missing_values

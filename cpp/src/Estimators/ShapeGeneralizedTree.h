@@ -2,80 +2,77 @@
 
 /**
  * @file Estimators/ShapeGeneralizedTree.h
- * @brief Common fitted-tree storage for shape-generalized estimators.
+ * @brief Common fitted-tree storage, commit, and inference routing for
+ *        shape-generalized estimators.
  */
 
+#include "Domain/FeatureInfo.h"
 #include "Domain/LearningCriterion.h"
 #include "Estimators/ShapeFunctions/ShapeFunctionNode.h"
+#include "algorithms/FeatureBagging.h"
+#include "algorithms/OuterTreeBuilder.h"
 #include "algorithms/ShapeGeneralizedTreeParams.h"
 
 #include <armadillo>
 #include <cstddef>
+#include <cstdint>
+#include <random>
 #include <vector>
 
 /**
- * Fitted outer routing tree shared by classification and regression shape-
- * generalized estimators.
+ * Shared base for classification and regression shape-generalized trees.
  *
- * Subclasses own task-specific fit/predict logic; this base holds the node
- * array, child index map, and shared hyperparameters used for routing at
- * inference time and post-fit refinement (TAO).
+ * Holds the outer node array, child index map, shared hyperparameters,
+ * feature importance tracking, split commit helper, and leaf-routing walk.
  */
 class ShapeGeneralizedTree {
 public:
   virtual ~ShapeGeneralizedTree() = default;
 
-  /** Read-only access to the fitted node array for introspection / export. */
   const std::vector<ShapeFunctionNode> &nodes() const { return nodes_; }
-
-  /** Per-node child indices; empty inner vector at leaves. */
   const std::vector<std::vector<size_t>> &childIndices() const {
     return childIndices_;
   }
-
-  /** Mutable node array for in-place routing refinement (e.g. TAO). */
   std::vector<ShapeFunctionNode> &mutableNodes() { return nodes_; }
-
-  /** Mutable child index map for in-place routing refinement (e.g. TAO). */
   std::vector<std::vector<size_t>> &mutableChildIndices() {
     return childIndices_;
   }
 
-  /** Index of the root node (currently always 0 after fit). */
   size_t rootIndex() const { return rootIndex_; }
-
-  /** Number of leaf nodes in the fitted outer tree. */
   size_t numLeaves() const;
-
-  /** Total number of nodes (internal + leaf) in the fitted outer tree. */
   size_t numNodes() const;
-
-  /** True if `fit` has completed successfully. */
   bool isFitted() const { return fitted_; }
+  size_t nOutputs() const { return nOutputs_; }
+  bool hasPairNodes() const;
 
-  /**
-   * Normalized per-feature importances (length = number of logical features
-   * passed to ``fit``). One-to-one with that feature sequence. Valid only
-   * after training completes; throws if the model is not fitted.
-   */
   const arma::vec &featureImportance() const;
-
-  /** Impurity criterion this tree was constructed with. */
   virtual LearningCriterion criterion() const { return criterion_; }
-
-  /** Fan-out used by every internal routing node. */
   size_t numPartitions() const { return numPartitions_; }
-
-  /** Outer routing-tree hyperparameters (read-only). */
   const TreeBuildingParams &outerParams() const { return outerParams_; }
-
-  /** Inner per-feature discretizer hyperparameters (read-only). */
   const TreeBuildingParams &innerParams() const { return innerParams_; }
 
 protected:
   ShapeGeneralizedTree(LearningCriterion criterion, size_t numPartitions,
                        TreeBuildingParams outerParams,
-                       TreeBuildingParams innerParams);
+                       TreeBuildingParams innerParams,
+                       CoordinateDescentParams cdParams, uint64_t random_state,
+                       FeatureBaggingPickFn featureBagging,
+                       size_t pairwiseCandidates, double pairwisePenalty);
+
+  /** Commit an accepted outer split and push its child nodes onto ``nodes_``. */
+  void commitSplitAndPushChildren(ShapeFunctionNode &parent,
+                                  std::vector<ShapeFunctionNode> &children);
+
+  /** Clear transient fit indices, normalize importances, and mark fitted. */
+  void finalizeFit();
+
+  /** Validate fitted tree invariants before prediction. */
+  void validateFittedForPredict(const char *caller) const;
+
+  /** Walk from ``rootIndex_`` to a leaf node for sample column ``s``. */
+  const ShapeFunctionNode &routeSampleToLeaf(const arma::fmat &X,
+                                             arma::uword sampleCol,
+                                             const char *caller) const;
 
   bool fitted_ = false;
 
@@ -83,19 +80,22 @@ protected:
   size_t numPartitions_;
   TreeBuildingParams outerParams_;
   TreeBuildingParams innerParams_;
+  CoordinateDescentParams cdParams_;
+  uint64_t random_state_;
+  std::mt19937_64 rng_;
+  FeatureBaggingPickFn featureBagging_;
+  size_t pairwiseCandidates_ = 0;
+  double pairwisePenalty_ = 0.0;
+  std::vector<FeatureInfo> features_;
+  OuterTreeBuilder outerTreeBuilder_;
+  size_t nOutputs_ = 1;
+  arma::Row<float> fitSampleWeights_;
 
   std::vector<ShapeFunctionNode> nodes_;
-  /**
-   * For node i, childIndices_[i][p] is the node index of child partition p.
-   * Empty for leaves.
-   */
   std::vector<std::vector<size_t>> childIndices_;
   size_t rootIndex_ = 0;
 
-  /** Normalized importances; written at end of ``fit``. */
   arma::vec featureImportance_;
-  /** Running sum of node importances per logical feature during ``fit``. */
   arma::vec sumOfNodeImportancesByFeature_;
-  /** Sum of all committed node importances during ``fit``. */
   double totalNodeImportanceSum_ = 0.0;
 };

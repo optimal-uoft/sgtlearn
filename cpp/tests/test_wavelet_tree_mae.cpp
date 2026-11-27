@@ -20,25 +20,6 @@ using Catch::Matchers::WithinAbs;
 
 namespace {
 
-double brute_mae_to_reference(const std::vector<double> &sorted_sub,
-                              double reference) {
-    double s = 0.0;
-    for (double x : sorted_sub) {
-        s += std::fabs(x - reference);
-    }
-    return s / static_cast<double>(sorted_sub.size());
-}
-
-/** Odd: middle element; even: average of two middles (sorted sub, 0-based). */
-double conventional_median(const std::vector<double> &sorted_sub) {
-    const int N = static_cast<int>(sorted_sub.size());
-    if (N % 2 == 1) {
-        return sorted_sub[static_cast<size_t>(N / 2)];
-    }
-    return 0.5 * (sorted_sub[static_cast<size_t>(N / 2 - 1)] +
-                  sorted_sub[static_cast<size_t>(N / 2)]);
-}
-
 std::vector<double> interval_slice(const arma::Row<float> &arr, int l, int r) {
     std::vector<double> sub;
     sub.reserve(static_cast<size_t>(r - l + 1));
@@ -47,11 +28,6 @@ std::vector<double> interval_slice(const arma::Row<float> &arr, int l, int r) {
             static_cast<double>(arr(static_cast<arma::uword>(i))));
     }
     return sub;
-}
-
-/** 0-based order index of lower central observation (matches QuantileStats::k). */
-int lower_middle_index_0based(int len) {
-    return (len % 2 == 1) ? (len / 2) : (len / 2 - 1);
 }
 
 arma::Row<float> unitWeights(arma::uword n) {

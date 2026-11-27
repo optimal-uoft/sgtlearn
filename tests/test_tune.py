@@ -1,9 +1,11 @@
-"""A suggested dictionary must reconstruct exactly and work with both tasks."""
+"""Default fitting, sklearn search spaces, and Optuna tuning contracts."""
+
+import subprocess
+import sys
 
 import numpy as np
 import pytest
-
-optuna = pytest.importorskip("optuna")
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 from sgtlearn import (
     RandomSGForestClassifier,
@@ -11,12 +13,81 @@ from sgtlearn import (
     SGTClassifier,
     SGTRegressor,
 )
-from sgtlearn.tune import suggest_params
+from sgtlearn.tune import suggest_params, suggested_params
+
+
+@pytest.fixture
+def optuna():
+    return pytest.importorskip("optuna")
+
+
+def test_default_trees_fit_both_tasks_and_return_original_regression_units():
+    X = np.arange(300.0)[:, None]
+    labels = np.where(X[:, 0] < 150, "low", "high")
+    classifier = SGTClassifier().fit(X, labels)
+    assert classifier.score(X, labels) > 0.9
+    targets = 1000 + 3 * X[:, 0]
+    regressor = SGTRegressor().fit(X, targets)
+    prediction = regressor.predict(X)
+    assert prediction.shape == targets.shape
+    assert regressor.score(X, targets) > 0.9
+    assert prediction.min() > 900
+
+
+def test_regular_import_does_not_require_or_load_optuna():
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; import sgtlearn; import sgtlearn.tune; "
+                "sgtlearn.tune.suggested_params(); "
+                "assert 'optuna' not in sys.modules"
+            ),
+        ],
+        check=True,
+    )
+
+
+@pytest.mark.parametrize("randomized", [False, True])
+@pytest.mark.parametrize("regression", [False, True])
+@pytest.mark.parametrize("use_tao", [False, True])
+@pytest.mark.parametrize("use_bivariate", [False, True])
+def test_sklearn_search_fits_and_refits(randomized, regression, use_tao, use_bivariate):
+    space = suggested_params(use_tao=use_tao, use_bivariate=use_bivariate)
+    binary, ternary = space
+    assert binary["num_partitions"] == [2]
+    assert "branching_penalty" not in binary
+    assert ternary["num_partitions"] == [3]
+    assert len(ternary["branching_penalty"]) > 1
+    for grid in space:
+        assert ("tao_pair_scale" in grid) == (use_tao and use_bivariate)
+        if use_tao and use_bivariate:
+            assert all(1.5 <= value <= 2.0 for value in grid["tao_pair_scale"])
+    X = np.arange(240.0).reshape(120, 2)
+    y = np.sin(X[:, 0]) if regression else (X[:, 0] > 120).astype(int)
+    model = SGTRegressor() if regression else SGTClassifier()
+    if randomized:
+        search = RandomizedSearchCV(
+            model, space, n_iter=2, cv=2, random_state=42, error_score="raise"
+        )
+    else:
+        # Exercise exhaustive search on a small slice, not the whole product.
+        small_grids = [
+            {name: values[:1] for name, values in grid.items()} for grid in space
+        ]
+        search = GridSearchCV(model, small_grids, cv=2, error_score="raise")
+    search.fit(X, y)
+    assert np.isfinite(search.predict(X)).all()
+    assert (search.best_estimator_.tao_n_runs > 0) == use_tao
+    assert (search.best_estimator_.pairwise_candidates > 0) == use_bivariate
 
 
 @pytest.mark.parametrize("use_tao", [False, True])
 @pytest.mark.parametrize("use_bivariate", [False, True])
-def test_suggestions_reconstruct_from_stored_trial_params(use_tao, use_bivariate):
+def test_suggestions_reconstruct_from_stored_trial_params(
+    optuna, use_tao, use_bivariate
+):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=42))
     trial = study.ask()
     flags = {"use_tao": use_tao, "use_bivariate": use_bivariate}
@@ -41,7 +112,9 @@ def test_suggestions_reconstruct_from_stored_trial_params(use_tao, use_bivariate
 @pytest.mark.parametrize("regression", [False, True])
 @pytest.mark.parametrize("use_tao", [False, True])
 @pytest.mark.parametrize("use_bivariate", [False, True])
-def test_parameter_dict_fits_single_tree_and_forest(regression, use_tao, use_bivariate):
+def test_parameter_dict_fits_single_tree_and_forest(
+    optuna, regression, use_tao, use_bivariate
+):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=5))
     flags = {"use_tao": use_tao, "use_bivariate": use_bivariate}
     params = suggest_params(study.ask(), **flags)
@@ -64,7 +137,7 @@ def test_parameter_dict_fits_single_tree_and_forest(regression, use_tao, use_biv
         assert forest.mean_feature_importances_.shape == (X.shape[1],)
 
 
-def test_invalid_fixed_parameter_is_rejected_instead_of_silently_clipped():
+def test_invalid_fixed_parameter_is_rejected_instead_of_silently_clipped(optuna):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=42))
     trial = study.ask()
     suggest_params(trial)
@@ -72,7 +145,7 @@ def test_invalid_fixed_parameter_is_rejected_instead_of_silently_clipped():
         suggest_params(optuna.trial.FixedTrial(trial.params | {"max_depth": "deep"}))
 
 
-def test_inactive_costs_are_not_suggested_for_binary_univariate_tree():
+def test_inactive_costs_are_not_suggested_for_binary_univariate_tree(optuna):
     study = optuna.create_study()
     study.enqueue_trial({"num_partitions": 2, "pairwise_candidates": 0.0})
     trial = study.ask()

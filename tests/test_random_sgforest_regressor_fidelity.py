@@ -18,8 +18,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
 
-pytest.importorskip("sklearn")
-
 from sgtlearn import RandomSGForestRegressor, SGTRegressor
 from tests.constants import TEST_TAO_N_RUNS
 from tests.discretizer_grid import n_outputs_params
@@ -89,10 +87,6 @@ def _standalone_sgt_regressor(forest_random_state: int, **tree_kw) -> SGTRegress
 def _mean_squared_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     d = y_true - y_pred
     return float(np.mean(d * d))
-
-
-def _mean_absolute_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    return float(np.mean(np.abs(y_true - y_pred)))
 
 
 @pytest.mark.parametrize("criterion", ["squared_error"])

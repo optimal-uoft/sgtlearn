@@ -2,13 +2,12 @@
  * @file algorithms/TAO/RegressionTaoAdapter.cpp
  */
 
-#include <cstddef>
 #include "algorithms/TAO/RegressionTaoAdapter.h"
 
 #include "Criterion.h"
 
-#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -17,17 +16,16 @@ namespace tao {
 RegressionTaoAdapter::RegressionTaoAdapter(
     RegressionShapeGeneralizedTree &tree, const arma::fmat &X,
     const arma::Mat<float> &y, const arma::Row<float> &sampleWeights)
-    : ShapeGeneralizedTaoAdapter(tree, X, sampleWeights), regressionTree_(tree),
-      y_(y),
+    : TaoAdapter(tree, X, sampleWeights), regressionTree_(tree), y_(y),
       squared_(tree.criterion() == LearningCriterion::SquaredError) {}
 
 LearningCriterion RegressionTaoAdapter::routerCriterion() const {
   return LearningCriterion::Gini;
 }
 
-void RegressionTaoAdapter::childRewards(
-    const std::vector<size_t> &childLeaves, arma::uword col,
-    std::vector<double> &reward) const {
+void RegressionTaoAdapter::childRewards(const std::vector<size_t> &childLeaves,
+                                        arma::uword col,
+                                        std::vector<double> &reward) const {
   const auto &leafPred = regressionTree_.leafPredictions();
   const size_t nOutputs = regressionTree_.nOutputs();
   for (size_t c = 0; c < childLeaves.size(); ++c) {
@@ -43,71 +41,14 @@ void RegressionTaoAdapter::childRewards(
   }
 }
 
-NodeCareSet RegressionTaoAdapter::buildCareSet(
-    const std::vector<arma::uword> &samples,
-    const std::vector<size_t> &children) const {
-  NodeCareSet care;
-  const size_t k = children.size();
-  std::vector<std::vector<size_t>> goodChildren;
-  std::vector<size_t> childLeaves(k);
-  std::vector<double> reward(k);
-  for (arma::uword col : samples) {
-    for (size_t c = 0; c < k; ++c)
-      childLeaves[c] = walkToLeaf(children[c], col);
-    childRewards(childLeaves, col, reward);
-
-    double best = reward[0];
-    double worst = reward[0];
-    for (size_t c = 1; c < k; ++c) {
-      best = std::max(best, reward[c]);
-      worst = std::min(worst, reward[c]);
-    }
-    const double tol = 1e-9 * (1.0 + std::fabs(best));
-    if (best - worst <= tol)
-      continue;
-
-    std::vector<size_t> good;
-    for (size_t c = 0; c < k; ++c)
-      if (reward[c] - worst > tol)
-        good.push_back(c);
-
-    care.careCols.push_back(col);
-    care.careRewards.push_back(reward);
-    care.careWeights.push_back(static_cast<double>(w_(col)));
-    goodChildren.push_back(std::move(good));
-  }
-
-  size_t nExpanded = 0;
-  for (const auto &good : goodChildren)
-    nExpanded += good.size();
-  care.Xexp.set_size(numFeatures(), nExpanded);
-  care.yexp.set_size(nExpanded);
-  care.wexp.set_size(nExpanded);
-  std::vector<double> childCounts(k, 0.0);
-  size_t pos = 0;
-  for (size_t i = 0; i < care.size(); ++i) {
-    const float wi = w_(care.careCols[i]);
-    for (size_t child : goodChildren[i]) {
-      care.Xexp.col(pos) = X_.col(care.careCols[i]);
-      care.yexp(pos) = child;
-      care.wexp(pos) = wi;
-      childCounts[child] += static_cast<double>(wi);
-      ++pos;
-    }
-  }
-  care.dummyChild = argMax(childCounts);
-  return care;
-}
-
 void RegressionTaoAdapter::recomputeLeafStats(
     const std::vector<std::vector<arma::uword>> &nodeSamples) {
-  auto &nodes = regressionTree_.mutableNodes();
+  auto &treeNodes = regressionTree_.mutableNodes();
   auto &leafPred = regressionTree_.mutableLeafPredictions();
-
   const size_t nOutputs = regressionTree_.nOutputs();
 
-  for (size_t ni = 0; ni < nodes.size(); ++ni) {
-    if (!nodes[ni].isLeaf)
+  for (size_t ni = 0; ni < treeNodes.size(); ++ni) {
+    if (!treeNodes[ni].isLeaf)
       continue;
     const std::vector<arma::uword> &cols = nodeSamples[ni];
 
@@ -158,31 +99,20 @@ void RegressionTaoAdapter::recomputeLeafStats(
 
 void RegressionTaoAdapter::refreshNodeBinMetadata(
     ShapeFunctionNode &node, const std::vector<arma::uword> &samples) {
-  if (!node.innerDiscretizer)
-    throw std::runtime_error(
-        "RegressionTaoAdapter: accepted router has no discretizer");
   arma::Row<size_t> bins;
-  node.innerDiscretizer->transform(X_, bins);
+  initBinMetadata(node, samples, bins, "RegressionTaoAdapter");
   const size_t nBins = node.binToPartition.size();
-  node.binSampleCounts.assign(nBins, 0);
-  node.splitBinWeights.assign(nBins, 0.0);
   node.splitClassCounts.clear();
-  if (squared_)
-    node.splitLeafStats.assign(
-        nBins, std::vector<std::vector<double>>(
-                   y_.n_rows, std::vector<double>(2, 0.0)));
-  else
+  if (!squared_) {
     node.splitLeafStats.clear();
+    return;
+  }
+  node.splitLeafStats.assign(
+      nBins,
+      std::vector<std::vector<double>>(y_.n_rows, std::vector<double>(2, 0.0)));
   for (arma::uword col : samples) {
     const size_t bin = bins(col);
-    if (bin >= nBins)
-      throw std::runtime_error(
-          "RegressionTaoAdapter: accepted router bin out of range");
-    ++node.binSampleCounts[bin];
     const double weight = static_cast<double>(w_(col));
-    node.splitBinWeights[bin] += weight;
-    if (!squared_)
-      continue;
     for (arma::uword o = 0; o < y_.n_rows; ++o) {
       const double value = static_cast<double>(y_(o, col));
       node.splitLeafStats[bin][o][0] += weight * value;

@@ -68,21 +68,12 @@ def encode_classification_targets(
     """
     y2, n_outputs = as_output_matrix(y)
     if encoders is None:
-        fitted: list[Any] = []
-        cols: list[np.ndarray] = []
-        classes_list: list[np.ndarray] = []
-        n_classes_list: list[int] = []
-        for o in range(n_outputs):
-            le = LabelEncoder()
-            cols.append(le.fit_transform(y2[:, o]))
-            fitted.append(le)
-            classes_list.append(np.asarray(le.classes_))
-            n_classes_list.append(len(le.classes_))
-        return np.column_stack(cols), fitted, classes_list, n_classes_list
-
-    enc_list = label_encoders_as_list(encoders, n_outputs)
-    cols = [enc_list[o].transform(y2[:, o]) for o in range(n_outputs)]
-    classes_list = [np.asarray(enc_list[o].classes_) for o in range(n_outputs)]
+        enc_list: list[Any] = [LabelEncoder() for _ in range(n_outputs)]
+        cols = [enc_list[o].fit_transform(y2[:, o]) for o in range(n_outputs)]
+    else:
+        enc_list = label_encoders_as_list(encoders, n_outputs)
+        cols = [enc_list[o].transform(y2[:, o]) for o in range(n_outputs)]
+    classes_list = [np.asarray(enc.classes_) for enc in enc_list]
     n_classes_list = [len(c) for c in classes_list]
     return np.column_stack(cols), enc_list, classes_list, n_classes_list
 
@@ -92,36 +83,28 @@ def unwrap_classifier_public_attrs(
     classes_list: Sequence[np.ndarray],
     n_classes_list: Sequence[int],
     n_outputs: int,
-) -> tuple[Any, Any, Any, Any]:
+) -> tuple[Any, Any, Any]:
     """Sklearn public forms: unwrapped when ``n_outputs == 1``, else lists.
 
-    Returns ``(_le, classes_, n_classes_, n_classes_native)`` where
-    ``n_classes_native`` is what the C++ constructor expects (``int`` or
-    ``list[int]``).
+    Returns ``(_le, classes_, n_classes_)`` where ``n_classes_`` is ``int``
+    or ``list[int]`` (also accepted directly by the native C++ constructor).
     """
     if n_outputs == 1:
         return (
             encoders[0],
             np.asarray(classes_list[0]),
             int(n_classes_list[0]),
-            int(n_classes_list[0]),
         )
     return (
         list(encoders),
         [np.asarray(c) for c in classes_list],
-        [int(k) for k in n_classes_list],
         [int(k) for k in n_classes_list],
     )
 
 
 def label_encoders_as_list(encoders: Any | Sequence[Any], n_outputs: int) -> list[Any]:
     """Normalize a scalar encoder or sequence to length ``n_outputs``."""
-    if isinstance(encoders, (list, tuple)):
-        enc_list = list(encoders)
-    else:
-        enc_list = [encoders]
-    if len(enc_list) == 1 and n_outputs > 1:
-        raise ValueError(f"expected {n_outputs} label encoders for multi-output; got 1")
+    enc_list = list(encoders) if isinstance(encoders, (list, tuple)) else [encoders]
     if len(enc_list) != n_outputs:
         raise ValueError(f"expected {n_outputs} label encoders; got {len(enc_list)}")
     return enc_list
@@ -145,10 +128,10 @@ def as_native_float32(values: Any, name: str) -> np.ndarray:
 
 def native_y_array(y_enc: np.ndarray, *, dtype: Any) -> np.ndarray:
     """C-contiguous array for the native bridge (1-D if one output, else 2-D)."""
-    y_arr = np.asarray(y_enc, dtype=dtype)
-    if y_arr.ndim == 1 or y_arr.shape[1] == 1:
-        return np.ascontiguousarray(y_arr.reshape(-1), dtype=dtype)
-    return np.ascontiguousarray(y_arr, dtype=dtype)
+    y_arr = np.ascontiguousarray(y_enc, dtype=dtype)
+    if y_arr.ndim == 2 and y_arr.shape[1] == 1:
+        return y_arr.reshape(-1)
+    return y_arr
 
 
 def squeeze_outputs(arr: np.ndarray, n_outputs: int) -> np.ndarray:
