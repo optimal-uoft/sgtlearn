@@ -8,6 +8,5 @@ enum class LearningCriterion {
   Entropy,
   Gini,
   SquaredError,
-  GainHessian,
   AbsoluteError,
 };

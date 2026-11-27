@@ -2,100 +2,59 @@
 
 /**
  * @file LeafAggregationBranchAssignment.h
- * @brief Template ``BranchAssignment`` that aggregates per-leaf stats into partitions via an ``ILeafAggregateProcessor``.
+ * @brief ``BranchAssignment`` that aggregates per-leaf stats into partitions for
+ *        entropy, Gini, and squared-error objectives.
  */
 
 #include <cstddef>
-#include "BranchAssignment.h"
-#include "LeafAggregateProcessor.h"
-#include <memory>
 #include <vector>
 
-namespace leaf_aggregate {
-
-namespace detail {
-
-template <typename T>
-inline void accumulateStat(T &dst, const T &src) {
-  dst += src;
-}
-
-template <typename T>
-inline void subtractStat(T &dst, const T &src) {
-  dst -= src;
-}
-
-inline void accumulateStat(std::vector<double> &dst,
-                           const std::vector<double> &src) {
-  if (dst.size() < src.size())
-    dst.resize(src.size(), 0.0);
-  for (size_t i = 0; i < src.size(); ++i)
-    dst[i] += src[i];
-}
-
-inline void subtractStat(std::vector<double> &dst,
-                         const std::vector<double> &src) {
-  if (dst.size() < src.size())
-    dst.resize(src.size(), 0.0);
-  for (size_t i = 0; i < src.size(); ++i)
-    dst[i] -= src[i];
-}
-
-} // namespace detail
+#include "BranchAssignment.h"
+#include "Domain/LearningCriterion.h"
 
 /**
- * Coordinate-descent objective for assigning histogram leaves to partitions.
+ * Coordinate-descent objective for assigning histogram / moment leaves to
+ * partitions.
  *
- * @tparam T bin statistic scalar type (e.g. ``double`` for regression power
- *         sums, ``std::vector<double>`` for nested class histograms).
+ * ``stats[leaf][output]`` holds per-output class histograms (entropy / Gini)
+ * or ``[Σw·y, Σw·y²]`` moments (squared error).
  */
-template <typename T>
 class LeafAggregationBranchAssignment : public BranchAssignment {
-
 public:
   ~LeafAggregationBranchAssignment() override = default;
 
-  LeafAggregationBranchAssignment(std::vector<size_t> &assignments,
-                                  size_t numPartitions,
-                                  std::vector<std::vector<T>> &stats,
-                                  std::vector<double> &leafWeights,
-                                  const std::vector<size_t> &leafSampleCounts,
-                                  size_t statsDim,
-                                  std::unique_ptr<ILeafAggregateProcessor<T>> processor);
+  LeafAggregationBranchAssignment(
+      LearningCriterion criterion, std::vector<size_t> &assignments,
+      size_t numPartitions,
+      std::vector<std::vector<std::vector<double>>> &stats,
+      std::vector<double> &leafWeights,
+      const std::vector<size_t> &leafSampleCounts, size_t statsDim);
 
   double objective() override;
-
   void addLeaf(size_t leaf, size_t partition) override;
-
   void removeLeaf(size_t leaf) override;
 
-  const std::vector<std::vector<T>> &aggregatedPartitionStats() const {
-    return partitionStats;
+  const std::vector<std::vector<std::vector<double>>> &
+  aggregatedPartitionStats() const {
+    return partitionStats_;
   }
 
   const std::vector<double> &aggregatedPartitionWeights() const {
-    return partitionWeight;
+    return partitionWeight_;
   }
 
-protected:
-  double weightedSumLoss = 0;
-  double sumNumberOfSamples = 0;
-  bool allLeavesAssigned = true;
+private:
+  LearningCriterion criterion_;
+  double weightedSumLoss_ = 0.0;
+  double sumNumberOfSamples_ = 0.0;
 
-  std::vector<std::vector<T>> &stats;
-  const std::vector<double> &leafWeights;
-  size_t statsDim;
+  std::vector<std::vector<std::vector<double>>> &stats_;
+  const std::vector<double> &leafWeights_;
+  size_t statsDim_;
 
-  std::vector<std::vector<T>> partitionStats;
-  std::vector<double> partitionWeight;
-  std::vector<double> partitionLoss;
+  std::vector<std::vector<std::vector<double>>> partitionStats_;
+  std::vector<double> partitionWeight_;
+  std::vector<double> partitionLoss_;
 
-  std::unique_ptr<ILeafAggregateProcessor<T>> processor_;
-
-  double computePartitionLoss(size_t i);
+  double computePartitionLoss(size_t i) const;
 };
-
-extern template class LeafAggregationBranchAssignment<float>;
-extern template class LeafAggregationBranchAssignment<std::vector<double>>;
-
-} // namespace leaf_aggregate

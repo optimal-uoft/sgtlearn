@@ -30,10 +30,6 @@
  * dtype, not C-contiguous, or otherwise non-conformant. So:
  *   - Best case  (caller passed canonical sklearn input): zero copies.
  *   - Worst case (dtype mismatch / F-contig / strided):    one copy.
- *
- * The existing `Discretizers.cpp` binding pays two copies of X per call
- * (one inside CARMA's `arr_to_mat(..., copy=true)`, one to materialise the
- * lazy `.t()`); this bridge fixes that.
  */
 
 #include <armadillo>

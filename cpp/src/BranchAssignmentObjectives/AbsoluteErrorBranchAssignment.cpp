@@ -5,7 +5,6 @@
 
 #include "AbsoluteErrorBranchAssignment.h"
 
-#include "AbsoluteErrorBranchAssignmentCommon.h"
 #include "Criterion.h"
 
 #include <algorithm>
@@ -20,9 +19,31 @@ AbsoluteErrorBranchAssignment::AbsoluteErrorBranchAssignment(
     : BranchAssignment(assignments, numPartitions, leafSampleCounts),
       leafYs_(leafYs), leafWs_(leafWs), leafWeights_(leafWeights) {
 
-  absolute_error_branch::validateInputs(assignments, numPartitions, leafYs,
-                                        leafWs, leafWeights, leafSampleCounts,
-                                        nOutputs_);
+  if (assignments.size() != leafYs.size() || leafYs.size() != leafWs.size() ||
+      leafYs.size() != leafWeights.size())
+    throw std::runtime_error(
+        "assignments, leafYs, leafWs, and leafWeights must have the same length");
+  if (leafSampleCounts.size() != leafYs.size())
+    throw std::runtime_error(
+        "leafSampleCounts must have the same length as bin statistics");
+
+  nOutputs_ = 0;
+  for (const auto &binOutputs : leafYs) {
+    if (!binOutputs.empty()) {
+      nOutputs_ = binOutputs.size();
+      break;
+    }
+  }
+
+  for (size_t i = 0; i < leafYs.size(); ++i) {
+    if (assignments[i] >= numPartitions)
+      throw std::runtime_error("assignments[i] must be a valid partition index");
+    for (const auto &outputYs : leafYs[i]) {
+      if (outputYs.size() != leafWs[i].size())
+        throw std::runtime_error(
+            "leafYs[i][o] and leafWs[i] must have the same length");
+    }
+  }
 
   const size_t numLeaves = assignments.size();
   binYsSorted_.assign(numLeaves, {});
@@ -200,7 +221,7 @@ void AbsoluteErrorBranchAssignment::removeLeaf(size_t leaf) {
   partitionLoss_[partition] = computePartitionMae(partition);
   weightedSumLoss_ += partitionWeight_[partition] * partitionLoss_[partition];
 
-  assignments[leaf] = absolute_error_branch::unassignedPartition(numPartitions);
+  assignments[leaf] = numPartitions;
 }
 
 double

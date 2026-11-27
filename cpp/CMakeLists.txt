@@ -48,7 +48,6 @@ add_library(sgtlearn_core STATIC
         src/Domain/UnivariateSplitCandidate.h
         src/Domain/FeatureInfo.h
         src/Domain/LearningCriterion.h
-        src/Domain/LearningFactories.h
         src/Splitters/univariate/Splitter.h
         src/Splitters/univariate/Splitter.tpp
         src/Splitters/univariate/ClassificationSplitter.h
@@ -86,18 +85,10 @@ add_library(sgtlearn_core STATIC
         src/Splitters/univariate/SquaredErrorSplitter.cpp
         src/Discretizers/univariate/UnivariateRegressionDiscretizer.cpp
         src/Discretizers/univariate/UnivariateRegressionDiscretizer.h
-        src/Discretizers/univariate/GainHessianUnivariateDiscretizer.h
         src/algorithms/WaveletTreeMAE.h
         src/algorithms/WaveletTreeMAE.cpp
-        src/algorithms/WeightedMAETree.h
-        src/algorithms/WeightedMAETree.cpp
-        src/Discretizers/univariate/GainHessianUnivariateDiscretizer.cpp
         src/Splitters/univariate/AbsoluteErrorSplitter.h
         src/Splitters/univariate/AbsoluteErrorSplitter.cpp
-        src/Splitters/univariate/GainHessianSplitter.h
-        src/Splitters/univariate/GainHessianSplitter.cpp
-        src/Splitters/factories/SplitterFactory.h
-        src/Splitters/factories/SplitterFactory.cpp
         src/algorithms/CoordinateDescent.h
         src/algorithms/TAO/TaoAdapter.h
         src/algorithms/TAO/TaoObjective.h
@@ -126,18 +117,11 @@ add_library(sgtlearn_core STATIC
         src/Estimators/RegressionShapeGeneralizedTree.h
         src/Estimators/RegressionShapeGeneralizedTree.cpp
         src/BranchAssignmentObjectives/BranchAssignment.h
-        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentCommon.h
         src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.h
         src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignment.cpp
-        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentBst.h
-        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentBst.cpp
-        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentSort.h
-        src/BranchAssignmentObjectives/AbsoluteErrorBranchAssignmentSort.cpp
         src/BranchAssignmentObjectives/MaeBranchConfig.h
-        src/BranchAssignmentObjectives/LeafAggregateProcessor.h
         src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.h
         src/BranchAssignmentObjectives/LeafAggregationBranchAssignment.cpp
-        src/BranchAssignmentObjectives/BranchAssignmentVariants.h
         src/BranchAssignmentObjectives/BranchAssignmentFactory.h
         src/BranchAssignmentObjectives/BranchAssignmentFactory.cpp
         src/Criterion.cpp
@@ -153,9 +137,9 @@ target_link_libraries(sgtlearn_core PUBLIC armadillo::armadillo)
 set_target_properties(sgtlearn_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # endregion
 
-# region --- 2. Python Module (pybind11 + CARMA) ---
+# region --- 2. Python Module (pybind11) ---
 set(PYBIND11_FINDPYTHON ON)
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 
 FetchContent_Declare(pybind11
         GIT_REPOSITORY https://github.com/pybind/pybind11.git
@@ -186,14 +170,6 @@ else ()
     message(STATUS "pybind11_stubgen not found for ${SGTLEARN_PYTHON_EXECUTABLE}; skipping .pyi generation (listed in [build-system] requires)")
 endif ()
 
-set(CARMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(CARMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(carma
-        GIT_REPOSITORY https://github.com/RUrlus/carma.git
-        GIT_TAG v0.8.0
-)
-FetchContent_MakeAvailable(carma)
-
 # Auto-discover all binding modules from bindings/*.cpp
 # Each file becomes its own module: _native.cpp -> import _native
 file(GLOB BINDING_SOURCES CONFIGURE_DEPENDS "bindings/*.cpp")
@@ -203,7 +179,7 @@ foreach (BINDING_SRC ${BINDING_SOURCES})
 
     pybind11_add_module(${MODULE_NAME} MODULE)
     target_sources(${MODULE_NAME} PRIVATE ${BINDING_SRC})
-    target_link_libraries(${MODULE_NAME} PRIVATE sgtlearn_core carma::carma)
+    target_link_libraries(${MODULE_NAME} PRIVATE sgtlearn_core)
     install(TARGETS ${MODULE_NAME} DESTINATION .)
 
     if (SGTLEARN_HAVE_PYBIND11_STUBGEN)
@@ -236,12 +212,10 @@ if (SGTLEARN_BUILD_TESTS)
 
     add_executable(cpp_tests
             tests/test_wavelet_tree_mae.cpp
-            tests/test_weighted_mae_tree.cpp
             tests/test_splitters.cpp
             tests/test_branch_assignment.cpp
             tests/test_shape_assignment_search.cpp
             tests/test_tao_objective.cpp
-            tests/bench_mae_branch_assignment.cpp
     )
 
     target_link_libraries(cpp_tests PRIVATE

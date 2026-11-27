@@ -2,27 +2,26 @@
 
 /**
  * @file BranchAssignmentFactory.h
- * @brief Factory that constructs the correct ``BranchAssignment`` for a ``LearningCriterion``.
+ * @brief Factory that constructs the appropriate ``BranchAssignment`` for a ``LearningCriterion``.
  */
 
 #include <cstddef>
-#include "BranchAssignment.h"
-#include "Domain/LearningCriterion.h"
-
 #include <memory>
 #include <vector>
+
+#include "BranchAssignment.h"
+#include "Domain/LearningCriterion.h"
 
 /**
  * Regression MAE branch assignment.
  *
- * AbsoluteError: pass raw per-leaf, per-output y samples and per-sample weights
- * via @p maeLeafYs (``[bin][output][sample]``) and @p maeLeafWs
- * (``[bin][sample]``); both required.
+ * Pass raw per-leaf, per-output y samples via @p maeLeafYs
+ * (``[bin][output][sample]``) and per-sample weights via @p maeLeafWs
+ * (``[bin][sample]``).
  */
 std::unique_ptr<BranchAssignment> makeBranchAssignment(
     LearningCriterion criterion, std::vector<size_t> &assignments,
-    size_t numPartitions, std::vector<std::vector<double>> &leafStats,
-    std::vector<double> &leafWeights,
+    size_t numPartitions, std::vector<double> &leafWeights,
     const std::vector<size_t> &leafSampleCounts,
     std::vector<std::vector<std::vector<float>>> *maeLeafYs,
     std::vector<std::vector<float>> *maeLeafWs);

@@ -6,7 +6,6 @@
 #include <Splitters/univariate/AbsoluteErrorSplitter.h>
 #include <Criterion.h>
 #include <Splitters/univariate/EntropySplitter.h>
-#include <Splitters/univariate/GainHessianSplitter.h>
 #include <Splitters/univariate/GiniSplitter.h>
 #include <Splitters/univariate/SquaredErrorSplitter.h>
 
@@ -147,30 +146,6 @@ TEST_CASE("SquaredErrorSplitter weighted MSE") {
   UnivariateSplitCandidate root = splitter.makeRoot();
   REQUIRE_THAT(root.nodeWeight, WithinAbs(4.0, kEps));
   REQUIRE_THAT(splitter.predict(root)[0], WithinAbs(1.5F, 1e-5f));
-}
-
-TEST_CASE("GainHessianSplitter makeRoot predict score and validates y rows") {
-  arma::frowvec X{{1.F, 2.F}};
-  arma::Mat<float> y(2, 2);
-  y(0, 0) = 1.F;
-  y(1, 0) = 2.F;
-  y(0, 1) = 3.F;
-  y(1, 1) = 4.F;
-  arma::frowvec w = unitWeights(2);
-
-  const double lambda = 1.0;
-  GainHessianSplitter splitter(X, w, y, lambda);
-  UnivariateSplitCandidate root = splitter.makeRoot();
-  const double g = 4.0;
-  const double h = 6.0;
-  const double expected = g * g / (h + lambda);
-  REQUIRE_THAT(root.score, WithinAbs(expected, kEps));
-  REQUIRE_THAT(static_cast<double>(splitter.predict(root)), WithinAbs(expected, kEps));
-
-  arma::Mat<float> y_bad(1, 2);
-  y_bad.fill(1.F);
-  REQUIRE_THROWS_AS((GainHessianSplitter(X, w, y_bad, lambda)),
-                    std::invalid_argument);
 }
 
 TEST_CASE("AbsoluteErrorSplitter predict and score match brute-force MAE") {

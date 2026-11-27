@@ -61,7 +61,6 @@ nbsphinx_execute = "never"
 # a CMake/C++ toolchain on the docs builder.
 autodoc_mock_imports = [
     "ShapeGeneralizedTrees",
-    "Discretizers",
     "TreeAlternatingOptimization",
 ]
 

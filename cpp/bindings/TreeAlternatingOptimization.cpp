@@ -33,9 +33,6 @@
 #include <stdexcept>
 #include <utility>
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include <numpy/arrayobject.h>
-
 namespace py = pybind11;
 namespace bridge = sgt::bindings;
 
@@ -147,17 +144,6 @@ void TreeAlternatingOptimization(py::object tree, const py::array &X,
 } // namespace
 
 PYBIND11_MODULE(TreeAlternatingOptimization, m) {
-  // CARMA's allocator backs Armadillo's heap and lazily calls _import_array()
-  // on its first free, which must happen with the GIL held. The refinement
-  // releases the GIL and destroys Armadillo temporaries afterwards, so prime
-  // the numpy C-API table here at module load to keep those frees safe.
-  if (_import_array() < 0) {
-    PyErr_Clear();
-    throw std::runtime_error(
-        "TreeAlternatingOptimization: numpy.core.multiarray failed to import; "
-        "ensure numpy is installed and importable before importing this module");
-  }
-
   m.doc() = "Tree-Alternating Optimization (TAO) refinement for fitted "
             "shape-generalized trees.";
 
