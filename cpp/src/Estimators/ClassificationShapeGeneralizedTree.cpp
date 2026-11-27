@@ -483,9 +483,9 @@ void ClassificationShapeGeneralizedTree::fit(
         }
         totalNodeImportanceSum_ += parent.informationGain;
         const size_t pid = parent.nodeIndex;
+        const size_t numChildPartitions = parent.numPartitions;
         nodes_[pid] = std::move(parent);
         nodes_[pid].isLeaf = false;
-        const size_t numChildPartitions = parent.numPartitions;
         childIndices_[pid].assign(numChildPartitions, 0);
         for (size_t p = 0; p < numChildPartitions; ++p) {
           const size_t cid = nodes_.size();

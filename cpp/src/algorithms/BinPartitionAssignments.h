@@ -24,14 +24,6 @@ inline void roundRobinBinAssignments(size_t numBins, size_t k,
     assignments[b] = b % k;
 }
 
-/** One bin per partition: ``assignments[b] = b`` (``k == numBins``). */
-inline void identityBinAssignments(size_t numBins,
-                                   std::vector<size_t> &assignments) {
-  assignments.resize(numBins);
-  for (size_t b = 0; b < numBins; ++b)
-    assignments[b] = b;
-}
-
 /**
  * K-means seed for bin->partition assignment from per-bin class histograms.
  *

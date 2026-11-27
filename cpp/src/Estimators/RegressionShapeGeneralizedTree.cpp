@@ -31,11 +31,6 @@
 
 namespace {
 
-double meanAbsoluteDeviationFromMedian(const std::vector<float> &ys,
-                                       const std::vector<float> &ws) {
-  return Criterion::absoluteError(ys, ws).mae;
-}
-
 double weightedMeanFromAggregates(double sumWY, double sumW) {
   return sumW > 0.0 ? sumWY / sumW : 0.0;
 }
@@ -189,24 +184,7 @@ double RegressionShapeGeneralizedTree::impurityAtNode(
       ys.push_back(y(static_cast<arma::uword>(o), static_cast<arma::uword>(si)));
       ws.push_back(static_cast<float>(fitSampleWeights_(si)));
     }
-    if (ys.size() > 1) {
-      std::vector<size_t> order(ys.size());
-      for (size_t i = 0; i < order.size(); ++i)
-        order[i] = i;
-      std::sort(order.begin(), order.end(),
-                [&ys](size_t a, size_t b) { return ys[a] < ys[b]; });
-      std::vector<float> ysSorted;
-      std::vector<float> wsSorted;
-      ysSorted.reserve(ys.size());
-      wsSorted.reserve(ws.size());
-      for (size_t idx : order) {
-        ysSorted.push_back(ys[idx]);
-        wsSorted.push_back(ws[idx]);
-      }
-      total += meanAbsoluteDeviationFromMedian(ysSorted, wsSorted);
-    } else {
-      total += meanAbsoluteDeviationFromMedian(ys, ws);
-    }
+    total += Criterion::absoluteError(ys, ws).mae;
   }
   return total / nOutputs_;
 }

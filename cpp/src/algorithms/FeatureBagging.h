@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <random>
@@ -28,23 +27,6 @@ pickAllFeatureIndices(std::span<const size_t> candidateFeatureIndices,
  */
 using FeatureBaggingPickFn =
     std::function<std::vector<size_t>(std::span<const size_t>, std::mt19937_64 &)>;
-
-/**
- * Stateless policies with a single static entry point (no CRTP, no instance).
- */
-template <typename Policy>
-concept FeatureBaggingPolicy =
-    requires(std::span<const size_t> candidateFeatureIndices, std::mt19937_64 &rng) {
-      { Policy::pickFeatureSubset(candidateFeatureIndices, rng) }
-      -> std::same_as<std::vector<size_t>>;
-    };
-
-template <FeatureBaggingPolicy Policy>
-[[nodiscard]] inline FeatureBaggingPickFn wrapFeatureBaggingPolicy() {
-  return [](std::span<const size_t> s, std::mt19937_64 &rng) {
-    return Policy::pickFeatureSubset(s, rng);
-  };
-}
 
 /** ``max(1, int(sqrt(n)))`` with sklearn-style truncation. */
 [[nodiscard]] inline size_t featureSubsetCountSqrt(size_t n) {
@@ -140,32 +122,3 @@ pickRandomSubsetOfSize(std::span<const size_t> candidates, std::mt19937_64 &rng,
                                   featureSubsetCountFraction(c, n));
   };
 }
-
-// ---- Static policy types (for ``FeatureBaggingPolicy`` + ``wrapFeatureBaggingPolicy``) ----
-
-struct AllFeaturesPolicy {
-  static std::vector<size_t> pickFeatureSubset(std::span<const size_t> c,
-                                              std::mt19937_64 &rng) {
-    return pickAllFeatureIndices(c, rng);
-  }
-};
-
-struct SqrtFeaturesPolicy {
-  static std::vector<size_t> pickFeatureSubset(std::span<const size_t> c,
-                                              std::mt19937_64 &rng) {
-    const size_t n = c.size();
-    if (n == 0)
-      return {};
-    return pickRandomSubsetOfSize(c, rng, featureSubsetCountSqrt(n));
-  }
-};
-
-struct Log2FeaturesPolicy {
-  static std::vector<size_t> pickFeatureSubset(std::span<const size_t> c,
-                                             std::mt19937_64 &rng) {
-    const size_t n = c.size();
-    if (n == 0)
-      return {};
-    return pickRandomSubsetOfSize(c, rng, featureSubsetCountLog2(n));
-  }
-};

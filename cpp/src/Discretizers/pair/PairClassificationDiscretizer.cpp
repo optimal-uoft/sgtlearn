@@ -266,7 +266,8 @@ void PairClassificationDiscretizer::Train(
       splitNode(index, std::move(split));
       self(self, nodes[index].routing.left);
       self(self, nodes[index].routing.right);
-      if (nodes[index].routing.missing != nodes[index].routing.left)
+      if (nodes[index].routing.missing != nodes[index].routing.left &&
+          nodes[index].routing.missing != nodes[index].routing.right)
         self(self, nodes[index].routing.missing);
     };
     grow(grow, 0);

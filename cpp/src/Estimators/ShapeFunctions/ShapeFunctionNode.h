@@ -18,8 +18,6 @@
 #include <stdexcept>
 #include <vector>
 
-class ShapeGeneralizedTree;
-
 struct RetainedPairCandidate {
   std::array<size_t, 2> logicalFeatureIndices{};
   std::array<FeatureInfo, 2> features;
@@ -37,8 +35,6 @@ struct RetainedPairCandidate {
  */
 class ShapeFunctionNode {
 public:
-  ShapeGeneralizedTree* tree = nullptr;
-
   size_t height = 0;
   double score = 0.0;
   double informationGain = 0.0;
@@ -131,12 +127,4 @@ public:
   size_t routeSampleToPartition(const arma::fmat &X, arma::uword sampleCol) const {
     return routeFeatureValuesToPartition(gatherRoutingFeatureValues(X, sampleCol));
   }
-
-  /**
-   * Child nodes of this internal node via the owning tree's child index map.
-   * Defined out-of-line in ShapeFunctionNode.cpp because it needs the complete
-   * ``ShapeGeneralizedTree`` type (only forward-declared here to break the
-   * ShapeGeneralizedTree <-> ShapeFunctionNode include cycle).
-   */
-  std::vector<ShapeFunctionNode *> getChildren() const;
 };

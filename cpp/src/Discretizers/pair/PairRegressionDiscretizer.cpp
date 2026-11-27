@@ -110,6 +110,8 @@ PairRegressionDiscretizer::Split PairRegressionDiscretizer::bestSplit(
     for (size_t sample : node.samples)
       (axisMissing(axis, X, sample) ? missing : valid).push_back(sample);
     const double missingWeight = sumWeight(missing);
+    const double missingWeightedImp =
+        missingWeight * impurity(missing, y, weights);
 
     const auto consider = [&](size_t rawFeature, double threshold,
                               std::vector<size_t> left,
@@ -122,7 +124,7 @@ PairRegressionDiscretizer::Split PairRegressionDiscretizer::bestSplit(
           node.weight > 0.0
               ? (leftWeight * impurity(left, y, weights) +
                  rightWeight * impurity(right, y, weights) +
-                 missingWeight * impurity(missing, y, weights)) /
+                 missingWeightedImp) /
                     node.weight
               : 0.0;
       if (childScore >=
@@ -160,6 +162,81 @@ PairRegressionDiscretizer::Split PairRegressionDiscretizer::bestSplit(
                      [&X, rawFeature](size_t a, size_t b) {
                        return X(rawFeature, a) < X(rawFeature, b);
                      });
+    if (criterion_ == LearningCriterion::SquaredError) {
+      const size_t nOutputs = static_cast<size_t>(y.n_rows);
+      std::vector<std::vector<double>> leftStats(nOutputs,
+                                                 std::vector<double>(2, 0.0));
+      std::vector<std::vector<double>> rightStats(nOutputs,
+                                                  std::vector<double>(2, 0.0));
+      double leftWeight = 0.0;
+      double rightWeight = 0.0;
+      for (size_t sample : order) {
+        const double w = weights(sample);
+        rightWeight += w;
+        for (size_t o = 0; o < nOutputs; ++o) {
+          const double v = y(static_cast<arma::uword>(o), sample);
+          rightStats[o][0] += w * v;
+          rightStats[o][1] += w * v * v;
+        }
+      }
+      size_t bestCut = 0;
+      double bestCutThreshold = 0.0;
+      for (size_t i = 0; i + 1 < order.size(); ++i) {
+        const size_t sample = order[i];
+        const double w = weights(sample);
+        leftWeight += w;
+        rightWeight -= w;
+        for (size_t o = 0; o < nOutputs; ++o) {
+          const double v = y(static_cast<arma::uword>(o), sample);
+          const double wy = w * v;
+          const double wy2 = wy * v;
+          leftStats[o][0] += wy;
+          leftStats[o][1] += wy2;
+          rightStats[o][0] -= wy;
+          rightStats[o][1] -= wy2;
+        }
+        const size_t leftCount = i + 1;
+        if (leftCount < minLeafSize || order.size() - leftCount < minLeafSize)
+          continue;
+        const float previous = X(rawFeature, sample);
+        const float current = X(rawFeature, order[i + 1]);
+        if (current <= previous + 1e-7F)
+          continue;
+        double threshold = static_cast<double>(previous) / 2.0 +
+                           static_cast<double>(current) / 2.0;
+        if (!std::isfinite(threshold) || threshold == current)
+          threshold = previous;
+        const double childScore =
+            node.weight > 0.0
+                ? (leftWeight * Criterion::squaredError(leftStats, leftWeight) +
+                   rightWeight *
+                       Criterion::squaredError(rightStats, rightWeight) +
+                   missingWeightedImp) /
+                      node.weight
+                : 0.0;
+        if (childScore >=
+            bestChildScore - std::numeric_limits<double>::epsilon())
+          continue;
+        bestChildScore = childScore;
+        bestCut = leftCount;
+        bestCutThreshold = threshold;
+      }
+      if (bestCut > 0) {
+        best.found = true;
+        best.featurePosition = axis;
+        best.rawFeature = rawFeature;
+        best.featureType = FeatureType::Continuous;
+        best.threshold = bestCutThreshold;
+        best.left.assign(order.begin(), order.begin() + bestCut);
+        best.right.assign(order.begin() + bestCut, order.end());
+        best.missing = missing;
+        best.gain = totalWeight > 0.0
+                        ? (node.weight / totalWeight) *
+                              (node.impurity - bestChildScore)
+                        : 0.0;
+      }
+      continue;
+    }
     for (size_t i = minLeafSize; i + minLeafSize <= order.size(); ++i) {
       const float previous = X(rawFeature, order[i - 1]);
       const float current = X(rawFeature, order[i]);
@@ -256,7 +333,8 @@ void PairRegressionDiscretizer::Train(
       splitNode(index, std::move(split));
       self(self, nodes[index].routing.left);
       self(self, nodes[index].routing.right);
-      if (nodes[index].routing.missing != nodes[index].routing.left)
+      if (nodes[index].routing.missing != nodes[index].routing.left &&
+          nodes[index].routing.missing != nodes[index].routing.right)
         self(self, nodes[index].routing.missing);
     };
     grow(grow, 0);
