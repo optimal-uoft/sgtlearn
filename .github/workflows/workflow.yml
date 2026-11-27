@@ -62,9 +62,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - name: Install scikit-learn 1.9+ for exact tree fidelity (3.11+)
-        if: matrix.python-version != '3.10'
-        run: pip install "scikit-learn>=1.9"
       - run: pytest -v
 
   build-check:
@@ -164,9 +161,6 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
-          # Attestations disabled to avoid the Rekor (Sigstore transparency log)
-          # outage. Set back to true (or remove this line) once Rekor is healthy.
-          # attestations: false
 
   publish-to-pypi:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -191,6 +185,3 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-          # Attestations disabled to avoid the Rekor (Sigstore transparency log)
-          # outage. Set back to true (or remove this line) once Rekor is healthy.
-          # attestations: false

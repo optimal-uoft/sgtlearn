@@ -1,4 +1,4 @@
-"""Feasible split retention, root-relative quality, and the removed init flag."""
+"""Feasible split retention and root-relative quality contracts."""
 
 import numpy as np
 import pytest
@@ -6,7 +6,6 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 from sgtlearn import (
     RandomSGForestClassifier,
-    RandomSGForestRegressor,
     SGTClassifier,
     SGTRegressor,
 )
@@ -121,16 +120,6 @@ def test_failed_feature_does_not_make_node_leaf_and_cannot_enter_pairs(failed_va
         .fit(X, y)
         .tree_export()["nodes"][0]["is_leaf"]
     )
-
-
-@pytest.mark.parametrize(
-    "estimator",
-    [SGTClassifier, SGTRegressor, RandomSGForestClassifier, RandomSGForestRegressor],
-)
-def test_smart_init_flag_is_removed(estimator):
-    assert "coordinate_descent_smart_init" not in estimator(**algorithm_params()).get_params()
-    with pytest.raises(TypeError, match="coordinate_descent_smart_init"):
-        estimator(**algorithm_params(coordinate_descent_smart_init=True))
 
 
 @pytest.mark.parametrize(

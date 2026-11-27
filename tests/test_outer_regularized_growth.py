@@ -1,9 +1,15 @@
-"""Observable consequences of total-mass outer split scoring."""
+"""Observable consequences of total-mass outer split scoring and penalty/inner defaults."""
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 
-from sgtlearn import SGTClassifier, SGTRegressor
+from sgtlearn import (
+    RandomSGForestClassifier,
+    RandomSGForestRegressor,
+    SGTClassifier,
+    SGTRegressor,
+)
 from tests.constants import algorithm_params
 
 
@@ -143,3 +149,114 @@ def test_pair_cost_is_constant_total_loss_and_charged_once(estimator, gamma):
         assert (
             model.tree_export()["nodes"][0].get("routing_kind") == "pair"
         ) == pair_expected
+
+
+@pytest.mark.parametrize(
+    "estimator",
+    [
+        SGTClassifier,
+        SGTRegressor,
+        RandomSGForestClassifier,
+        RandomSGForestRegressor,
+    ],
+)
+@pytest.mark.parametrize(
+    "parameter", ["min_impurity_decrease", "pairwise_penalty", "branching_penalty"]
+)
+@pytest.mark.parametrize("value", [-1.0, np.nan, np.inf, -np.inf])
+def test_invalid_outer_cost_rejected(estimator, parameter, value):
+    kwargs = {parameter: value, "tao_n_runs": 0}
+    if estimator in (RandomSGForestClassifier, RandomSGForestRegressor):
+        kwargs.update(n_estimators=1, n_jobs=1, bootstrap=False)
+    model = estimator(**kwargs)
+    with pytest.raises(ValueError, match=parameter):
+        model.fit(np.array([[0.0], [1.0]]), np.array([0, 1]))
+
+
+@pytest.mark.parametrize(
+    "estimator",
+    [SGTClassifier, SGTRegressor, RandomSGForestClassifier, RandomSGForestRegressor],
+)
+def test_branching_penalty_is_cloneable(estimator):
+    model = estimator(**algorithm_params(branching_penalty=1.25))
+    assert model.get_params()["branching_penalty"] == 1.25
+    assert clone(model).get_params()["branching_penalty"] == 1.25
+
+
+@pytest.mark.parametrize(
+    "estimator", [RandomSGForestClassifier, RandomSGForestRegressor]
+)
+def test_forest_forwards_branching_penalty(estimator):
+    y = (
+        np.array([0, 0, 1, 1])
+        if estimator is RandomSGForestClassifier
+        else np.array([0.0, 0.0, 1.0, 1.0])
+    )
+    forest = estimator(
+        **algorithm_params(
+            branching_penalty=1.25,
+            n_estimators=2,
+            bootstrap=False,
+            tao_n_runs=0,
+            max_depth=1,
+            n_jobs=1,
+        )
+    ).fit(np.array([[0.0], [0.0], [1.0], [1.0]]), y)
+    assert forest.branching_penalty == 1.25
+    assert all(tree.branching_penalty == 1.25 for tree in forest.estimators_)
+
+
+@pytest.mark.parametrize("estimator", [SGTClassifier, SGTRegressor])
+def test_branching_penalty_charges_only_extra_ternary_child(estimator):
+    y = (
+        np.array([0, 0, 1, 1, 2, 2])
+        if estimator is SGTClassifier
+        else np.array([0.0, 0.0, 1.0, 1.0, 2.0, 2.0])
+    )
+    X = np.array([[0.0], [0.0], [1.0], [1.0], [2.0], [2.0]])
+    common = {
+        "num_partitions": 3,
+        "max_depth": 1,
+        "inner_max_depth": 2,
+        "inner_max_leaf_nodes": 3,
+        "tao_n_runs": 0,
+    }
+    binary = (
+        estimator(**algorithm_params(**common, branching_penalty=0.0))
+        .fit(X, y)
+        .tree_export()
+    )
+    penalized = (
+        estimator(**algorithm_params(**common, branching_penalty=10.0))
+        .fit(X, y)
+        .tree_export()
+    )
+    assert binary["num_nodes"] == 4
+    assert len(binary["nodes"][0]["children"]) == 3
+    assert penalized["num_nodes"] == 3
+    assert len(penalized["nodes"][0]["children"]) == 2
+
+
+def _inner_default_root(**kw):
+    # Staircase with geometric steps: best-first growth peels the top step each
+    # time, so the inner tree is a chain whose depth equals its split count.
+    X = np.repeat(np.arange(12.0), 20).reshape(-1, 1)
+    y = 4.0 ** X[:, 0]
+    est = SGTRegressor(
+        **algorithm_params(
+            max_depth=1, num_partitions=12, tao_n_runs=0, random_state=0, **kw
+        )
+    ).fit(X, y)
+    tree = est.tree_export()
+    return tree["nodes"][tree["root_index"]]
+
+
+def test_unlimited_inner_depth_grows_past_three_with_explicit_leaf_cap():
+    root = _inner_default_root(inner_max_leaf_nodes=8)
+    # Eight bins from peeling the seven top steps form a depth-seven chain.
+    assert root["thresholds"] == [k + 0.5 for k in range(4, 11)]
+    assert len(root["bin_to_partition"]) == 8
+
+
+def test_explicit_depth_three_still_binds():
+    assert len(_inner_default_root(inner_max_depth=3)["bin_to_partition"]) == 4

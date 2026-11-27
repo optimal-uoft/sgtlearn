@@ -17,10 +17,6 @@ from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.datasets import load_breast_cancer, load_diabetes
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
-from tests.constants import algorithm_params
-
-pytest.importorskip("sklearn")
-
 from sgtlearn import (
     RandomSGForestClassifier,
     RandomSGForestRegressor,
@@ -28,7 +24,7 @@ from sgtlearn import (
     SGTRegressor,
     tao,
 )
-from tests.constants import TEST_TAO_N_RUNS
+from tests.constants import TEST_TAO_N_RUNS, algorithm_params
 
 
 def _inject_nan(

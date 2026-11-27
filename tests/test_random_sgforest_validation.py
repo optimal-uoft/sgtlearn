@@ -180,3 +180,17 @@ def test_init_stores_params_unchanged(estimator_cls) -> None:
     assert type(params["min_samples_leaf"]) is np.int64
     assert type(params["min_impurity_decrease"]) is int
     assert clone(est).get_params()["min_samples_leaf"] == 2
+
+
+@pytest.mark.parametrize("mf", [0.1, 0.5, 1.0, np.float64(0.3)])
+def test_float_max_features_fits(mf) -> None:
+    rng = np.random.default_rng(0)
+    X = rng.random((120, 20))
+    y = (X[:, 0] > 0.5).astype(int)
+    model = RandomSGForestClassifier(
+        n_estimators=3, max_features=mf, random_state=0, tao_n_runs=0
+    )
+    model.fit(X, y)
+    preds = model.predict(X)
+    assert preds.shape == (120,)
+    assert set(np.unique(preds)) <= {0, 1}

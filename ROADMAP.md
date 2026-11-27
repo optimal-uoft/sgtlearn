@@ -11,7 +11,6 @@
 ## v0.2.0
 - [x] Superset branching on categorical features
 - [x] More plotting options
-- [x] Exporting to Graphviz with `export_graphviz` ([#69](https://github.com/optimal-uoft/sgtlearn/issues/69))
 - [x] Feature importances matching scikit-learn's API for SGTs and SGT$_K$
 - [x] Adding TAO Refinement
 - [x] **Sklearn-style NaN support**: split search uses finite values only, and each univariate node learns which child receives missing values.
@@ -36,7 +35,7 @@ and the umbrella issue [#27](https://github.com/optimal-uoft/sgtlearn/issues/27)
 - [x] Text export of fitted trees with `export_text`
 
 ## v0.4.0
-- [x] Graphviz DOT export with node shape-function panels
+- [x] Graphviz DOT export with node shape-function panels (`export_graphviz`, [#69](https://github.com/optimal-uoft/sgtlearn/issues/69))
 - [x] Recommended scikit-learn and Optuna search spaces and regularized estimator defaults
 - [x] Regression target standardization with predictions in the original units
 - [x] Coding-agent guide and `llms.txt`

@@ -23,8 +23,6 @@ from sgtlearn.base import _IdentityLabelEncoder
 from tests.constants import TEST_TAO_N_RUNS
 from tests.discretizer_grid import n_outputs_params
 
-pytest.importorskip("sklearn")
-
 
 def _load_xy(n_outputs: int = 1):
     X, y0 = load_breast_cancer(return_X_y=True)
