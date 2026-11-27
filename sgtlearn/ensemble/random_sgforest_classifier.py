@@ -148,8 +148,6 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
     (5,)
     """
 
-    _estimator_name = "RandomSGForestClassifier"
-
     def __init__(
         self,
         n_estimators: int = 100,
@@ -233,12 +231,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             sw = effective_sample_weight_classification(
                 sample_weight, y_enc, self.class_weight, classes_list
             )
-        (
-            self._label_encoder_,
-            self.classes_,
-            self.n_classes_,
-            _,
-        ) = unwrap_classifier_public_attrs(
+        _, self.classes_, self.n_classes_ = unwrap_classifier_public_attrs(
             encoders, classes_list, n_classes_list, n_outputs
         )
         self._label_encoders_ = list(encoders)
@@ -246,10 +239,9 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
 
     def _make_tree(self, tree_seed: int, tree_kw: dict[str, Any]) -> SGTClassifier:
         tree = SGTClassifier(**tree_kw, random_state=tree_seed)
-        n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
         tree.classes_ = self.classes_
         tree.n_classes_ = self.n_classes_
-        tree.n_outputs_ = n_outputs
+        tree.n_outputs_ = self.n_outputs_
         return tree
 
     def predict_proba(self, X: np.ndarray) -> Any:
@@ -260,7 +252,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         convention).
         """
         X32 = self._check_predict_X(X)
-        n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
+        n_outputs = self.n_outputs_
         n_trees = float(len(self.estimators_))
         n_classes_list = (
             [int(self.n_classes_)]
@@ -272,7 +264,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
             for o in range(n_outputs)
         ]
         for est in self.estimators_:
-            probas = est.predict_proba(X32)
+            probas = est._predict_proba_native(X32)
             if n_outputs == 1:
                 accs[0] += np.asarray(probas)
             else:
@@ -289,7 +281,7 @@ class RandomSGForestClassifier(ClassifierMixin, RandomSGForest):
         ``(n_samples, n_outputs)`` for multi-output ``y``.
         """
         proba = self.predict_proba(X)
-        n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
+        n_outputs = self.n_outputs_
         classes_list = (
             [np.asarray(self.classes_)]
             if n_outputs == 1

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from collections.abc import Mapping as ABCMapping
-from collections.abc import Sequence as ABCSequence
 from typing import Any
 
 import numpy as np
@@ -31,15 +29,21 @@ def _validate_sample_weight_array(sw: np.ndarray, n_samples: int) -> None:
         raise ValueError("sample_weight must contain at least one positive value")
 
 
+def _coerce_sample_weight_f64(sample_weight: np.ndarray, n_samples: int) -> np.ndarray:
+    sw = np.asarray(sample_weight, dtype=np.float64)
+    _validate_sample_weight_array(sw, n_samples)
+    return sw
+
+
 def normalize_sample_weight(
     sample_weight: np.ndarray | None, n_samples: int
 ) -> np.ndarray | None:
     """Validated C-contiguous float32 weights for native tree ``fit``, or ``None`` for uniform weighting."""
     if sample_weight is None:
         return None
-    sw = np.asarray(sample_weight, dtype=np.float64).reshape(-1)
-    _validate_sample_weight_array(sw, n_samples)
-    return as_native_float32(sw, "sample_weight")
+    return as_native_float32(
+        _coerce_sample_weight_f64(sample_weight, n_samples), "sample_weight"
+    )
 
 
 def _per_class_multiplier(
@@ -94,9 +98,9 @@ def effective_sample_weight_classification(
             f"({n_outputs}); got {len(classes_list)}"
         )
 
-    if isinstance(class_weight, ABCMapping):
+    if isinstance(class_weight, Mapping):
         cw_list: list[Mapping[Any, float]] = [class_weight] * n_outputs
-    elif isinstance(class_weight, ABCSequence):
+    elif isinstance(class_weight, Sequence):
         cw_list = list(class_weight)
         if len(cw_list) != n_outputs:
             raise ValueError(
@@ -107,11 +111,11 @@ def effective_sample_weight_classification(
         raise TypeError("class_weight must be a mapping or a sequence of mappings")
 
     n = y2.shape[0]
-    if sample_weight is None:
-        sw = np.ones(n, dtype=np.float64)
-    else:
-        sw = np.asarray(sample_weight, dtype=np.float64).reshape(-1)
-        _validate_sample_weight_array(sw, n)
+    sw = (
+        np.ones(n, dtype=np.float64)
+        if sample_weight is None
+        else _coerce_sample_weight_f64(sample_weight, n)
+    )
 
     multiplier = np.ones(n, dtype=np.float64)
     for o in range(n_outputs):

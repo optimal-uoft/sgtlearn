@@ -131,8 +131,6 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
     (5,)
     """
 
-    _estimator_name = "RandomSGForestRegressor"
-
     def __init__(
         self,
         n_estimators: int = 100,
@@ -202,6 +200,8 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
             y_numeric=True,
             multi_output=True,
         )
+        if np.isnan(np.asarray(y, dtype=np.float64)).any():
+            raise ValueError("Input y contains NaN.")
         as_native_float32(y, "y")  # Validate without rounding before target scaling.
         return (
             _as_native_X(X),
@@ -219,10 +219,10 @@ class RandomSGForestRegressor(RegressorMixin, RandomSGForest):
         ``(n_samples, n_outputs)`` for multi-output ``y``.
         """
         X32 = self._check_predict_X(X)
-        n_outputs = int(getattr(self, "n_outputs_", 1) or 1)
+        n_outputs = self.n_outputs_
         acc = np.zeros((X32.shape[0], n_outputs), dtype=np.float64)
         for est in self.estimators_:
-            pred = np.asarray(est.predict(X32), dtype=np.float64)
+            pred = np.asarray(est._predict_native(X32), dtype=np.float64)
             if pred.ndim == 1:
                 pred = pred.reshape(-1, 1)
             acc += pred

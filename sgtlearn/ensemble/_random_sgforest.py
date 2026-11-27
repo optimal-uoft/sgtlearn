@@ -80,6 +80,29 @@ def _parallel_fit_tree(
     return est
 
 
+_TREE_PARAM_NAMES = (
+    "criterion",
+    "num_partitions",
+    "max_depth",
+    "max_leaf_nodes",
+    "min_samples_leaf",
+    "min_impurity_decrease",
+    "inner_max_depth",
+    "inner_max_leaf_nodes",
+    "inner_min_samples_leaf",
+    "inner_min_impurity_decrease",
+    "coordinate_descent_max_iters",
+    "coordinate_descent_patience",
+    "max_features",
+    "pairwise_candidates",
+    "pairwise_penalty",
+    "branching_penalty",
+    "tao_n_runs",
+    "tao_lambda",
+    "tao_pair_scale",
+)
+
+
 class RandomSGForest(BaseEstimator, ABC):
     """
     Bootstrap ensemble of shape-generalized trees.
@@ -87,8 +110,6 @@ class RandomSGForest(BaseEstimator, ABC):
     Subclasses supply the base estimator type, target preparation, and aggregation
     for :meth:`predict`.
     """
-
-    _estimator_name: str
 
     def __init__(
         self,
@@ -146,27 +167,7 @@ class RandomSGForest(BaseEstimator, ABC):
         self.verbose = verbose
 
     def _tree_kwargs(self) -> dict[str, Any]:
-        return {
-            "criterion": self.criterion,
-            "num_partitions": self.num_partitions,
-            "max_depth": self.max_depth,
-            "max_leaf_nodes": self.max_leaf_nodes,
-            "min_samples_leaf": self.min_samples_leaf,
-            "min_impurity_decrease": self.min_impurity_decrease,
-            "inner_max_depth": self.inner_max_depth,
-            "inner_max_leaf_nodes": self.inner_max_leaf_nodes,
-            "inner_min_samples_leaf": self.inner_min_samples_leaf,
-            "inner_min_impurity_decrease": self.inner_min_impurity_decrease,
-            "coordinate_descent_max_iters": self.coordinate_descent_max_iters,
-            "coordinate_descent_patience": self.coordinate_descent_patience,
-            "max_features": self.max_features,
-            "pairwise_candidates": self.pairwise_candidates,
-            "pairwise_penalty": self.pairwise_penalty,
-            "branching_penalty": self.branching_penalty,
-            "tao_n_runs": self.tao_n_runs,
-            "tao_lambda": self.tao_lambda,
-            "tao_pair_scale": self.tao_pair_scale,
-        }
+        return {name: getattr(self, name) for name in _TREE_PARAM_NAMES}
 
     @abstractmethod
     def _check_X_y(
@@ -251,9 +252,6 @@ class RandomSGForest(BaseEstimator, ABC):
                 for _ in range(int(self.n_estimators))
             ]
 
-            def tree_factory(tree_seed: int, kw: dict[str, Any]) -> Any:
-                return self._make_tree(tree_seed, kw)
-
             fit_args = (
                 bool(self.bootstrap),
                 n_samples,
@@ -262,7 +260,7 @@ class RandomSGForest(BaseEstimator, ABC):
                 y,
                 sw,
                 tree_kw,
-                tree_factory,
+                self._make_tree,
                 self.processed_features_,
             )
 
@@ -333,9 +331,9 @@ class RandomSGForest(BaseEstimator, ABC):
         X = check_array(
             X, accept_sparse=False, dtype=np.float64, ensure_all_finite="allow-nan"
         )
-        if self.n_features_in_ is not None and X.shape[1] != self.n_features_in_:
+        if X.shape[1] != self.n_features_in_:
             raise ValueError(
-                f"X has {X.shape[1]} features, but {self._estimator_name} is expecting "
+                f"X has {X.shape[1]} features, but {type(self).__name__} is expecting "
                 f"{self.n_features_in_} features as in fit."
             )
         return _as_native_X(X)
