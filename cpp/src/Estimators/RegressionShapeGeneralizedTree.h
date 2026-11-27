@@ -116,11 +116,6 @@ public:
   /** Predicted responses, shape (numOutputs, numSamples). */
   arma::Mat<double> predict(const arma::fmat &X) const;
 
-  /** Number of outputs the tree was fitted on (>= 1). */
-  size_t nOutputs() const { return nOutputs_; }
-
-  bool hasPairNodes() const;
-
   /**
    * Per outer-tree node index: for squared error, concatenated
    * ``[Σw·y0, Σw·y0², Σw·y1, Σw·y1², ...]`` (length ``2 * nOutputs``) at leaves
@@ -145,20 +140,6 @@ public:
   }
 
 private:
-  CoordinateDescentParams cdParams_;
-  uint64_t random_state_;
-  std::mt19937_64 rng_;
-  FeatureBaggingPickFn featureBagging_;
-  size_t pairwiseCandidates_ = 0;
-  double pairwisePenalty_ = 0.0;
-  std::vector<FeatureInfo> features_;
-
-  /** Outer routing expansion; `fit` passes split logic via buildTree callbacks. */
-  OuterTreeBuilder outerTreeBuilder_;
-
-  /** Number of outputs (``y.n_rows``), set at ``fit``. */
-  size_t nOutputs_ = 1;
-
   /**
    * Leaf constant prediction keyed by ``nodeIndex``; inner vector length
    * ``nOutputs_`` (mean per output for squared error, median for absolute).
@@ -171,6 +152,4 @@ private:
   /** Nested ``[output][Σw·y, Σw·y²]`` per node sample set. */
   std::vector<std::vector<double>> aggregateYSquaredStats(
       const ShapeFunctionNode &node, const arma::Mat<float> &y) const;
-
-  arma::Row<float> fitSampleWeights_;
 };

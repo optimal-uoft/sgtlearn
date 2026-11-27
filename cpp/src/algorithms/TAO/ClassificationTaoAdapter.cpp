@@ -2,63 +2,19 @@
  * @file algorithms/TAO/ClassificationTaoAdapter.cpp
  */
 
-#include <cstddef>
 #include "algorithms/TAO/ClassificationTaoAdapter.h"
 
-#include <algorithm>
-#include <cmath>
+#include <cstddef>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace tao {
-namespace {
-
-size_t argMaxInHistogram(const std::vector<double> &counts) {
-  size_t best = 0;
-  double bestVal = -1.0;
-  for (size_t c = 0; c < counts.size(); ++c) {
-    if (counts[c] > bestVal) {
-      bestVal = counts[c];
-      best = c;
-    }
-  }
-  return best;
-}
-
-std::vector<size_t>
-argMaxClass(const std::vector<std::vector<double>> &countsByOutput) {
-  std::vector<size_t> preds(countsByOutput.size(), 0);
-  for (size_t o = 0; o < countsByOutput.size(); ++o)
-    preds[o] = argMaxInHistogram(countsByOutput[o]);
-  return preds;
-}
-
-void recomputeClassCounts(
-    std::vector<std::vector<std::vector<double>>> &classCounts,
-    const std::vector<std::vector<arma::uword>> &nodeSamples,
-    const arma::Mat<size_t> &y, const arma::Row<float> &sampleWeights,
-    const std::vector<size_t> &classesPerOutput, size_t nOutputs) {
-  for (size_t ni = 0; ni < nodeSamples.size(); ++ni) {
-    std::vector<std::vector<double>> counts(nOutputs);
-    for (size_t o = 0; o < nOutputs; ++o)
-      counts[o].assign(classesPerOutput[o], 0.0);
-    for (arma::uword col : nodeSamples[ni]) {
-      const double w = static_cast<double>(sampleWeights(col));
-      for (size_t o = 0; o < nOutputs; ++o)
-        counts[o][y(static_cast<arma::uword>(o), col)] += w;
-    }
-    classCounts[ni] = std::move(counts);
-  }
-}
-
-} // namespace
 
 ClassificationTaoAdapter::ClassificationTaoAdapter(
     ClassificationShapeGeneralizedTree &tree, const arma::fmat &X,
     const arma::Mat<size_t> &y, const arma::Row<float> &sampleWeights)
-    : ShapeGeneralizedTaoAdapter(tree, X, sampleWeights),
-      classificationTree_(tree), y_(y),
+    : TaoAdapter(tree, X, sampleWeights), classificationTree_(tree), y_(y),
       classesPerOutput_(tree.classesPerOutput()),
       nOutputs_(static_cast<size_t>(y.n_rows)) {
   if (classesPerOutput_.size() != nOutputs_)
@@ -76,14 +32,12 @@ void ClassificationTaoAdapter::childRewards(
   reward.resize(childLeaves.size());
 
   if (nOutputs_ > 1) {
-    // Reward = fraction of outputs each child's leaf classifies correctly.
     const double inv = 1.0 / static_cast<double>(nOutputs_);
     for (size_t c = 0; c < childLeaves.size(); ++c) {
-      const auto predictions =
-          argMaxClass(classificationTree_.classCounts[childLeaves[c]]);
+      const auto &hist = classificationTree_.classCounts[childLeaves[c]];
       size_t correct = 0;
       for (size_t o = 0; o < nOutputs_; ++o) {
-        if (predictions[o] == y_(static_cast<arma::uword>(o), col))
+        if (argMax(hist[o]) == y_(static_cast<arma::uword>(o), col))
           ++correct;
       }
       reward[c] = static_cast<double>(correct) * inv;
@@ -91,110 +45,41 @@ void ClassificationTaoAdapter::childRewards(
     return;
   }
 
-  // Single-output: full credit (1) for every correct child. Routing is
-  // multi-label, so a sample counts once wherever it lands correctly.
   const size_t label = y_(0, col);
   for (size_t c = 0; c < childLeaves.size(); ++c) {
-    const auto predictions =
-        argMaxClass(classificationTree_.classCounts[childLeaves[c]]);
-    reward[c] = predictions[0] == label ? 1.0 : 0.0;
+    const auto &hist = classificationTree_.classCounts[childLeaves[c]];
+    reward[c] = argMax(hist[0]) == label ? 1.0 : 0.0;
   }
-}
-
-NodeCareSet ClassificationTaoAdapter::buildCareSet(
-    const std::vector<arma::uword> &samples,
-    const std::vector<size_t> &children) const {
-  NodeCareSet care;
-  const size_t k = children.size();
-  std::vector<std::vector<size_t>> goodChildren;
-  std::vector<size_t> childLeaves(k);
-  std::vector<double> reward(k);
-  for (arma::uword col : samples) {
-    for (size_t c = 0; c < k; ++c)
-      childLeaves[c] = walkToLeaf(children[c], col);
-    childRewards(childLeaves, col, reward);
-
-    double best = reward[0];
-    double worst = reward[0];
-    for (size_t c = 1; c < k; ++c) {
-      best = std::max(best, reward[c]);
-      worst = std::min(worst, reward[c]);
-    }
-    const double tol = 1e-9 * (1.0 + std::fabs(best));
-    if (best - worst <= tol)
-      continue;
-
-    // Single-output: care about the best (correct) children only. Multi-output:
-    // care about all but the worst, matching the regression adapter.
-    std::vector<size_t> good;
-    for (size_t c = 0; c < k; ++c) {
-      const bool keep = (nOutputs_ > 1) ? (reward[c] - worst > tol)
-                                        : (best - reward[c] <= tol);
-      if (keep)
-        good.push_back(c);
-    }
-
-    care.careCols.push_back(col);
-    care.careRewards.push_back(reward);
-    care.careWeights.push_back(static_cast<double>(w_(col)));
-    goodChildren.push_back(std::move(good));
-  }
-
-  size_t nExpanded = 0;
-  for (const auto &good : goodChildren)
-    nExpanded += good.size();
-  care.Xexp.set_size(numFeatures(), nExpanded);
-  care.yexp.set_size(nExpanded);
-  care.wexp.set_size(nExpanded);
-  std::vector<double> childCounts(k, 0.0);
-  size_t pos = 0;
-  for (size_t i = 0; i < care.size(); ++i) {
-    const float wi = w_(care.careCols[i]);
-    // Single-output: split the sample's weight across its correct children
-    // (soft labels), so it adds total mass wi to the router fit. childCounts
-    // keeps full weight: dummyChild is correct for the most care weight.
-    const float wRow =
-        nOutputs_ == 1 ? wi / static_cast<float>(goodChildren[i].size()) : wi;
-    for (size_t child : goodChildren[i]) {
-      care.Xexp.col(pos) = X_.col(care.careCols[i]);
-      care.yexp(pos) = child;
-      care.wexp(pos) = wRow;
-      childCounts[child] += static_cast<double>(wi);
-      ++pos;
-    }
-  }
-  care.dummyChild = argMax(childCounts);
-  return care;
 }
 
 void ClassificationTaoAdapter::recomputeLeafStats(
     const std::vector<std::vector<arma::uword>> &nodeSamples) {
-  recomputeClassCounts(classificationTree_.classCounts, nodeSamples, y_, w_,
-                       classesPerOutput_, nOutputs_);
+  for (size_t ni = 0; ni < nodeSamples.size(); ++ni) {
+    std::vector<std::vector<double>> counts(nOutputs_);
+    for (size_t o = 0; o < nOutputs_; ++o)
+      counts[o].assign(classesPerOutput_[o], 0.0);
+    for (arma::uword col : nodeSamples[ni]) {
+      const double w = static_cast<double>(w_(col));
+      for (size_t o = 0; o < nOutputs_; ++o)
+        counts[o][y_(static_cast<arma::uword>(o), col)] += w;
+    }
+    classificationTree_.classCounts[ni] = std::move(counts);
+  }
 }
 
 void ClassificationTaoAdapter::refreshNodeBinMetadata(
     ShapeFunctionNode &node, const std::vector<arma::uword> &samples) {
-  if (!node.innerDiscretizer)
-    throw std::runtime_error(
-        "ClassificationTaoAdapter: accepted router has no discretizer");
   arma::Row<size_t> bins;
-  node.innerDiscretizer->transform(X_, bins);
+  initBinMetadata(node, samples, bins, "ClassificationTaoAdapter");
   const size_t nBins = node.binToPartition.size();
-  node.binSampleCounts.assign(nBins, 0);
-  node.splitBinWeights.assign(nBins, 0.0);
-  node.splitClassCounts.assign(nBins, std::vector<std::vector<double>>(nOutputs_));
+  node.splitClassCounts.assign(nBins,
+                               std::vector<std::vector<double>>(nOutputs_));
   for (size_t b = 0; b < nBins; ++b)
     for (size_t o = 0; o < nOutputs_; ++o)
       node.splitClassCounts[b][o].assign(classesPerOutput_[o], 0.0);
   for (arma::uword col : samples) {
     const size_t bin = bins(col);
-    if (bin >= nBins)
-      throw std::runtime_error(
-          "ClassificationTaoAdapter: accepted router bin out of range");
-    ++node.binSampleCounts[bin];
     const double weight = static_cast<double>(w_(col));
-    node.splitBinWeights[bin] += weight;
     for (size_t o = 0; o < nOutputs_; ++o)
       node.splitClassCounts[bin][o][y_(static_cast<arma::uword>(o), col)] +=
           weight;

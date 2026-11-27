@@ -77,6 +77,7 @@ add_library(sgtlearn_core STATIC
         src/Splitters/categorical/CategoricalRegressionSplitter.h
         src/Splitters/categorical/CategoricalRegressionSplitter.cpp
         src/Discretizers/univariate/UnivariateClassificationDiscretizer.cpp
+        src/Discretizers/pair/PairDiscretizerBase.h
         src/Discretizers/pair/PairClassificationDiscretizer.h
         src/Discretizers/pair/PairClassificationDiscretizer.cpp
         src/Discretizers/pair/PairRegressionDiscretizer.h
@@ -91,10 +92,9 @@ add_library(sgtlearn_core STATIC
         src/Splitters/univariate/AbsoluteErrorSplitter.cpp
         src/algorithms/CoordinateDescent.h
         src/algorithms/TAO/TaoAdapter.h
+        src/algorithms/TAO/TaoAdapter.cpp
         src/algorithms/TAO/TaoObjective.h
         src/algorithms/TAO/TaoObjective.cpp
-        src/algorithms/TAO/ShapeGeneralizedTaoAdapter.h
-        src/algorithms/TAO/ShapeGeneralizedTaoAdapter.cpp
         src/algorithms/TAO/ClassificationTaoAdapter.h
         src/algorithms/TAO/ClassificationTaoAdapter.cpp
         src/algorithms/TAO/RegressionTaoAdapter.h
